@@ -1,0 +1,11 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart TB
+  Compose[Docker Compose] --> Health[Actuator healthchecks]
+  Health --> Restart[restart: unless-stopped]
+  Compose --> Logs[Service logs + correlation-id]
+  DB[(PostgreSQL)] --> Backup[Daily backup job]
+  Backup --> Keep[Keep 7 copies]
+  Webhook[Payment webhook failure] --> Manual[Manual reconciliation by Manager/Admin]
+  Manual --> Audit[Audit log]
+  Backup --> Restore[Documented restore procedure]
+  Nginx[Nginx HTTPS] --> Smoke[Smoke test: login / menu / COD / transfer]

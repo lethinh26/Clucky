@@ -1,0 +1,31 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart TB
+  subgraph FE[Frontend]
+    CF[Customer Frontend<br/>Next.js]
+    AF[Admin Frontend<br/>React + Vite]
+  end
+  G[API Gateway<br/>JWT / RBAC / rate limit]
+  CF --> G
+  AF --> G
+  subgraph S[8 business microservices]
+    I[Identity]
+    C[Catalog & Store]
+    O[Cart & Order]
+    P[Payment]
+    L[Promotion & Loyalty]
+    H[Shipping]
+    N[Notification + Mail Sender]
+    R[Review & Report]
+  end
+  G --> I & C & O & P & L & H & N & R
+  O -. REST .-> C
+  O -. REST .-> L
+  O -. REST .-> P
+  subgraph INFRA[Shared infrastructure]
+    PG[(PostgreSQL<br/>separate schemas)]
+    Redis[(Redis)]
+    Kafka[(Kafka)]
+  end
+  I & C & O & P & L & H & N & R --> PG
+  O --> Redis
+  O & P & L & N & H & R -. events .-> Kafka

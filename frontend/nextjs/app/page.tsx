@@ -1,0 +1,1 @@
+export default function Home() { return <main><header><img src="/logo_primary.png" alt="Clucky" /></header><section><h1>Clucky</h1><p>Crispy Outside, Happy Inside</p><a href="/menu">Xem thực đơn</a></section></main>; }

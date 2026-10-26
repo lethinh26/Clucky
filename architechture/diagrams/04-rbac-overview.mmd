@@ -1,0 +1,10 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart TB
+  A[ADMIN<br/>toàn hệ thống] --> M[STORE_MANAGER<br/>một chi nhánh]
+  M --> S[STAFF<br/>một chi nhánh]
+  C[CUSTOMER<br/>dữ liệu của mình]
+  G[GUEST<br/>công khai]
+  H[SHIPPER<br/>đơn được gán<br/>Phase 2]
+  JWT[JWT: role + storeId] --> Gateway[Gateway kiểm tra JWT/RBAC]
+  Gateway --> Services[Từng service kiểm tra @PreAuthorize + storeId]
+  Services --> Audit[Audit log cho thao tác nhạy cảm]

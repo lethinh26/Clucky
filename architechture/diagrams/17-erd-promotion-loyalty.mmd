@@ -1,0 +1,29 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+erDiagram
+  VOUCHERS ||--o{ VOUCHER_USAGES : consumed
+  MEMBER_POINTS ||--o{ POINT_TRANSACTIONS : changes
+  VOUCHERS { bigint id PK
+  string code UK
+  string type
+  numeric value
+  string status }
+  VOUCHER_USAGES { bigint id PK
+  bigint voucher_id FK
+  bigint customer_id
+  bigint order_id }
+  MEMBER_POINTS { bigint id PK
+  bigint customer_id UK
+  int total_points
+  string tier }
+  POINT_TRANSACTIONS { bigint id PK
+  bigint customer_id
+  bigint order_id
+  int change
+  string type }
+  BANNERS { bigint id PK
+  string title
+  string image_url
+  boolean is_active }
+  LOYALTY_CONFIG { bigint id PK
+  numeric earn_rate
+  numeric redeem_rate }

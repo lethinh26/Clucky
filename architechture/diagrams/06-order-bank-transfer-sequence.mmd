@@ -1,0 +1,30 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+sequenceDiagram
+  actor C as Customer
+  participant FE as Customer FE
+  participant O as Cart & Order
+  participant Cat as Catalog
+  participant L as Promotion
+  participant Ship as Shipping
+  participant Pay as Payment
+  participant Bank as Bank / SePay-Casso
+  participant N as Notification
+  C->>FE: Chọn món, checkout
+  FE->>O: POST /orders/preview
+  O->>Cat: Kiểm tra giá & còn món
+  O->>L: Validate voucher / điểm
+  O->>Ship: Tính phí ship
+  FE->>O: POST /orders
+  O->>Pay: Tạo payment request
+  Pay-->>FE: VietQR + orderCode
+  O-->>FE: PENDING_PAYMENT
+  C->>Bank: Chuyển khoản thật
+  Bank->>Pay: Webhook giao dịch
+  Pay->>Pay: Verify signature + match code/amount + idempotency
+  Pay-->>O: payment.confirmed
+  O->>N: order status changed
+  N-->>C: Thông báo đã xác nhận
+  alt mismatch hoặc hết hạn
+    Pay-->>O: payment.failed
+    N-->>C: Thanh toán lỗi / hết hạn
+  end

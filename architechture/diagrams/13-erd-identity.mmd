@@ -1,0 +1,33 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+erDiagram
+  USERS ||--o{ ADDRESSES : owns
+  USERS ||--o{ REFRESH_TOKENS : has
+  USERS ||--o{ STAFF_SCHEDULES : assigned
+  SHIFTS ||--o{ STAFF_SCHEDULES : contains
+  USERS { bigint id PK
+  string email UK
+  string phone UK
+  string role
+  bigint store_id
+  string status }
+  ADDRESSES { bigint id PK
+  bigint user_id FK
+  string receiver_name
+  boolean is_default }
+  REFRESH_TOKENS { bigint id PK
+  bigint user_id FK
+  string token_hash
+  datetime expires_at }
+  SHIFTS { bigint id PK
+  bigint store_id
+  time start_time
+  time end_time }
+  STAFF_SCHEDULES { bigint id PK
+  bigint staff_id FK
+  bigint shift_id FK
+  date work_date }
+  AUDIT_LOGS { bigint id PK
+  bigint actor_id
+  string action
+  string target_type
+  json detail }

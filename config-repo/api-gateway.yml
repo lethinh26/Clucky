@@ -1,0 +1,36 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: identity
+          uri: lb://IDENTITY-SERVICE
+          predicates:
+            - Path=/api/auth/**,/api/users/**
+        - id: catalog
+          uri: lb://CATALOG-STORE-SERVICE
+          predicates:
+            - Path=/api/stores/**,/api/catalog/**
+        - id: orders
+          uri: lb://CART-ORDER-SERVICE
+          predicates:
+            - Path=/api/cart/**,/api/orders/**
+        - id: payments
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/api/payments/**
+        - id: promotions
+          uri: lb://PROMOTION-LOYALTY-SERVICE
+          predicates:
+            - Path=/api/promotions/**,/api/loyalty/**
+        - id: shipping
+          uri: lb://SHIPPING-SERVICE
+          predicates:
+            - Path=/api/shipping/**
+        - id: notifications
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/notifications/**
+        - id: reports
+          uri: lb://REVIEW-REPORT-SERVICE
+          predicates:
+            - Path=/api/reviews/**,/api/reports/**

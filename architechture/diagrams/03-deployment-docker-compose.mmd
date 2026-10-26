@@ -1,0 +1,20 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart TB
+  Internet((Internet)) --> Nginx[Nginx<br/>HTTPS / Let's Encrypt]
+  Nginx --> CF[Next.js Customer]
+  Nginx --> AF[React Admin]
+  Nginx --> G[API Gateway]
+  subgraph VPS[Single VPS / Docker Compose]
+    CF & AF & G
+    subgraph APP[app-net internal network]
+      I[Identity]:::svc; C[Catalog]:::svc; O[Order]:::svc; P[Payment]:::svc; L[Promotion]:::svc; H[Shipping]:::svc; N[Notification + Mail Sender]:::svc; R[Review & Report]:::svc
+      DB[(PostgreSQL)]:::db; Redis[(Redis)]:::db; Kafka[(Kafka)]:::db
+      I & C & O & P & L & H & N & R --> DB
+      O --> Redis
+      O & P & L & N & H & R --> Kafka
+    end
+    Vol[(Volumes: postgres-data, redis-data, kafka-data, media-files, backup)]
+    DB & Redis & Kafka --> Vol
+  end
+  classDef svc fill:#F5EDE0,stroke:#8F1216,color:#16100D;
+  classDef db fill:#FFF9F0,stroke:#C9A227,color:#16100D;

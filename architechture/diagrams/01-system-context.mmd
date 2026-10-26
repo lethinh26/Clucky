@@ -1,0 +1,12 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart LR
+  Guest[Guest] --> C[Clucky Online Ordering System]
+  Customer[Customer] --> C
+  Staff[Staff] --> C
+  Manager[Store Manager] --> C
+  Admin[Admin / HQ] --> C
+  Shipper[Shipper<br/>Phase 2] --> C
+  C --> Bank[Bank]
+  C --> Reconcile[SePay / Casso<br/>payment webhook]
+  C --> Email[Email provider]
+  C --> Storage[Media / File storage]

@@ -1,0 +1,6 @@
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
+}
+
+rootProject.name = 'clucky-backend'
+include 'api-gateway', 'cart-order-service', 'catalog-store-service', 'config-server', 'discovery-server', 'identity-service', 'notification-service', 'payment-service', 'promotion-loyalty-service', 'review-report-service', 'shipping-service'

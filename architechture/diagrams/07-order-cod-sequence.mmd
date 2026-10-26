@@ -1,0 +1,20 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+sequenceDiagram
+  actor C as Customer
+  participant FE as Customer FE
+  participant O as Cart & Order
+  participant Cat as Catalog
+  participant L as Promotion
+  participant Staff as Branch Staff
+  participant N as Notification
+  C->>FE: Chọn COD và đặt hàng
+  FE->>O: POST /orders
+  O->>Cat: Validate giá / availability
+  O->>L: Validate voucher / điểm
+  O-->>FE: CONFIRMED
+  O->>N: order.created
+  N-->>C: Đơn đã được tiếp nhận
+  Staff->>O: CONFIRMED -> PREPARING -> READY
+  Staff->>O: Xác nhận đã thu COD
+  O-->>C: COMPLETED
+  O->>L: order.completed / cộng điểm

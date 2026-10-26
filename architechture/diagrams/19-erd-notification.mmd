@@ -1,0 +1,16 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+erDiagram
+  USERS ||--o{ NOTIFICATIONS : receives
+  USERS { bigint id PK
+  string email
+  string role }
+  NOTIFICATIONS { bigint id PK
+  bigint user_id FK
+  string type
+  bigint ref_id
+  boolean is_read }
+  EMAIL_LOGS { bigint id PK
+  string to_email
+  string template
+  string status
+  datetime sent_at }

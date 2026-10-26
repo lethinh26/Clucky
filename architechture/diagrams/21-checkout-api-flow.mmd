@@ -1,0 +1,19 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+sequenceDiagram
+  participant FE as Frontend
+  participant G as API Gateway
+  participant O as Order API
+  participant C as Catalog API
+  participant P as Promotion API
+  participant S as Shipping API
+  participant Pay as Payment API
+  FE->>G: POST /api/orders/preview
+  G->>O: Forward with JWT
+  O->>C: Check product price/availability
+  O->>P: POST /vouchers/validate
+  O->>S: POST /shipping/calculate-fee
+  O-->>FE: subtotal, discount, shippingFee, total
+  FE->>G: POST /api/orders
+  G->>O: Create order
+  O->>Pay: Create bank transfer / COD payment
+  O-->>FE: orderCode + status + payment data

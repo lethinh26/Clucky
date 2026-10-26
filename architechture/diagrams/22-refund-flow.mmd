@@ -1,0 +1,12 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart TD
+  C[Customer / Staff] --> R[Create refund request]
+  R --> M{Manager/Admin review}
+  M -->|Reject| X[REJECTED + audit + notify]
+  M -->|Approve| P[Payment Service]
+  P --> B[Execute / mark refund]
+  B --> F[REFUNDED]
+  F --> N[Notification Customer]
+  R --> A[Audit log]
+  M --> A
+  P --> A

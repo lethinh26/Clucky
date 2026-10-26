@@ -1,0 +1,19 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+erDiagram
+  SHIPMENTS ||--o{ SHIPMENT_STATUS_HISTORY : tracks
+  STORES ||--o{ SHIPMENTS : fulfills
+  SHIPMENTS { bigint id PK
+  bigint order_id
+  bigint store_id
+  bigint shipper_id
+  string status
+  numeric fee
+  numeric cod_amount }
+  SHIPMENT_STATUS_HISTORY { bigint id PK
+  bigint shipment_id FK
+  string status
+  string note }
+  SHIPPING_FEE_CONFIG { bigint id PK
+  bigint store_id
+  numeric base_fee
+  numeric per_km_fee }

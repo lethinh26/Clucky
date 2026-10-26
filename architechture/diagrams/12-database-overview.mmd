@@ -1,0 +1,9 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart LR
+  I[(identity_db)] --- C[(catalog_db)] --- O[(order_db)] --- P[(payment_db)]
+  O --- L[(promotion_db)]
+  O --- H[(shipping_db)]
+  O -. events .-> N[(notification_db)]
+  O -. events .-> R[(review_db)]
+  Rule[Không FK xuyên schema<br/>Liên kết bằng ID + REST + Kafka]
+  I & C & O & P & L & H & N & R --- Rule

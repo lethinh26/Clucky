@@ -1,0 +1,15 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart TD
+  A[Đơn mới tại chi nhánh] --> B{Staff kiểm tra}
+  B -->|Từ chối / hết món| X[Hủy + lý do + audit]
+  B -->|Chấp nhận| C[CONFIRMED]
+  C --> D[PREPARING]
+  D --> E[READY]
+  E --> F{Hình thức nhận}
+  F -->|PICKUP| G[Khách nhận tại quán]
+  F -->|DELIVERY MVP| H[Shipping CREATED / WAITING]
+  H --> I[Phase 2: gán shipper & giao]
+  G & I --> J[COMPLETED]
+  J --> K[Cộng điểm + mở đánh giá + cập nhật báo cáo]
+  C --> Y{Yêu cầu hủy?}
+  Y -->|Đủ điều kiện| Z[Refund request nếu đã thanh toán]

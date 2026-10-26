@@ -1,0 +1,20 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+stateDiagram-v2
+  state Payment {
+    [*] --> UNPAID
+    UNPAID --> PENDING: bank transfer
+    PENDING --> PAID: webhook khớp
+    PENDING --> EXPIRED
+    PENDING --> MISMATCH
+    UNPAID --> COLLECTED: COD
+    PAID --> REFUND_PENDING
+    REFUND_PENDING --> REFUNDED
+  }
+  state Shipping {
+    [*] --> CREATED
+    CREATED --> ASSIGNED: Phase 2
+    ASSIGNED --> PICKED_UP: Phase 2
+    PICKED_UP --> SHIPPING: Phase 2
+    SHIPPING --> DELIVERED: Phase 2
+    SHIPPING --> FAILED: Phase 2
+  }

@@ -1,0 +1,24 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart LR
+  subgraph Actors
+    G[Guest]; C[Customer]; S[Staff]; M[Store Manager]; A[Admin]; H[Shipper Phase 2]
+  end
+  subgraph UseCases[Clucky use cases]
+    U1[Xem menu / chi nhánh / đánh giá]
+    U2[Tài khoản & địa chỉ]
+    U3[Giỏ hàng & checkout]
+    U4[Thanh toán VietQR / COD]
+    U5[Theo dõi & hủy đơn]
+    U6[Xử lý đơn chi nhánh]
+    U7[Kênhuyến mãi & loyalty]
+    U8[Kho & menu chi nhánh]
+    U9[Báo cáo & audit]
+    U10[Quản lý chuỗi]
+    U11[Giao hàng Phase 2]
+  end
+  G --> U1
+  C --> U1 & U2 & U3 & U4 & U5 & U7
+  S --> U6 & U8
+  M --> U6 & U8 & U9
+  A --> U6 & U8 & U9 & U10
+  H --> U11

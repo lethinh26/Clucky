@@ -1,0 +1,44 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+erDiagram
+  CATEGORIES ||--o{ PRODUCTS : groups
+  PRODUCTS ||--o{ PRODUCT_OPTIONS : offers
+  PRODUCTS ||--o{ PRODUCT_TOPPINGS : has
+  COMBOS ||--o{ COMBO_ITEMS : contains
+  PRODUCTS ||--o{ COMBO_ITEMS : included
+  STORES ||--o{ STORE_PRODUCTS : sells
+  PRODUCTS ||--o{ STORE_PRODUCTS : availability
+  STORES ||--o{ STORE_INVENTORY : holds
+  PRODUCTS ||--o{ STORE_INVENTORY : stock
+  STORES { bigint id PK
+  string name
+  string status }
+  CATEGORIES { bigint id PK
+  string name
+  boolean is_active }
+  PRODUCTS { bigint id PK
+  bigint category_id FK
+  string name
+  numeric base_price }
+  PRODUCT_OPTIONS { bigint id PK
+  bigint product_id FK
+  string name
+  numeric extra_price }
+  PRODUCT_TOPPINGS { bigint id PK
+  bigint product_id FK
+  string topping_name
+  numeric extra_price }
+  COMBOS { bigint id PK
+  string name
+  numeric combo_price }
+  COMBO_ITEMS { bigint id PK
+  bigint combo_id FK
+  bigint product_id FK
+  int quantity }
+  STORE_PRODUCTS { bigint id PK
+  bigint store_id FK
+  bigint product_id FK
+  boolean is_sold_out }
+  STORE_INVENTORY { bigint id PK
+  bigint store_id FK
+  bigint product_id FK
+  int quantity_available }

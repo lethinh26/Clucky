@@ -1,0 +1,12 @@
+server:
+  port: ${SERVER_PORT:8085}
+spring:
+  application:
+    name: promotion-loyalty-service
+
+cloudinary:
+  enabled: ${CLOUDINARY_ENABLED:false}
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  folder: ${CLOUDINARY_FOLDER:clucky}

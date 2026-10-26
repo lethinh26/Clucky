@@ -1,0 +1,18 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+stateDiagram-v2
+  [*] --> PENDING_PAYMENT
+  PENDING_PAYMENT --> CONFIRMED: payment.confirmed / COD
+  PENDING_PAYMENT --> PAYMENT_EXPIRED
+  PENDING_PAYMENT --> PAYMENT_MISMATCH
+  PENDING_PAYMENT --> CANCELLED
+  CONFIRMED --> PREPARING
+  CONFIRMED --> CANCELLED: đủ điều kiện
+  PREPARING --> READY
+  PREPARING --> CANCELLED: trước khi nấu
+  READY --> COMPLETED: PICKUP
+  READY --> SHIPPING: DELIVERY
+  SHIPPING --> COMPLETED
+  COMPLETED --> [*]
+  CANCELLED --> REFUND_PENDING: đã PAID
+  REFUND_PENDING --> REFUNDED: duyệt + hoàn tiền
+  REFUND_PENDING --> CANCELLED: từ chối

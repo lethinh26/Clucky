@@ -1,0 +1,23 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+erDiagram
+  REVIEWS ||--o{ REVIEW_REPLIES : receives
+  REVIEWS { bigint id PK
+  bigint customer_id
+  bigint product_id
+  bigint order_id
+  int rating
+  string status }
+  REVIEW_REPLIES { bigint id PK
+  bigint review_id FK
+  bigint responder_id
+  string content }
+  DAILY_STORE_STATS { bigint id PK
+  bigint store_id
+  date stat_date
+  int order_count
+  numeric revenue }
+  AUDIT_LOGS { bigint id PK
+  bigint actor_id
+  bigint store_id
+  string action
+  json detail }

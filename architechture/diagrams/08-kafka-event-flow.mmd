@@ -1,0 +1,18 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+flowchart LR
+  O[Cart & Order] -->|order.created| K[(Kafka)]
+  O -->|order.status-changed| K
+  P[Payment] -->|payment.confirmed| K
+  P -->|payment.failed| K
+  O -->|order.completed| K
+  O -->|order.cancelled| K
+  L[Promotion] -->|promotion.approved| K
+  K --> N[Notification + Mail Sender]
+  K --> H[Shipping]
+  K --> R[Review & Report]
+  K --> O
+  K --> L
+  K --> P
+  K --> DLQ[Dead Letter Topic<br/>retry thất bại]
+  Note[Consumer idempotent theo event-id<br/>Order status là source of truth]
+  K --- Note

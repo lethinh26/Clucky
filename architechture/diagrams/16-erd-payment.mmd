@@ -1,0 +1,25 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+erDiagram
+  PAYMENTS ||--o{ BANK_TRANSACTIONS : matched_by
+  PAYMENTS ||--o{ WEBHOOK_LOGS : receives
+  PAYMENTS }o--|| BANK_ACCOUNTS_CONFIG : uses
+  PAYMENTS { bigint id PK
+  bigint order_id
+  string order_code
+  string method
+  numeric amount
+  string status }
+  BANK_TRANSACTIONS { bigint id PK
+  string bank_tx_id UK
+  numeric amount
+  string content
+  string matched_order_code }
+  WEBHOOK_LOGS { bigint id PK
+  string provider
+  boolean signature_valid
+  json payload
+  boolean processed }
+  BANK_ACCOUNTS_CONFIG { bigint id PK
+  string bank_name
+  string account_no
+  boolean is_active }

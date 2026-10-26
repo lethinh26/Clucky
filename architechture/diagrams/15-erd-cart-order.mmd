@@ -1,0 +1,33 @@
+%%{init: {"theme":"base", "themeVariables": {"fontFamily":"Quicksand, Arial", "primaryColor":"#F5EDE0", "primaryTextColor":"#16100D", "primaryBorderColor":"#8F1216", "lineColor":"#C9A227", "secondaryColor":"#FFF9F0", "tertiaryColor":"#E8E2D9"}}}%%
+erDiagram
+  ORDERS ||--|{ ORDER_ITEMS : contains
+  ORDERS ||--o{ ORDER_STATUS_HISTORY : tracks
+  ORDERS ||--o{ REFUND_REQUESTS : may_have
+  ORDERS ||--o{ PARTY_ORDERS : relates
+  ORDERS { bigint id PK
+  string order_code UK
+  bigint customer_id
+  bigint store_id
+  string status
+  numeric total_amount }
+  ORDER_ITEMS { bigint id PK
+  bigint order_id FK
+  bigint product_id
+  bigint combo_id
+  string item_name
+  numeric unit_price
+  json snapshots }
+  ORDER_STATUS_HISTORY { bigint id PK
+  bigint order_id FK
+  string from_status
+  string to_status
+  string reason }
+  REFUND_REQUESTS { bigint id PK
+  bigint order_id FK
+  numeric amount
+  string status }
+  PARTY_ORDERS { bigint id PK
+  bigint customer_id
+  bigint store_id
+  string status
+  date expected_date }

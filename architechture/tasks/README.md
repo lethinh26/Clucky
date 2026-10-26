@@ -1,0 +1,231 @@
+# Clucky task details
+
+Tổng cộng: 227 task detail files. PIC lấy nguyên từ TASK-PLAN.md.
+
+- [UI-01](UI-01.md) — Next.js layout: header, footer, hero, brand tokens  — PIC: M1 
+- [UI-02](UI-02.md) — React Admin layout: sidebar, header, protected route shell  — PIC: M2 
+- [UI-03](UI-03.md) — Config Server app + `config-repo` khung  — PIC: M1 (mỗi người thêm config service mình) 
+- [UI-04](UI-04.md) — Discovery Server app + Eureka client config mẫu  — PIC: M2 
+- [UI-05](UI-05.md) — API Gateway app + route khung lb://  — PIC: M3 (mỗi người thêm route service mình) 
+- [UI-06](UI-06.md) — Docker Compose: postgres, redis, kafka, healthcheck  — PIC: M6 
+- [UI-07](UI-07.md) — Component lib Customer: Button, Card, Input, Badge, Modal  — PIC: M1 
+- [UI-08](UI-08.md) — Component lib Admin: Table, Badge, Modal, Form, Drawer  — PIC: M2 
+- [UI-09](UI-09.md) — Auth pages cả 2 app: Login, Register, OTP, Forgot/Reset  — PIC: M1 
+- [UI-10](UI-10.md) — Home page: banner, category row, món nổi bật  — PIC: M2 
+- [UI-11](UI-11.md) — Menu page: category sidebar, product grid, search/filter  — PIC: M2 
+- [UI-12](UI-12.md) — Product Detail: ảnh, options, toppings, quantity, giá động  — PIC: M2 
+- [UI-13](UI-13.md) — Store page customer: danh sách quán, giờ mở, trạng thái  — PIC: M2 
+- [UI-14](UI-14.md) — Admin Dashboard: stat cards, chart placeholder  — PIC: M6 
+- [UI-15](UI-15.md) — Admin Users: table, role badge, lock/unlock, assign-store  — PIC: M1 
+- [UI-16](UI-16.md) — Admin Reviews: list, reply form, hide button  — PIC: M6 
+- [UI-43](UI-43.md) — Cart + Order visual contract: cart badge, order status chips, order card components  — PIC: M3 
+- [UI-44](UI-44.md) — Payment + Shipping visual components: QR card, payment state badge, fee/shipment card  — PIC: M4 
+- [UI-45](UI-45.md) — Promotion + Notification visual components: voucher badge, points tier, notification item  — PIC: M5 
+- [UI-17](UI-17.md) — Cart page: item list, stepper, ghi chú, tổng  — PIC: M3 
+- [UI-18](UI-18.md) — Checkout page: address, delivery/pickup, voucher, điểm, payment method, summary  — PIC: M3 
+- [UI-19](UI-19.md) — Order tracking: status timeline + QR VietQR block  — PIC: M3 (M4 cung cấp PaymentWidget) 
+- [UI-20](UI-20.md) — Order history + reorder + chi tiết hóa đơn  — PIC: M3 
+- [UI-21](UI-21.md) — Profile + Address book + đổi mật khẩu  — PIC: M1 
+- [UI-22](UI-22.md) — Voucher & Loyalty: voucher khả dụng, điểm, hạng  — PIC: M5 
+- [UI-23](UI-23.md) — Party order form  — PIC: M3 
+- [UI-24](UI-24.md) — Admin Orders: filter tabs, status action, refund modal, drawer  — PIC: M3 
+- [UI-25](UI-25.md) — Admin Catalog: product form (ảnh, options, toppings)  — PIC: M2 
+- [UI-26](UI-26.md) — Admin Stores: list + CRUD + giờ mở/khu vực giao  — PIC: M2 
+- [UI-27](UI-27.md) — Admin Payments: transactions, webhook log, bank config, manual confirm  — PIC: M4 
+- [UI-28](UI-28.md) — Admin Promotions: voucher form, duyệt proposal, banners  — PIC: M5 
+- [UI-29](UI-29.md) — Admin Reports: date picker, store filter, export, chart  — PIC: M6 
+- [UI-30](UI-30.md) — Staff Orders: đơn hôm nay, status buttons, COD confirm  — PIC: M3 
+- [UI-31](UI-31.md) — Staff Inventory: tồn kho, cảnh báo sắp hết, update  — PIC: M2 
+- [UI-32](UI-32.md) — Notification list cả 2 app: badge, mark-read, type icon  — PIC: M5 
+- [UI-33](UI-33.md) — Responsive check 360→1440px, mỗi người màn hình mình  — PIC: Cả nhóm 
+- [UI-34](UI-34.md) — Brand audit: màu, font, bo góc, tỉ lệ 65-25-10  — PIC: Cả nhóm 
+- [UI-35](UI-35.md) — Polish: hover, transition, skeleton, empty states  — PIC: Cả nhóm 
+- [UI-36](UI-36.md) — Accessibility: contrast, aria-label, keyboard nav  — PIC: Cả nhóm 
+- [UI-37](UI-37.md) — Typecheck + lint sạch: nextjs (M1), react (M2)  — PIC: M1+M2 
+- [UI-38](UI-38.md) — Cross-check toàn bộ trang không console error  — PIC: Cả nhóm 
+- [UI-39](UI-39.md) — Dockerfile cho 2 frontend  — PIC: M6 
+- [UI-40](UI-40.md) — Verify Dockerfile + build 11 module backend  — PIC: Cả nhóm (mỗi người module mình) 
+- [UI-41](UI-41.md) — CI script: build + lint  — PIC: M6 
+- [UI-42](UI-42.md) — Design freeze — review với team  — PIC: Cả nhóm 
+- [UI-46](UI-46.md) — Order domain responsive/a11y pass: Cart, Checkout, Orders, Staff Orders  — PIC: M3 
+- [UI-47](UI-47.md) — Payment/Shipping responsive/a11y pass: QR, payment admin, shipment widget  — PIC: M4 
+- [UI-48](UI-48.md) — Promotion/Notification responsive/a11y pass: voucher, loyalty, notifications  — PIC: M5 
+- [BE-01](BE-01.md) — Identity entity + Flyway V1 (users, addresses, refresh_tokens, otp_codes, shifts, staff_schedules)  — PIC: M1 
+- [BE-02](BE-02.md) — Catalog entity + Flyway V1 (stores..store_inventory)  — PIC: M2 
+- [BE-03](BE-03.md) — Order entity + Flyway V1 (orders, items, history, refunds, party)  — PIC: M3 
+- [BE-04](BE-04.md) — Payment entity + Flyway V1 (payments, bank_tx, webhook_logs, config)  — PIC: M4 
+- [BE-05](BE-05.md) — Promotion entity + Flyway V1 (vouchers, usages, banners, points, config)  — PIC: M5 
+- [BE-06](BE-06.md) — Shipping entity + Flyway V1 (shipments, history, fee_config)  — PIC: M4 
+- [BE-07](BE-07.md) — Notification entity + Flyway V1 (notifications, email_logs)  — PIC: M5 
+- [BE-08](BE-08.md) — Review entity + Flyway V1 (reviews, replies, daily_stats, audit_logs)  — PIC: M6 
+- [BE-09](BE-09.md) — Security/JWT template: filter, RBAC, storeId  — PIC: M1 (mỗi service tự áp dụng) 
+- [BE-10](BE-10.md) — Shared lib: ApiResponse, ErrorResponse, PageResponse  — PIC: M4 
+- [BE-11](BE-11.md) — Kafka config: topics, producer/consumer factory  — PIC: M6 
+- [BE-12](BE-12.md) — Redis config: template, TTL policy  — PIC: M6 
+- [BE-13](BE-13.md) — OpenAPI/Swagger config template  — PIC: M4 (mỗi service áp dụng) 
+- [BE-14](BE-14.md) — Global exception handler template  — PIC: M4 (mỗi service áp dụng) 
+- [BE-15](BE-15.md) — Health + info + correlation-id filter  — PIC: M4 
+- [BE-56](BE-56.md) — Notification email schema: email_logs, mail_templates, mail_deliveries  — PIC: M5 
+- [BE-57](BE-57.md) — Mail Sender configuration properties + Config Server env mapping  — PIC: M5 
+- [BE-58](BE-58.md) — Mail Sender interface + Gmail SMTP adapter boundary  — PIC: M5 
+- [BE-68](BE-68.md) — Cloudinary config properties + Config Server env mapping  — PIC: M2+M5 
+- [BE-69](BE-69.md) — Media metadata migration: image_public_id/avatar_public_id  — PIC: M1+M2+M5 
+- [BE-16](BE-16.md) — Auth: register + OTP + verify  — PIC: M1 
+- [BE-17](BE-17.md) — Auth: login + JWT + refresh + logout + forgot/reset  — PIC: M1 
+- [BE-18](BE-18.md) — User: profile + address book CRUD  — PIC: M1 
+- [BE-19](BE-19.md) — User admin: create staff, lock/unlock, assign-store, schedules  — PIC: M1 
+- [BE-20](BE-20.md) — Catalog public: stores, categories, products, combos, search  — PIC: M2 
+- [BE-21](BE-21.md) — Catalog admin: CRUD stores/categories/products/combos/toppings  — PIC: M2 
+- [BE-22](BE-22.md) — Availability toggle + inventory  — PIC: M2 
+- [BE-23](BE-23.md) — Cart Redis CRUD (guest session + customer)  — PIC: M3 
+- [BE-24](BE-24.md) — Order preview (gọi Promotion + Shipping nội bộ)  — PIC: M3 
+- [BE-25](BE-25.md) — Order create + status transitions + confirm  — PIC: M3 
+- [BE-26](BE-26.md) — Order cancel + reject + refund-request  — PIC: M3 
+- [BE-27](BE-27.md) — Order list my/admin (storeId filter) + detail + reorder  — PIC: M3 
+- [BE-28](BE-28.md) — Party order create + quản lý tiếp nhận  — PIC: M3 
+- [BE-50](BE-50.md) — Payment API contract: payment DTO, QR response, payment status enum  — PIC: M4 
+- [BE-51](BE-51.md) — Promotion API contract: voucher validation/loyalty DTOs and error cases  — PIC: M5 
+- [BE-52](BE-52.md) — Notification API skeleton: notification DTO, pagination, read-state contract  — PIC: M6 
+- [BE-59](BE-59.md) — Email message DTO: recipient, template, variables, eventId, correlationId  — PIC: M5 
+- [BE-60](BE-60.md) — Gmail SMTP connection with STARTTLS and timeout  — PIC: M5 
+- [BE-61](BE-61.md) — Email template renderer for transactional templates  — PIC: M5 
+- [BE-62](BE-62.md) — Email log/status persistence and idempotency by eventId/messageId  — PIC: M5 
+- [BE-63](BE-63.md) — Admin email-log API with recipient/status/template/date filters  — PIC: M6 
+- [BE-70](BE-70.md) — Cloudinary adapter: upload, replace, delete asset operations  — PIC: M2 
+- [BE-71](BE-71.md) — Signed upload/secure backend upload contract and MIME/size validation  — PIC: M2 
+- [BE-72](BE-72.md) — Product/combo media API  — PIC: M2 
+- [BE-73](BE-73.md) — Avatar/banner media API  — PIC: M1+M5 
+- [BE-29](BE-29.md) — Payment: tạo bank-transfer + QR VietQR (PENDING, expires)  — PIC: M4 
+- [BE-30](BE-30.md) — Payment: webhook SePay (raw-body signature, match code+amount, idempotent)  — PIC: M4 
+- [BE-31](BE-31.md) — Payment: webhook Casso  — PIC: M4 
+- [BE-32](BE-32.md) — Payment: confirm-manual, confirm-cod, refund, transactions, bank-config  — PIC: M4 
+- [BE-33](BE-33.md) — Shipping: calculate-fee + get shipment + fee-config  — PIC: M4 
+- [BE-34](BE-34.md) — Promotion: voucher validate + CRUD + scope ALL/STORE  — PIC: M5 
+- [BE-35](BE-35.md) — Promotion: store-proposals + approve  — PIC: M5 
+- [BE-36](BE-36.md) — Promotion: banner CRUD  — PIC: M5 
+- [BE-37](BE-37.md) — Loyalty: points, tier, earn/redeem, config  — PIC: M5 
+- [BE-38](BE-38.md) — Notification: my notifications, read, read-all  — PIC: M5 
+- [BE-39](BE-39.md) — Notification: Kafka consumers + email adapter  — PIC: M5 
+- [BE-40](BE-40.md) — Review: create/edit/delete own + product reviews  — PIC: M6 
+- [BE-41](BE-41.md) — Review: replies + hide  — PIC: M6 
+- [BE-42](BE-42.md) — Report: dashboard per role + revenue + export Excel/PDF  — PIC: M6 
+- [BE-43](BE-43.md) — Audit log: record + query  — PIC: M6 
+- [BE-55](BE-55.md) — Order lifecycle hardening: status transition validation and optimistic locking  — PIC: M3 
+- [BE-53](BE-53.md) — Identity integration hardening: refresh-token rotation, OTP TTL, auth error contract  — PIC: M1 
+- [BE-54](BE-54.md) — Catalog integration hardening: menu cache invalidation and store availability contract  — PIC: M2 
+- [BE-44](BE-44.md) — Payment status query + ownership: customer chỉ xem payment của order mình  — PIC: M4 
+- [BE-45](BE-45.md) — Bank transaction reconciliation detail + mismatch workflow  — PIC: M4 
+- [BE-46](BE-46.md) — Refund state machine: PENDING → APPROVED/REJECTED → REFUNDED  — PIC: M4 
+- [BE-47](BE-47.md) — Shipping shipment detail + status history  — PIC: M4 
+- [BE-48](BE-48.md) — Shipping fee rules: base fee, per-km, free threshold, store override  — PIC: M4 
+- [BE-49](BE-49.md) — Payment/Shipping OpenAPI examples + webhook payload schemas  — PIC: M4 
+- [BE-64](BE-64.md) — OTP email templates: register, verify, forgot/reset password  — PIC: M5 
+- [BE-65](BE-65.md) — Order/payment/refund email templates  — PIC: M5 
+- [BE-66](BE-66.md) — Mail retry/backoff policy and FAILED state handling  — PIC: M5 
+- [BE-67](BE-67.md) — Email failure event/DLQ and masked error logging  — PIC: M6 
+- [BE-74](BE-74.md) — Cloudinary failure handling, cleanup and idempotency  — PIC: M2+M6 
+- [BE-75](BE-75.md) — Media URL/public_id response DTO and secret masking  — PIC: M4 
+- [INT-35](INT-35.md) — Order → Promotion: validate voucher/điểm khi preview+checkout  — PIC: M3+M5 
+- [INT-36](INT-36.md) — Order → Catalog: kiểm tra giá + availability  — PIC: M3+M2 
+- [INT-37](INT-37.md) — Order → Payment: tạo payment request  — PIC: M3+M4 
+- [INT-38](INT-38.md) — Order → Shipping: tính phí ship  — PIC: M3+M4 
+- [INT-39](INT-39.md) — Kafka producer: order.created/status-changed/completed/cancelled  — PIC: M3 
+- [INT-40](INT-40.md) — Kafka producer: payment.confirmed/failed  — PIC: M4 
+- [INT-41](INT-41.md) — Kafka producer: promotion.approved  — PIC: M5 
+- [INT-42](INT-42.md) — Consumer: notification nhận mọi event (order.*, payment.*, promotion.*)  — PIC: M5 
+- [INT-43](INT-43.md) — Consumer: shipping tạo bản ghi khi order.created  — PIC: M4 
+- [INT-44](INT-44.md) — Consumer: promotion cộng điểm khi order.completed  — PIC: M5 
+- [INT-45](INT-45.md) — Consumer: report cập nhật daily_store_stats  — PIC: M6 
+- [INT-46](INT-46.md) — DLQ + retry + idempotent consumer  — PIC: M6 
+- [INT-47](INT-47.md) — Saga: payment.failed → cancel order → release voucher/điểm  — PIC: M3+M4+M5 
+- [INT-48](INT-48.md) — Audit log consumer cho thao tác quản trị  — PIC: M6 
+- [INT-49](INT-49.md) — SePay webhook test: mock → verify → match → confirm  — PIC: M4 
+- [INT-50](INT-50.md) — Payment timeout: QR expires → order/payment expired → notify customer  — PIC: M4+M3+M5 
+- [INT-51](INT-51.md) — COD lifecycle: confirm at branch → collected → completed  — PIC: M4+M3 
+- [INT-52](INT-52.md) — Refund integration: Manager approve → Payment mark refund → Customer notification  — PIC: M4+M3+M5 
+- [INT-53](INT-53.md) — Identity → Gateway security integration: JWT claims, role, storeId propagation  — PIC: M1+M3 
+- [INT-54](INT-54.md) — Catalog → Gateway discovery integration: menu route, cache headers, availability  — PIC: M2+M3 
+- [INT-55](INT-55.md) — Identity → Notification: OTP email event contract  — PIC: M1+M5 
+- [INT-56](INT-56.md) — Order → Notification: order created/status/completed/cancelled email events  — PIC: M3+M5 
+- [INT-57](INT-57.md) — Payment → Notification: paid/failed/mismatch/expired/refund email events  — PIC: M4+M5 
+- [INT-58](INT-58.md) — Promotion → Notification: promotion email event contract  — PIC: M5 
+- [INT-59](INT-59.md) — Notification email consumer idempotency + Kafka replay protection  — PIC: M5 
+- [INT-60](INT-60.md) — Email delivery metrics/logging correlation across services  — PIC: M6 
+- [INT-01](INT-01.md) — Catalog → Cloudinary product/combo upload integration  — PIC: M2 
+- [INT-02](INT-02.md) — Promotion → Cloudinary banner upload integration  — PIC: M5 
+- [INT-03](INT-03.md) — Identity → Cloudinary avatar upload integration  — PIC: M1 
+- [INT-04](INT-04.md) — Replace/delete old asset only after metadata commit  — PIC: M2+M6 
+- [INT-05](INT-05.md) — Auth E2E: register → OTP → login → refresh, 2 app  — PIC: M1 
+- [INT-06](INT-06.md) — Menu/catalog E2E: browse, search, availability theo quán  — PIC: M2 
+- [INT-07](INT-07.md) — Cart → checkout → tạo đơn E2E  — PIC: M3 
+- [INT-08](INT-08.md) — Order tracking, history, cancel, reorder E2E  — PIC: M3 
+- [INT-09](INT-09.md) — Payment: QR hiển thị, webhook → CONFIRMED, COD confirm  — PIC: M4 
+- [INT-10](INT-10.md) — Voucher apply + loyalty points E2E  — PIC: M5 
+- [INT-11](INT-11.md) — Notification list + mark-read E2E  — PIC: M5 
+- [INT-12](INT-12.md) — Review: viết/sửa/xóa + reply + hide E2E  — PIC: M6 
+- [INT-13](INT-13.md) — Report/dashboard/export E2E  — PIC: M6 
+- [INT-14](INT-14.md) — Admin orders: status, refund approve E2E  — PIC: M3 
+- [INT-15](INT-15.md) — Admin catalog/store/inventory E2E  — PIC: M2 
+- [INT-61](INT-61.md) — Admin users: create staff, lock, assign E2E  — PIC: M1 
+- [INT-62](INT-62.md) — Admin promotions/banners E2E  — PIC: M5 
+- [INT-63](INT-63.md) — Admin payments/bank config E2E  — PIC: M4 
+- [INT-64](INT-64.md) — Payment status UI: pending/paid/expired/mismatch/refund states  — PIC: M4 
+- [INT-65](INT-65.md) — Shipping fee + shipment info UI integration  — PIC: M4 
+- [INT-66](INT-66.md) — Admin refund approval + payment reconciliation E2E  — PIC: M4+M3 
+- [INT-67](INT-67.md) — RBAC E2E: storeId enforcement từng API  — PIC: M1 lead, cả nhóm verify service mình 
+- [INT-68](INT-68.md) — Order status realtime (polling) cho customer  — PIC: M3 
+- [INT-69](INT-69.md) — Customer auth UI: email sent/sending/failure states  — PIC: M1 
+- [INT-70](INT-70.md) — Customer order/payment UI: email notification status where applicable  — PIC: M3+M4 
+- [INT-71](INT-71.md) — Admin email-log screen: filter, detail, retry failed email  — PIC: M6 
+- [INT-72](INT-72.md) — Customer/Admin image upload preview, progress and failure UI  — PIC: M1+M2+M5 
+- [INT-73](INT-73.md) — Admin product/combo/banner media management UI  — PIC: M2+M5 
+- [TEST-01](TEST-01.md) — E2E Guest→register→OTP→browse→cart→COD order  — PIC: M1+M2+M3 
+- [TEST-02](TEST-02.md) — E2E transfer→webhook→CONFIRMED  — PIC: M3+M4 
+- [TEST-03](TEST-03.md) — E2E cancel→refund request→approve→refunded  — PIC: M3+M4 
+- [TEST-04](TEST-04.md) — E2E Staff: login→dashboard→process→COD confirm  — PIC: M1+M3 
+- [TEST-05](TEST-05.md) — E2E Manager: create staff→assign→reports  — PIC: M1+M2+M6 
+- [TEST-06](TEST-06.md) — E2E Admin: store→product→voucher→approve  — PIC: M2+M5 
+- [TEST-07](TEST-07.md) — RBAC: Staff A không gọi được dữ liệu quán B  — PIC: M1 lead 
+- [TEST-08](TEST-08.md) — Idempotency: webhook replay không duplicate  — PIC: M4 
+- [TEST-09](TEST-09.md) — Payment mismatch: wrong code/amount → MISMATCH + manual flow  — PIC: M4 
+- [TEST-10](TEST-10.md) — QR expiry: expired payment cannot confirm order  — PIC: M4+M3 
+- [TEST-11](TEST-11.md) — Refund: approve/reject/refunded state transitions  — PIC: M4+M3 
+- [TEST-12](TEST-12.md) — Shipping fee rules: pickup/free threshold/store override  — PIC: M4 
+- [TEST-13](TEST-13.md) — Performance: menu <500ms (Redis cache)  — PIC: M2 
+- [TEST-14](TEST-14.md) — Load test 50 concurrent orders  — PIC: M6 
+- [TEST-15](TEST-15.md) — Unit test critical paths mỗi service  — PIC: Cả nhóm 
+- [TEST-16](TEST-16.md) — Integration test Kafka + cross-service  — PIC: M6 
+- [TEST-17](TEST-17.md) — Responsive test toàn bộ  — PIC: Cả nhóm 
+- [TEST-18](TEST-18.md) — Bug fix critical+high  — PIC: Cả nhóm 
+- [TEST-19](TEST-19.md) — Gmail SMTP success with valid App Password  — PIC: M5+M6 
+- [TEST-20](TEST-20.md) — Invalid App Password/timeout → retry then FAILED  — PIC: M5+M6 
+- [TEST-21](TEST-21.md) — Kafka replay does not send duplicate email  — PIC: M5 
+- [TEST-22](TEST-22.md) — OTP/order/payment/refund email E2E flows  — PIC: M1+M3+M4+M5 
+- [TEST-23](TEST-23.md) — Email failure does not rollback order/payment  — PIC: M3+M4+M5 
+- [TEST-24](TEST-24.md) — Secret masking: App Password absent from logs/API  — PIC: M6 
+- [TEST-25](TEST-25.md) — Cloudinary valid image upload and URL/public_id persistence  — PIC: M2 
+- [TEST-26](TEST-26.md) — Invalid MIME/oversize upload rejected  — PIC: M2 
+- [TEST-27](TEST-27.md) — Cloudinary outage does not corrupt product/banner/avatar transaction  — PIC: M2+M6 
+- [TEST-28](TEST-28.md) — API secret absent from frontend, response and logs  — PIC: M1+M6 
+- [DEP-01](DEP-01.md) — VPS setup: Docker + Compose + mở port  — PIC: M6 
+- [DEP-02](DEP-02.md) — `docker compose up -d` toàn bộ stack  — PIC: M6 
+- [DEP-03](DEP-03.md) — Nginx reverse proxy + HTTPS Let's Encrypt  — PIC: M6 
+- [DEP-04](DEP-04.md) — Domain + CORS + trusted origins  — PIC: M6 
+- [DEP-05](DEP-05.md) — Health check mọi container  — PIC: M6 
+- [DEP-06](DEP-06.md) — Smoke test VPS: login, menu, COD, transfer  — PIC: Cả nhóm 
+- [DEP-07](DEP-07.md) — Backup script daily, giữ 7 bản  — PIC: M6 
+- [DEP-08](DEP-08.md) — README final: run, arch, API  — PIC: M6 
+- [DEP-09](DEP-09.md) — Postman collection: mỗi người export service mình, M6 merge  — PIC: Cả nhóm (M6 merge) 
+- [DEP-10](DEP-10.md) — Demo materials: script + screenshots + slides  — PIC: M1+M2 
+- [DEP-11](DEP-11.md) — Final review + tag release  — PIC: Cả nhóm 
+- [DEP-12](DEP-12.md) — Handover: credentials, .env, rollback  — PIC: M6 
+- [DEP-13](DEP-13.md) — Auth smoke test + identity runbook  — PIC: M1 
+- [DEP-14](DEP-14.md) — Catalog smoke test + menu seed/runbook  — PIC: M2 
+- [DEP-15](DEP-15.md) — Gateway route/discovery smoke test + API collection merge  — PIC: M3 
+- [DEP-16](DEP-16.md) — Payment/Shipping smoke test + webhook/rollback runbook  — PIC: M4 
+- [DEP-17](DEP-17.md) — Promotion/Notification smoke test + event runbook  — PIC: M5 
+- [DEP-18](DEP-18.md) — Add Mail Sender variables to `.env.example` and Config Server runbook  — PIC: M6 
+- [DEP-19](DEP-19.md) — Gmail App Password setup and rotation documentation  — PIC: M6 
+- [DEP-20](DEP-20.md) — Production email smoke test and email_logs backup verification  — PIC: M6 
+- [DEP-21](DEP-21.md) — Cloudinary `.env` and Config Server setup runbook  — PIC: M6 
+- [DEP-22](DEP-22.md) — Media backup/cleanup verification and production smoke test  — PIC: M6 

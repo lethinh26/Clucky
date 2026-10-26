@@ -1,0 +1,5 @@
+server:
+  port: ${SERVER_PORT:8088}
+spring:
+  application:
+    name: review-report-service
