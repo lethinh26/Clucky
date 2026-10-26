@@ -16,10 +16,10 @@ Nguyên tắc: **ai làm màn hình của domain nào thì làm luôn backend c�
 |---|--------|----------------------|---------------------|----------|-----|
 | **M1 — Trần Nguyễn Hữu Khánh** | **Identity & Auth** | Customer: Login, Register, OTP, Forgot/Reset, Profile, Address book · Admin: Login, Users mgmt | `identity-service` + `config-server` app + `security/` (JWT filter, RBAC, storeId) | ~12 ngày | ~45 |
 | **M2 — Nguyễn Duy Quang Nhật** | **Catalog & Store** | Customer: Home, Menu, ProductDetail, Store list · Admin: Catalog (product/category/combo form), Stores, Inventory | `catalog-store-service` + `discovery-server` app | ~12 ngày | ~50 |
-| **M3 — Trần Đức Anh — Trần Đức Anh** | **Cart & Order** | Customer: Cart, Checkout, Orders, Order tracking, Party order · Admin: Orders mgmt, Staff orders, Refund modal | `cart-order-service` + `api-gateway` app | ~12 ngày | ~50 |
+| **M3 — Trần Đức Anh** | **Cart & Order** | Customer: Cart, Checkout, Orders, Order tracking, Party order · Admin: Orders mgmt, Staff orders, Refund modal | `cart-order-service` + `api-gateway` app | ~12 ngày | ~50 |
 | **M4 — Lê Phú Thịnh** | **BE + FE** | **Payment & Shipping** | Customer: QR thanh toán, trạng thái thanh toán, phí ship, shipment info · Admin: Payments, Webhook log, Bank config, Manual confirm, Refund | `payment-service` + `shipping-service` + `common/` shared lib | ~12 ngày | **60 SP** |
-| **M5 — Cao Tất Thành — Cao Tất Thành** | **Promotion & Notification** | Customer: Vouchers, Loyalty, Notification list · Admin: Promotions (voucher CRUD/approve), Banners, Notification list | `promotion-loyalty-service` + `notification-service` | ~10 ngày | ~40 |
-| **M6 — Mai Sơn Việt — Mai Sơn Việt** | **Review & Report + DevOps** | Customer: Review form/list trong product & order · Admin: Dashboard, Reports, Reviews, Audit log | `review-report-service` + `infrastructure/` (Docker Compose, backup, deploy, CI) | ~10 ngày | ~40 |
+| **M5 — Cao Tất Thành** | **Promotion & Notification** | Customer: Vouchers, Loyalty, Notification list · Admin: Promotions (voucher CRUD/approve), Banners, Notification list | `promotion-loyalty-service` + `notification-service` | ~10 ngày | ~40 |
+| **M6 — Mai Sơn Việt ** | **Review & Report + DevOps** | Customer: Review form/list trong product & order · Admin: Dashboard, Reports, Reviews, Audit log | `review-report-service` + `infrastructure/` (Docker Compose, backup, deploy, CI) | ~10 ngày | ~40 |
 
 **Tổng: 207 task hiện tại; Mail Sender được gộp trong Notification Service.** ~275 SP trên 60 man-days.
 
