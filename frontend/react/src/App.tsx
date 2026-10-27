@@ -11,6 +11,7 @@ import { StoresPage } from './pages/Stores';
 import { StaffInventoryPage } from './pages/Staff/Inventory';
 import { OrdersPage } from './pages/Orders';
 import { ReviewsPage } from './pages/Reviews';
+import { ReportsPage } from './pages/Reports';
 
 export const App: React.FC = () => {
   return (
@@ -86,6 +87,14 @@ export const App: React.FC = () => {
                   element={
                     <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
                       <ReviewsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="reports"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER']}>
+                      <ReportsPage />
                     </ProtectedRoute>
                   }
                 />
