@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp } from 'antd';
 import viVN from 'antd/locale/vi_VN';
@@ -10,6 +10,7 @@ import { CatalogPage } from './pages/Catalog';
 import { StoresPage } from './pages/Stores';
 import { StaffInventoryPage } from './pages/Staff/Inventory';
 import { OrdersPage } from './pages/Orders';
+import { ReviewsPage } from './pages/Reviews';
 
 export const App: React.FC = () => {
   return (
@@ -77,6 +78,14 @@ export const App: React.FC = () => {
                   element={
                     <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
                       <StaffInventoryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="reviews"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
+                      <ReviewsPage />
                     </ProtectedRoute>
                   }
                 />
