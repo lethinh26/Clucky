@@ -16,8 +16,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   FireOutlined,
-  CoffeeOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { AdminTable } from '../../components/ui/AdminTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -29,6 +27,7 @@ import { Product, Combo, mockProducts, mockCombos, formatVND } from '../../mocks
 export const CatalogPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [combos, setCombos] = useState<Combo[]>(mockCombos);
+  const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -49,6 +48,15 @@ export const CatalogPage: React.FC = () => {
     });
   }, [products, categoryFilter, searchTerm]);
 
+  // Filtered Combos
+  const filteredCombos = useMemo(() => {
+    return combos.filter(
+      (c) =>
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [combos, searchTerm]);
+
   // Toggle active status
   const handleToggleStatus = (product: Product, checked: boolean) => {
     setProducts((prev) =>
@@ -68,6 +76,29 @@ export const CatalogPage: React.FC = () => {
     } else {
       setProducts((prev) => [data as Product, ...prev]);
     }
+  };
+
+  // Save combo from ProductForm
+  const handleSaveCombo = (data: Partial<Combo>) => {
+    const newCombo: Combo = {
+      id: data.id || Date.now(),
+      name: data.name || 'Combo Ưu Đãi Mới',
+      slug: data.name?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-') || `combo-${Date.now()}`,
+      description: data.description || '',
+      comboPrice: data.comboPrice || 99000,
+      imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?w=600',
+      startAt: new Date().toISOString(),
+      isActive: true,
+      items: Array.isArray((data as any).items)
+        ? (data as any).items.map((prodId: number) => {
+            const found = products.find((p) => p.id === prodId);
+            return { productId: prodId, productName: found?.name || 'Món gà Clucky', quantity: 1 };
+          })
+        : [],
+    };
+    setCombos((prev) => [newCombo, ...prev]);
+    setViewMode('combos');
+    message.success(`Đã lưu gói Combo "${newCombo.name}" thành công!`);
   };
 
   // Confirm delete
@@ -257,6 +288,142 @@ export const CatalogPage: React.FC = () => {
     },
   ];
 
+  const comboColumns: TableColumnsType<Combo> = [
+    {
+      title: 'Gói Combo',
+      key: 'name',
+      render: (_, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <Image
+            src={record.imageUrl}
+            alt={record.name}
+            width={58}
+            height={58}
+            style={{ borderRadius: 12, objectFit: 'cover', border: '1px solid #E8E2D9' }}
+            fallback="https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?w=100"
+          />
+          <div>
+            <div
+              style={{
+                fontFamily: 'Fredoka, sans-serif',
+                fontWeight: 600,
+                fontSize: 15,
+                color: '#16100D',
+              }}
+            >
+              {record.name}
+              <Tag
+                color="#8F1216"
+                style={{
+                  marginLeft: 8,
+                  borderRadius: 999,
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: 10,
+                }}
+              >
+                COMBO
+              </Tag>
+            </div>
+            <div style={{ fontSize: 12, color: '#6B6259', marginTop: 2 }}>
+              <code>/{record.slug}</code>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Món cấu thành',
+      key: 'items',
+      render: (_, record) => (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {record.items && record.items.length > 0 ? (
+            record.items.map((item) => (
+              <Tag
+                key={item.productId}
+                style={{
+                  borderRadius: 6,
+                  backgroundColor: '#F5EDE0',
+                  borderColor: '#E8E2D9',
+                  color: '#16100D',
+                  fontWeight: 600,
+                }}
+              >
+                {item.productName} (x{item.quantity})
+              </Tag>
+            ))
+          ) : (
+            <span style={{ fontSize: 12, color: '#6B6259' }}>{record.description}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Giá Combo',
+      dataIndex: 'comboPrice',
+      key: 'comboPrice',
+      width: 140,
+      render: (price) => (
+        <span
+          style={{
+            fontFamily: 'Fredoka, sans-serif',
+            color: '#8F1216',
+            fontWeight: 700,
+            fontSize: 16,
+          }}
+        >
+          {formatVND(price)}
+        </span>
+      ),
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'isActive',
+      key: 'isActive',
+      width: 170,
+      render: (isActive, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Switch
+            checked={isActive}
+            onChange={(checked) => {
+              setCombos((prev) =>
+                prev.map((c) => (c.id === record.id ? { ...c, isActive: checked } : c))
+              );
+              message.success(
+                `Đã chuyển Combo "${record.name}" sang ${checked ? 'Đang áp dụng' : 'Tạm dừng'}.`
+              );
+            }}
+            size="small"
+          />
+          <StatusBadge
+            status={isActive ? 'success' : 'error'}
+            text={isActive ? 'Đang bán' : 'Tạm ngưng'}
+            size="small"
+          />
+        </div>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      width: 90,
+      align: 'right',
+      render: (_, record) => (
+        <Tooltip title="Xóa combo">
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => {
+              setCombos((prev) => prev.filter((c) => c.id !== record.id));
+              message.success(`Đã xóa gói Combo "${record.name}".`);
+            }}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
+
   return (
     <div>
       {/* Header Info */}
@@ -317,117 +484,162 @@ export const CatalogPage: React.FC = () => {
         </Space>
       </div>
 
-      {/* Admin Table */}
-      <AdminTable<Product>
-        columns={columns}
-        dataSource={filteredProducts}
-        rowKey="id"
-        searchPlaceholder="Tìm kiếm tên món, slug, danh mục..."
-        searchValue={searchTerm}
-        onSearchChange={setSearchTerm}
-        filterNodes={
-          <Segmented
-            value={categoryFilter}
-            onChange={(val) => setCategoryFilter(val as string)}
-            options={[
-              {
-                label: (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: categoryFilter === 'ALL' ? '#8F1216' : '#5C554E',
-                      fontWeight: categoryFilter === 'ALL' ? 700 : 500,
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <CategoryIcon id={0} size={15} active={categoryFilter === 'ALL'} activeTheme="on-light" /> Tất cả (6)
-                  </span>
-                ),
-                value: 'ALL',
-              },
-              {
-                label: (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: categoryFilter === '1' ? '#8F1216' : '#5C554E',
-                      fontWeight: categoryFilter === '1' ? 700 : 500,
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <CategoryIcon id={1} size={15} active={categoryFilter === '1'} activeTheme="on-light" /> Gà rán
-                  </span>
-                ),
-                value: '1',
-              },
-              {
-                label: (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: categoryFilter === '2' ? '#8F1216' : '#5C554E',
-                      fontWeight: categoryFilter === '2' ? 700 : 500,
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <CategoryIcon id={2} size={15} active={categoryFilter === '2'} activeTheme="on-light" /> Burger
-                  </span>
-                ),
-                value: '2',
-              },
-              {
-                label: (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: categoryFilter === '4' ? '#8F1216' : '#5C554E',
-                      fontWeight: categoryFilter === '4' ? 700 : 500,
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <CategoryIcon id={4} size={15} active={categoryFilter === '4'} activeTheme="on-light" /> Món phụ
-                  </span>
-                ),
-                value: '4',
-              },
-              {
-                label: (
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      color: categoryFilter === '5' ? '#8F1216' : '#5C554E',
-                      fontWeight: categoryFilter === '5' ? 700 : 500,
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <CategoryIcon id={5} size={15} active={categoryFilter === '5'} activeTheme="on-light" /> Đồ uống
-                  </span>
-                ),
-                value: '5',
-              },
-            ]}
-            style={{
-              background: '#F5EDE0',
-              padding: 3,
-              borderRadius: 999,
-              fontFamily: 'Quicksand, sans-serif',
-              fontWeight: 600,
-            }}
-          />
-        }
-        emptyTitle="Không có món ăn nào trong danh mục"
-        emptyDescription="Thử chuyển sang danh mục khác hoặc tìm kiếm với từ khóa mới."
+      {/* View Mode Switcher */}
+      <Segmented
+        value={viewMode}
+        onChange={(val) => setViewMode(val as 'products' | 'combos')}
+        options={[
+          {
+            label: (
+              <span style={{ fontWeight: 700, padding: '4px 8px' }}>
+                🍗 Món lẻ thông thường ({products.length})
+              </span>
+            ),
+            value: 'products',
+          },
+          {
+            label: (
+              <span style={{ fontWeight: 700, padding: '4px 8px' }}>
+                🎁 Gói Combo ưu đãi ({combos.length})
+              </span>
+            ),
+            value: 'combos',
+          },
+        ]}
+        style={{
+          marginBottom: 20,
+          background: '#FFFAF3',
+          border: '1px solid #E8E2D9',
+          padding: 4,
+          borderRadius: 14,
+          fontFamily: 'Quicksand, sans-serif',
+        }}
       />
+
+      {/* Admin Table for Products or Combos */}
+      {viewMode === 'products' ? (
+        <AdminTable<Product>
+          columns={columns}
+          dataSource={filteredProducts}
+          rowKey="id"
+          searchPlaceholder="Tìm kiếm tên món, slug, danh mục..."
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          filterNodes={
+            <Segmented
+              value={categoryFilter}
+              onChange={(val) => setCategoryFilter(val as string)}
+              options={[
+                {
+                  label: (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: categoryFilter === 'ALL' ? '#8F1216' : '#5C554E',
+                        fontWeight: categoryFilter === 'ALL' ? 700 : 500,
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <CategoryIcon id={0} size={15} active={categoryFilter === 'ALL'} activeTheme="on-light" /> Tất cả (6)
+                    </span>
+                  ),
+                  value: 'ALL',
+                },
+                {
+                  label: (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: categoryFilter === '1' ? '#8F1216' : '#5C554E',
+                        fontWeight: categoryFilter === '1' ? 700 : 500,
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <CategoryIcon id={1} size={15} active={categoryFilter === '1'} activeTheme="on-light" /> Gà rán
+                    </span>
+                  ),
+                  value: '1',
+                },
+                {
+                  label: (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: categoryFilter === '2' ? '#8F1216' : '#5C554E',
+                        fontWeight: categoryFilter === '2' ? 700 : 500,
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <CategoryIcon id={2} size={15} active={categoryFilter === '2'} activeTheme="on-light" /> Burger
+                    </span>
+                  ),
+                  value: '2',
+                },
+                {
+                  label: (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: categoryFilter === '4' ? '#8F1216' : '#5C554E',
+                        fontWeight: categoryFilter === '4' ? 700 : 500,
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <CategoryIcon id={4} size={15} active={categoryFilter === '4'} activeTheme="on-light" /> Món phụ
+                    </span>
+                  ),
+                  value: '4',
+                },
+                {
+                  label: (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        color: categoryFilter === '5' ? '#8F1216' : '#5C554E',
+                        fontWeight: categoryFilter === '5' ? 700 : 500,
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <CategoryIcon id={5} size={15} active={categoryFilter === '5'} activeTheme="on-light" /> Đồ uống
+                    </span>
+                  ),
+                  value: '5',
+                },
+              ]}
+              style={{
+                background: '#F5EDE0',
+                padding: 3,
+                borderRadius: 999,
+                fontFamily: 'Quicksand, sans-serif',
+                fontWeight: 600,
+              }}
+            />
+          }
+          emptyTitle="Không có món ăn nào trong danh mục"
+          emptyDescription="Thử chuyển sang danh mục khác hoặc tìm kiếm với từ khóa mới."
+        />
+      ) : (
+        <AdminTable<Combo>
+          columns={comboColumns}
+          dataSource={filteredCombos}
+          rowKey="id"
+          searchPlaceholder="Tìm kiếm tên gói Combo ưu đãi..."
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          emptyTitle="Không có gói Combo nào"
+          emptyDescription="Thử tìm kiếm với từ khóa khác hoặc tạo mới gói Combo bằng nút phía trên."
+        />
+      )}
 
       {/* Product Form Drawer */}
       <ProductForm
@@ -438,6 +650,7 @@ export const CatalogPage: React.FC = () => {
         }}
         initialProduct={editingProduct}
         onSaveProduct={handleSaveProduct}
+        onSaveCombo={handleSaveCombo}
       />
 
       {/* Confirm Delete Modal */}

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap&subset=vietnamese');
 
 :root {
   font-family: 'Quicksand', system-ui, sans-serif;
@@ -427,4 +427,38 @@ body {
   .ant-card-body {
     padding: 16px !important;
   }
+}
+
+
+/* Custom Table & Warm Cream Shimmer */
+.admin-custom-table .ant-table {
+  background: transparent !important;
+  font-family: 'Quicksand', sans-serif;
+}
+
+.admin-custom-table .ant-table-thead > tr > th {
+  background: #F5EDE0 !important;
+  color: #16100D !important;
+  font-weight: 700 !important;
+  border-bottom: 1px solid #E8E2D9 !important;
+}
+
+.admin-custom-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid #F5EDE0 !important;
+}
+
+.admin-custom-table .ant-table-tbody > tr:hover > td {
+  background: #FFF8F0 !important;
+}
+
+.admin-skeleton-wrap .ant-skeleton-paragraph > li {
+  background: linear-gradient(90deg, #EFE4D4 25%, #F7EFE4 50%, #EFE4D4 75%) !important;
+  background-size: 200% 100% !important;
+  animation: shimmerWarm 1.6s infinite !important;
+  border-radius: 8px !important;
+}
+
+@keyframes shimmerWarm {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }

@@ -4,15 +4,13 @@ import { CustomerHeader } from '@/components/customer-header';
 import { CustomerFooter } from '@/components/customer-footer';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
-import { products, categories, formatPrice } from '@/lib/products';
+import { products, categories } from '@/lib/products';
 import {
   Flame,
   Award,
   Truck,
   Sparkles,
   ArrowRight,
-  ShieldCheck,
-  Heart,
 } from 'lucide-react';
 
 export default function Home() {
@@ -50,9 +48,13 @@ export default function Home() {
             </div>
 
             <div className="hero-food">
-              <img
+              <Image
                 src="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=1000&q=85"
                 alt="Đĩa gà rán giòn vàng óng ánh Clucky"
+                width={560}
+                height={440}
+                priority
+                style={{ width: '100%', height: 'auto', borderRadius: 28, objectFit: 'cover' }}
               />
             </div>
           </div>

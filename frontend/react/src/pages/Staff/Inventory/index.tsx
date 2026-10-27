@@ -12,7 +12,7 @@ import {
   Col,
   Statistic,
   Tooltip,
-  Typography,
+  Select,
   message,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -22,39 +22,59 @@ import {
   EditOutlined,
   CheckCircleOutlined,
   StopOutlined,
-  SyncOutlined,
   InboxOutlined,
 } from '@ant-design/icons';
 import { AdminTable } from '../../../components/ui/AdminTable';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { AdminModal } from '../../../components/ui/AdminModal';
 import { useAuth } from '../../../context/AuthContext';
-import { InventoryItem, mockInventory } from '../../../mocks/catalogData';
+import { InventoryItem, mockInventory, mockStores } from '../../../mocks/catalogData';
 
 export const StaffInventoryPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'LOW_STOCK' | 'SOLD_OUT'>('ALL');
+  const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId || 1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [form] = Form.useForm();
 
-  // Filter items for current store or all if admin
+  const activeStoreId = isAdmin ? adminSelectedStoreId : (user.storeId || 1);
+  const currentStore = mockStores.find((s) => s.id === activeStoreId);
+  const currentStoreName = currentStore?.name || user.storeName || 'Chi nhánh Clucky Lê Lợi (Q.1)';
+
+  // Store-scoped inventory
+  const storeInventory = useMemo(() => {
+    return inventory.filter((item) => item.storeId === activeStoreId);
+  }, [inventory, activeStoreId]);
+
+  // Filter items for active store
   const filteredItems = useMemo(() => {
-    return inventory.filter((item) => {
+    return storeInventory.filter((item) => {
       const matchSearch =
         item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.categoryName.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchSearch;
-    });
-  }, [inventory, searchTerm]);
 
-  // Statistics
-  const totalItems = inventory.length;
-  const lowStockCount = inventory.filter(
+      const isLowStock = item.quantityAvailable <= item.lowStockThreshold && !item.isSoldOut;
+      const isSoldOut = item.isSoldOut || item.quantityAvailable === 0;
+      const isAvailable = !isSoldOut && !isLowStock;
+
+      let matchStatus = true;
+      if (statusFilter === 'AVAILABLE') matchStatus = isAvailable;
+      else if (statusFilter === 'LOW_STOCK') matchStatus = isLowStock;
+      else if (statusFilter === 'SOLD_OUT') matchStatus = isSoldOut;
+
+      return matchSearch && matchStatus;
+    });
+  }, [storeInventory, searchTerm, statusFilter]);
+
+  // Statistics for current store
+  const totalItems = storeInventory.length;
+  const lowStockCount = storeInventory.filter(
     (i) => i.quantityAvailable <= i.lowStockThreshold && !i.isSoldOut
   ).length;
-  const soldOutCount = inventory.filter((i) => i.isSoldOut || i.quantityAvailable === 0).length;
+  const soldOutCount = storeInventory.filter((i) => i.isSoldOut || i.quantityAvailable === 0).length;
   const availableCount = totalItems - soldOutCount;
 
   // Toggle "Hết món trong ca" (Local branch switch)
@@ -275,7 +295,7 @@ export const StaffInventoryPage: React.FC = () => {
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1
               style={{
                 fontFamily: 'Fredoka, sans-serif',
@@ -287,18 +307,30 @@ export const StaffInventoryPage: React.FC = () => {
             >
               Kiểm kê Tồn kho Chi nhánh
             </h1>
-            <Tag
-              color="gold"
-              style={{
-                borderRadius: 999,
-                fontWeight: 700,
-                fontSize: 13,
-                padding: '3px 12px',
-                color: '#946C00',
-              }}
-            >
-              <ShopOutlined /> {user.storeName || 'Chi nhánh Clucky Lê Lợi (Q.1)'}
-            </Tag>
+            {isAdmin ? (
+              <Select
+                value={adminSelectedStoreId}
+                onChange={setAdminSelectedStoreId}
+                style={{ width: 280, fontFamily: 'Quicksand, sans-serif' }}
+                options={mockStores.map((s) => ({
+                  value: s.id,
+                  label: `🏪 ${s.name}`,
+                }))}
+              />
+            ) : (
+              <Tag
+                color="gold"
+                style={{
+                  borderRadius: 999,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  padding: '3px 12px',
+                  color: '#946C00',
+                }}
+              >
+                <ShopOutlined /> {currentStoreName}
+              </Tag>
+            )}
           </div>
           <p
             style={{
@@ -399,6 +431,19 @@ export const StaffInventoryPage: React.FC = () => {
         searchPlaceholder="Tìm món ăn kiểm kê..."
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
+        filterNodes={
+          <Select
+            value={statusFilter}
+            onChange={setStatusFilter}
+            style={{ width: 180, fontFamily: 'Quicksand, sans-serif' }}
+            options={[
+              { value: 'ALL', label: 'Tất cả trạng thái' },
+              { value: 'AVAILABLE', label: '🟢 Đang phục vụ' },
+              { value: 'LOW_STOCK', label: '🟡 Sắp hết hàng' },
+              { value: 'SOLD_OUT', label: '🔴 Đã tắt bán' },
+            ]}
+          />
+        }
         emptyTitle="Không tìm thấy món ăn trong kho"
       />
 

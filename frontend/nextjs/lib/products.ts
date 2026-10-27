@@ -31,7 +31,7 @@ export interface Product {
   image: string; // For compatibility
   alt: string;
   kcal: number;
-  spicyLevel: number; // 0: Không cay, 1: Cay vừa, 2: Siêu cay
+  spicyLevel: number; // 0: Không cay, 1: Cay vừa, 2: Cay nồng, 3: Siêu cay
   isActive: boolean;
   isAvailable: boolean;
   isSoldOut: boolean;

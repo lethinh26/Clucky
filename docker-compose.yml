@@ -85,7 +85,9 @@ services:
       - app-net
 
   discovery-server:
-    build: ./backend/discovery-server
+    build:
+      context: ./backend
+      dockerfile: discovery-server/Dockerfile
     container_name: clucky-discovery-server
     restart: unless-stopped
     environment:

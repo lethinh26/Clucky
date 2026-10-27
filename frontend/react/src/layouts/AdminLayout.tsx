@@ -56,6 +56,12 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes('/orders')) selectedKey = 'orders';
   else if (pathname.includes('/reports')) selectedKey = 'reports';
 
+  const roleNavPermissions: Record<'ADMIN' | 'STORE_MANAGER' | 'STAFF', string[]> = {
+    ADMIN: ['dashboard', 'catalog', 'stores', 'inventory', 'orders'],
+    STORE_MANAGER: ['dashboard', 'stores', 'inventory', 'orders'],
+    STAFF: ['dashboard', 'inventory', 'orders'],
+  };
+
   const navItems: MenuProps['items'] = [
     {
       key: 'dashboard',
@@ -87,13 +93,10 @@ export const AdminLayout: React.FC = () => {
       label: 'Quản lý Đơn hàng',
       onClick: () => navigate('/admin/orders'),
     },
-    {
-      key: 'reports',
-      icon: <BarChartOutlined />,
-      label: 'Báo cáo doanh thu',
-      onClick: () => navigate('/admin/reports'),
-    },
   ];
+
+  const allowedNavKeys = roleNavPermissions[user.role] || ['dashboard'];
+  const visibleNavItems = navItems.filter((item) => item && allowedNavKeys.includes(String(item.key)));
 
   const roleLabelMap: Record<string, { label: string; color: string }> = {
     ADMIN: { label: 'Quản trị viên HQ', color: '#8F1216' },
@@ -238,7 +241,7 @@ export const AdminLayout: React.FC = () => {
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          items={navItems}
+          items={visibleNavItems}
           style={{
             background: 'transparent',
             borderRight: 'none',

@@ -12,14 +12,10 @@ import {
 import {
   ArrowLeft,
   Star,
-  Flame,
   Minus,
   Plus,
   ShoppingBag,
   Check,
-  ShieldCheck,
-  Clock,
-  Sparkles,
 } from 'lucide-react';
 
 interface ProductDetailClientProps {
@@ -45,6 +41,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   // Quantity stepper
   const [quantity, setQuantity] = useState<number>(1);
+  const [specialNote, setSpecialNote] = useState<string>('');
   const [isAddedSuccess, setIsAddedSuccess] = useState<boolean>(false);
 
   // Toggle single option
@@ -507,6 +504,42 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               </div>
             </div>
           )}
+
+          {/* Special Instructions / Order Note */}
+          <div style={{ marginBottom: 24 }}>
+            <label
+              htmlFor="special-note"
+              style={{
+                display: 'block',
+                fontFamily: 'Fredoka, sans-serif',
+                fontWeight: 600,
+                fontSize: 16,
+                color: '#16100D',
+                marginBottom: 8,
+              }}
+            >
+              Ghi chú cho bếp (tùy chọn)
+            </label>
+            <textarea
+              id="special-note"
+              rows={2}
+              value={specialNote}
+              onChange={(e) => setSpecialNote(e.target.value)}
+              placeholder="Ví dụ: Gà chiên giòn kỹ, sốt để riêng, không lấy tương ớt..."
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: 16,
+                border: '1px solid #E8E2D9',
+                backgroundColor: '#FFFFFF',
+                fontFamily: 'Quicksand, sans-serif',
+                fontSize: 14,
+                color: '#16100D',
+                outline: 'none',
+                resize: 'none',
+              }}
+            />
+          </div>
 
           {/* Stepper & Dynamic Price Row */}
           <div

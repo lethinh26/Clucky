@@ -3,7 +3,6 @@ import {
   Button,
   Space,
   Tag,
-  Switch,
   Tooltip,
   Form,
   Input,
@@ -24,14 +23,15 @@ import {
   UserOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
-  CloseCircleOutlined,
 } from '@ant-design/icons';
 import { AdminTable } from '../../components/ui/AdminTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AdminModal } from '../../components/ui/AdminModal';
+import { useAuth } from '../../context/AuthContext';
 import { Store, mockStores, mockManagers } from '../../mocks/catalogData';
 
 export const StoresPage: React.FC = () => {
+  const { user, isAdmin } = useAuth();
   const [stores, setStores] = useState<Store[]>(mockStores);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -39,8 +39,16 @@ export const StoresPage: React.FC = () => {
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [form] = Form.useForm();
 
+  // Role-based store isolation: Store Manager only sees their assigned branch
+  const scopedStores = useMemo(() => {
+    if (isAdmin) return stores;
+    return stores.filter(
+      (s) => s.id === user.storeId || s.name.toLowerCase().includes(user.storeName?.toLowerCase() || 'lê lợi')
+    );
+  }, [stores, isAdmin, user.storeId, user.storeName]);
+
   const filteredStores = useMemo(() => {
-    return stores.filter((s) => {
+    return scopedStores.filter((s) => {
       const matchStatus = statusFilter === 'ALL' ? true : s.status === statusFilter;
       const matchSearch =
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,7 +57,7 @@ export const StoresPage: React.FC = () => {
         s.phone.includes(searchTerm);
       return matchStatus && matchSearch;
     });
-  }, [stores, statusFilter, searchTerm]);
+  }, [scopedStores, statusFilter, searchTerm]);
 
   const handleOpenCreateModal = () => {
     setEditingStore(null);
@@ -282,22 +290,24 @@ export const StoresPage: React.FC = () => {
           </p>
         </div>
 
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleOpenCreateModal}
-          style={{
-            backgroundColor: '#8F1216',
-            borderColor: '#8F1216',
-            borderRadius: 999,
-            height: 42,
-            padding: '0 24px',
-            fontWeight: 700,
-            fontFamily: 'Quicksand, sans-serif',
-          }}
-        >
-          Thêm chi nhánh mới
-        </Button>
+        {isAdmin && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleOpenCreateModal}
+            style={{
+              backgroundColor: '#8F1216',
+              borderColor: '#8F1216',
+              borderRadius: 999,
+              height: 42,
+              padding: '0 24px',
+              fontWeight: 700,
+              fontFamily: 'Quicksand, sans-serif',
+            }}
+          >
+            Thêm chi nhánh mới
+          </Button>
+        )}
       </div>
 
       {/* Admin Table */}

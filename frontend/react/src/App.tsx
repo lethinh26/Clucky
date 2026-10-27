@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AdminLayout } from './layouts/AdminLayout';
 import Dashboard from './pages/Dashboard';
 import { CatalogPage } from './pages/Catalog';
@@ -55,10 +56,38 @@ export const App: React.FC = () => {
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
-                <Route path="catalog" element={<CatalogPage />} />
-                <Route path="stores" element={<StoresPage />} />
-                <Route path="inventory" element={<StaffInventoryPage />} />
-                <Route path="orders" element={<OrdersPage />} />
+                <Route
+                  path="catalog"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                      <CatalogPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="stores"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER']}>
+                      <StoresPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="inventory"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
+                      <StaffInventoryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="orders"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
+                      <OrdersPage />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
               </Route>
             </Routes>

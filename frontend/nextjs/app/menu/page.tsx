@@ -11,7 +11,6 @@ import { products, categories, type Product } from '@/lib/products';
 import {
   Search,
   X,
-  Filter,
   Flame,
   ArrowUpDown,
   UtensilsCrossed,
