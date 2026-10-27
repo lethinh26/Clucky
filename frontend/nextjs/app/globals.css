@@ -57,9 +57,33 @@ button, input, select, textarea {
   font-family: 'Quicksand', sans-serif;
 }
 
-button:focus-visible, a:focus-visible, input:focus-visible {
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
   outline: 3px solid rgba(143, 18, 22, 0.24);
   outline-offset: 3px;
+}
+
+select option {
+  background: var(--paper);
+  color: var(--espresso);
+  font-family: 'Quicksand', sans-serif;
+}
+
+select option:checked,
+select option:hover {
+  background: var(--wine) !important;
+  color: var(--cream) !important;
+}
+
+.clucky-select-item[data-highlighted] {
+  background: var(--wine);
+  color: var(--cream);
+}
+
+.clucky-select-item[data-selected]::after {
+  content: '✓';
+  margin-left: 10px;
+  color: var(--gold);
+  font-weight: 700;
 }
 
 /* Header & Navigation */

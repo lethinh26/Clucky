@@ -7,6 +7,7 @@ import { CustomerHeader } from '@/components/customer-header';
 import { CustomerFooter } from '@/components/customer-footer';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
+import { StyledSelect } from '@/components/styled-select';
 import { products, categories, type Product } from '@/lib/products';
 import {
   Search,
@@ -198,50 +199,32 @@ function MenuContent() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#6B6259' }}>
               <Flame size={16} className="text-[#8F1216]" />
               <span>Độ cay:</span>
-              <select
+              <StyledSelect
                 value={spicyFilter}
-                onChange={(e) => setSpicyFilter(e.target.value as any)}
-                style={{
-                  height: 38,
-                  padding: '0 12px',
-                  borderRadius: 999,
-                  border: '1px solid #E8E2D9',
-                  backgroundColor: '#FFFFFF',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: '#16100D',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="ALL">Tất cả mức cay</option>
-                <option value="0">Không cay</option>
-                <option value="1">Cay vừa (Tiêu chuẩn)</option>
-                <option value="2">Siêu cay</option>
-              </select>
+                onChange={(v) => setSpicyFilter(v as any)}
+                ariaLabel="Lọc theo độ cay"
+                options={[
+                  { value: 'ALL', label: 'Tất cả mức cay' },
+                  { value: '0', label: 'Không cay' },
+                  { value: '1', label: 'Cay vừa (Tiêu chuẩn)' },
+                  { value: '2', label: 'Siêu cay' },
+                ]}
+              />
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#6B6259' }}>
               <ArrowUpDown size={16} className="text-[#8F1216]" />
               <span>Sắp xếp:</span>
-              <select
+              <StyledSelect
                 value={sortOption}
-                onChange={(e) => setSortOption(e.target.value as any)}
-                style={{
-                  height: 38,
-                  padding: '0 12px',
-                  borderRadius: 999,
-                  border: '1px solid #E8E2D9',
-                  backgroundColor: '#FFFFFF',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: '#16100D',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="POPULAR">Bán chạy nhất</option>
-                <option value="PRICE_ASC">Giá tăng dần</option>
-                <option value="PRICE_DESC">Giá giảm dần</option>
-              </select>
+                onChange={(v) => setSortOption(v as any)}
+                ariaLabel="Sắp xếp món ăn"
+                options={[
+                  { value: 'POPULAR', label: 'Bán chạy nhất' },
+                  { value: 'PRICE_ASC', label: 'Giá tăng dần' },
+                  { value: 'PRICE_DESC', label: 'Giá giảm dần' },
+                ]}
+              />
             </div>
           </div>
         </div>
