@@ -118,7 +118,7 @@ Quy ước: Mỗi yêu cầu có mã FR-<NHÓM>-<SỐ>, độ ưu tiên: Cao (MV
 ## 3.2. Nhóm CUSTOMER — Khách hàng
 | Mã | Chức năng | Mô tả | Ưu tiên |
 |---|---|---|---|
-| FR-CUS-01 | Đăng ký tài khoản | Đăng ký bằng email/SĐT + mật khẩu, xác thực OTP | Cao |
+| FR-CUS-01 | Đăng ký tài khoản | Đăng ký bằng email + mật khẩu (xác thực OTP) hoặc đăng nhập Google qua Firebase Authentication — sau khi Google xác thực, user nhập mật khẩu để có thể đăng nhập cả hai cách; không yêu cầu SĐT ở bước đăng ký | Cao |
 | FR-CUS-02 | Đăng nhập / đăng xuất | JWT access token + refresh token | Cao |
 | FR-CUS-03 | Quên mật khẩu | Đặt lại mật khẩu qua OTP email | Cao |
 | FR-CUS-04 | Hồ sơ & sổ địa chỉ | Sửa thông tin cá nhân, thêm/sửa/xóa địa chỉ, đặt địa chỉ mặc định | Cao |
@@ -234,7 +234,7 @@ Email transactional MVP gồm OTP đăng ký/quên mật khẩu, xác nhận đ�
 | NFR-01 | Hiệu năng | API xem menu/checkout phản hồi < 500 ms ở điều kiện tải đồ án (cache Redis cho menu). Trang khách tải đầu tiên < 3 giây trên 4G |
 | NFR-02 | Khả năng mở rộng | Mỗi microservice scale độc lập bằng cách tăng instance sau Gateway; Kafka tách luồng giao dịch khỏi thông báo/báo cáo |
 | NFR-03 | Tính sẵn sàng | Hệ thống chạy bằng Docker Compose với restart policy; service lỗi được tự khởi động lại; thanh toán có cơ chế đối soát thủ công khi webhook lỗi |
-| NFR-04 | Bảo mật | Mật khẩu băm BCrypt; JWT ngắn hạn + refresh token; RBAC kiểm tra ở Gateway và từng service (@PreAuthorize); Staff/Manager bị ép phạm vi storeId ở backend; webhook thanh toán phải kiểm tra chữ ký/IP whitelist của SePay/Casso; chống SQL injection (JPA), XSS, CSRF theo chuẩn Spring Security |
+| NFR-04 | Bảo mật | Mật khẩu băm BCrypt; JWT ngắn hạn + refresh token; Google login verify Firebase ID token bằng Firebase Admin SDK (chữ ký + `aud` + `iss` + `email_verified`); RBAC kiểm tra ở Gateway và từng service (@PreAuthorize); Staff/Manager bị ép phạm vi storeId ở backend; webhook thanh toán phải kiểm tra chữ ký/IP whitelist của SePay/Casso; chống SQL injection (JPA), XSS, CSRF theo chuẩn Spring Security |
 | NFR-05 | Toàn vẹn giao dịch | Tạo đơn dùng mẫu Saga qua sự kiện Kafka + trạng thái thanh toán rõ ràng; không trừ điểm/trừ lượt voucher khi đơn chưa tạo thành công; idempotency key cho webhook thanh toán (một giao dịch ngân hàng chỉ xử lý một lần) |
 | NFR-06 | Khả dụng (Usability) | Mobile-first, tiếng Việt toàn bộ giao diện, font Be Vietnam Pro dễ đọc; thao tác đặt hàng tối đa 4 bước chính |
 | NFR-07 | Tương thích | Chạy trên Chrome/Edge/Firefox/Safari bản mới, responsive từ 360 px đến desktop |

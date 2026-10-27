@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import { CustomerFooter } from '@/components/customer-footer';
+import { CustomerHeader } from '@/components/customer-header';
+
+export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) { const { id } = await params; return <><CustomerHeader /><main className="order-page"><div className="order-heading"><span className="eyebrow">Order {id}</span><h1>Đơn đang được chuẩn bị.</h1><p>Cửa hàng đã nhận đơn và đang làm món thật nóng cho bạn.</p></div><section className="timeline"><div className="timeline-step done"><span>✓</span><div><strong>Đã đặt hàng</strong><small>Đơn hàng đã được ghi nhận</small></div></div><div className="timeline-step current"><span>2</span><div><strong>Đang chuẩn bị</strong><small>Món ăn đang được làm mới</small></div></div><div className="timeline-step"><span>3</span><div><strong>Đang giao</strong><small>Tài xế sẽ sớm nhận món</small></div></div><div className="timeline-step"><span>4</span><div><strong>Đã giao</strong><small>Thưởng thức thật ngon</small></div></div></section><Link className="back-link" href="/menu">←&nbsp; Tiếp tục chọn món</Link></main><CustomerFooter /></>; }

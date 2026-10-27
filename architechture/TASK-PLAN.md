@@ -17,11 +17,11 @@ Nguyên tắc: **ai làm màn hình của domain nào thì làm luôn backend c�
 | **M1 — Trần Nguyễn Hữu Khánh** | **Identity & Auth** | Customer: Login, Register, OTP, Forgot/Reset, Profile, Address book · Admin: Login, Users mgmt | `identity-service` + `config-server` app + `security/` (JWT filter, RBAC, storeId) | ~12 ngày | ~45 |
 | **M2 — Nguyễn Duy Quang Nhật** | **Catalog & Store** | Customer: Home, Menu, ProductDetail, Store list · Admin: Catalog (product/category/combo form), Stores, Inventory | `catalog-store-service` + `discovery-server` app | ~12 ngày | ~50 |
 | **M3 — Trần Đức Anh** | **Cart & Order** | Customer: Cart, Checkout, Orders, Order tracking, Party order · Admin: Orders mgmt, Staff orders, Refund modal | `cart-order-service` + `api-gateway` app | ~12 ngày | ~50 |
-| **M4 — Lê Phú Thịnh** | **BE + FE** | **Payment & Shipping** | Customer: QR thanh toán, trạng thái thanh toán, phí ship, shipment info · Admin: Payments, Webhook log, Bank config, Manual confirm, Refund | `payment-service` + `shipping-service` + `common/` shared lib | ~12 ngày | **60 SP** |
+| **M4 — Lê Phú Thịnh** | **BE + FE** | **Payment & Shipping + Google OAuth (Firebase)** | Customer: QR thanh toán, trạng thái thanh toán, phí ship, shipment info, nút Đăng nhập Google + màn nhập mật khẩu sau Google · Admin: Payments, Webhook log, Bank config, Manual confirm, Refund | `payment-service` + `shipping-service` + `common/` shared lib + Firebase Admin integration trong `identity-service` (cross-domain theo contract với M1) | ~12 ngày | **78 SP** |
 | **M5 — Cao Tất Thành** | **Promotion & Notification** | Customer: Vouchers, Loyalty, Notification list · Admin: Promotions (voucher CRUD/approve), Banners, Notification list | `promotion-loyalty-service` + `notification-service` | ~10 ngày | ~40 |
 | **M6 — Mai Sơn Việt ** | **Review & Report + DevOps** | Customer: Review form/list trong product & order · Admin: Dashboard, Reports, Reviews, Audit log | `review-report-service` + `infrastructure/` (Docker Compose, backup, deploy, CI) | ~10 ngày | ~40 |
 
-**Tổng: 207 task hiện tại; Mail Sender được gộp trong Notification Service.** ~275 SP trên 60 man-days.
+**Tổng: 212 task hiện tại; Mail Sender được gộp trong Notification Service.** ~293 SP trên 60 man-days.
 
 **Thang Story Point** — chỉ dùng số nguyên tố:
 
@@ -101,6 +101,7 @@ Mỗi thành viên làm UI của domain mình; backend owner không đứng ngo�
 | UI-30 | Staff Orders: đơn hôm nay, status buttons, COD confirm | M3 — Trần Đức Anh | `react/pages/Staff/Orders` |
 | UI-31 | Staff Inventory: tồn kho, cảnh báo sắp hết, update | M2 — Nguyễn Duy Quang Nhật | `react/pages/Staff/Inventory` |
 | UI-32 | Notification list cả 2 app: badge, mark-read, type icon | M5 — Cao Tất Thành | notification component |
+| UI-49 | Nút "Đăng nhập bằng Google" + màn nhập mật khẩu sau khi Google xác thực (customer app only) | M4 — Lê Phú Thịnh | `app/login`, `components/auth/GoogleButton`, `components/auth/GoogleCompletePassword` |
 
 ### 🗓 NGÀY 3 — Giao diện (polish + freeze)
 
@@ -215,6 +216,7 @@ Mỗi thành viên làm UI của domain mình; backend owner không đứng ngo�
 
 | BE-74 | Cloudinary failure handling, cleanup and idempotency | M2 — Nguyễn Duy Quang Nhật+M6 — Mai Sơn Việt | Media failure policy |
 | BE-75 | Media URL/public_id response DTO and secret masking | M4 — Lê Phú Thịnh | Shared media DTO |
+| BE-76 | Google OAuth qua Firebase: migration `firebase_uid`+`password_hash` nullable, Firebase Admin verify ID token, `POST /api/auth/google` + `/google/complete`, rule `EMAIL_EXISTS` khi register trùng email Google | M4 — Lê Phú Thịnh | `POST /api/auth/google`, `/google/complete`, `identity-db` migration |
 
 ### 🗓 NGÀY 7 — Tích hợp: Kafka + cross-service
 
@@ -283,6 +285,7 @@ Mỗi thành viên làm UI của domain mình; backend owner không đứng ngo�
 
 | INT-72 | Customer/Admin image upload preview, progress and failure UI | M1 — Trần Nguyễn Hữu Khánh+M2 — Nguyễn Duy Quang Nhật+M5 — Cao Tất Thành | Media upload UX |
 | INT-73 | Admin product/combo/banner media management UI | M2 — Nguyễn Duy Quang Nhật+M5 — Cao Tất Thành | Media admin UI |
+| INT-74 | Google login E2E: popup → ID token → JWT; link tài khoản email đã tồn tại; complete-password flow | M4 — Lê Phú Thịnh+M1 — Trần Nguyễn Hữu Khánh | Google auth E2E |
 
 ### 🗓 NGÀY 9 — Test + fix
 
@@ -318,6 +321,7 @@ Mỗi thành viên làm UI của domain mình; backend owner không đứng ngo�
 | TEST-26 | Invalid MIME/oversize upload rejected | M2 — Nguyễn Duy Quang Nhật | Media validation test |
 | TEST-27 | Cloudinary outage does not corrupt product/banner/avatar transaction | M2 — Nguyễn Duy Quang Nhật+M6 — Mai Sơn Việt | Failure isolation test |
 | TEST-28 | API secret absent from frontend, response and logs | M1 — Trần Nguyễn Hữu Khánh+M6 — Mai Sơn Việt | Media security test |
+| TEST-29 | Google auth: register email trùng tài khoản Google → 409; `firebase_uid` unique; `pendingToken` hết hạn; login bằng cả email+password sau complete | M4 — Lê Phú Thịnh | Google auth test |
 
 ### 🗓 NGÀY 10 — Deploy + bàn giao
 
@@ -347,6 +351,7 @@ Mỗi thành viên làm UI của domain mình; backend owner không đứng ngo�
 
 | DEP-21 | Cloudinary `.env` and Config Server setup runbook | M6 — Mai Sơn Việt | Media runbook |
 | DEP-22 | Media backup/cleanup verification and production smoke test | M6 — Mai Sơn Việt | Media deployment evidence |
+| DEP-23 | Firebase env + runbook: tạo Firebase project, enable Google provider, `FIREBASE_*` vào `.env.example` + Config Server | M4 — Lê Phú Thịnh | Firebase runbook |
 
 ---
 
@@ -364,9 +369,9 @@ Mỗi thành viên làm UI của domain mình; backend owner không đứng ngo�
 - **FE:** Cart/Checkout/Orders/Tracking/Party (customer) + Orders/Staff/Refund (admin)
 - **BE:** cart-order-service (cart Redis, orders, saga, refund, party) + api-gateway app
 
-### M4 — Lê Phú Thịnh — Payment & Shipping
-- **FE:** QR VietQR + phí ship/shipment info (customer) + Payments/Webhook/Bank config (admin)
-- **BE:** payment-service (VietQR, SePay/Casso, COD, refund, reconcile) + shipping-service (fee, shipment) + common shared lib
+### M4 — Lê Phú Thịnh — Payment & Shipping + Google OAuth
+- **FE:** QR VietQR + phí ship/shipment info + nút Đăng nhập Google + màn nhập mật khẩu sau Google (customer) + Payments/Webhook/Bank config (admin)
+- **BE:** payment-service (VietQR, SePay/Casso, COD, refund, reconcile) + shipping-service (fee, shipment) + common shared lib + Firebase Admin verify + `POST /api/auth/google` + `/google/complete` trong identity-service (cross-domain với M1)
 
 ### M5 — Cao Tất Thành — Promotion & Notification
 - **FE:** Vouchers/Loyalty/Notifications (customer) + Promotions/Banners (admin)
@@ -434,3 +439,14 @@ Email failure ghi `email_logs` và retry hữu hạn; không rollback order/paym
 ## MAIL SENDER — Notification Service
 
 Mail Sender không tạo service riêng. Notification Service gửi email transactional bằng Gmail SMTP STARTTLS (`smtp.gmail.com:587`) với Gmail App Password từ Config Server/environment. Biến: `MAIL_SENDER_ENABLED`, `MAIL_SENDER_HOST`, `MAIL_SENDER_PORT`, `MAIL_SENDER_USERNAME`, `MAIL_SENDER_APP_PASSWORD`, `MAIL_SENDER_FROM_NAME`, `MAIL_SENDER_TIMEOUT_MS`, `MAIL_SENDER_MAX_RETRIES`. App Password không lưu DB/log/Git; email lỗi ghi `email_logs`, retry hữu hạn và không rollback order/payment.
+
+
+## GOOGLE OAUTH — quyết định bổ sung
+
+Customer đăng nhập bằng Google qua Firebase Authentication; chỉ customer app, admin/staff/manager vẫn dùng tài khoản được cấp. Frontend dùng Firebase JS SDK `signInWithPopup(GoogleAuthProvider)` → gửi Firebase ID token lên `POST /api/auth/google`; Identity Service verify bằng Firebase Admin SDK (chữ ký + `aud` + `iss` + `email_verified`), không dùng Firebase làm user store — PostgreSQL `users` là source of truth, `firebase_uid` chỉ là ánh xạ 1-chiều.
+
+- `users` thêm `firebase_uid` (unique, nullable); `password_hash` + `phone` chuyển nullable (migration mới, không sửa V1).
+- User Google mới → `POST /api/auth/google` trả `{status: "REQUIRES_PASSWORD", pendingToken}` (Redis TTL 10 phút); `POST /api/auth/google/complete` nhận `pendingToken` + `password` → tạo CUSTOMER ACTIVE, bỏ OTP vì Google đã verify email → trả JWT. Sau đó login được cả Google và email+password.
+- Email đã tồn tại (đăng ký thường trước) → link `firebase_uid`, trả JWT, không hỏi lại mật khẩu.
+- Đăng ký Google xong rồi thì `POST /api/auth/register` cùng email → `EMAIL_EXISTS` 409 (không được đăng ký lại bằng email).
+- `FIREBASE_SERVICE_ACCOUNT_JSON` qua env/Config Server; không lưu DB/log/Git.

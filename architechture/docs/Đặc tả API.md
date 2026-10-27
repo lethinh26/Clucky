@@ -22,6 +22,8 @@ Quy ước chung:
 | POST /api/auth/logout | CUS/STF/MGR/ADM | Đăng xuất, thu hồi refresh token |
 | POST /api/auth/forgot-password | PUB | Gửi OTP đặt lại mật khẩu |
 | POST /api/auth/reset-password | PUB | Đặt lại mật khẩu bằng OTP |
+| POST /api/auth/google | PUB | Đăng nhập Google bằng Firebase ID token — trả JWT nếu user đã tồn tại/link được, hoặc `{status: "REQUIRES_PASSWORD", pendingToken}` nếu là user mới |
+| POST /api/auth/google/complete | PUB | Hoàn tất đăng ký Google: `pendingToken` + `password` → tạo user CUSTOMER (bỏ OTP vì Google đã verify email), trả JWT |
 | GET/PUT /api/users/me | Đã đăng nhập | Xem/cập nhật hồ sơ cá nhân |
 | GET/POST/PUT/DELETE /api/users/me/addresses | CUS | Quản lý sổ địa chỉ |
 | GET /api/users | ADM | Danh sách tài khoản toàn hệ thống (lọc theo role/store) |

@@ -10,7 +10,7 @@ Kiểu dữ liệu quy ước: khóa chính `id` kiểu BIGINT (identity) hoặc
 # 1. IDENTITY SERVICE — identity_db
 | Bảng | Cột chính | Mô tả |
 |---|---|---|
-| users | id, email (unique), phone (unique), password_hash, full_name, avatar_url, avatar_public_id, role (CUSTOMER/STAFF/STORE_MANAGER/ADMIN/SHIPPER), store_id (nullable, với STAFF/MANAGER/SHIPPER), status (ACTIVE/LOCKED), created_at, updated_at | Tài khoản mọi role; store_id là căn cứ ép phạm vi dữ liệu |
+| users | id, email (unique), phone (unique, nullable), password_hash (nullable — user đăng ký Google có thể chưa set), firebase_uid (unique, nullable), full_name, avatar_url, avatar_public_id, role (CUSTOMER/STAFF/STORE_MANAGER/ADMIN/SHIPPER), store_id (nullable, với STAFF/MANAGER/SHIPPER), status (ACTIVE/LOCKED), created_at, updated_at | Tài khoản mọi role; store_id là căn cứ ép phạm vi dữ liệu; `firebase_uid` ánh xạ 1-chiều Firebase → user (PostgreSQL là source of truth, Firebase chỉ verify Google identity) |
 | addresses | id, user_id, receiver_name, phone, province, district, ward, detail, is_default | Sổ địa chỉ của khách |
 | refresh_tokens | id, user_id, token_hash, expires_at, revoked | Quản lý refresh token |
 | otp_codes | id, identifier (email/phone), code_hash, purpose (REGISTER/RESET), expires_at, used | Hoặc lưu Redis thay cho bảng này |

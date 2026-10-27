@@ -72,6 +72,7 @@ Xử lý lỗi Kafka: consumer idempotent theo event-id; dùng Dead Letter Topic
 | cart:{userId} / cart:guest:{sessionId} | Giỏ hàng | 7 ngày / 24 giờ |
 | menu:store:{storeId} | Cache menu theo chi nhánh | 5-15 phút, xóa khi Admin/Staff đổi tình trạng món |
 | otp:{emailOrPhone} | Mã OTP đăng ký/quên mật khẩu | 5 phút |
+| auth:google:pending:{token} | `pendingToken` đăng ký Google (uid + email + name chờ nhập password) | 10 phút |
 | payment:pending:{orderCode} | Trạng thái chờ thanh toán | Bằng thời hạn QR (ví dụ 15 phút) |
 | rate-limit:{ip/user} | Giới hạn request | Theo cửa sổ cấu hình |
 

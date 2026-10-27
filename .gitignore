@@ -1,0 +1,47 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.next/
+out/
+dist/
+build/
+coverage/
+
+# Java / Gradle
+.gradle/
+**/build/
+*.class
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local logs and runtime data
+*.log
+*.tmp
+
+# Local architecture automation artifacts
+/architechture/_lark*.py
+/architechture/_lark*.json
+/architechture/_lark*.txt
+
+# TypeScript build info
+*.tsbuildinfo
