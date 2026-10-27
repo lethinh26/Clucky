@@ -18,7 +18,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, ch
         <Result
           status="403"
           title={
-            <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 32, color: '#16100D' }}>
+            <span style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 32, color: '#16100D' }}>
               403 — Không có quyền truy cập
             </span>
           }

@@ -447,7 +447,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               <p className="ant-upload-drag-icon">
                 <InboxOutlined style={{ color: '#8F1216', fontSize: 36 }} />
               </p>
-              <p style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 16, color: '#16100D', margin: 0 }}>
+              <p style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 16, color: '#16100D', margin: 0 }}>
                 Kéo thả ảnh món ăn vào đây hoặc nhấp để chọn tệp
               </p>
               <p style={{ fontFamily: 'Quicksand, sans-serif', fontSize: 12, color: '#6B6259', margin: '4px 0 0' }}>

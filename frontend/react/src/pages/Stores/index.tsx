@@ -144,7 +144,7 @@ export const StoresPage: React.FC = () => {
         <div>
           <div
             style={{
-              fontFamily: 'Fredoka, sans-serif',
+              fontFamily: 'Baloo 2, sans-serif',
               fontWeight: 600,
               fontSize: 16,
               color: '#16100D',
@@ -269,7 +269,7 @@ export const StoresPage: React.FC = () => {
         <div>
           <h1
             style={{
-              fontFamily: 'Fredoka, sans-serif',
+              fontFamily: 'Baloo 2, sans-serif',
               fontWeight: 700,
               fontSize: 28,
               color: '#16100D',

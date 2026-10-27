@@ -196,7 +196,7 @@ export const AdminLayout: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span
                 style={{
-                  fontFamily: 'Fredoka, sans-serif',
+                  fontFamily: 'Baloo 2, sans-serif',
                   fontWeight: 700,
                   fontSize: 22,
                   color: '#FFFAF3',
@@ -275,7 +275,7 @@ export const AdminLayout: React.FC = () => {
             </div>
             <div
               style={{
-                fontFamily: 'Fredoka, sans-serif',
+                fontFamily: 'Baloo 2, sans-serif',
                 color: '#C9A227',
                 fontWeight: 600,
                 fontSize: 13,
@@ -396,7 +396,7 @@ export const AdminLayout: React.FC = () => {
                   size={34}
                   style={{
                     backgroundColor: '#8F1216',
-                    fontFamily: 'Fredoka, sans-serif',
+                    fontFamily: 'Baloo 2, sans-serif',
                     fontWeight: 700,
                     color: '#FFFAF3',
                   }}

@@ -174,7 +174,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   left: 20,
                   background: 'linear-gradient(135deg, #E5C358, #C9A227)',
                   color: '#16100D',
-                  fontFamily: 'Fredoka, sans-serif',
+                  fontFamily: 'Baloo 2, sans-serif',
                   fontWeight: 700,
                   fontSize: 13,
                   letterSpacing: '0.08em',
@@ -229,7 +229,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               <strong
                 style={{
                   display: 'block',
-                  fontFamily: 'Fredoka, sans-serif',
+                  fontFamily: 'Baloo 2, sans-serif',
                   fontSize: 16,
                   color: '#16100D',
                 }}
@@ -251,7 +251,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               <strong
                 style={{
                   display: 'block',
-                  fontFamily: 'Fredoka, sans-serif',
+                  fontFamily: 'Baloo 2, sans-serif',
                   fontSize: 16,
                   color: '#16100D',
                 }}
@@ -273,7 +273,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               <strong
                 style={{
                   display: 'block',
-                  fontFamily: 'Fredoka, sans-serif',
+                  fontFamily: 'Baloo 2, sans-serif',
                   fontSize: 16,
                   color: '#16100D',
                 }}
@@ -309,7 +309,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
           <h1
             style={{
-              fontFamily: 'Fredoka, sans-serif',
+              fontFamily: 'Baloo 2, sans-serif',
               fontWeight: 700,
               fontSize: 'clamp(32px, 4vw, 44px)',
               lineHeight: 1.1,
@@ -376,7 +376,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               >
                 <span
                   style={{
-                    fontFamily: 'Fredoka, sans-serif',
+                    fontFamily: 'Baloo 2, sans-serif',
                     fontWeight: 600,
                     fontSize: 16,
                     color: '#16100D',
@@ -440,7 +440,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               >
                 <span
                   style={{
-                    fontFamily: 'Fredoka, sans-serif',
+                    fontFamily: 'Baloo 2, sans-serif',
                     fontWeight: 600,
                     fontSize: 16,
                     color: '#16100D',
@@ -511,7 +511,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               htmlFor="special-note"
               style={{
                 display: 'block',
-                fontFamily: 'Fredoka, sans-serif',
+                fontFamily: 'Baloo 2, sans-serif',
                 fontWeight: 600,
                 fontSize: 16,
                 color: '#16100D',
@@ -608,7 +608,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   </button>
                   <strong
                     style={{
-                      fontFamily: 'Fredoka, sans-serif',
+                      fontFamily: 'Baloo 2, sans-serif',
                       fontSize: 18,
                       minWidth: 28,
                       textAlign: 'center',
@@ -655,7 +655,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 </span>
                 <div
                   style={{
-                    fontFamily: 'Fredoka, sans-serif',
+                    fontFamily: 'Baloo 2, sans-serif',
                     fontSize: 32,
                     fontWeight: 700,
                     color: '#8F1216',
@@ -722,7 +722,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           <span style={{ fontSize: 11, color: '#6B6259', fontWeight: 600 }}>TỔNG TIỀN</span>
           <div
             style={{
-              fontFamily: 'Fredoka, sans-serif',
+              fontFamily: 'Baloo 2, sans-serif',
               fontSize: 22,
               fontWeight: 700,
               color: '#8F1216',

@@ -6,7 +6,7 @@
 - **Slogan:** *Clucky - Crispy Outside, Happy Inside*
   - Dịch nghĩa: "Giòn tan bên ngoài, vui vẻ bên trong" — câu slogan dùng nguyên văn tiếng Anh trên các ấn phẩm, tiêu đề trang và banner chính.
 - **Lĩnh vực:** Chuỗi cửa hàng gà rán / thức ăn nhanh bán trực tuyến.
-- **Tính cách thương hiệu:** Cao cấp như nhà hàng nhưng vẫn gần gũi, vui vẻ và dễ thương — thể hiện qua cặp font bo tròn (Fredoka/Quicksand) trên nền bảng màu sẫm sang trọng. Tránh cảm giác rẻ tiền, tránh lòe loẹt trẻ con kiểu đồ chơi.
+- **Tính cách thương hiệu:** Cao cấp như nhà hàng nhưng vẫn gần gũi, vui vẻ và dễ thương — thể hiện qua cặp font bo tròn (Baloo 2/Quicksand) trên nền bảng màu sẫm sang trọng. Tránh cảm giác rẻ tiền, tránh lòe loẹt trẻ con kiểu đồ chơi.
 - **Đối tượng chính:** Khách hàng trẻ, gia đình, học sinh — sinh viên và dân văn phòng đặt món trực tuyến.
 
 ## 2. Logo
@@ -55,28 +55,28 @@
 ## 4. Typography (Phông chữ) — CHÍNH THỨC
 | Vai trò | Font | Đặc điểm & cách dùng |
 |---|---|---|
-| **Tựa đề (Headings)** | **Fredoka** — dùng weight Bold / SemiBold (bản mô tả gốc: "Fredoka (Black)") | Các góc chữ được bo tròn mềm mại, mang lại cảm giác gần gũi, vui vẻ và dễ thương. Dùng cho: logo wordmark, H1/H2, tên món nổi bật, số giá lớn, chữ trên banner. Không dùng Fredoka cho đoạn văn dài. |
+| **Tựa đề (Headings)** | **Baloo 2** — dùng weight Bold / SemiBold (bản mô tả gốc: "Baloo 2 (Black)") | Các góc chữ được bo tròn mềm mại, mang lại cảm giác gần gũi, vui vẻ và dễ thương. Dùng cho: logo wordmark, H1/H2, tên món nổi bật, số giá lớn, chữ trên banner. Không dùng Baloo 2 cho đoạn văn dài. |
 | **Văn bản (Body)** | **Quicksand** — Regular / Medium / Bold | Khoảng cách chữ rộng rãi, thoáng mắt, rất dễ đọc ở kích thước nhỏ như các đoạn mô tả thành phần món ăn. Dùng cho: toàn bộ nội dung, mô tả, nút bấm, form, bảng dữ liệu quản trị, thông báo. |
 
-- Cả hai font đều có trên Google Fonts, tải qua fontsource/webfont và khai báo dùng chung cho cả hai frontend: Customer (Next.js — khai báo trong `app/layout.tsx` bằng `next/font`) và trang quản trị (React — khai báo trong `index.html` / CSS global). Cấu hình dự phòng (fallback): `'Fredoka', 'Quicksand', system-ui, sans-serif`.
-- Lưu ý tiếng Việt: khi nhúng font phải chọn subset **vietnamese** trên Google Fonts để hiển thị đúng dấu tiếng Việt ở cả Fredoka và Quicksand.
-- Thang chữ gợi ý: H1 = 40-48 px Fredoka, H2 = 30-34 px Fredoka, H3 = 22-24 px Fredoka/Quicksand Bold, Body = 15-16 px Quicksand, Caption/metadata = 13 px Quicksand.
-- Slogan trên ấn phẩm luôn viết: **Clucky - Crispy Outside, Happy Inside** (Fredoka, có thể đặt dưới logo chính).
+- Cả hai font đều có trên Google Fonts, tải qua fontsource/webfont và khai báo dùng chung cho cả hai frontend: Customer (Next.js — khai báo trong `app/layout.tsx` bằng `next/font`) và trang quản trị (React — khai báo trong `index.html` / CSS global). Cấu hình dự phòng (fallback): `'Baloo 2', 'Quicksand', system-ui, sans-serif`.
+- Lưu ý tiếng Việt: khi nhúng font phải chọn subset **vietnamese** trên Google Fonts để hiển thị đúng dấu tiếng Việt ở cả Baloo 2 và Quicksand.
+- Thang chữ gợi ý: H1 = 40-48 px Baloo 2, H2 = 30-34 px Baloo 2, H3 = 22-24 px Baloo 2/Quicksand Bold, Body = 15-16 px Quicksand, Caption/metadata = 13 px Quicksand.
+- Slogan trên ấn phẩm luôn viết: **Clucky - Crispy Outside, Happy Inside** (Baloo 2, có thể đặt dưới logo chính).
 
 ## 5. Phong cách giao diện (UI Style)
 - Hai mảng nền chính: Kem `#F5EDE0` cho các section sáng và Espresso `#16100D` cho các khối tạo điểm nhấn (hero, footer, banner lớn) — theo đúng tỉ lệ Mục 3.
-- Thẻ món (card): nền trắng/Kem, bo góc lớn 16-20 px (đồng bộ với tinh thần bo tròn của Fredoka), viền mảnh vàng đồng hoặc không viền + bóng đổ rất nhẹ; ảnh món lớn phía trên; tên món Fredoka; mô tả Quicksand; giá Đỏ rượu đậm; nút thêm món nền Đỏ rượu, chữ trắng.
+- Thẻ món (card): nền trắng/Kem, bo góc lớn 16-20 px (đồng bộ với tinh thần bo tròn của Baloo 2), viền mảnh vàng đồng hoặc không viền + bóng đổ rất nhẹ; ảnh món lớn phía trên; tên món Baloo 2; mô tả Quicksand; giá Đỏ rượu đậm; nút thêm món nền Đỏ rượu, chữ trắng.
 - Nút bấm: bo góc dạng pill hoặc bo 12-14 px, chữ Quicksand Bold; nút chính = Đỏ rượu, nút phụ = viền Espresso trên nền trong suốt/Kem, nút nhấn đặc biệt (khuyến mãi) = Vàng đồng chữ Espresso.
 - Badge/sticker khuyến mãi: nền Vàng đồng, chữ Espresso, bo tròn, có thể xoay nhẹ -3° đến -6° cho cảm giác vui vẻ nhưng không lạm dụng.
 - Ảnh món ăn: chụp nền tối Espresso hoặc nền Kem, ánh sáng ấm, món ăn (gà vàng giòn) là trung tâm và chiếm tỉ lệ lớn; tránh ảnh nền trắng lạnh kiểu stock công nghiệp.
 - Icon: nét bo tròn, độ dày nét đều, màu Espresso hoặc Đỏ rượu; tránh icon góc cạnh sắc nhọn.
 
 ## 6. Ứng dụng theo kênh
-- **Website Customer (Next.js):** áp dụng đầy đủ nhận diện: hero Espresso + chữ Fredoka Kem/Vàng đồng, section Kem, thẻ món như Mục 5, footer Espresso.
+- **Website Customer (Next.js):** áp dụng đầy đủ nhận diện: hero Espresso + chữ Baloo 2 Kem/Vàng đồng, section Kem, thẻ món như Mục 5, footer Espresso.
 - **Trang quản trị (React — Staff / Store Manager / Admin):** dùng cùng bảng màu và font nhưng tiết chế: nền Kem/trắng ấm là chính, Espresso cho sidebar/header, Đỏ rượu chỉ cho nút hành động chính và cảnh báo, Vàng đồng cho điểm nhấn trạng thái; ưu tiên mật độ thông tin và tốc độ thao tác.
 - **Bao bì:** hộp Kem, logo Primary sẫm, dải Đỏ rượu, chi tiết Vàng đồng; cốc/túi cùng hệ.
-- **Mạng xã hội:** template nền Espresso hoặc Kem, chữ Fredoka, ảnh món lớn, slogan đặt cố định ở chân bài.
-- **Tài liệu/báo cáo đồ án:** tiêu đề Fredoka (nếu nhúng được font) hoặc font thay thế gần nhất, màu tiêu đề Đỏ rượu `#8F1216`, điểm nhấn Vàng đồng.
+- **Mạng xã hội:** template nền Espresso hoặc Kem, chữ Baloo 2, ảnh món lớn, slogan đặt cố định ở chân bài.
+- **Tài liệu/báo cáo đồ án:** tiêu đề Baloo 2 (nếu nhúng được font) hoặc font thay thế gần nhất, màu tiêu đề Đỏ rượu `#8F1216`, điểm nhấn Vàng đồng.
 
 ## 7. Không làm (Don'ts)
 - Không phá tỉ lệ 65-25-10 (đặc biệt: không tăng Vàng đồng/Đỏ rượu thành nền chính diện rộng gây lòe, trẻ con).

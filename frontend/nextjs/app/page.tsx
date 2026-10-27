@@ -92,7 +92,7 @@ export default function Home() {
             <span
               style={{
                 color: '#8F1216',
-                fontFamily: 'Fredoka, sans-serif',
+                fontFamily: 'Baloo 2, sans-serif',
                 fontWeight: 600,
                 fontSize: 14,
                 letterSpacing: '0.12em',
@@ -103,7 +103,7 @@ export default function Home() {
             </span>
             <h2
               style={{
-                fontFamily: 'Fredoka, sans-serif',
+                fontFamily: 'Baloo 2, sans-serif',
                 fontWeight: 700,
                 fontSize: 'clamp(32px, 4vw, 46px)',
                 color: '#16100D',

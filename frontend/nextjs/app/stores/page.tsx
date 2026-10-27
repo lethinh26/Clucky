@@ -49,7 +49,7 @@ export default function StoresPage() {
           </span>
           <h1
             style={{
-              fontFamily: 'Fredoka, sans-serif',
+              fontFamily: 'Baloo 2, sans-serif',
               fontWeight: 700,
               fontSize: 'clamp(36px, 4.5vw, 54px)',
               color: '#16100D',
@@ -137,7 +137,7 @@ export default function StoresPage() {
                     border: `1px solid ${isActive ? '#8F1216' : '#E8E2D9'}`,
                     backgroundColor: isActive ? '#8F1216' : '#FFFFFF',
                     color: isActive ? '#FFFFFF' : '#16100D',
-                    fontFamily: 'Fredoka, sans-serif',
+                    fontFamily: 'Baloo 2, sans-serif',
                     fontWeight: 600,
                     fontSize: 14,
                     cursor: 'pointer',
@@ -190,7 +190,7 @@ export default function StoresPage() {
                       <div>
                         <h2
                           style={{
-                            fontFamily: 'Fredoka, sans-serif',
+                            fontFamily: 'Baloo 2, sans-serif',
                             fontWeight: 700,
                             fontSize: 20,
                             color: '#16100D',
@@ -337,7 +337,7 @@ export default function StoresPage() {
             </div>
             <h3
               style={{
-                fontFamily: 'Fredoka, sans-serif',
+                fontFamily: 'Baloo 2, sans-serif',
                 fontWeight: 700,
                 fontSize: 22,
                 color: '#16100D',

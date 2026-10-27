@@ -69,7 +69,7 @@ function MenuContent() {
         </span>
         <h1
           style={{
-            fontFamily: 'Fredoka, sans-serif',
+            fontFamily: 'Baloo 2, sans-serif',
             fontSize: 'clamp(36px, 4.5vw, 56px)',
             fontWeight: 700,
             color: '#16100D',
@@ -268,7 +268,7 @@ function MenuContent() {
                   border: `1px solid ${isActive ? '#8F1216' : '#E8E2D9'}`,
                   backgroundColor: isActive ? '#8F1216' : '#FFFFFF',
                   color: isActive ? '#FFFFFF' : '#16100D',
-                  fontFamily: 'Fredoka, sans-serif',
+                  fontFamily: 'Baloo 2, sans-serif',
                   fontWeight: 600,
                   fontSize: 14,
                   cursor: 'pointer',
@@ -328,7 +328,7 @@ function MenuContent() {
           </div>
           <h3
             style={{
-              fontFamily: 'Fredoka, sans-serif',
+              fontFamily: 'Baloo 2, sans-serif',
               fontWeight: 700,
               fontSize: 22,
               color: '#16100D',

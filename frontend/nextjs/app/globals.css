@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap&subset=vietnamese');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap&subset=vietnamese');
 @import 'tailwindcss';
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -45,7 +45,7 @@ body {
 }
 
 h1, h2, h3, h4, .font-heading, .brand, .price, .eyebrow {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
 }
 
 a {
@@ -76,7 +76,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: 28px;
   letter-spacing: -0.02em;
@@ -160,7 +160,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .eyebrow {
   color: var(--gold);
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   font-size: 14px;
   letter-spacing: 0.2em;
@@ -174,7 +174,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   gap: 0;
   max-width: 640px;
   margin: 8px 0 0;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: clamp(48px, 5.2vw, 74px);
   line-height: 1.05;
@@ -312,7 +312,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   font-size: 14px;
   color: var(--espresso);
@@ -404,7 +404,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   left: 14px;
   background: linear-gradient(135deg, #E5C358, #C9A227);
   color: #16100D;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -444,7 +444,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .product-card h2, .product-card h3 {
   margin: 6px 0 0;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   font-size: 20px;
   line-height: 1.25;
@@ -470,7 +470,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .price {
   color: var(--wine);
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: 20px;
 }
@@ -484,7 +484,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   background: var(--espresso);
   color: var(--cream);
   font-size: 22px;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   transition: all 0.2s;
   box-shadow: 0 4px 12px rgba(22, 16, 13, 0.15);
@@ -528,7 +528,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 }
 
 .promise-card h3 {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   font-size: 20px;
   margin: 0 0 8px;
