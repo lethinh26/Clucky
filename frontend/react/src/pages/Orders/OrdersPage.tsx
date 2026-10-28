@@ -1,87 +1,97 @@
-import React, { useState } from 'react';
-import { Table, Tabs, Input, Select, Button, Tag, Space, Typography, Badge, message } from 'antd';
-import type { TableColumnsType } from 'antd';
-import { SearchOutlined, EyeOutlined, ReloadOutlined, CarOutlined, ShopOutlined } from '@ant-design/icons';
-import { AdminOrder, AdminOrderStatus } from '../../types/order';
-import { MOCK_ADMIN_ORDERS } from '../../mocks/adminOrderData';
-import { OrderDetailDrawer } from './components/OrderDetailDrawer';
-import { RefundModal } from './components/RefundModal';
-import styles from './orders.module.css';
+import { mockStores } from "../../mocks/catalogData";
+import React, { useState } from "react";
+import {
+  Table,
+  Tabs,
+  Input,
+  Select,
+  Button,
+  Tag,
+  Space,
+  Typography,
+  Badge,
+  App as AntApp,
+} from "antd";
+import type { TableColumnsType } from "antd";
 
-const statusColors: Record<string, string> = {
-  CONFIRMED: 'blue',
-  PREPARING: 'orange',
-  READY: 'gold',
-  SHIPPING: 'cyan',
-  COMPLETED: 'green',
-  CANCELLED: 'red',
-};
-
-const statusLabels: Record<string, string> = {
-  PENDING_PAYMENT: 'Chờ thanh toán',
-  CONFIRMED: 'Đã xác nhận',
-  PREPARING: 'Đang nấu',
-  READY: 'Sẵn sàng giao',
-  SHIPPING: 'Đang giao',
-  COMPLETED: 'Hoàn thành',
-  CANCELLED: 'Đã hủy',
-};
+import { AdminOrder, AdminOrderStatus } from "../../types/order";
+import { useOrders } from "../../context/OrderContext";
+import { OrderStatusBadge } from "../../components/ui/OrderStatusBadge";
+import { useAuth } from "../../context/AuthContext";
+import {
+  OrderProgress,
+  orderStatusLabels as statusLabels,
+} from "../../components/ui/OrderProgress";
+import {
+  ShoppingBag,
+  ChefHat,
+  CircleCheck,
+  Undo2,
+  Search,
+  Eye,
+  SlidersHorizontal,
+  Truck,
+  Store,
+  CircleAlert,
+} from "lucide-react";
+import { OrderDetailDrawer } from "./components/OrderDetailDrawer";
+import { RefundModal } from "./components/RefundModal";
+import styles from "./orders.module.css";
 
 export const OrdersPage: React.FC = () => {
-  const [orders, setOrders] = useState<AdminOrder[]>(MOCK_ADMIN_ORDERS);
-  const [activeTab, setActiveTab] = useState<string>('ALL');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedStore, setSelectedStore] = useState<string>('ALL');
+  const { message } = AntApp.useApp();
+  const {
+    orders,
+    updateStatus,
+    reviewRefund,
+    storageError,
+    actionError,
+    loading,
+  } = useOrders();
+  const { isAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedStore, setSelectedStore] = useState<string>("ALL");
 
   // Drawer & Modal states
-  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const selectedOrder =
+    orders.find((order) => order.id === selectedOrderId) ?? null;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [orderForRefund, setOrderForRefund] = useState<AdminOrder | null>(null);
 
   const handleOpenDetail = (order: AdminOrder) => {
-    setSelectedOrder(order);
+    setSelectedOrderId(order.id);
     setDrawerOpen(true);
   };
 
-  const handleStatusChange = (orderId: string, newStatus: AdminOrderStatus) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    );
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+  const handleStatusChange = (
+    orderId: string,
+    newStatus: AdminOrderStatus,
+    reason?: string,
+  ) => {
+    if (!updateStatus(orderId, newStatus, reason)) {
+      message.warning(
+        "Chưa thể chuyển trạng thái. Kiểm tra tiến trình và xác nhận thu tiền trước khi hoàn thành.",
+      );
+      return false;
     }
-    message.success(`Đã cập nhật trạng thái đơn sang "${statusLabels[newStatus]}"!`);
+    message.success(`Đã cập nhật đơn: ${statusLabels[newStatus]}`);
+    return true;
   };
 
-  const handleConfirmRefund = (orderId: string, action: 'APPROVED' | 'REJECTED') => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              hasRefundRequest: false,
-              note: `${o.note || ''} [Đã ${action === 'APPROVED' ? 'duyệt' : 'từ chối'} hoàn tiền]`,
-            }
-          : o
-      )
-    );
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder((prev) =>
-        prev
-          ? {
-              ...prev,
-              hasRefundRequest: false,
-              note: `${prev.note || ''} [Đã ${action === 'APPROVED' ? 'duyệt' : 'từ chối'} hoàn tiền]`,
-            }
-          : null
-      );
-    }
+  const handleConfirmRefund = (
+    orderId: string,
+    action: "APPROVED" | "REJECTED",
+    note: string,
+  ) => {
+    return reviewRefund(orderId, action, note);
   };
 
   // Filter logic
   const filteredOrders = orders.filter((o) => {
-    if (selectedStore !== 'ALL' && o.storeId !== selectedStore) return false;
+    if (selectedStore !== "ALL" && o.storeId !== selectedStore) return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -91,25 +101,29 @@ export const OrdersPage: React.FC = () => {
       if (!matchCode && !matchCustomer && !matchPhone) return false;
     }
 
-    if (activeTab === 'REFUND') return o.hasRefundRequest === true;
-    if (activeTab === 'PROCESSING') {
-      return o.status === 'CONFIRMED' || o.status === 'PREPARING' || o.status === 'READY';
+    if (activeTab === "REFUND") return o.hasRefundRequest === true;
+    if (activeTab === "PROCESSING") {
+      return (
+        o.status === "CONFIRMED" ||
+        o.status === "PREPARING" ||
+        o.status === "READY"
+      );
     }
-    if (activeTab === 'SHIPPING') return o.status === 'SHIPPING';
-    if (activeTab === 'COMPLETED') return o.status === 'COMPLETED';
-    if (activeTab === 'CANCELLED') return o.status === 'CANCELLED';
+    if (activeTab === "SHIPPING") return o.status === "SHIPPING";
+    if (activeTab === "COMPLETED") return o.status === "COMPLETED";
+    if (activeTab === "CANCELLED") return o.status === "CANCELLED";
 
     return true;
   });
 
   const columns: TableColumnsType<AdminOrder> = [
     {
-      title: 'Mã đơn',
-      dataIndex: 'orderCode',
-      key: 'orderCode',
+      title: "Mã đơn",
+      dataIndex: "orderCode",
+      key: "orderCode",
       render: (code, record) => (
-        <Space direction="vertical" size={2}>
-          <Typography.Text strong style={{ color: '#16100d' }}>
+        <Space orientation="vertical" size={2}>
+          <Typography.Text strong style={{ color: "#16100d" }}>
             {code}
           </Typography.Text>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -119,83 +133,98 @@ export const OrdersPage: React.FC = () => {
       ),
     },
     {
-      title: 'Khách hàng',
-      dataIndex: 'customerName',
-      key: 'customerName',
+      title: "Khách hàng",
+      dataIndex: "customerName",
+      key: "customerName",
       render: (name, record) => (
         <div>
           <Typography.Text strong>{name}</Typography.Text>
-          <div style={{ fontSize: 12, color: '#6b6259' }}>
-            {record.customerPhone} · {record.items.reduce((s, i) => s + i.quantity, 0)} món
+          <div style={{ fontSize: 12, color: "#6b6259" }}>
+            {record.customerPhone} ·{" "}
+            {record.items.reduce((s, i) => s + i.quantity, 0)} món
           </div>
         </div>
       ),
     },
     {
-      title: 'Chi nhánh',
-      dataIndex: 'storeName',
-      key: 'storeName',
+      title: "Chi nhánh",
+      dataIndex: "storeName",
+      key: "storeName",
       render: (store) => <Typography.Text>{store}</Typography.Text>,
     },
     {
-      title: 'Hình thức',
-      dataIndex: 'orderType',
-      key: 'orderType',
+      title: "Hình thức",
+      dataIndex: "orderType",
+      key: "orderType",
       render: (type) => (
-        <Tag color={type === 'DELIVERY' ? 'blue' : 'purple'}>
-          {type === 'DELIVERY' ? <><CarOutlined /> Giao hàng</> : <><ShopOutlined /> Nhận tại quầy</>}
+        <Tag
+          className={styles.typeTag}
+          color={type === "DELIVERY" ? "blue" : "purple"}
+        >
+          {type === "DELIVERY" ? (
+            <>
+              <Truck size={13} /> Giao hàng
+            </>
+          ) : (
+            <>
+              <Store size={13} /> Nhận tại quầy
+            </>
+          )}
         </Tag>
       ),
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status, record) => (
-        <Space direction="vertical" size={2}>
-          <Tag color={statusColors[status] ?? 'default'} className={styles.statusTag}>
-            {statusLabels[status] ?? status}
-          </Tag>
-          {record.hasRefundRequest && <Badge status="error" text="Yêu cầu hoàn tiền" />}
+      title: "Trạng thái",
+      dataIndex: "status",
+      key: "status",
+      render: (status: AdminOrderStatus, record) => (
+        <Space orientation="vertical" size={2}>
+          <OrderStatusBadge status={status} />
+          {record.hasRefundRequest && (
+            <Badge status="error" text="Yêu cầu hoàn tiền" />
+          )}
         </Space>
       ),
     },
     {
-      title: 'Thanh toán',
-      dataIndex: 'paymentMethod',
-      key: 'paymentMethod',
+      title: "Thanh toán",
+      dataIndex: "paymentMethod",
+      key: "paymentMethod",
       render: (method, record) => (
         <div>
           <span style={{ fontSize: 13 }}>
-            {method === 'BANK_TRANSFER' ? 'VietQR' : 'Tiền mặt (COD)'}
+            {method === "BANK_TRANSFER" ? "VietQR" : "Tiền mặt (COD)"}
           </span>
           <div>
-            <Tag color={['PAID', 'COLLECTED'].includes(record.paymentStatus) ? 'green' : 'gold'} style={{ fontSize: 11 }}>
-              {['PAID', 'COLLECTED'].includes(record.paymentStatus) ? 'Đã thu' : 'Chưa thu'}
+            <Tag
+              color={record.paymentStatus === "PAID" ? "green" : "gold"}
+              style={{ fontSize: 11 }}
+            >
+              {record.paymentStatus === "PAID" ? "Đã thu" : "Chưa thu"}
             </Tag>
           </div>
         </div>
       ),
     },
     {
-      title: 'Tổng tiền',
-      dataIndex: 'total',
-      key: 'total',
-      align: 'right',
+      title: "Tổng tiền",
+      dataIndex: "total",
+      key: "total",
+      align: "right",
       render: (total) => (
         <Typography.Text strong className={styles.moneyText}>
-          {new Intl.NumberFormat('vi-VN').format(total)}đ
+          {new Intl.NumberFormat("vi-VN").format(total)}đ
         </Typography.Text>
       ),
     },
     {
-      title: 'Thao tác',
-      key: 'actions',
-      align: 'center',
+      title: "Thao tác",
+      key: "actions",
+      align: "center",
       render: (_, record) => (
         <Button
           type="text"
-          icon={<EyeOutlined />}
+          icon={<Eye />}
           onClick={() => handleOpenDetail(record)}
           aria-label="Xem chi tiết đơn"
         >
@@ -206,32 +235,37 @@ export const OrdersPage: React.FC = () => {
   ];
 
   const tabItems = [
-    { key: 'ALL', label: `Tất cả đơn (${orders.length})` },
+    { key: "ALL", label: `Tất cả đơn (${orders.length})` },
     {
-      key: 'PROCESSING',
+      key: "PROCESSING",
       label: `Đang xử lý (${
-        orders.filter((o) => ['CONFIRMED', 'PREPARING', 'READY'].includes(o.status)).length
+        orders.filter((o) =>
+          ["CONFIRMED", "PREPARING", "READY"].includes(o.status),
+        ).length
       })`,
     },
     {
-      key: 'SHIPPING',
-      label: `Đang giao (${orders.filter((o) => o.status === 'SHIPPING').length})`,
+      key: "SHIPPING",
+      label: `Đang giao (${orders.filter((o) => o.status === "SHIPPING").length})`,
     },
     {
-      key: 'COMPLETED',
-      label: `Đã hoàn thành (${orders.filter((o) => o.status === 'COMPLETED').length})`,
+      key: "COMPLETED",
+      label: `Đã hoàn thành (${orders.filter((o) => o.status === "COMPLETED").length})`,
     },
     {
-      key: 'CANCELLED',
-      label: `Đã hủy (${orders.filter((o) => o.status === 'CANCELLED').length})`,
+      key: "CANCELLED",
+      label: `Đã hủy (${orders.filter((o) => o.status === "CANCELLED").length})`,
     },
     {
-      key: 'REFUND',
+      key: "REFUND",
       label: (
         <span>
-          Hoàn tiền{' '}
+          Hoàn tiền{" "}
           {orders.filter((o) => o.hasRefundRequest).length > 0 && (
-            <Badge count={orders.filter((o) => o.hasRefundRequest).length} size="small" />
+            <Badge
+              count={orders.filter((o) => o.hasRefundRequest).length}
+              size="small"
+            />
           )}
         </span>
       ),
@@ -239,11 +273,65 @@ export const OrdersPage: React.FC = () => {
   ];
 
   return (
-    <div className={styles.ordersContainer}>
+    <div className={`${styles.ordersContainer} m3-admin-page`}>
+      {(storageError || actionError) && (
+        <p role="alert" className={styles.drawerError}>
+          <CircleAlert size={16} />
+          {actionError || storageError}
+        </p>
+      )}
+      <div className={styles.pageHeading}>
+        <div>
+          <span className={styles.eyebrow}>VẬN HÀNH CLUCKY</span>
+          <h1>Đơn hàng, trong tầm tay.</h1>
+          <p>Theo dõi bếp, thanh toán và yêu cầu hoàn tiền tại một nơi.</p>
+        </div>
+      </div>
+      <div className={styles.metricsGrid}>
+        {[
+          {
+            label: "Tất cả đơn",
+            value: orders.length,
+            icon: ShoppingBag,
+            tab: "ALL",
+          },
+          {
+            label: "Đang chế biến",
+            value: orders.filter((o) => o.status === "PREPARING").length,
+            icon: ChefHat,
+            tab: "PROCESSING",
+          },
+          {
+            label: "Đã hoàn thành",
+            value: orders.filter((o) => o.status === "COMPLETED").length,
+            icon: CircleCheck,
+            tab: "COMPLETED",
+          },
+          {
+            label: "Chờ duyệt hoàn",
+            value: orders.filter((o) => o.hasRefundRequest).length,
+            icon: Undo2,
+            tab: "REFUND",
+          },
+        ].map((metric) => (
+          <button
+            key={metric.label}
+            onClick={() => setActiveTab(metric.tab)}
+            type="button"
+            className={styles.metricCard}
+            aria-pressed={activeTab === metric.tab}
+          >
+            <metric.icon size={20} />
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+          </button>
+        ))}
+      </div>
       <div className={styles.filterBar}>
         <div className={styles.leftControls}>
           <Input
-            prefix={<SearchOutlined style={{ color: '#6b6259' }} />}
+            prefix={<Search style={{ color: "#6b6259" }} />}
+            aria-label="Tìm kiếm đơn hàng"
             placeholder="Tìm theo mã đơn, khách hàng, SĐT..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -251,39 +339,82 @@ export const OrdersPage: React.FC = () => {
             allowClear
           />
 
-          <Select
-            value={selectedStore}
-            onChange={setSelectedStore}
-            style={{ width: 220 }}
-            options={[
-              { value: 'ALL', label: 'Tất cả chi nhánh' },
-              { value: '1', label: 'Nguyễn Trãi (Quận 5)' },
-              { value: '2', label: 'Phan Văn Trị (Bình Thạnh)' },
-              { value: '3', label: 'Lê Văn Việt (Thủ Đức)' },
-            ]}
-          />
+          {isAdmin && (
+            <Select
+              aria-label="Lọc chi nhánh"
+              value={selectedStore}
+              onChange={setSelectedStore}
+              style={{ width: 220 }}
+              options={[
+                { value: "ALL", label: "Tất cả chi nhánh" },
+                ...mockStores.map((store) => ({
+                  value: String(store.id),
+                  label: store.name,
+                })),
+              ]}
+            />
+          )}
         </div>
 
         <Button
-          icon={<ReloadOutlined />}
+          icon={<SlidersHorizontal />}
           onClick={() => {
-            setOrders(MOCK_ADMIN_ORDERS);
-            message.info('Đã tải lại danh sách đơn hàng mới nhất.');
+            setSearchQuery("");
+            setSelectedStore("ALL");
+            setActiveTab("ALL");
+            message.info(
+              "Đã xóa bộ lọc. Các thay đổi đơn hàng được giữ nguyên.",
+            );
           }}
         >
-          Làm mới
+          Xóa bộ lọc
         </Button>
       </div>
 
       <Tabs items={tabItems} activeKey={activeTab} onChange={setActiveTab} />
 
-      <Table
-        columns={columns}
-        dataSource={filteredOrders}
-        rowKey="id"
-        pagination={{ pageSize: 8, showTotal: (total) => `Tổng cộng ${total} đơn hàng` }}
-        scroll={{ x: 800 }}
-      />
+      <div className={styles.mobileCards}>
+        {filteredOrders.length === 0 ? (
+          <p className={styles.emptyState}>Không có đơn phù hợp bộ lọc.</p>
+        ) : (
+          filteredOrders.map((order) => (
+            <article className={styles.mobileCard} key={order.id}>
+              <div className={styles.mobileCardTop}>
+                <strong>{order.orderCode}</strong>
+                <OrderStatusBadge status={order.status} />
+              </div>
+              <h3>{order.customerName}</h3>
+              <p>
+                {order.storeName} ·{" "}
+                {order.items.reduce((sum, item) => sum + item.quantity, 0)} phần
+                ăn
+              </p>
+              <OrderProgress order={order} />
+              <div className={styles.mobileCardTop}>
+                <strong className={styles.moneyText}>
+                  {new Intl.NumberFormat("vi-VN").format(order.total)}đ
+                </strong>
+                <Button onClick={() => handleOpenDetail(order)}>
+                  Xem chi tiết
+                </Button>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+      <div className={styles.desktopTable}>
+        <Table
+          loading={loading}
+          columns={columns}
+          dataSource={filteredOrders}
+          rowKey="id"
+          pagination={{
+            pageSize: 8,
+            showTotal: (total) => `Tổng cộng ${total} đơn hàng`,
+          }}
+          scroll={{ x: 1000 }}
+        />
+      </div>
 
       {/* Order Detail Drawer */}
       <OrderDetailDrawer

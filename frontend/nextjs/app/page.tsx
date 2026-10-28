@@ -1,7 +1,5 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { CustomerHeader } from '@/components/customer-header';
-import { CustomerFooter } from '@/components/customer-footer';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
 import { products, categories } from '@/lib/products';
@@ -18,8 +16,7 @@ export default function Home() {
 
   return (
     <>
-      <CustomerHeader />
-      <main>
+            <main>
         {/* Hero Section */}
         <section className="hero">
           <div className="hero-inner">
@@ -177,7 +174,6 @@ export default function Home() {
           </div>
         </section>
       </main>
-      <CustomerFooter />
-    </>
+          </>
   );
 }
