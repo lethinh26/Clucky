@@ -1,7 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+
 .checkoutContainer {
   width: min(1140px, calc(100% - 48px));
   margin: 40px auto 100px;
-  font-family: var(--font-body);
+  font-family: 'Quicksand', system-ui, sans-serif;
   color: #16100d;
 }
 
@@ -12,7 +14,7 @@
 .eyebrow {
   display: inline-block;
   color: #c9a227;
-  font-family: var(--font-heading);
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.16em;
@@ -22,7 +24,7 @@
 
 .title {
   margin: 0 0 10px;
-  font-family: var(--font-heading);
+  font-family: 'Baloo 2', sans-serif;
   font-size: clamp(36px, 4.5vw, 52px);
   font-weight: 700;
   color: #16100d;
@@ -69,7 +71,7 @@
   border-radius: 50%;
   background: #8f1216;
   color: #fff;
-  font-family: var(--font-heading);
+  font-family: 'Baloo 2', sans-serif;
   font-size: 16px;
   font-weight: 700;
   display: flex;
@@ -79,7 +81,7 @@
 
 .sectionTitle {
   margin: 0;
-  font-family: var(--font-heading);
+  font-family: 'Baloo 2', sans-serif;
   font-size: 20px;
   font-weight: 600;
   color: #16100d;
@@ -97,7 +99,7 @@
 }
 
 .tabBtn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -105,7 +107,7 @@
   border-radius: 12px;
   border: none;
   background: transparent;
-  font-family: "Quicksand", sans-serif;
+  font-family: 'Quicksand', sans-serif;
   font-size: 15px;
   font-weight: 700;
   color: #6b6259;
@@ -147,13 +149,11 @@
   border: 1px solid #e8e2d9;
   border-radius: 14px;
   background: #fff;
-  font-family: "Quicksand", sans-serif;
+  font-family: 'Quicksand', sans-serif;
   font-size: 14px;
   color: #16100d;
   outline: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .input:focus,
@@ -243,7 +243,7 @@
   color: #fff;
   border: none;
   border-radius: 14px;
-  font-family: "Quicksand", sans-serif;
+  font-family: 'Quicksand', sans-serif;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -292,7 +292,7 @@
 
 .summaryTitle {
   margin: 0 0 18px;
-  font-family: var(--font-heading);
+  font-family: 'Baloo 2', sans-serif;
   font-size: 22px;
   font-weight: 600;
 }
@@ -327,7 +327,7 @@
 }
 
 .miniItemPrice {
-  font-family: var(--font-heading);
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   color: #16100d;
 }
@@ -360,7 +360,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: var(--font-heading);
+  font-family: 'Baloo 2', sans-serif;
   font-size: 18px;
   margin-bottom: 24px;
 }
@@ -372,13 +372,17 @@
 }
 
 .submitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   padding: 16px;
   background: #8f1216;
   color: #fff;
   border-radius: 999px;
   border: none;
-  font-family: "Quicksand", sans-serif;
+  font-family: 'Quicksand', sans-serif;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
@@ -408,165 +412,5 @@
   }
   .fieldGrid {
     grid-template-columns: 1fr;
-  }
-}
-
-.checkoutGrid {
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 28px;
-}
-.checkoutContainer {
-  width: min(1180px, calc(100% - 64px));
-  margin-top: 32px;
-}
-.checkoutHeading {
-  margin-bottom: 24px;
-}
-.title {
-  font-size: clamp(30px, 4vw, 44px);
-  line-height: 1.3;
-}
-.eyebrow {
-  color: #8f1216;
-  font: 700 11px var(--font-body);
-}
-.subtitle {
-  font-size: 14px;
-  line-height: 1.7;
-}
-.sectionCard,
-.summaryBox {
-  background: #fffaf3;
-  padding: 26px;
-}
-.summaryBox {
-  top: 110px;
-}
-.receiptLabel {
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  font-weight: 700;
-  color: #8f1216;
-  margin-bottom: 8px;
-}
-.storeHint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #6b6259;
-  margin: 0;
-}
-.miniImage {
-  width: 46px;
-  height: 46px;
-  object-fit: cover;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-.miniItem {
-  gap: 10px;
-}
-.miniItem > div {
-  flex: 1;
-  min-width: 0;
-}
-.miniItemName {
-  font-size: 12px;
-  font-weight: 700;
-}
-.miniItemPrice {
-  white-space: nowrap;
-  font-size: 15px;
-}
-.editCart {
-  display: block;
-  color: #8f1216;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  margin: -4px 0 18px;
-  text-decoration: underline;
-}
-.submitBtn {
-  border-radius: 14px;
-  box-shadow: none;
-}
-.totalPrice {
-  white-space: nowrap;
-}
-.loyaltyBox {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-}
-.loyaltyPoints {
-  font-size: 12px;
-  color: #735a00;
-}
-.promoInput {
-  min-width: 0;
-}
-.paymentRadio {
-  flex-shrink: 0;
-}
-.paymentCard {
-  gap: 10px;
-  padding: 16px;
-  align-items: flex-start;
-}
-.paymentBadge {
-  white-space: nowrap;
-}
-.input,
-.select,
-.textarea {
-  font-size: 14px;
-}
-@media (max-width: 1050px) {
-  .checkoutGrid {
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: 20px;
-  }
-  .sectionCard,
-  .summaryBox {
-    padding: 22px;
-  }
-  .paymentCard {
-    flex-wrap: wrap;
-  }
-}
-@media (max-width: 900px) {
-  .checkoutGrid {
-    grid-template-columns: 1fr;
-  }
-  .summaryBox {
-    position: static;
-  }
-}
-@media (max-width: 600px) {
-  .checkoutContainer {
-    width: calc(100% - 32px);
-    margin-top: 22px;
-  }
-  .sectionCard,
-  .summaryBox {
-    padding: 20px 16px;
-    border-radius: 18px;
-  }
-  .tabBtn {
-    font-size: 12px;
-    padding: 12px 8px;
-  }
-  .sectionTitle {
-    font-size: 19px;
-  }
-  .input,
-  .select,
-  .textarea {
-    font-size: 16px;
-  }
-  .applyBtn {
-    padding: 0 14px;
   }
 }

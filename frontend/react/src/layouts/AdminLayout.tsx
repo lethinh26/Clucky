@@ -35,14 +35,15 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 const routeBreadcrumbMap: Record<string, string> = {
-  "/admin": "Tổng quan",
-  "/admin/dashboard": "Tổng quan",
-  "/admin/catalog": "Quản lý Thực đơn & Sản phẩm",
-  "/admin/stores": "Quản lý Chi nhánh",
-  "/admin/inventory": "Tồn kho Chi nhánh",
-  "/admin/orders": "Quản lý Đơn hàng",
-  "/admin/reviews": "Quản lý Đánh giá",
-  "/admin/reports": "Báo cáo & Thống kê",
+  '/admin': 'Tổng quan',
+  '/admin/dashboard': 'Tổng quan',
+  '/admin/catalog': 'Quản lý Thực đơn & Sản phẩm',
+  '/admin/stores': 'Quản lý Chi nhánh',
+  '/admin/inventory': 'Tồn kho Chi nhánh',
+  '/admin/orders': 'Quản lý Đơn hàng',
+  '/admin/staff/orders': 'Đơn hàng Ca trực',
+  '/admin/reviews': 'Quản lý Đánh giá',
+  '/admin/reports': 'Báo cáo & Thống kê',
 };
 
 export const AdminLayout: React.FC = () => {
@@ -56,36 +57,19 @@ export const AdminLayout: React.FC = () => {
 
   // Determine current active menu key
   const pathname = location.pathname;
-  let selectedKey = "dashboard";
-  if (pathname.includes("/catalog")) selectedKey = "catalog";
-  else if (pathname.includes("/stores")) selectedKey = "stores";
-  else if (pathname.includes("/inventory")) selectedKey = "inventory";
-  else if (pathname.includes("/orders")) selectedKey = "orders";
-  else if (pathname.includes("/reviews")) selectedKey = "reviews";
-  else if (pathname.includes("/reports")) selectedKey = "reports";
+  let selectedKey = 'dashboard';
+  if (pathname.includes('/catalog')) selectedKey = 'catalog';
+  else if (pathname.includes('/stores')) selectedKey = 'stores';
+  else if (pathname.includes('/inventory')) selectedKey = 'inventory';
+  else if (pathname.includes('/staff/orders')) selectedKey = 'staff-orders';
+  else if (pathname.includes('/orders')) selectedKey = 'orders';
+  else if (pathname.includes('/reviews')) selectedKey = 'reviews';
+  else if (pathname.includes('/reports')) selectedKey = 'reports';
 
-  const roleNavPermissions: Record<
-    "ADMIN" | "STORE_MANAGER" | "STAFF",
-    string[]
-  > = {
-    ADMIN: [
-      "dashboard",
-      "catalog",
-      "stores",
-      "inventory",
-      "orders",
-      "reviews",
-      "reports",
-    ],
-    STORE_MANAGER: [
-      "dashboard",
-      "stores",
-      "inventory",
-      "orders",
-      "reviews",
-      "reports",
-    ],
-    STAFF: ["dashboard", "inventory", "orders", "reviews"],
+  const roleNavPermissions: Record<'ADMIN' | 'STORE_MANAGER' | 'STAFF', string[]> = {
+    ADMIN: ['dashboard', 'catalog', 'stores', 'inventory', 'orders', 'reviews', 'reports'],
+    STORE_MANAGER: ['dashboard', 'stores', 'inventory', 'orders', 'reviews', 'reports'],
+    STAFF: ['dashboard', 'inventory', 'staff-orders', 'orders', 'reviews'],
   };
 
   const navItems: MenuProps["items"] = [
@@ -120,7 +104,13 @@ export const AdminLayout: React.FC = () => {
       onClick: () => navigate("/admin/orders"),
     },
     {
-      key: "reviews",
+      key: 'staff-orders',
+      icon: <ShopOutlined />,
+      label: 'Đơn hàng Ca trực',
+      onClick: () => navigate('/admin/staff/orders'),
+    },
+    {
+      key: 'reviews',
       icon: <CommentOutlined />,
       label: "Đánh giá & Phản hồi",
       onClick: () => navigate("/admin/reviews"),

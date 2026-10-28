@@ -10,17 +10,17 @@ const ORDER_FIXTURES: AdminOrder[] = [
     storeId: "1",
     storeName: "Nguyễn Trãi (Quận 5)",
     orderType: "DELIVERY",
-    deliveryAddress: "227 Nguyễn Văn Cừ, Phường 4, Quận 5",
+    deliveryAddress: "227 Nguyễn Văn Cừ, Quận 5",
     status: "PREPARING",
     paymentMethod: "BANK_TRANSFER",
     paymentStatus: "PAID",
     items: [
       {
         id: "i1",
-        itemName: "Gà rán truyền thống",
+        itemName: "Gà rán truyền thống (2 miếng)",
         quantity: 2,
         unitPrice: 99000,
-        options: "Cay vừa, thêm sốt phô mai",
+        options: "Cay vừa, Thêm sốt phô mai",
         lineTotal: 198000,
       },
       {
@@ -49,7 +49,7 @@ const ORDER_FIXTURES: AdminOrder[] = [
     orderType: "PICKUP",
     status: "READY",
     paymentMethod: "COD",
-    paymentStatus: "PENDING",
+    paymentStatus: "UNPAID",
     items: [
       {
         id: "i3",
@@ -112,7 +112,7 @@ const ORDER_FIXTURES: AdminOrder[] = [
     deliveryAddress: "120 An Dương Vương, Quận 5",
     status: "CONFIRMED",
     paymentMethod: "COD",
-    paymentStatus: "PENDING",
+    paymentStatus: "UNPAID",
     items: [
       {
         id: "i6",
@@ -164,9 +164,10 @@ const ORDER_FIXTURES: AdminOrder[] = [
     storeId: "1",
     storeName: "Nguyễn Trãi (Quận 5)",
     orderType: "DELIVERY",
+    deliveryAddress: "15 Trần Hưng Đạo, Quận 5",
     status: "CANCELLED",
     paymentMethod: "BANK_TRANSFER",
-    paymentStatus: "PAID",
+    paymentStatus: "REFUND_PENDING",
     hasRefundRequest: true,
     refundReason:
       "Khách thanh toán chuyển khoản nhưng cửa hàng hết gà vị cay, xin hoàn tiền.",

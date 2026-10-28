@@ -19,10 +19,8 @@ export default async function ProductPage({
   }
 
   return (
-    <>
-            <main>
-        <ProductDetailClient product={product} />
-      </main>
-          </>
+    <main>
+      <ProductDetailClient product={product} />
+    </main>
   );
 }

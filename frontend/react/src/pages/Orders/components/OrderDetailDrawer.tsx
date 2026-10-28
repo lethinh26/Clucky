@@ -114,42 +114,45 @@ export function OrderDetailDrawer({
         <section className={styles.drawerSection}>
           <h2 className={styles.drawerHeading}>
             <UserRound size={18} />
-            Khách hàng & nhận món
+            Khách hàng & giao nhận
           </h2>
           <dl className={styles.drawerInfoGrid}>
             <div>
-              <dt>Khách hàng</dt>
+              <dt>Người nhận</dt>
               <dd>{order.customerName}</dd>
             </div>
             <div>
               <dt>Điện thoại</dt>
               <dd>
-                <a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a>
+                <a href={`tel:${order.customerPhone}`}>
+                  {order.customerPhone}
+                </a>
               </dd>
             </div>
             <div>
               <dt>Hình thức</dt>
               <dd className={styles.inlineValue}>
-                {order.orderType === "PICKUP" ? (
-                  <Store size={15} />
+                {order.orderType === "DELIVERY" ? (
+                  <>
+                    <Truck size={14} /> Giao tận nơi
+                  </>
                 ) : (
-                  <Truck size={15} />
+                  <>
+                    <Store size={14} /> Nhận tại quầy
+                  </>
                 )}
-                {order.orderType === "PICKUP"
-                  ? "Nhận tại quầy"
-                  : "Giao tận nơi"}
               </dd>
             </div>
             <div>
-              <dt>Chi nhánh</dt>
+              <dt>Chi nhánh phụ trách</dt>
               <dd>{order.storeName}</dd>
             </div>
-            {order.deliveryAddress && (
+            {order.orderType === "DELIVERY" && (
               <div className={styles.wideField}>
                 <dt>
-                  <MapPin size={13} /> Địa chỉ nhận
+                  <MapPin size={13} /> Địa chỉ giao
                 </dt>
-                <dd>{order.deliveryAddress}</dd>
+                <dd>{order.deliveryAddress || "Chưa cập nhật"}</dd>
               </div>
             )}
           </dl>
@@ -157,7 +160,7 @@ export function OrderDetailDrawer({
         <section className={styles.drawerSection}>
           <h2 className={styles.drawerHeading}>
             <ShoppingBag size={18} />
-            Món đã đặt{" "}
+            Món đã gọi
             <span>
               {order.items.reduce((sum, item) => sum + item.quantity, 0)} phần
             </span>
@@ -209,8 +212,8 @@ export function OrderDetailDrawer({
             </div>
             <div>
               <dt>Trạng thái</dt>
-              <dd data-paid={order.paymentStatus === "PAID"}>
-                {order.paymentStatus === "PAID"
+              <dd data-paid={["PAID", "COLLECTED"].includes(order.paymentStatus)}>
+                {["PAID", "COLLECTED"].includes(order.paymentStatus)
                   ? "Đã thanh toán"
                   : order.paymentStatus === "FAILED"
                     ? "Thất bại"
@@ -262,7 +265,7 @@ export function OrderDetailDrawer({
               </Button>
             )}
             {order.paymentMethod === "COD" &&
-              order.paymentStatus === "PENDING" &&
+              !["PAID", "COLLECTED"].includes(order.paymentStatus) &&
               !["CANCELLED", "COMPLETED"].includes(order.status) && (
                 <Popconfirm
                   title="Xác nhận đã thu COD?"
@@ -277,7 +280,7 @@ export function OrderDetailDrawer({
             {["READY", "SHIPPING"].includes(order.status) && (
               <Button
                 type="primary"
-                disabled={order.paymentStatus !== "PAID"}
+                disabled={!["PAID", "COLLECTED"].includes(order.paymentStatus)}
                 icon={<CheckCircle2 size={16} />}
                 onClick={() => onStatusChange(order.id, "COMPLETED")}
               >
@@ -303,7 +306,7 @@ export function OrderDetailDrawer({
             )}
           </div>
           {["READY", "SHIPPING"].includes(order.status) &&
-            order.paymentStatus !== "PAID" && (
+            !["PAID", "COLLECTED"].includes(order.paymentStatus) && (
               <p className={styles.actionHint}>
                 Xác nhận thu tiền trước khi hoàn thành đơn.
               </p>

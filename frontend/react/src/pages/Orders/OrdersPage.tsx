@@ -121,16 +121,17 @@ export const OrdersPage: React.FC = () => {
       title: "Mã đơn",
       dataIndex: "orderCode",
       key: "orderCode",
-      render: (code, record) => (
-        <Space orientation="vertical" size={2}>
-          <Typography.Text strong style={{ color: "#16100d" }}>
-            {code}
-          </Typography.Text>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {record.time}
-          </Typography.Text>
-        </Space>
+      render: (code) => (
+        <Typography.Text strong style={{ color: "#8F1216" }}>
+          {code}
+        </Typography.Text>
       ),
+    },
+    {
+      title: "Thời gian",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (time) => <span style={{ fontSize: 13 }}>{time}</span>,
     },
     {
       title: "Khách hàng",
@@ -178,7 +179,7 @@ export const OrdersPage: React.FC = () => {
       dataIndex: "status",
       key: "status",
       render: (status: AdminOrderStatus, record) => (
-        <Space orientation="vertical" size={2}>
+        <Space direction="vertical" size={2}>
           <OrderStatusBadge status={status} />
           {record.hasRefundRequest && (
             <Badge status="error" text="Yêu cầu hoàn tiền" />
@@ -197,10 +198,16 @@ export const OrdersPage: React.FC = () => {
           </span>
           <div>
             <Tag
-              color={record.paymentStatus === "PAID" ? "green" : "gold"}
+              color={
+                ["PAID", "COLLECTED"].includes(record.paymentStatus)
+                  ? "green"
+                  : "gold"
+              }
               style={{ fontSize: 11 }}
             >
-              {record.paymentStatus === "PAID" ? "Đã thu" : "Chưa thu"}
+              {["PAID", "COLLECTED"].includes(record.paymentStatus)
+                ? "Đã thu"
+                : "Chưa thu"}
             </Tag>
           </div>
         </div>
@@ -212,21 +219,20 @@ export const OrdersPage: React.FC = () => {
       key: "total",
       align: "right",
       render: (total) => (
-        <Typography.Text strong className={styles.moneyText}>
+        <strong className={styles.moneyText}>
           {new Intl.NumberFormat("vi-VN").format(total)}đ
-        </Typography.Text>
+        </strong>
       ),
     },
     {
-      title: "Thao tác",
-      key: "actions",
+      title: "Hành động",
+      key: "action",
       align: "center",
       render: (_, record) => (
         <Button
           type="text"
-          icon={<Eye />}
+          icon={<Eye size={16} />}
           onClick={() => handleOpenDetail(record)}
-          aria-label="Xem chi tiết đơn"
         >
           Chi tiết
         </Button>
@@ -235,12 +241,15 @@ export const OrdersPage: React.FC = () => {
   ];
 
   const tabItems = [
-    { key: "ALL", label: `Tất cả đơn (${orders.length})` },
+    { key: "ALL", label: `Tất cả (${orders.length})` },
     {
       key: "PROCESSING",
       label: `Đang xử lý (${
-        orders.filter((o) =>
-          ["CONFIRMED", "PREPARING", "READY"].includes(o.status),
+        orders.filter(
+          (o) =>
+            o.status === "CONFIRMED" ||
+            o.status === "PREPARING" ||
+            o.status === "READY",
         ).length
       })`,
     },
@@ -250,7 +259,7 @@ export const OrdersPage: React.FC = () => {
     },
     {
       key: "COMPLETED",
-      label: `Đã hoàn thành (${orders.filter((o) => o.status === "COMPLETED").length})`,
+      label: `Hoàn thành (${orders.filter((o) => o.status === "COMPLETED").length})`,
     },
     {
       key: "CANCELLED",
@@ -259,25 +268,19 @@ export const OrdersPage: React.FC = () => {
     {
       key: "REFUND",
       label: (
-        <span>
-          Hoàn tiền{" "}
-          {orders.filter((o) => o.hasRefundRequest).length > 0 && (
-            <Badge
-              count={orders.filter((o) => o.hasRefundRequest).length}
-              size="small"
-            />
-          )}
+        <span style={{ color: "#b42318" }}>
+          Yêu cầu hoàn tiền ({orders.filter((o) => o.hasRefundRequest).length})
         </span>
       ),
     },
   ];
 
   return (
-    <div className={`${styles.ordersContainer} m3-admin-page`}>
-      {(storageError || actionError) && (
+    <div className={styles.ordersContainer}>
+      {storageError && (
         <p role="alert" className={styles.drawerError}>
           <CircleAlert size={16} />
-          {actionError || storageError}
+          {storageError}
         </p>
       )}
       <div className={styles.pageHeading}>

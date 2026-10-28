@@ -13,9 +13,10 @@ import { OrderProgress } from "@/components/order/order-progress";
 import {
   ShoppingBag,
   MapPin,
-  Truck,
+  Bike,
   Store,
   ArrowRight,
+  Lock,
 } from "lucide-react";
 
 export default function CheckoutPage() {
@@ -143,365 +144,367 @@ export default function CheckoutPage() {
   };
 
   return (
-    <>
-            <main className={`${styles.checkoutContainer} m3-page`}>
-        <OrderProgress stage="checkout" />
-        <div className={styles.checkoutHeading}>
-          <span className={styles.eyebrow}>Hoàn tất đơn món</span>
-          <h1 className={styles.title}>Thanh toán & Đặt hàng</h1>
-          <p className={styles.subtitle}>
-            Kiểm tra thông tin giao nhận và lựa chọn phương thức thanh toán phù
-            hợp.
-          </p>
+    <main className={`${styles.checkoutContainer} m3-page`}>
+      <OrderProgress stage="checkout" />
+      <div className={styles.checkoutHeading}>
+        <span className={styles.eyebrow}>Hoàn tất đơn món</span>
+        <h1 className={styles.title}>Thanh toán & Đặt hàng</h1>
+        <p className={styles.subtitle}>
+          Kiểm tra thông tin giao nhận và lựa chọn phương thức thanh toán phù
+          hợp.
+        </p>
+      </div>
+
+      {!ready || submitting ? (
+        <div className="order-skeleton" role="status">
+          {submitting ? "Đang xử lý đơn hàng và chuyển hướng…" : "Đang tải giỏ hàng…"}
         </div>
+      ) : !items.length ? (
+        <div className="order-empty">
+          <ShoppingBag size={48} />
+          <h2>Giỏ hàng đang trống</h2>
+          <p>Chọn món trước khi tiếp tục thanh toán nhé.</p>
+          <Link className="btn-primary" href="/menu">
+            Khám phá thực đơn
+          </Link>
+        </div>
+      ) : (
+        <form
+          id="checkout-order-form"
+          onSubmit={handleSubmitOrder}
+          className={styles.checkoutGrid}
+        >
+          <div className={styles.formSections}>
+            {/* Section 1: Delivery Mode & Receiver Info */}
+            <section className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <span className={styles.stepNumber}>1</span>
+                <h2 className={styles.sectionTitle}>Hình thức nhận món</h2>
+              </div>
 
-        {!ready || submitting ? (
-          <div className="order-skeleton" role="status">
-            {submitting ? "Đang xử lý đơn hàng và chuyển hướng…" : "Đang tải giỏ hàng…"}
-          </div>
-        ) : !items.length ? (
-          <div className="order-empty">
-            <ShoppingBag size={48} />
-            <h2>Giỏ hàng đang trống</h2>
-            <p>Chọn món trước khi tiếp tục thanh toán nhé.</p>
-            <Link className="btn-primary" href="/menu">
-              Khám phá thực đơn
-            </Link>
-          </div>
-        ) : (
-          <form
-            id="checkout-order-form"
-            onSubmit={handleSubmitOrder}
-            className={styles.checkoutGrid}
-          >
-            <div className={styles.formSections}>
-              {/* Section 1: Delivery Mode & Receiver Info */}
-              <section className={styles.sectionCard}>
-                <div className={styles.sectionHeader}>
-                  <span className={styles.stepNumber}>1</span>
-                  <h2 className={styles.sectionTitle}>Hình thức nhận món</h2>
-                </div>
+              <div className={styles.typeTabs}>
+                <button
+                  type="button"
+                  aria-pressed={orderType === "DELIVERY"}
+                  className={`${styles.tabBtn} ${orderType === "DELIVERY" ? styles.tabBtnActive : ""}`}
+                  onClick={() => setOrderType("DELIVERY")}
+                >
+                  <Bike size={16} aria-hidden="true" /> Giao tận nơi
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={orderType === "PICKUP"}
+                  className={`${styles.tabBtn} ${orderType === "PICKUP" ? styles.tabBtnActive : ""}`}
+                  onClick={() => setOrderType("PICKUP")}
+                >
+                  <Store size={16} aria-hidden="true" /> Tự đến lấy tại quán
+                </button>
+              </div>
 
-                <div className={styles.typeTabs}>
-                  <button
-                    type="button"
-                    aria-pressed={orderType === "DELIVERY"}
-                    className={`${styles.tabBtn} ${orderType === "DELIVERY" ? styles.tabBtnActive : ""}`}
-                    onClick={() => setOrderType("DELIVERY")}
-                  >
-                    <Truck size={18} /> Giao tận nơi
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={orderType === "PICKUP"}
-                    className={`${styles.tabBtn} ${orderType === "PICKUP" ? styles.tabBtnActive : ""}`}
-                    onClick={() => setOrderType("PICKUP")}
-                  >
-                    <Store size={18} /> Tự đến lấy tại quán
-                  </button>
-                </div>
-
-                <div className={styles.fieldGrid}>
-                  <div className={styles.fieldGroup}>
-                    <label htmlFor="receiverName" className={styles.fieldLabel}>
-                      Họ và tên người nhận *
-                    </label>
-                    <input
-                      autoComplete="name"
-                      minLength={2}
-                      id="receiverName"
-                      type="text"
-                      required
-                      value={receiverName}
-                      onChange={(e) => setReceiverName(e.target.value)}
-                      className={styles.input}
-                      placeholder="Nguyễn Văn A"
-                    />
-                  </div>
-
-                  <div className={styles.fieldGroup}>
-                    <label
-                      htmlFor="receiverPhone"
-                      className={styles.fieldLabel}
-                    >
-                      Số điện thoại liên hệ *
-                    </label>
-                    <input
-                      autoComplete="tel"
-                      pattern="0[0-9]{9}"
-                      title="Nhập số điện thoại gồm 10 chữ số, bắt đầu bằng 0"
-                      id="receiverPhone"
-                      type="tel"
-                      required
-                      value={receiverPhone}
-                      onChange={(e) => setReceiverPhone(e.target.value)}
-                      className={styles.input}
-                      placeholder="0901234567"
-                    />
-                  </div>
+              <div className={styles.fieldGrid}>
+                <div className={styles.fieldGroup}>
+                  <label htmlFor="receiverName" className={styles.fieldLabel}>
+                    Họ và tên người nhận *
+                  </label>
+                  <input
+                    autoComplete="name"
+                    minLength={2}
+                    id="receiverName"
+                    type="text"
+                    required
+                    value={receiverName}
+                    onChange={(e) => setReceiverName(e.target.value)}
+                    className={styles.input}
+                    placeholder="Nguyễn Văn A"
+                  />
                 </div>
 
                 <div className={styles.fieldGroup}>
                   <label
-                    htmlFor="fulfillmentStore"
+                    htmlFor="receiverPhone"
                     className={styles.fieldLabel}
                   >
-                    Chi nhánh chuẩn bị món
+                    Số điện thoại liên hệ *
                   </label>
-                  <select
-                    id="fulfillmentStore"
-                    value={selectedStore}
-                    onChange={(e) => setSelectedStore(e.target.value)}
-                    className={styles.select}
-                  >
-                    {MOCK_STORES.map((store) => (
-                      <option key={store.id} value={store.id}>
-                        {store.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className={styles.storeHint}>
-                    <MapPin size={14} />{" "}
-                    {
-                      MOCK_STORES.find((store) => store.id === selectedStore)
-                        ?.address
-                    }
-                  </p>
-                </div>
-                {orderType === "DELIVERY" ? (
-                  <div className={styles.fieldGroup}>
-                    <label
-                      htmlFor="deliveryAddress"
-                      className={styles.fieldLabel}
-                    >
-                      Địa chỉ nhận hàng chi tiết *
-                    </label>
-                    <input
-                      autoComplete="street-address"
-                      minLength={8}
-                      id="deliveryAddress"
-                      type="text"
-                      required
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      className={styles.input}
-                      placeholder="Số nhà, tên đường, phường, quận..."
-                    />
-                  </div>
-                ) : null}
-
-                <div className={styles.fieldGroup}>
-                  <label htmlFor="orderNote" className={styles.fieldLabel}>
-                    Ghi chú cho đơn hàng
-                  </label>
-                  <textarea
-                    id="orderNote"
-                    value={orderNote}
-                    onChange={(e) => setOrderNote(e.target.value)}
-                    className={styles.textarea}
-                    placeholder="Ví dụ: Gọi trước khi giao 5 phút, để trước cửa giúp mình..."
-                  />
-                </div>
-              </section>
-
-              {/* Section 2: Promotions & Loyalty (M5 Slot) */}
-              <section className={styles.sectionCard}>
-                <div className={styles.sectionHeader}>
-                  <span className={styles.stepNumber}>2</span>
-                  <h2 className={styles.sectionTitle}>
-                    Khuyến mãi & Điểm thưởng
-                  </h2>
-                </div>
-
-                <div className={styles.promoBlock}>
                   <input
-                    aria-label="Mã ưu đãi"
-                    type="text"
-                    value={voucherInput}
-                    onChange={(e) => setVoucherInput(e.target.value)}
-                    placeholder="Nhập mã ưu đãi (VD: CLUCKYGIAM20)"
-                    className={`${styles.input} ${styles.promoInput}`}
+                    autoComplete="tel"
+                    pattern="0[0-9]{9}"
+                    title="Nhập số điện thoại gồm 10 chữ số, bắt đầu bằng 0"
+                    id="receiverPhone"
+                    type="tel"
+                    required
+                    value={receiverPhone}
+                    onChange={(e) => setReceiverPhone(e.target.value)}
+                    className={styles.input}
+                    placeholder="0901234567"
                   />
-                  <button
-                    type="button"
-                    onClick={handleApplyVoucher}
-                    className={styles.applyBtn}
-                  >
-                    Áp dụng
-                  </button>
                 </div>
+              </div>
 
-                {voucherMsg && (
-                  <p
-                    style={{
-                      fontSize: 13,
-                      marginTop: 8,
-                      fontWeight: 600,
-                      color: appliedVoucher ? "#1e7a46" : "#b42318",
-                    }}
+              <div className={styles.fieldGroup}>
+                <label
+                  htmlFor="fulfillmentStore"
+                  className={styles.fieldLabel}
+                >
+                  Chi nhánh chuẩn bị món
+                </label>
+                <select
+                  id="fulfillmentStore"
+                  value={selectedStore}
+                  onChange={(e) => setSelectedStore(e.target.value)}
+                  className={styles.select}
+                >
+                  {MOCK_STORES.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+                <p className={styles.storeHint}>
+                  <MapPin size={14} />{" "}
+                  {
+                    MOCK_STORES.find((store) => store.id === selectedStore)
+                      ?.address
+                  }
+                </p>
+              </div>
+              {orderType === "DELIVERY" ? (
+                <div className={styles.fieldGroup}>
+                  <label
+                    htmlFor="deliveryAddress"
+                    className={styles.fieldLabel}
                   >
-                    {voucherMsg}
-                  </p>
-                )}
+                    Địa chỉ nhận hàng chi tiết *
+                  </label>
+                  <input
+                    autoComplete="street-address"
+                    minLength={8}
+                    id="deliveryAddress"
+                    type="text"
+                    required
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    className={styles.input}
+                    placeholder="Số nhà, tên đường, phường, quận..."
+                  />
+                </div>
+              ) : null}
 
-                <div className={styles.loyaltyBox}>
-                  <label className={styles.loyaltyLabel}>
+              <div className={styles.fieldGroup}>
+                <label htmlFor="orderNote" className={styles.fieldLabel}>
+                  Ghi chú cho đơn hàng
+                </label>
+                <textarea
+                  id="orderNote"
+                  value={orderNote}
+                  onChange={(e) => setOrderNote(e.target.value)}
+                  className={styles.textarea}
+                  placeholder="Ví dụ: Gọi trước khi giao 5 phút, để trước cửa giúp mình..."
+                />
+              </div>
+            </section>
+
+            {/* Section 2: Promotions & Loyalty (M5 Slot) */}
+            <section className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <span className={styles.stepNumber}>2</span>
+                <h2 className={styles.sectionTitle}>
+                  Khuyến mãi & Điểm thưởng
+                </h2>
+              </div>
+
+              <div className={styles.promoBlock}>
+                <input
+                  aria-label="Mã ưu đãi"
+                  type="text"
+                  value={voucherInput}
+                  onChange={(e) => setVoucherInput(e.target.value)}
+                  placeholder="Nhập mã ưu đãi (VD: CLUCKYGIAM20)"
+                  className={`${styles.input} ${styles.promoInput}`}
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyVoucher}
+                  className={styles.applyBtn}
+                >
+                  Áp dụng
+                </button>
+              </div>
+
+              {voucherMsg && (
+                <p
+                  style={{
+                    fontSize: 13,
+                    marginTop: 8,
+                    fontWeight: 600,
+                    color: appliedVoucher ? "#1e7a46" : "#b42318",
+                  }}
+                >
+                  {voucherMsg}
+                </p>
+              )}
+
+              <div className={styles.loyaltyBox}>
+                <label className={styles.loyaltyLabel}>
+                  <input
+                    type="checkbox"
+                    checked={usePoints}
+                    onChange={(e) => setUsePoints(e.target.checked)}
+                    style={{ width: 18, height: 18, accentColor: "#8f1216" }}
+                  />
+                  <span>Dùng điểm tích lũy Clucky Club</span>
+                </label>
+                <span className={styles.loyaltyPoints}>
+                  Có 120 điểm (-5.000đ khi dùng 50 điểm)
+                </span>
+              </div>
+            </section>
+
+            {/* Section 3: Payment Method */}
+            <section className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <span className={styles.stepNumber}>3</span>
+                <h2 className={styles.sectionTitle}>
+                  Phương thức thanh toán
+                </h2>
+              </div>
+
+              <div className={styles.paymentOptions}>
+                <label
+                  className={`${styles.paymentCard} ${
+                    paymentMethod === "BANK_TRANSFER"
+                      ? styles.paymentCardActive
+                      : ""
+                  }`}
+                >
+                  <div className={styles.paymentLeft}>
                     <input
-                      type="checkbox"
-                      checked={usePoints}
-                      onChange={(e) => setUsePoints(e.target.checked)}
-                      style={{ width: 18, height: 18, accentColor: "#8f1216" }}
+                      type="radio"
+                      name="paymentMethod"
+                      value="BANK_TRANSFER"
+                      checked={paymentMethod === "BANK_TRANSFER"}
+                      onChange={() => setPaymentMethod("BANK_TRANSFER")}
+                      className={styles.paymentRadio}
                     />
-                    <span>Dùng điểm tích lũy Clucky Club</span>
-                  </label>
-                  <span className={styles.loyaltyPoints}>
-                    Có 120 điểm (-5.000đ khi dùng 50 điểm)
-                  </span>
-                </div>
-              </section>
-
-              {/* Section 3: Payment Method */}
-              <section className={styles.sectionCard}>
-                <div className={styles.sectionHeader}>
-                  <span className={styles.stepNumber}>3</span>
-                  <h2 className={styles.sectionTitle}>
-                    Phương thức thanh toán
-                  </h2>
-                </div>
-
-                <div className={styles.paymentOptions}>
-                  <label
-                    className={`${styles.paymentCard} ${
-                      paymentMethod === "BANK_TRANSFER"
-                        ? styles.paymentCardActive
-                        : ""
-                    }`}
-                  >
-                    <div className={styles.paymentLeft}>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="BANK_TRANSFER"
-                        checked={paymentMethod === "BANK_TRANSFER"}
-                        onChange={() => setPaymentMethod("BANK_TRANSFER")}
-                        className={styles.paymentRadio}
-                      />
-                      <div>
-                        <p className={styles.paymentTitle}>
-                          Chuyển khoản VietQR tự động
-                        </p>
-                        <p className={styles.paymentDesc}>
-                          Mã thanh toán sẽ hiển thị khi dịch vụ thanh toán được
-                          kết nối.
-                        </p>
-                      </div>
+                    <div>
+                      <p className={styles.paymentTitle}>
+                        Chuyển khoản VietQR tự động
+                      </p>
+                      <p className={styles.paymentDesc}>
+                        Mã thanh toán sẽ hiển thị khi dịch vụ thanh toán được
+                        kết nối.
+                      </p>
                     </div>
-                    <span className={styles.paymentBadge}>Khuyên dùng</span>
-                  </label>
+                  </div>
+                  <span className={styles.paymentBadge}>Khuyên dùng</span>
+                </label>
 
-                  <label
-                    className={`${styles.paymentCard} ${
-                      paymentMethod === "COD" ? styles.paymentCardActive : ""
-                    }`}
-                  >
-                    <div className={styles.paymentLeft}>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="COD"
-                        checked={paymentMethod === "COD"}
-                        onChange={() => setPaymentMethod("COD")}
-                        className={styles.paymentRadio}
-                      />
-                      <div>
-                        <p className={styles.paymentTitle}>
-                          Thanh toán khi nhận hàng (COD)
-                        </p>
-                        <p className={styles.paymentDesc}>
-                          Thanh toán tiền mặt cho tài xế hoặc thu ngân tại quán.
-                        </p>
-                      </div>
+                <label
+                  className={`${styles.paymentCard} ${
+                    paymentMethod === "COD" ? styles.paymentCardActive : ""
+                  }`}
+                >
+                  <div className={styles.paymentLeft}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="COD"
+                      checked={paymentMethod === "COD"}
+                      onChange={() => setPaymentMethod("COD")}
+                      className={styles.paymentRadio}
+                    />
+                    <div>
+                      <p className={styles.paymentTitle}>
+                        Thanh toán khi nhận hàng (COD)
+                      </p>
+                      <p className={styles.paymentDesc}>
+                        Thanh toán tiền mặt cho tài xế hoặc thu ngân tại quán.
+                      </p>
                     </div>
-                  </label>
+                  </div>
+                </label>
+              </div>
+            </section>
+          </div>
+
+          {/* Right Column: Order Summary */}
+          <aside className={styles.summaryBox}>
+            <div className={styles.receiptLabel}>KIỂM TRA LẦN CUỐI</div>
+            <h2 className={styles.summaryTitle}>Bữa ngon sắp sẵn sàng</h2>
+
+            <div className={styles.orderItemsList}>
+              {items.map((item) => (
+                <div key={item.id} className={styles.miniItem}>
+                  <img src={item.image} alt="" className={styles.miniImage} />
+                  <div>
+                    <div className={styles.miniItemName}>{item.name}</div>
+                    <div className={styles.miniItemQty}>
+                      SL: {item.quantity} phần
+                    </div>
+                  </div>
+                  <strong className={styles.miniItemPrice}>
+                    {formatPrice(item.unitPrice * item.quantity)}
+                  </strong>
                 </div>
-              </section>
+              ))}
             </div>
 
-            {/* Right Column: Order Summary */}
-            <aside className={styles.summaryBox}>
-              <div className={styles.receiptLabel}>KIỂM TRA LẦN CUỐI</div>
-              <h2 className={styles.summaryTitle}>Bữa ngon sắp sẵn sàng</h2>
+            <div className={styles.costRow}>
+              <span>Tạm tính</span>
+              <strong>{formatPrice(subtotal)}</strong>
+            </div>
 
-              <div className={styles.orderItemsList}>
-                {items.map((item) => (
-                  <div key={item.id} className={styles.miniItem}>
-                    <img src={item.image} alt="" className={styles.miniImage} />
-                    <div>
-                      <div className={styles.miniItemName}>{item.name}</div>
-                      <div className={styles.miniItemQty}>
-                        SL: {item.quantity} phần
-                      </div>
-                    </div>
-                    <strong className={styles.miniItemPrice}>
-                      {formatPrice(item.unitPrice * item.quantity)}
-                    </strong>
-                  </div>
-                ))}
-              </div>
+            <div className={styles.costRow}>
+              <span>Phí vận chuyển</span>
+              <strong>
+                {shippingFee > 0 ? formatPrice(shippingFee) : "Miễn phí"}
+              </strong>
+            </div>
 
+            {voucherDiscount > 0 && (
               <div className={styles.costRow}>
-                <span>Tạm tính</span>
-                <strong>{formatPrice(subtotal)}</strong>
-              </div>
-
-              <div className={styles.costRow}>
-                <span>Phí vận chuyển</span>
-                <strong>
-                  {shippingFee > 0 ? formatPrice(shippingFee) : "Miễn phí"}
+                <span>Voucher giảm giá</span>
+                <strong className={styles.discountText}>
+                  -{formatPrice(voucherDiscount)}
                 </strong>
               </div>
+            )}
 
-              {voucherDiscount > 0 && (
-                <div className={styles.costRow}>
-                  <span>Voucher giảm giá</span>
-                  <strong className={styles.discountText}>
-                    -{formatPrice(voucherDiscount)}
-                  </strong>
-                </div>
-              )}
-
-              {pointsDiscount > 0 && (
-                <div className={styles.costRow}>
-                  <span>Điểm tích lũy</span>
-                  <strong className={styles.discountText}>
-                    -{formatPrice(pointsDiscount)}
-                  </strong>
-                </div>
-              )}
-
-              <hr className={styles.divider} />
-
-              <div className={styles.totalRow}>
-                <span>Tổng thanh toán</span>
-                <strong className={styles.totalPrice}>
-                  {formatPrice(totalAmount)}
+            {pointsDiscount > 0 && (
+              <div className={styles.costRow}>
+                <span>Điểm tích lũy</span>
+                <strong className={styles.discountText}>
+                  -{formatPrice(pointsDiscount)}
                 </strong>
               </div>
+            )}
 
-              <Link href="/cart" className={styles.editCart}>
-                Chỉnh sửa giỏ hàng
-              </Link>
-              <button
-                type="submit"
-                disabled={submitting}
-                className={styles.submitBtn}
-              >
-                {submitting ? "Đang xử lý đơn hàng…" : "Đặt hàng ngay →"}
-              </button>
-            </aside>
-          </form>
-        )}
-      </main>
-          </>
+            <hr className={styles.divider} />
+
+            <div className={styles.totalRow}>
+              <span>Tổng thanh toán</span>
+              <strong className={styles.totalPrice}>
+                {formatPrice(totalAmount)}
+              </strong>
+            </div>
+
+            <Link href="/cart" className={styles.editCart}>
+              Chỉnh sửa giỏ hàng
+            </Link>
+            <button
+              type="submit"
+              disabled={submitting}
+              className={styles.submitBtn}
+            >
+              {submitting ? "Đang xử lý đơn hàng…" : <>Xác nhận đặt hàng <ArrowRight size={16} aria-hidden="true" /></>}
+            </button>
+
+            <p className={styles.guaranteeNote}>
+              <Lock size={14} aria-hidden="true" /> Đơn hàng được xử lý bảo mật. Gà rán luôn được chiên nóng giòn khi bạn nhận món.
+            </p>
+          </aside>
+        </form>
+      )}
+    </main>
   );
 }
