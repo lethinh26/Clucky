@@ -13,6 +13,12 @@ import { OrdersPage } from './pages/Orders';
 import { StaffOrdersPage } from './pages/Staff/StaffOrdersPage';
 import { ReviewsPage } from './pages/Reviews';
 import { ReportsPage } from './pages/Reports';
+import { UsersPage } from './pages/Users';
+import { LoginPage } from './pages/Auth/LoginPage';
+import { RegisterPage } from './pages/Auth/RegisterPage';
+import { VerifyOtpPage } from './pages/Auth/VerifyOtpPage';
+import { ForgotPasswordPage } from './pages/Auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/Auth/ResetPasswordPage';
 
 export const App: React.FC = () => {
   return (
@@ -56,6 +62,14 @@ export const App: React.FC = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+
+              {/* Public auth routes */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/verify-otp" element={<VerifyOtpPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="dashboard" element={<Dashboard />} />
@@ -104,6 +118,14 @@ export const App: React.FC = () => {
                   element={
                     <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
                       <OrdersPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="users"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER']}>
+                      <UsersPage />
                     </ProtectedRoute>
                   }
                 />

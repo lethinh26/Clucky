@@ -1,17 +1,11 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { CustomerHeader } from '@/components/customer-header';
 import { CustomerFooter } from '@/components/customer-footer';
+import { Hero } from '@/components/hero';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
 import { products, categories } from '@/lib/products';
-import {
-  Flame,
-  Award,
-  Truck,
-  Sparkles,
-  ArrowRight,
-} from 'lucide-react';
+import { Flame, Award, Truck } from 'lucide-react';
 
 export default function Home() {
   const featuredProducts = products.filter((p) => p.isBestSeller || p.id <= 6).slice(0, 6);
@@ -21,44 +15,18 @@ export default function Home() {
       <CustomerHeader />
       <main>
         {/* Hero Section */}
-        <section className="hero">
-          <div className="hero-inner">
-            <div className="hero-copy">
-              <span className="eyebrow">
-                <Sparkles size={16} className="inline mr-2 text-[#C9A227]" />
-                Fresh from the fryer
-              </span>
-              <h1>
-                <span>Crispy <strong>outside.</strong></span>
-                <span>Happy <strong>inside.</strong></span>
-              </h1>
-              <p>
-                Gà rán giòn rụm đậm vị truyền thống, chế biến thủ công từ 100% gà tươi mỗi ngày.
-                Từng miếng gà nóng hổi chuẩn nhiệt độ vàng mang lại niềm vui trọn vẹn cho bạn và người thân.
-              </p>
-              <div className="actions">
-                <Link className="btn-primary" href="/menu">
-                  <span>Đặt món ngay</span>
-                  <ArrowRight size={18} />
-                </Link>
-                <Link className="btn-secondary" href="/menu">
-                  <span>Xem thực đơn</span>
-                </Link>
-              </div>
-            </div>
-
-            <div className="hero-food">
-              <Image
-                src="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=1000&q=85"
-                alt="Đĩa gà rán giòn vàng óng ánh Clucky"
-                width={560}
-                height={440}
-                priority
-                style={{ width: '100%', height: 'auto', borderRadius: 28, objectFit: 'cover' }}
-              />
-            </div>
-          </div>
-        </section>
+        <Hero
+          eyebrow="Fresh from the fryer"
+          titleTop={<>Crispy <strong>outside.</strong></>}
+          titleBottom={<>Happy <strong>inside.</strong></>}
+          description="Gà rán giòn rụm đậm vị truyền thống, chế biến thủ công từ 100% gà tươi mỗi ngày. Từng miếng gà nóng hổi chuẩn nhiệt độ vàng mang lại niềm vui trọn vẹn cho bạn và người thân."
+          actions={[
+            { href: '/menu', label: 'Đặt món ngay', variant: 'primary' },
+            { href: '/menu', label: 'Xem thực đơn', variant: 'secondary' },
+          ]}
+          imageSrc="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=1000&q=85"
+          imageAlt="Đĩa gà rán giòn vàng óng ánh Clucky"
+        />
 
         {/* Floating Category Dock */}
         <section className="category-row-section" aria-label="Danh mục món ăn">
