@@ -23,16 +23,12 @@ export function getErrorMessage(err: unknown, fallback = 'Đã có lỗi xảy r
 
 /* ---------- Auth ---------- */
 export interface LoginPayload { email: string; password: string }
-export interface RegisterPayload { fullName: string; email: string; phone?: string; password: string }
-export interface VerifyOtpPayload { email: string; otp: string }
 export interface ForgotPasswordPayload { email: string }
 export interface ResetPasswordPayload { email: string; otp: string; newPassword: string }
 export interface AuthTokens { accessToken: string; refreshToken: string; role?: string; storeId?: number }
 
 export const authApi = {
   login: (body: LoginPayload) => api.post<AuthTokens>('/api/auth/login', body).then((r) => r.data),
-  register: (body: RegisterPayload) => api.post('/api/auth/register', body).then((r) => r.data),
-  verifyOtp: (body: VerifyOtpPayload) => api.post<AuthTokens>('/api/auth/verify-otp', body).then((r) => r.data),
   forgotPassword: (body: ForgotPasswordPayload) => api.post('/api/auth/forgot-password', body).then((r) => r.data),
   resetPassword: (body: ResetPasswordPayload) => api.post('/api/auth/reset-password', body).then((r) => r.data),
 };

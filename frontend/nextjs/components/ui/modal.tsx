@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import * as React from "react";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface ModalProps {
   open: boolean;
@@ -42,16 +42,23 @@ const Modal: React.FC<ModalProps> = ({
     node?.focus();
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && dismissible) onOpenChange(false);
+      if (e.key === "Escape" && dismissible) onOpenChange(false);
       // keep Tab inside the modal
-      if (e.key === 'Tab' && node) {
+      if (e.key === "Tab" && node) {
         const focusable = node.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
         );
-        if (focusable.length === 0) return;
+        if (focusable.length === 0) {
+          e.preventDefault();
+          node.focus();
+          return;
+        }
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (
+          e.shiftKey &&
+          (document.activeElement === first || document.activeElement === node)
+        ) {
           e.preventDefault();
           last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {
@@ -61,11 +68,11 @@ const Modal: React.FC<ModalProps> = ({
       }
     };
 
-    document.addEventListener('keydown', onKey);
+    document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
       previouslyFocused.current?.focus?.();
     };
@@ -81,16 +88,19 @@ const Modal: React.FC<ModalProps> = ({
         if (dismissible && e.target === e.currentTarget) onOpenChange(false);
       }}
     >
-      <div className="absolute inset-0 bg-[#16100D]/60 backdrop-blur-sm" aria-hidden="true" />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[#16100D]/60 backdrop-blur-sm"
+        aria-hidden="true"
+      />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={typeof title === 'string' ? title : undefined}
+        aria-label={typeof title === "string" ? title : undefined}
         tabIndex={-1}
         className={cn(
-          'relative z-10 w-full max-w-md rounded-3xl border border-[#E8DED1] bg-[#FFFAF3] p-6 shadow-[0_30px_80px_rgba(0,0,0,.3)] outline-none',
-          className
+          "relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-[#E8DED1] bg-[#FFFAF3] p-6 shadow-[0_30px_80px_rgba(0,0,0,.3)] outline-none",
+          className,
         )}
       >
         {(title || dismissible) && (
@@ -101,7 +111,9 @@ const Modal: React.FC<ModalProps> = ({
                   {title}
                 </h2>
               )}
-              {description && <p className="mt-1 text-sm text-[#75675E]">{description}</p>}
+              {description && (
+                <p className="mt-1 text-sm text-[#75675E]">{description}</p>
+              )}
             </div>
             {dismissible && (
               <button
@@ -124,4 +136,3 @@ const Modal: React.FC<ModalProps> = ({
 
 export { Modal };
 export default Modal;
-

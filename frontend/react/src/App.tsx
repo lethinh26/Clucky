@@ -1,24 +1,28 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ConfigProvider, App as AntApp } from 'antd';
-import viVN from 'antd/locale/vi_VN';
-import { AuthProvider } from './context/AuthContext';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { AdminLayout } from './layouts/AdminLayout';
-import Dashboard from './pages/Dashboard';
-import { CatalogPage } from './pages/Catalog';
-import { StoresPage } from './pages/Stores';
-import { StaffInventoryPage } from './pages/Staff/Inventory';
-import { OrdersPage } from './pages/Orders';
-import { StaffOrdersPage } from './pages/Staff/StaffOrdersPage';
-import { ReviewsPage } from './pages/Reviews';
-import { ReportsPage } from './pages/Reports';
-import { UsersPage } from './pages/Users';
-import { LoginPage } from './pages/Auth/LoginPage';
-import { RegisterPage } from './pages/Auth/RegisterPage';
-import { VerifyOtpPage } from './pages/Auth/VerifyOtpPage';
-import { ForgotPasswordPage } from './pages/Auth/ForgotPasswordPage';
-import { ResetPasswordPage } from './pages/Auth/ResetPasswordPage';
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ConfigProvider, App as AntApp } from "antd";
+import viVN from "antd/locale/vi_VN";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { AdminLayout } from "./layouts/AdminLayout";
+import Dashboard from "./pages/Dashboard";
+import { CatalogPage } from "./pages/Catalog";
+import { StoresPage } from "./pages/Stores";
+import { StaffInventoryPage } from "./pages/Staff/Inventory";
+import { OrdersPage } from "./pages/Orders";
+import { StaffOrdersPage } from "./pages/Staff/StaffOrdersPage";
+import { ReviewsPage } from "./pages/Reviews";
+import { ReportsPage } from "./pages/Reports";
+import { UsersPage } from "./pages/Users";
+import { LoginPage } from "./pages/Auth/LoginPage";
+import { ForgotPasswordPage } from "./pages/Auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/Auth/ResetPasswordPage";
+
+import { OrderProvider } from "./context/OrderContext";
+function OrdersRoute() {
+  const { isStaff } = useAuth();
+  return isStaff ? <StaffOrdersPage /> : <OrdersPage />;
+}
 
 export const App: React.FC = () => {
   return (
@@ -26,25 +30,25 @@ export const App: React.FC = () => {
       locale={viVN}
       theme={{
         token: {
-          colorPrimary: '#8F1216',
-          colorInfo: '#22577A',
-          colorSuccess: '#1E7A46',
-          colorWarning: '#D97706',
-          colorError: '#B42318',
-          colorText: '#16100D',
-          colorTextSecondary: '#6B6259',
-          colorBorder: '#E8E2D9',
+          colorPrimary: "#8F1216",
+          colorInfo: "#22577A",
+          colorSuccess: "#1E7A46",
+          colorWarning: "#D97706",
+          colorError: "#B42318",
+          colorText: "#16100D",
+          colorTextSecondary: "#6B6259",
+          colorBorder: "#E8E2D9",
           borderRadius: 14,
-          fontFamily: 'Quicksand, system-ui, sans-serif',
-          colorBgLayout: '#F5EDE0',
-          colorBgContainer: '#FFFAF3',
+          fontFamily: "Quicksand, system-ui, sans-serif",
+          colorBgLayout: "#F5EDE0",
+          colorBgContainer: "#FFFAF3",
         },
         components: {
           Menu: {
-            darkItemBg: '#16100D',
-            darkItemSelectedBg: '#8F1216',
-            darkItemHoverBg: '#2A1F1B',
-            darkItemColor: 'rgba(245, 237, 224, 0.85)',
+            darkItemBg: "#16100D",
+            darkItemSelectedBg: "#8F1216",
+            darkItemHoverBg: "#2A1F1B",
+            darkItemColor: "rgba(245, 237, 224, 0.85)",
           },
           Button: {
             controlHeight: 42,
@@ -59,88 +63,115 @@ export const App: React.FC = () => {
     >
       <AntApp message={{ maxCount: 3 }}>
         <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+          <OrderProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route
+                  path="/"
+                  element={<Navigate to="/admin/dashboard" replace />}
+                />
 
-              {/* Public auth routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/verify-otp" element={<VerifyOtpPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+                {/* Public auth routes */}
+                <Route path="/login" element={<LoginPage />} />
+                {/* Internal accounts are provisioned; old signup URLs return to login. */}
+                <Route
+                  path="/register"
+                  element={<Navigate to="/login" replace />}
+                />
+                <Route
+                  path="/verify-otp"
+                  element={<Navigate to="/login" replace />}
+                />
+                <Route
+                  path="/forgot-password"
+                  element={<ForgotPasswordPage />}
+                />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route
-                  path="catalog"
-                  element={
-                    <ProtectedRoute allowedRoles={['ADMIN']}>
-                      <CatalogPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="stores"
-                  element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER']}>
-                      <StoresPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="inventory"
-                  element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
-                      <StaffInventoryPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="reviews"
-                  element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
-                      <ReviewsPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="reports"
-                  element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER']}>
-                      <ReportsPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="orders"
-                  element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
-                      <OrdersPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="users"
-                  element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER']}>
-                      <UsersPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="staff/orders"
-                  element={
-                    <ProtectedRoute allowedRoles={['STAFF']}>
-                      <StaffOrdersPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route
+                    index
+                    element={<Navigate to="/admin/dashboard" replace />}
+                  />
+                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route
+                    path="catalog"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN"]}>
+                        <CatalogPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="stores"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
+                        <StoresPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="inventory"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
+                      >
+                        <StaffInventoryPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="reviews"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
+                      >
+                        <ReviewsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="reports"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
+                        <ReportsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="orders"
+                    element={
+                      <ProtectedRoute
+                        allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
+                      >
+                        <OrdersRoute />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="users"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
+                        <UsersPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="staff/orders"
+                    element={
+                      <ProtectedRoute allowedRoles={["STAFF"]}>
+                        <StaffOrdersPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/admin/dashboard" replace />}
+                  />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </OrderProvider>
         </AuthProvider>
       </AntApp>
     </ConfigProvider>

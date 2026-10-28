@@ -1,0 +1,324 @@
+.shell {
+  min-height: calc(100vh - 110px);
+  padding: 24px max(24px, calc((100vw - 1180px) / 2)) 40px;
+  color: #16100d;
+  background: #f5ede0;
+  font-family: "Quicksand", sans-serif;
+}
+.breadcrumb {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  color: #786b62;
+  font-size: 12px;
+  font-weight: 600;
+}
+.breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #49362b;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 0.96fr 1.04fr;
+  overflow: hidden;
+  border: 1px solid #e5dbce;
+  border-radius: 28px;
+  background: #fffaf3;
+  box-shadow: 0 18px 60px #4d30200a;
+}
+.story {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 38px;
+  background: #7c151a;
+  color: #fffaf3;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e7c876;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+.story h2 {
+  position: relative;
+  z-index: 1;
+  margin: 23px 0 12px;
+  font:
+    600 clamp(28px, 2.8vw, 38px) / 1.18 "Baloo 2",
+    sans-serif;
+  letter-spacing: -0.035em;
+}
+.story h2 em {
+  font-style: normal;
+  color: #efd295;
+}
+.story > p {
+  max-width: 310px;
+  margin: 0 0 26px;
+  color: #e6c7c2;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.8;
+}
+.photo {
+  position: relative;
+  flex: 1;
+  min-height: 240px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #431014;
+}
+.photo img {
+  object-fit: cover;
+}
+.photo::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(transparent 35%, #1c0b08d9);
+}
+.photoCaption {
+  position: absolute;
+  bottom: 22px;
+  left: 24px;
+  right: 20px;
+  z-index: 1;
+}
+.photoCaption span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #efd295;
+}
+.photoCaption strong {
+  font:
+    600 30px/1 "Baloo 2",
+    sans-serif;
+  letter-spacing: -0.02em;
+}
+.benefits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 13px 20px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.benefits li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.benefits svg {
+  color: #e7c876;
+  flex-shrink: 0;
+}
+.formPanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 38px 44px;
+  min-width: 0;
+}
+.formInner {
+  width: 100%;
+  max-width: 390px;
+}
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 22px;
+  color: #8f1216;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+.wordmark img {
+  object-fit: contain;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 26px;
+  background: #f1e9dd;
+  border-radius: 12px;
+}
+.tabs a {
+  flex: 1;
+  padding: 10px;
+  border-radius: 9px;
+  text-align: center;
+  color: #75675e;
+  font-size: 13px;
+  font-weight: 700;
+}
+.tabs a[aria-current="page"] {
+  background: #fffaf3;
+  color: #8f1216;
+  box-shadow: 0 2px 7px #49362b0c;
+}
+.formPanel h1 {
+  margin: 0 0 8px;
+  font:
+    600 34px/1.15 "Baloo 2",
+    sans-serif;
+  letter-spacing: -0.035em;
+}
+.subtitle {
+  margin: 0 0 25px;
+  color: #75675e;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.formPanel :global(.auth-form) {
+  gap: 17px;
+}
+.formPanel :global(.auth-form) input {
+  background: #fffefa;
+  border-color: #e3d9cc;
+  font-family: "Quicksand", sans-serif;
+  font-size: 14px;
+}
+.formPanel :global(.auth-form) label {
+  font-size: 12px;
+}
+.formPanel :global(.auth-form) > button[type="submit"] {
+  border-radius: 12px;
+  box-shadow: 0 5px 12px #8f12161a;
+  transition:
+    background 0.18s,
+    box-shadow 0.18s;
+}
+.formPanel :global(.auth-form) > button[type="submit"]:hover:not(:disabled) {
+  background: #6d0e11;
+  box-shadow: 0 6px 16px #8f121629;
+}
+.formPanel :global(.auth-footer-link) {
+  margin-top: 4px;
+  font-size: 12px;
+}
+.formPanel :global(.auth-links) {
+  justify-content: flex-end;
+  font-size: 12px;
+}
+.formPanel :global(.otp-input) {
+  gap: 8px;
+}
+.formPanel :global(.otp-input) input {
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  border-radius: 12px;
+  font-size: 22px;
+}
+.bottomNote {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 25px;
+  padding-top: 18px;
+  border-top: 1px solid #e8e2d9;
+  color: #75675e;
+  font-size: 10px;
+  font-weight: 600;
+}
+.bottomNote a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #8f1216;
+}
+@media (max-width: 1000px) {
+  .story {
+    padding: 28px;
+  }
+  .formPanel {
+    padding: 30px;
+  }
+  .story h2 {
+    font-size: 30px;
+  }
+}
+@media (max-width: 800px) {
+  .shell {
+    padding: 20px 20px 32px;
+  }
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .story {
+    padding: 24px 28px;
+  }
+  .story h2 {
+    margin: 12px 0 0;
+    font-size: 29px;
+  }
+  .story > p,
+  .photo,
+  .benefits {
+    display: none;
+  }
+  .formPanel {
+    padding: 30px;
+  }
+  .formInner {
+    max-width: 440px;
+  }
+  .wordmark {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  .shell {
+    padding: 16px 12px 28px;
+  }
+  .breadcrumb {
+    padding: 0 4px;
+  }
+  .breadcrumb > span {
+    display: none;
+  }
+  .layout {
+    border-radius: 20px;
+  }
+  .story {
+    padding: 22px;
+  }
+  .eyebrow {
+    font-size: 8px;
+  }
+  .story h2 {
+    font-size: 25px;
+  }
+  .formPanel {
+    padding: 25px 20px;
+  }
+  .formPanel h1 {
+    font-size: 29px;
+  }
+  .tabs {
+    margin-bottom: 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .formPanel :global(.auth-form) > button[type="submit"] {
+    transition: none;
+  }
+}

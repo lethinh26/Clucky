@@ -1,5 +1,5 @@
-import React from 'react';
-import styles from './order-shared.module.css';
+import React from "react";
+import styles from "./order-shared.module.css";
 
 interface CartBadgeProps {
   count: number;
@@ -8,11 +8,18 @@ interface CartBadgeProps {
 
 export function CartBadge({ count, children }: CartBadgeProps) {
   return (
-    <div className={styles.cartBadgeWrapper}>
+    <div
+      className={styles.cartBadgeWrapper}
+      aria-live="polite"
+      aria-atomic="true"
+    >
       {children}
       {count > 0 && (
-        <span className={styles.cartBadge} aria-label={`${count} món trong giỏ hàng`}>
-          {count > 99 ? '99+' : count}
+        <span
+          className={styles.cartBadge}
+          aria-label={`${count} món trong giỏ hàng`}
+        >
+          {count > 99 ? "99+" : count}
         </span>
       )}
     </div>
