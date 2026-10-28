@@ -107,6 +107,14 @@ export const App: React.FC = () => {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="staff/orders"
+                  element={
+                    <ProtectedRoute allowedRoles={['STAFF']}>
+                      <StaffOrdersPage />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
               </Route>
             </Routes>
