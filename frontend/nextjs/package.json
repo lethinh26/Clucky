@@ -6,13 +6,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint app components lib",
-    "test": "node --experimental-strip-types --test tests/*.test.mjs"
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:ui": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@tanstack/react-query": "^5.66.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
+    "firebase": "^13.1.0",
     "lucide-react": "^1.61.0",
     "next": "^15.2.0",
     "react": "^19.0.0",
@@ -22,7 +24,9 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@next/eslint-plugin-next": "^15.5.28",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

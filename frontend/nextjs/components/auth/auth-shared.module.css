@@ -1,0 +1,185 @@
+/* Auth shared styles — Google login + complete-password screens (customer app) */
+
+.authScope {
+  font-family: "Quicksand", system-ui, sans-serif;
+  color: #16100d;
+}
+
+/* ---------- Google sign-in button ---------- */
+.googleBtn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #fff;
+  color: #16100d;
+  border: 1px solid #e8e2d9;
+  border-radius: 999px;
+  font-family: "Quicksand", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.1s ease;
+}
+
+.googleBtn:hover {
+  border-color: #c9a227;
+  box-shadow: 0 6px 18px rgba(22, 16, 13, 0.08);
+}
+
+.googleBtn:active {
+  transform: translateY(1px);
+}
+
+.googleBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.googleIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #6b6259;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e8e2d9;
+}
+
+/* ---------- Complete-password card ---------- */
+.completeCard {
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 24px;
+  padding: 32px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 12px 36px rgba(22, 16, 13, 0.05);
+}
+
+.completeTitle {
+  margin: 0 0 8px;
+  font-family: "Fredoka", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #16100d;
+}
+
+.completeDesc {
+  margin: 0 0 20px;
+  color: #6b6259;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.completeDesc strong {
+  color: #8f1216;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: #16100d;
+}
+
+.fieldInput {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e8e2d9;
+  border-radius: 12px;
+  font-family: "Quicksand", sans-serif;
+  font-size: 15px;
+  background: #fff;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.fieldInput:focus {
+  border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
+}
+
+.fieldError {
+  margin: 0;
+  font-size: 12px;
+  color: #b42318;
+  font-weight: 600;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 14px;
+  background: #8f1216;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-family: "Fredoka", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.1s ease;
+}
+
+.submitBtn:hover {
+  background: #6d0d11;
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.googleBtn:focus-visible,
+.submitBtn:focus-visible {
+  outline: 3px solid #8f1216;
+  outline-offset: 3px;
+}
+.completeCard {
+  box-sizing: border-box;
+}
+.completeDesc {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .completeCard {
+    padding: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .googleBtn,
+  .submitBtn,
+  .fieldInput {
+    transition: none;
+  }
+}

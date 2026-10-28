@@ -1,0 +1,73 @@
+.payments-page {
+  min-width: 0;
+}
+.payments-page .ant-tabs-content-holder,
+.payments-page .ant-tabs-tabpane {
+  min-width: 0;
+}
+.payments-page .ant-table-wrapper {
+  max-width: 100%;
+}
+.payments-page .ant-tag.ant-tag-filled.ant-tag-green,
+.payments-page .ant-tag.ant-tag-filled.ant-tag-success {
+  color: #166534;
+}
+.payments-page .ant-tag.ant-tag-filled.ant-tag-orange {
+  color: #92400e;
+}
+.payments-page .ant-tag.ant-tag-filled.ant-tag-cyan {
+  color: #155e75;
+}
+.payments-page .ant-tag.ant-tag-filled.ant-tag-red,
+.payments-page .ant-tag.ant-tag-filled.ant-tag-error {
+  color: #991b1b;
+}
+.payments-page .ant-tag.ant-tag-filled.ant-tag-blue {
+  color: #1e40af;
+}
+.payments-page .ant-btn:focus-visible,
+.payments-page .ant-switch:focus-visible {
+  outline: 3px solid #8f1216;
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  .payments-page > .ant-card > .ant-card-body {
+    padding: 12px;
+  }
+  .payments-page .ant-space {
+    width: 100%;
+  }
+  .payments-page .ant-select {
+    max-width: 100%;
+  }
+}
+
+.payments-page .ant-tabs-nav-list {
+  flex-wrap: wrap;
+  transform: none !important;
+  gap: 0 16px;
+}
+.payments-page .ant-tabs-tab {
+  margin: 0;
+}
+.payments-page .ant-tabs-nav-wrap {
+  overflow: visible;
+}
+.payments-page .ant-tabs-nav-operations,
+.payments-page .ant-tabs-ink-bar {
+  display: none;
+}
+.payments-page .ant-tabs-tab-active {
+  border-bottom: 2px solid #8f1216;
+}
+@media (max-width: 480px) {
+  .payments-page .ant-tabs-nav-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
+    width: 100%;
+  }
+  .payments-page .ant-tabs-tab {
+    font-size: 12px;
+  }
+}

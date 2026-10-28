@@ -8,15 +8,14 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
-  CreditCard,
-  MapPin,
   PackageCheck,
+  MapPin,
   RotateCcw,
   ShoppingBag,
-  Store,
-  Truck,
-  UserRound,
   Wallet,
+  CreditCard,
+  CircleX,
+  History,
   MessageSquare,
   CircleAlert,
 } from "lucide-react";
@@ -26,6 +25,8 @@ import { useOrder } from "@/components/order/order-provider";
 import { OrderProgress } from "@/components/order/order-progress";
 import { OrderDialog } from "@/components/order/order-dialog";
 import { DemoOrderControls } from "@/components/order/demo-order-controls";
+import { PaymentWidget, PaymentStatusBadge } from "@/components/payment";
+import { MOCK_PAYMENT_BANK } from "@/lib/mock/payment-mock-data";
 import {
   OrderStatusChip,
   OrderItemCard,
@@ -40,7 +41,8 @@ export default function OrderTrackingPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { orders, ready, cancelOrder, reorder, demoEnabled, startNavigating } = useOrder();
+  const { orders, ready, cancelOrder, reorder, demoEnabled, startNavigating } =
+    useOrder();
   const order = orders.find(
     (entry) => entry.id === id || entry.orderCode === id,
   );
@@ -50,7 +52,7 @@ export default function OrderTrackingPage({
   if (!ready || !order)
     return (
       <>
-                <main className={`${styles.trackingContainer} m3-page`}>
+        <main className={`${styles.trackingContainer} m3-page`}>
           {!ready ? (
             <div className="order-skeleton" role="status">
               Đang tải đơn hàng…
@@ -66,16 +68,39 @@ export default function OrderTrackingPage({
             </div>
           )}
         </main>
-              </>
+      </>
     );
-  const paymentLabel = {
-    PENDING: "Chưa thanh toán",
-    PAID: "Đã thanh toán",
-    FAILED: "Thanh toán thất bại",
-    EXPIRED: "Đã hết hạn",
-  }[order.paymentStatus];
   const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const awaitingPayment =
+    order.paymentMethod === "BANK_TRANSFER" &&
+    order.paymentStatus === "PENDING" &&
+    order.status === "PENDING_PAYMENT";
   const terminal = ["COMPLETED", "CANCELLED"].includes(order.status);
+  const paymentCopy = {
+    PAID: {
+      label: "Số tiền đã thanh toán",
+      message: "Thanh toán của bạn đã được ghi nhận. Cảm ơn bạn đã chọn Clucky!",
+      icon: CheckCircle2,
+    },
+    PENDING: {
+      label: "Số tiền cần thanh toán",
+      message: order.paymentMethod === "COD"
+        ? "Bạn thanh toán bằng tiền mặt khi nhận món."
+        : "Quét mã bên dưới để hoàn tất thanh toán.",
+      icon: Wallet,
+    },
+    FAILED: {
+      label: "Giá trị đơn hàng",
+      message: "Thanh toán chưa thành công. Vui lòng kiểm tra lại trạng thái đơn hàng.",
+      icon: CircleAlert,
+    },
+    EXPIRED: {
+      label: "Giá trị đơn hàng",
+      message: "Phiên thanh toán đã hết hạn. Vui lòng kiểm tra lại đơn hàng trước khi thanh toán.",
+      icon: Clock3,
+    },
+  }[order.paymentStatus];
+  const PaymentIcon = paymentCopy.icon;
   const handleCancel = () => {
     if (!cancelReason.trim()) return;
     cancelOrder(order.id, cancelReason.trim());
@@ -84,7 +109,7 @@ export default function OrderTrackingPage({
   };
   return (
     <>
-            <main className={`${styles.trackingContainer} m3-page`}>
+      <main className={`${styles.trackingContainer} m3-page`}>
         <nav className={styles.breadcrumb} aria-label="Đường dẫn">
           <Link href="/orders">
             <ArrowLeft size={15} /> Đơn hàng của tôi
@@ -104,29 +129,6 @@ export default function OrderTrackingPage({
           </div>
           <OrderStatusChip status={order.status} />
         </header>
-        <div className={styles.overviewGrid}>
-          <div>
-            <ShoppingBag size={18} />
-            <span>Số lượng món</span>
-            <strong>{itemCount} phần ăn</strong>
-          </div>
-          <div>
-            <CreditCard size={18} />
-            <span>Tổng đơn hàng</span>
-            <strong>{formatPrice(order.totalAmount)}</strong>
-          </div>
-          <div>
-            {order.type === "PICKUP" ? (
-              <Store size={18} />
-            ) : (
-              <Truck size={18} />
-            )}
-            <span>Nhận món</span>
-            <strong>
-              {order.type === "PICKUP" ? "Tại cửa hàng" : "Giao tận nơi"}
-            </strong>
-          </div>
-        </div>
         <OrderProgress
           orderCode={order.orderCode}
           status={order.status}
@@ -140,7 +142,9 @@ export default function OrderTrackingPage({
             {feedback}
           </p>
         )}
-        <div className={styles.detailGrid}>
+        <div
+          className={`${styles.detailGrid} ${awaitingPayment ? styles.awaitingPayment : ""}`}
+        >
           <div className={styles.detailMain}>
             <section className={styles.detailCard}>
               <div className={styles.sectionHeading}>
@@ -173,21 +177,23 @@ export default function OrderTrackingPage({
                   </div>
                 </div>
               )}
+              <OrderSummaryCard
+                embedded
+                title="Tổng tiền"
+                subtotal={order.subtotal}
+                discountAmount={order.discountAmount}
+                voucherCode={order.voucherCode}
+                pointsUsed={order.pointsUsed}
+                pointsAmount={order.pointsAmount}
+                shippingFee={order.shippingFee}
+                totalAmount={order.totalAmount}
+              />
             </section>
-            <OrderSummaryCard
-              subtotal={order.subtotal}
-              discountAmount={order.discountAmount}
-              voucherCode={order.voucherCode}
-              pointsUsed={order.pointsUsed}
-              pointsAmount={order.pointsAmount}
-              shippingFee={order.shippingFee}
-              totalAmount={order.totalAmount}
-            />
             <div className={styles.detailActions}>
               {terminal ? (
                 <button
                   type="button"
-                  className={styles.primaryButton}
+                  className={`${styles.primaryButton} ${styles.exploreAction}`}
                   onClick={() => {
                     reorder(order);
                     startNavigating?.("Đang chuyển tới giỏ hàng…");
@@ -198,45 +204,68 @@ export default function OrderTrackingPage({
                   Đặt lại những món này
                 </button>
               ) : (
-                <Link href="/menu" className={styles.outlineButton}>
-                  Khám phá thêm món <ArrowRight size={16} />
+                <Link href="/menu" className={`${styles.primaryButton} ${styles.exploreAction}`}>
+                  <ShoppingBag size={19} aria-hidden="true" />
+                  Khám phá thêm món
+                  <span className={styles.actionArrow} aria-hidden="true"><ArrowRight size={17} /></span>
                 </Link>
               )}
+              {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
+                <button
+                  type="button"
+                  className={styles.cancelAction}
+                  onClick={() => setCancelOpen(true)}
+                >
+                  <CircleX size={18} aria-hidden="true" /> Hủy đơn hàng này
+                </button>
+              )}
               <Link href="/orders" className={styles.textButton}>
-                Về lịch sử đơn
+                <History size={18} aria-hidden="true" /> Về lịch sử đơn
               </Link>
             </div>
           </div>
           <aside className={styles.detailAside}>
-            <DemoOrderControls order={order} />
-            <section className={styles.detailCard}>
-              <h2>
-                <Wallet size={19} /> Thanh toán
-              </h2>
-              <dl className={styles.infoList}>
-                <div>
-                  <dt>Phương thức</dt>
-                  <dd>
-                    {order.paymentMethod === "COD"
-                      ? "Tiền mặt (COD)"
-                      : "Chuyển khoản"}
-                  </dd>
+            <section
+              className={`${styles.detailCard} ${styles.paymentCard}`}
+              data-state={order.paymentStatus}
+              aria-label="Thanh toán đơn hàng"
+            >
+              <div className={styles.paymentHeading}>
+                <h2>
+                  <Wallet size={19} /> Thanh toán
+                </h2>
+                <PaymentStatusBadge status={order.paymentStatus} />
+              </div>
+              {!awaitingPayment && (
+                <div className={styles.paymentReceipt}>
+                  <span className={styles.paymentEmblem} aria-hidden="true">
+                    <PaymentIcon size={30} strokeWidth={1.8} />
+                  </span>
+                  <span className={styles.paymentAmountLabel}>{paymentCopy.label}</span>
+                  <strong className={styles.paymentAmount}>{formatPrice(order.totalAmount)}</strong>
+                  <p className={styles.paymentMessage}>{paymentCopy.message}</p>
                 </div>
+              )}
+              <div className={styles.paymentMethod}>
+                <span className={styles.paymentMethodIcon} aria-hidden="true">
+                  {order.paymentMethod === "COD" ? <Wallet size={23} /> : <CreditCard size={23} />}
+                </span>
                 <div>
-                  <dt>Trạng thái</dt>
-                  <dd
-                    className={
-                      order.paymentStatus === "PAID" ? styles.paid : ""
-                    }
-                  >
-                    {paymentLabel}
-                  </dd>
+                  <span className={styles.paymentMethodLabel}>Phương thức thanh toán</span>
+                  <strong>{order.paymentMethod === "COD" ? "Tiền mặt khi nhận món" : "Chuyển khoản ngân hàng"}</strong>
                 </div>
-                <div>
-                  <dt>Mã đơn</dt>
-                  <dd>{order.orderCode}</dd>
-                </div>
-              </dl>
+                <span className={styles.paymentNetwork}>{order.paymentMethod === "COD" ? "COD" : "VietQR"}</span>
+              </div>
+              {awaitingPayment && (
+                <PaymentWidget
+                  orderCode={order.orderCode}
+                  amount={order.totalAmount}
+                  bankInfo={MOCK_PAYMENT_BANK}
+                  storeName={order.storeName}
+                  embedded
+                  demo
+                />
+              )}
               {order.refundStatus === "PENDING" && (
                 <p className={styles.refundNotice}>
                   <CircleAlert size={16} />
@@ -244,51 +273,50 @@ export default function OrderTrackingPage({
                 </p>
               )}
             </section>
-            <section className={styles.detailCard}>
+            <section
+              className={styles.detailCard}
+              aria-label="Thông tin nhận món"
+            >
               <h2>
-                <UserRound size={19} /> Thông tin nhận món
+                <MapPin size={19} />
+                {order.type === "PICKUP"
+                  ? "Nhận tại cửa hàng"
+                  : "Thông tin giao hàng"}
               </h2>
               <dl className={styles.infoList}>
                 <div>
                   <dt>Người nhận</dt>
-                  <dd>{order.receiverName}</dd>
-                </div>
-                <div>
-                  <dt>Điện thoại</dt>
                   <dd>
+                    {order.receiverName} ·{" "}
                     <a href={`tel:${order.receiverPhone}`}>
                       {order.receiverPhone}
                     </a>
                   </dd>
                 </div>
+                {order.type === "DELIVERY" && (
+                  <div>
+                    <dt>Địa chỉ giao</dt>
+                    <dd>{order.deliveryAddress || "Chưa có địa chỉ giao"}</dd>
+                  </div>
+                )}
                 <div>
                   <dt>
-                    <MapPin size={13} />
-                    {order.type === "PICKUP" ? "Chi nhánh" : "Địa chỉ giao"}
-                  </dt>
-                  <dd>
                     {order.type === "PICKUP"
-                      ? order.storeName
-                      : order.deliveryAddress}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Chuẩn bị tại</dt>
+                      ? "Địa điểm nhận món"
+                      : "Chuẩn bị tại"}
+                  </dt>
                   <dd>{order.storeName}</dd>
                 </div>
               </dl>
-              {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
-                <button
-                  type="button"
-                  className={styles.cancelButton}
-                  onClick={() => setCancelOpen(true)}
-                >
-                  Hủy đơn hàng này
-                </button>
-              )}
             </section>
           </aside>
         </div>
+        {demoEnabled && (
+          <details className={styles.demoDisclosure}>
+            <summary>Mô phỏng trạng thái đơn hàng</summary>
+            <DemoOrderControls order={order} />
+          </details>
+        )}
         <OrderDialog
           open={cancelOpen}
           onClose={() => setCancelOpen(false)}
@@ -328,6 +356,6 @@ export default function OrderTrackingPage({
           </div>
         </OrderDialog>
       </main>
-          </>
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Select } from "@base-ui/react/select";
 import { formatPrice } from "@/lib/products";
 import { MOCK_STORES } from "@/lib/mock/order-mock-data";
 import { Order, OrderType, PaymentMethod } from "@/lib/types/order";
@@ -16,6 +17,8 @@ import {
   Truck,
   Store,
   ArrowRight,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 
 export default function CheckoutPage() {
@@ -248,19 +251,44 @@ export default function CheckoutPage() {
                   >
                     Chi nhánh chuẩn bị món
                   </label>
-                  <select
-                    id="fulfillmentStore"
+                  <Select.Root
+                    name="storeId"
                     value={selectedStore}
-                    onChange={(e) => setSelectedStore(e.target.value)}
-                    className={styles.select}
+                    onValueChange={(value) => {
+                      if (value !== null) setSelectedStore(value);
+                    }}
+                    items={MOCK_STORES.map((store) => ({ value: store.id, label: store.name }))}
                   >
-                    {MOCK_STORES.map((store) => (
-                      <option key={store.id} value={store.id}>
-                        {store.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className={styles.storeHint}>
+                    <Select.Trigger
+                      id="fulfillmentStore"
+                      type="button"
+                      aria-describedby="fulfillmentStoreAddress"
+                      className={styles.storeTrigger}
+                    >
+                      <span className={styles.storeTriggerIcon} aria-hidden="true"><Store size={20} /></span>
+                      <Select.Value className={styles.storeValue} />
+                      <Select.Icon className={styles.storeChevron}><ChevronDown size={18} /></Select.Icon>
+                    </Select.Trigger>
+                    <Select.Portal>
+                      <Select.Positioner sideOffset={8} align="start" alignItemWithTrigger={false} className={styles.storePositioner}>
+                        <Select.Popup className={styles.storePopup}>
+                          <Select.List className={styles.storeList}>
+                            {MOCK_STORES.map((store) => (
+                              <Select.Item key={store.id} value={store.id} label={store.name} className={styles.storeOption}>
+                                <span className={styles.storeOptionIcon} aria-hidden="true"><Store size={19} /></span>
+                                <div className={styles.storeOptionContent}>
+                                  <Select.ItemText className={styles.storeOptionName}>{store.name}</Select.ItemText>
+                                  <span className={styles.storeOptionAddress}>{store.address}</span>
+                                </div>
+                                <Select.ItemIndicator className={styles.storeCheck}><Check size={18} strokeWidth={2.5} /></Select.ItemIndicator>
+                              </Select.Item>
+                            ))}
+                          </Select.List>
+                        </Select.Popup>
+                      </Select.Positioner>
+                    </Select.Portal>
+                  </Select.Root>
+                  <p id="fulfillmentStoreAddress" className={styles.storeHint}>
                     <MapPin size={14} />{" "}
                     {
                       MOCK_STORES.find((store) => store.id === selectedStore)

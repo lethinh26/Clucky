@@ -1,6 +1,6 @@
-import React from 'react';
-import { formatPrice } from '@/lib/products';
-import styles from './order-shared.module.css';
+import React from "react";
+import { formatPrice } from "@/lib/products";
+import styles from "./order-shared.module.css";
 
 interface OrderSummaryCardProps {
   title?: string;
@@ -12,10 +12,11 @@ interface OrderSummaryCardProps {
   shippingFee?: number;
   totalAmount: number;
   children?: React.ReactNode;
+  embedded?: boolean;
 }
 
 export function OrderSummaryCard({
-  title = 'Tóm tắt đơn hàng',
+  title = "Tóm tắt đơn hàng",
   subtotal,
   discountAmount = 0,
   voucherCode,
@@ -24,9 +25,12 @@ export function OrderSummaryCard({
   shippingFee = 0,
   totalAmount,
   children,
+  embedded = false,
 }: OrderSummaryCardProps) {
   return (
-    <aside className={styles.summaryCard}>
+    <div
+      className={`${styles.summaryCard} ${embedded ? styles.summaryEmbedded : ""}`}
+    >
       <h3 className={styles.summaryTitle}>{title}</h3>
 
       <div className={styles.summaryRow}>
@@ -36,31 +40,39 @@ export function OrderSummaryCard({
 
       {discountAmount > 0 && (
         <div className={styles.summaryRow}>
-          <span>Giảm giá {voucherCode ? `(${voucherCode})` : ''}</span>
-          <strong className={styles.summaryDiscount}>-{formatPrice(discountAmount)}</strong>
+          <span>Giảm giá {voucherCode ? `(${voucherCode})` : ""}</span>
+          <strong className={styles.summaryDiscount}>
+            -{formatPrice(discountAmount)}
+          </strong>
         </div>
       )}
 
       {pointsAmount > 0 && (
         <div className={styles.summaryRow}>
           <span>Điểm tích lũy ({pointsUsed} điểm)</span>
-          <strong className={styles.summaryDiscount}>-{formatPrice(pointsAmount)}</strong>
+          <strong className={styles.summaryDiscount}>
+            -{formatPrice(pointsAmount)}
+          </strong>
         </div>
       )}
 
       <div className={styles.summaryRow}>
         <span>Phí giao hàng</span>
-        <strong>{shippingFee > 0 ? formatPrice(shippingFee) : 'Miễn phí'}</strong>
+        <strong>
+          {shippingFee > 0 ? formatPrice(shippingFee) : "Miễn phí"}
+        </strong>
       </div>
 
       <hr className={styles.summaryDivider} />
 
       <div className={styles.summaryTotalRow}>
         <span>Tổng cộng</span>
-        <strong className={styles.summaryTotalAmount}>{formatPrice(totalAmount)}</strong>
+        <strong className={styles.summaryTotalAmount}>
+          {formatPrice(totalAmount)}
+        </strong>
       </div>
 
       {children}
-    </aside>
+    </div>
   );
 }

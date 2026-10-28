@@ -1,0 +1,341 @@
+/* Scoped CSS for Payment & Shipping shared components — Clucky brand tokens */
+
+.paymentScope {
+  --clu-espresso: #16100d;
+  --clu-cream: #f5ede0;
+  --clu-paper: #fffaf3;
+  --clu-wine: #8f1216;
+  --clu-gold: #c9a227;
+  --clu-status-success: #1e7a46;
+  --clu-status-warning: #d97706;
+  --clu-status-danger: #b42318;
+  --clu-status-info: #22577a;
+  --clu-muted: #6b6259;
+  --clu-border: #e8e2d9;
+  --clu-font-heading: "Fredoka", system-ui, sans-serif;
+  --clu-font-body: "Quicksand", system-ui, sans-serif;
+  font-family: var(--clu-font-body);
+}
+
+/* ---------- Payment status badge ---------- */
+.payChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: "Quicksand", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.payDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.payUnpaid,
+.payPending {
+  background: rgba(217, 119, 6, 0.12);
+  color: #92400e;
+  border: 1px solid rgba(217, 119, 6, 0.3);
+}
+.payUnpaid .payDot,
+.payPending .payDot {
+  background: #d97706;
+}
+
+.payPaid,
+.payCollected {
+  background: rgba(30, 122, 70, 0.12);
+  color: #166534;
+  border: 1px solid rgba(30, 122, 70, 0.3);
+}
+.payPaid .payDot,
+.payCollected .payDot {
+  background: #1e7a46;
+}
+
+.payExpired {
+  background: rgba(107, 98, 89, 0.14);
+  color: #6b6259;
+  border: 1px solid rgba(107, 98, 89, 0.3);
+}
+.payExpired .payDot {
+  background: #6b6259;
+}
+
+.payMismatch {
+  background: rgba(180, 35, 24, 0.12);
+  color: #b42318;
+  border: 1px solid rgba(180, 35, 24, 0.3);
+}
+.payMismatch .payDot {
+  background: #b42318;
+}
+
+.payRefundPending {
+  background: rgba(34, 87, 122, 0.12);
+  color: #22577a;
+  border: 1px solid rgba(34, 87, 122, 0.3);
+}
+.payRefundPending .payDot {
+  background: #22577a;
+}
+
+.payRefunded {
+  background: rgba(34, 87, 122, 0.16);
+  color: #1d4ed8;
+  border: 1px solid rgba(34, 87, 122, 0.4);
+}
+.payRefunded .payDot {
+  background: #1d4ed8;
+}
+
+/* ---------- VietQR payment widget ---------- */
+.paymentWidget {
+  background: var(--clu-paper);
+  border: 2px solid var(--clu-gold);
+  border-radius: 24px;
+  padding: 28px;
+  text-align: center;
+}
+.paymentWidget.embedded {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  padding: 0;
+  margin-top: 20px;
+}
+.embedded .bankDetails {
+  background: none;
+  padding: 0;
+}
+
+.qrBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(201, 162, 39, 0.2);
+  color: #705707;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.qrTitle {
+  margin: 0 0 8px;
+  font-family: "Fredoka", sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--clu-espresso);
+}
+
+.qrTimer {
+  font-size: 13px;
+  color: #9a4e05;
+  font-weight: 700;
+  margin: 0 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qrTimerExpired {
+  color: var(--clu-status-danger);
+}
+
+.qrImageWrapper {
+  width: min(240px, 100%);
+  aspect-ratio: 1;
+  margin: 0 auto 20px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--clu-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qrImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.bankDetails {
+  text-align: left;
+  background: var(--clu-cream);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--clu-muted);
+}
+
+.bankRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.bankRow strong {
+  color: var(--clu-espresso);
+  font-family: "Fredoka", sans-serif;
+  font-size: 14px;
+  text-align: right;
+  word-break: break-all;
+}
+
+.bankAmount {
+  color: var(--clu-wine) !important;
+}
+
+.paymentNote {
+  margin: 18px 0 0;
+  font-size: 12px;
+  color: var(--clu-muted);
+  line-height: 1.5;
+  padding: 0 4px;
+}
+
+/* ---------- Shipment card ---------- */
+.shipmentCard {
+  background: var(--clu-paper);
+  border: 1px solid var(--clu-border);
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 6px 20px rgba(22, 16, 13, 0.04);
+}
+
+.shipmentHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shipmentTitle {
+  margin: 0;
+  font-family: "Fredoka", sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--clu-espresso);
+}
+
+.shipmentItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shipmentLabel {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--clu-muted);
+}
+
+.shipmentVal {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--clu-espresso);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shipmentFee {
+  color: var(--clu-wine);
+}
+
+/* ---------- Shipping fee row (checkout widget) ---------- */
+.feeCard {
+  background: var(--clu-paper);
+  border: 1px solid var(--clu-border);
+  border-radius: 18px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--clu-muted);
+}
+
+.feeRow strong {
+  color: var(--clu-espresso);
+  font-family: "Fredoka", sans-serif;
+  font-size: 15px;
+}
+
+.feeFree {
+  color: var(--clu-status-success) !important;
+}
+
+.feeHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--clu-muted);
+}
+
+@media (max-width: 480px) {
+  .paymentWidget {
+    padding: 20px;
+  }
+
+  .qrImageWrapper {
+    width: min(200px, 100%);
+    height: auto;
+  }
+}
+
+.paymentWidget,
+.shipmentCard,
+.feeCard {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.qrImageWrapper {
+  box-sizing: border-box;
+  position: relative;
+}
+.qrImageWrapper [role="status"] {
+  position: absolute;
+}
+.bankRow > span {
+  flex-shrink: 0;
+}
+.shipmentVal {
+  flex-wrap: wrap;
+}
+.feeRow {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.paymentWidget button:focus-visible,
+.shipmentCard a:focus-visible {
+  outline: 3px solid #8f1216;
+  outline-offset: 3px;
+}

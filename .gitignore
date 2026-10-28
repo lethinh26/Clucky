@@ -62,3 +62,5 @@ stitch_clucky_ui_component_reference/
 
 # TypeScript build info
 *.tsbuildinfo
+test-results/
+playwright-report/

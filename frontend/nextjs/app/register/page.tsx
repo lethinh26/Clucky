@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
 import { authApi, ApiError } from "@/lib/api";
 
@@ -53,56 +54,58 @@ export default function RegisterPage() {
       title="Tạo tài khoản Clucky"
       subtitle="Tham gia để tích điểm, lưu địa chỉ và đặt món trong vài chạm."
     >
-      <form className="auth-form" onSubmit={onSubmit} noValidate>
-        {error && (
-          <div className="form-error" role="alert">
-            {error}
-          </div>
-        )}
-        <Input
-          label="Họ và tên"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          required
-          autoComplete="name"
-        />
-        <Input
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="email"
-          placeholder="ban@clucky.vn"
-        />
-        <Input
-          label="Số điện thoại (tuỳ chọn)"
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          autoComplete="tel"
-          placeholder="0901 234 567"
-        />
-        <Input
-          label="Mật khẩu"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          autoComplete="new-password"
-          placeholder="Tối thiểu 8 ký tự"
-        />
-        <button
-          type="submit"
-          className="btn-primary btn-block"
-          disabled={loading}
-        >
-          {loading ? "Đang tạo tài khoản…" : "Đăng ký"}
-        </button>
-        <span className="auth-footer-link">
-          Đã có tài khoản? <Link href="/login">Đăng nhập</Link>
-        </span>
-      </form>
+      <GoogleAuthFlow>
+        <form className="auth-form" onSubmit={onSubmit} noValidate>
+          {error && (
+            <div className="form-error" role="alert">
+              {error}
+            </div>
+          )}
+          <Input
+            label="Họ và tên"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+            autoComplete="name"
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            placeholder="ban@clucky.vn"
+          />
+          <Input
+            label="Số điện thoại (tuỳ chọn)"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            autoComplete="tel"
+            placeholder="0901 234 567"
+          />
+          <Input
+            label="Mật khẩu"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="new-password"
+            placeholder="Tối thiểu 8 ký tự"
+          />
+          <button
+            type="submit"
+            className="btn-primary btn-block"
+            disabled={loading}
+          >
+            {loading ? "Đang tạo tài khoản…" : "Đăng ký"}
+          </button>
+          <span className="auth-footer-link">
+            Đã có tài khoản? <Link href="/login">Đăng nhập</Link>
+          </span>
+        </form>
+      </GoogleAuthFlow>
     </AuthShell>
   );
 }

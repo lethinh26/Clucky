@@ -46,6 +46,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/reviews": "Quản lý Đánh giá",
   "/admin/users": "Quản lý Người dùng",
   "/admin/reports": "Báo cáo & Thống kê",
+  "/admin/payments": "Thanh toán & Đối soát",
 };
 
 export const AdminLayout: React.FC = () => {
@@ -69,6 +70,7 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/users")) selectedKey = "users";
   else if (pathname.includes("/reviews")) selectedKey = "reviews";
   else if (pathname.includes("/reports")) selectedKey = "reports";
+  else if (pathname.includes("/payments")) selectedKey = "payments";
 
   const roleNavPermissions: Record<
     "ADMIN" | "STORE_MANAGER" | "STAFF",
@@ -83,6 +85,7 @@ export const AdminLayout: React.FC = () => {
       "users",
       "reviews",
       "reports",
+      "payments",
     ],
     STORE_MANAGER: [
       "dashboard",
@@ -92,6 +95,7 @@ export const AdminLayout: React.FC = () => {
       "users",
       "reviews",
       "reports",
+      "payments",
     ],
     STAFF: ["dashboard", "inventory", "staff-orders", "orders", "reviews"],
   };
@@ -150,6 +154,12 @@ export const AdminLayout: React.FC = () => {
       icon: <BarChartOutlined />,
       label: "Báo cáo & Thống kê",
       onClick: () => navigate("/admin/reports"),
+    },
+    {
+      key: "payments",
+      icon: <BarChartOutlined />,
+      label: "Thanh toán & Đối soát",
+      onClick: () => navigate("/admin/payments"),
     },
   ];
 

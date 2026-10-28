@@ -234,6 +234,14 @@
 }
 
 /* 4. Order Summary Card */
+.summaryCard.summaryEmbedded {
+  border: 0;
+  border-top: 1px solid #e8e2d9;
+  border-radius: 0;
+  padding: 20px 0 0;
+  margin-top: 20px;
+  box-shadow: none;
+}
 .summaryCard {
   background: #fffaf3;
   border: 1px solid #e8e2d9;
@@ -320,3 +328,8 @@
     font-size: 24px;
   }
 }
+
+.summaryEmbedded .summaryRow { font-size: 16px; line-height: 1.7; margin: 14px 0; }
+.summaryEmbedded .summaryTitle { font-size: 25px; }
+.summaryEmbedded .summaryTotalRow { font-size: 19px; }
+.summaryEmbedded .summaryTotalAmount { font-size: 30px; }

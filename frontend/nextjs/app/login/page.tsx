@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
 import { authApi, ApiError } from "@/lib/api";
 
@@ -46,44 +47,46 @@ export default function LoginPage() {
       title="Chào mừng trở lại"
       subtitle="Đăng nhập để đặt món nhanh hơn và theo dõi đơn hàng của bạn."
     >
-      <form className="auth-form" onSubmit={onSubmit} noValidate>
-        {error && (
-          <div className="form-error" role="alert">
-            {error}
+      <GoogleAuthFlow>
+        <form className="auth-form" onSubmit={onSubmit} noValidate>
+          {error && (
+            <div className="form-error" role="alert">
+              {error}
+            </div>
+          )}
+          <Input
+            label="Email"
+            type="email"
+            autoComplete="email"
+            placeholder="ban@clucky.vn"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <Input
+            label="Mật khẩu"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <div className="auth-links">
+            <Link href="/forgot-password">Quên mật khẩu?</Link>
           </div>
-        )}
-        <Input
-          label="Email"
-          type="email"
-          autoComplete="email"
-          placeholder="ban@clucky.vn"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <Input
-          label="Mật khẩu"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <div className="auth-links">
-          <Link href="/forgot-password">Quên mật khẩu?</Link>
-        </div>
-        <button
-          type="submit"
-          className="btn-primary btn-block"
-          disabled={loading}
-        >
-          {loading ? "Đang đăng nhập…" : "Đăng nhập"}
-        </button>
-        <span className="auth-footer-link">
-          Chưa có tài khoản? <Link href="/register">Đăng ký ngay</Link>
-        </span>
-      </form>
+          <button
+            type="submit"
+            className="btn-primary btn-block"
+            disabled={loading}
+          >
+            {loading ? "Đang đăng nhập…" : "Đăng nhập"}
+          </button>
+          <span className="auth-footer-link">
+            Chưa có tài khoản? <Link href="/register">Đăng ký ngay</Link>
+          </span>
+        </form>
+      </GoogleAuthFlow>
     </AuthShell>
   );
 }
