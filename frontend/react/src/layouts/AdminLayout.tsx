@@ -1,9 +1,7 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import {
   Layout,
-  Drawer,
-  Grid,
   Menu,
   Breadcrumb,
   Button,
@@ -15,6 +13,8 @@ import {
   Select,
   Typography,
   App as AntApp,
+  Drawer,
+  Grid,
 } from "antd";
 import type { MenuProps } from "antd";
 import {
@@ -33,6 +33,7 @@ import {
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext";
+import { AdminFooter } from "../components/AdminFooter";
 
 const routeBreadcrumbMap: Record<string, string> = {
   "/admin": "Tổng quan",
@@ -41,15 +42,18 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/stores": "Quản lý Chi nhánh",
   "/admin/inventory": "Tồn kho Chi nhánh",
   "/admin/orders": "Quản lý Đơn hàng",
+  "/admin/staff/orders": "Đơn hàng Ca trực",
   "/admin/reviews": "Quản lý Đánh giá",
+  "/admin/users": "Quản lý Người dùng",
   "/admin/reports": "Báo cáo & Thống kê",
 };
 
 export const AdminLayout: React.FC = () => {
   const { message } = AntApp.useApp();
-  const screens = Grid.useBreakpoint();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const screens = Grid.useBreakpoint();
+  const isMobile = screens.lg === false;
   const { user, switchRole, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,7 +64,9 @@ export const AdminLayout: React.FC = () => {
   if (pathname.includes("/catalog")) selectedKey = "catalog";
   else if (pathname.includes("/stores")) selectedKey = "stores";
   else if (pathname.includes("/inventory")) selectedKey = "inventory";
+  else if (pathname.includes("/staff/orders")) selectedKey = "staff-orders";
   else if (pathname.includes("/orders")) selectedKey = "orders";
+  else if (pathname.includes("/users")) selectedKey = "users";
   else if (pathname.includes("/reviews")) selectedKey = "reviews";
   else if (pathname.includes("/reports")) selectedKey = "reports";
 
@@ -74,6 +80,7 @@ export const AdminLayout: React.FC = () => {
       "stores",
       "inventory",
       "orders",
+      "users",
       "reviews",
       "reports",
     ],
@@ -82,10 +89,11 @@ export const AdminLayout: React.FC = () => {
       "stores",
       "inventory",
       "orders",
+      "users",
       "reviews",
       "reports",
     ],
-    STAFF: ["dashboard", "inventory", "orders", "reviews"],
+    STAFF: ["dashboard", "inventory", "staff-orders", "orders", "reviews"],
   };
 
   const navItems: MenuProps["items"] = [
@@ -120,10 +128,22 @@ export const AdminLayout: React.FC = () => {
       onClick: () => navigate("/admin/orders"),
     },
     {
+      key: "staff-orders",
+      icon: <ShopOutlined />,
+      label: "Đơn hàng Ca trực",
+      onClick: () => navigate("/admin/staff/orders"),
+    },
+    {
       key: "reviews",
       icon: <CommentOutlined />,
       label: "Đánh giá & Phản hồi",
       onClick: () => navigate("/admin/reviews"),
+    },
+    {
+      key: "users",
+      icon: <UserOutlined />,
+      label: "Người dùng",
+      onClick: () => navigate("/admin/users"),
     },
     {
       key: "reports",
@@ -341,7 +361,7 @@ export const AdminLayout: React.FC = () => {
                   fontFamily: "Quicksand, sans-serif",
                 }}
               >
-                {user.storeName}
+                📍 {user.storeName}
               </div>
             )}
           </div>
@@ -349,21 +369,23 @@ export const AdminLayout: React.FC = () => {
       </Layout.Sider>
 
       <Drawer
-        title="Clucky · Điều hướng"
+        title="Điều hướng Clucky"
         placement="left"
-        size="min(320px, 100vw)"
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        styles={{ body: { padding: 12, background: "#16100D" } }}
+        open={isMobile && mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+        styles={{
+          wrapper: { width: "min(300px, 90vw)" },
+          body: { padding: 0 },
+        }}
       >
         <Menu
-          theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
           items={visibleNavItems}
-          onClick={() => setMobileOpen(false)}
+          onClick={() => setMobileMenuOpen(false)}
         />
       </Drawer>
+
       <Layout style={{ minWidth: 0 }}>
         <Layout.Header
           className="admin-header"
@@ -381,17 +403,19 @@ export const AdminLayout: React.FC = () => {
             zIndex: 9,
           }}
         >
-          <Flex className="admin-header-breadcrumb" align="center" gap={16}>
+          <Flex className="admin-header-navigation" align="center" gap={16}>
             <Button
               type="text"
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
               aria-label={
-                screens.lg
-                  ? "Thu gọn thanh điều hướng"
-                  : "Mở điều hướng quản trị"
+                isMobile
+                  ? "Mở điều hướng"
+                  : collapsed
+                    ? "Mở rộng điều hướng"
+                    : "Thu gọn điều hướng"
               }
               onClick={() =>
-                screens.lg ? setCollapsed(!collapsed) : setMobileOpen(true)
+                isMobile ? setMobileMenuOpen(true) : setCollapsed(!collapsed)
               }
               style={{ fontSize: 16, color: "#16100D" }}
             />
@@ -408,6 +432,7 @@ export const AdminLayout: React.FC = () => {
             {/* Store Chip for Staff / Store Manager */}
             {(user.role === "STAFF" || user.role === "STORE_MANAGER") && (
               <Tag
+                className="admin-header-store"
                 style={{
                   backgroundColor: "#FEF9C3",
                   border: "1px solid #FDE047",
@@ -430,16 +455,15 @@ export const AdminLayout: React.FC = () => {
 
             {/* Quick role selector for testing and demo */}
             <Select
-              className="admin-role-selector"
-              aria-label="Vai trò xem thử"
+              className="admin-header-role"
               size="small"
               value={user.role}
               onChange={(val) => switchRole(val)}
               style={{ width: 170, fontFamily: "Quicksand, sans-serif" }}
               options={[
-                { value: "ADMIN", label: "Quản trị viên HQ" },
-                { value: "STORE_MANAGER", label: "Quản lý chi nhánh" },
-                { value: "STAFF", label: "Nhân viên chi nhánh" },
+                { value: "ADMIN", label: "🛡️ Role: Admin HQ" },
+                { value: "STORE_MANAGER", label: "🏪 Role: Store Manager" },
+                { value: "STAFF", label: "👨‍🍳 Role: Staff Chi nhánh" },
               ]}
             />
 
@@ -460,6 +484,8 @@ export const AdminLayout: React.FC = () => {
             <Dropdown menu={{ items: profileMenuItems }} trigger={["click"]}>
               <Button
                 type="text"
+                aria-label="Tài khoản của tôi"
+                className="admin-profile-button"
                 style={{
                   height: 44,
                   padding: "4px 10px",
@@ -481,7 +507,7 @@ export const AdminLayout: React.FC = () => {
                   {user.fullName.split(" ").pop()?.[0] || "C"}
                 </Avatar>
                 <div
-                  className="profile-name"
+                  className="admin-profile-details"
                   style={{ textAlign: "left", lineHeight: 1.2 }}
                 >
                   <div
@@ -510,7 +536,7 @@ export const AdminLayout: React.FC = () => {
         </Layout.Header>
 
         <Layout.Content
-          className="admin-content"
+          className="admin-main-content"
           style={{
             padding: "28px 32px 48px",
             background: "#F5EDE0",
@@ -522,22 +548,7 @@ export const AdminLayout: React.FC = () => {
           </div>
         </Layout.Content>
 
-        <Layout.Footer
-          style={{
-            textAlign: "center",
-            background: "#F5EDE0",
-            borderTop: "1px solid #E8E2D9",
-            padding: "16px 24px",
-            color: "#6B6259",
-            fontFamily: "Quicksand, sans-serif",
-            fontSize: 13,
-          }}
-        >
-          Clucky Food Delivery Platform ·{" "}
-          <span style={{ color: "#8F1216", fontWeight: 700 }}>
-            Crispy Outside, Happy Inside
-          </span>
-        </Layout.Footer>
+        <AdminFooter />
       </Layout>
     </Layout>
   );

@@ -69,7 +69,7 @@ Mỗi thành viên làm UI của domain mình; backend owner không đứng ngo�
 | UI-06 | Docker Compose: postgres, redis, kafka, healthcheck | M6 — Mai Sơn Việt | `docker-compose.yml` |
 | UI-07 | Component lib Customer: Button, Card, Input, Badge, Modal | M1 — Trần Nguyễn Hữu Khánh | `nextjs/components/ui/*` |
 | UI-08 | Component lib Admin: Table, Badge, Modal, Form, Drawer | M2 — Nguyễn Duy Quang Nhật | `react/components/ui/*` |
-| UI-09 | Auth pages cả 2 app: Login, Register, OTP, Forgot/Reset | M1 — Trần Nguyễn Hữu Khánh | `app/login..`, `react/pages/Login` |
+| UI-09 | Auth pages: Customer có Login, Register, OTP, Forgot/Reset; quản trị chỉ Login, Forgot/Reset bằng tài khoản được cấp, không tự đăng ký | M1 — Trần Nguyễn Hữu Khánh | `app/login..`, `react/pages/Login` |
 | UI-10 | Home page: banner, category row, món nổi bật | M2 — Nguyễn Duy Quang Nhật | `app/page.tsx` |
 | UI-11 | Menu page: category sidebar, product grid, search/filter | M2 — Nguyễn Duy Quang Nhật | `app/menu/page.tsx` |
 | UI-12 | Product Detail: ảnh, options, toppings, quantity, giá động | M2 — Nguyễn Duy Quang Nhật | `app/menu/[id]` |

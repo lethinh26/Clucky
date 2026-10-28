@@ -11,10 +11,14 @@ import { StoresPage } from "./pages/Stores";
 import { StaffInventoryPage } from "./pages/Staff/Inventory";
 import { OrdersPage } from "./pages/Orders";
 import { StaffOrdersPage } from "./pages/Staff/StaffOrdersPage";
-import { OrderProvider } from "./context/OrderContext";
 import { ReviewsPage } from "./pages/Reviews";
 import { ReportsPage } from "./pages/Reports";
+import { UsersPage } from "./pages/Users";
+import { LoginPage } from "./pages/Auth/LoginPage";
+import { ForgotPasswordPage } from "./pages/Auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/Auth/ResetPasswordPage";
 
+import { OrderProvider } from "./context/OrderContext";
 function OrdersRoute() {
   const { isStaff } = useAuth();
   return isStaff ? <StaffOrdersPage /> : <OrdersPage />;
@@ -66,6 +70,24 @@ export const App: React.FC = () => {
                   path="/"
                   element={<Navigate to="/admin/dashboard" replace />}
                 />
+
+                {/* Public auth routes */}
+                <Route path="/login" element={<LoginPage />} />
+                {/* Internal accounts are provisioned; old signup URLs return to login. */}
+                <Route
+                  path="/register"
+                  element={<Navigate to="/login" replace />}
+                />
+                <Route
+                  path="/verify-otp"
+                  element={<Navigate to="/login" replace />}
+                />
+                <Route
+                  path="/forgot-password"
+                  element={<ForgotPasswordPage />}
+                />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route
                     index
@@ -123,6 +145,22 @@ export const App: React.FC = () => {
                         allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
                       >
                         <OrdersRoute />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="users"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
+                        <UsersPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="staff/orders"
+                    element={
+                      <ProtectedRoute allowedRoles={["STAFF"]}>
+                        <StaffOrdersPage />
                       </ProtectedRoute>
                     }
                   />

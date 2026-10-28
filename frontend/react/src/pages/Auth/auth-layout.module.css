@@ -1,0 +1,320 @@
+.shell {
+  min-height: calc(100dvh - 56px);
+  padding: 0 32px 32px;
+  background: #f5ede0;
+  color: #16100d;
+  font-family: "Quicksand", sans-serif;
+}
+.header {
+  width: min(1140px, 100%);
+  margin: auto;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font:
+    700 30px/0.9 "Baloo 2",
+    sans-serif;
+  color: #8f1216;
+  text-decoration: none;
+}
+.brand img {
+  object-fit: contain;
+}
+.brand small {
+  display: block;
+  margin-top: 7px;
+  font:
+    700 8px/1 "Quicksand",
+    sans-serif;
+  color: #75675e;
+  letter-spacing: 0.22em;
+}
+.headerNote {
+  color: #75675e;
+  font-size: 12px;
+  font-weight: 600;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 0.98fr 1.02fr;
+  width: min(1140px, 100%);
+  margin: auto;
+  border: 1px solid #e5dbce;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #fffaf3;
+  box-shadow: 0 20px 60px #49362b08;
+}
+.story {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 42px;
+  background: #211813;
+  color: #fffaf3;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #d9be82;
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  font-weight: 700;
+}
+.eyebrow > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c9a227;
+}
+.story h2 {
+  margin: 28px 0 16px;
+  font:
+    600 42px/1.15 "Baloo 2",
+    sans-serif;
+  letter-spacing: -0.035em;
+}
+.story h2 em {
+  font-style: normal;
+  color: #e1be70;
+}
+.story > p {
+  margin: 0;
+  max-width: 350px;
+  color: #bfae9d;
+  font-size: 13px;
+  line-height: 1.85;
+}
+.workspaceCard {
+  margin-top: 32px;
+  padding: 20px;
+  border: 1px solid #5e4835;
+  border-radius: 18px;
+  background: #30241d;
+}
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  color: #d5bd99;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.teamRow {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  padding: 17px 0;
+  border-bottom: 1px solid #5e48356b;
+}
+.roleIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 42px;
+  border: 1px solid #70553c;
+  border-radius: 12px;
+  color: #e1be70;
+  background: #3e2c20;
+  flex-shrink: 0;
+}
+.teamRow > div {
+  flex: 1;
+}
+.teamRow strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+.teamRow div > span {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  color: #bfae9d;
+}
+.roleNumber {
+  font:
+    500 20px "Baloo 2",
+    sans-serif;
+  color: #92785f;
+}
+.cardFooter {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding-top: 16px;
+  color: #c9b396;
+  font-size: 9px;
+}
+.storyFooter {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 30px;
+  color: #bfae9d;
+}
+.storyFooter span {
+  font:
+    500 18px/1.2 "Baloo 2",
+    sans-serif;
+}
+.storyFooter svg {
+  color: #c9a227;
+}
+.formPanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 44px;
+  min-width: 0;
+}
+.formInner {
+  width: 100%;
+  max-width: 390px;
+}
+.formEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 26px;
+  color: #8f1216;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.formPanel h1 {
+  margin: 0 0 9px;
+  font:
+    600 33px/1.15 "Baloo 2",
+    sans-serif;
+  letter-spacing: -0.035em;
+}
+.subtitle {
+  margin: 0 0 28px;
+  color: #75675e;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.formPanel :global(.ant-form-item) {
+  margin-bottom: 19px;
+}
+.formPanel :global(.ant-form-item-label) label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.formPanel :global(.ant-input-lg),
+.formPanel :global(.ant-input-affix-wrapper-lg) {
+  min-height: 50px;
+  border-radius: 12px;
+  border-color: #e3d9cc;
+  background: #fffefa;
+  font-size: 14px;
+}
+.formPanel :global(.ant-input-affix-wrapper) input {
+  background: transparent;
+}
+.formPanel :global(.ant-btn-primary) {
+  border-radius: 12px !important;
+  height: 50px !important;
+  box-shadow: 0 5px 12px #8f12161a !important;
+}
+.formPanel :global(.ant-alert) {
+  font-size: 12px;
+}
+.formFooter {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid #e8e2d9;
+  font-size: 10px;
+  font-weight: 600;
+  color: #81746a;
+}
+.formFooter a {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #8f1216;
+  text-decoration: none;
+}
+@media (max-width: 1000px) {
+  .story {
+    padding: 30px;
+  }
+  .story h2 {
+    font-size: 34px;
+  }
+  .formPanel {
+    padding: 30px;
+  }
+}
+@media (max-width: 760px) {
+  .shell {
+    padding: 0 20px 28px;
+  }
+  .header {
+    min-height: 85px;
+  }
+  .headerNote {
+    font-size: 10px;
+    max-width: 130px;
+    text-align: right;
+    line-height: 1.6;
+  }
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .story {
+    padding: 24px 28px;
+  }
+  .story h2 {
+    font-size: 30px;
+    margin: 15px 0 0;
+  }
+  .story > p,
+  .workspaceCard,
+  .storyFooter {
+    display: none;
+  }
+  .formPanel {
+    padding: 30px;
+  }
+  .formEyebrow {
+    display: none;
+  }
+  .formInner {
+    max-width: 440px;
+  }
+}
+@media (max-width: 420px) {
+  .shell {
+    padding: 0 12px 24px;
+  }
+  .layout {
+    border-radius: 20px;
+  }
+  .story,
+  .formPanel {
+    padding: 25px 22px;
+  }
+  .story h2 {
+    font-size: 27px;
+  }
+  .formPanel h1 {
+    font-size: 29px;
+  }
+}
