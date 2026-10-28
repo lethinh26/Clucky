@@ -25,6 +25,9 @@ coverage/
 
 # Java / Gradle
 .gradle/
+**/.gradle/
+.gradle-*/
+**/.gradle-*/
 **/build/
 **/bin/
 *.class
