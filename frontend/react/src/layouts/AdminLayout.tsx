@@ -60,8 +60,8 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes('/reports')) selectedKey = 'reports';
 
   const roleNavPermissions: Record<'ADMIN' | 'STORE_MANAGER' | 'STAFF', string[]> = {
-    ADMIN: ['dashboard', 'catalog', 'stores', 'inventory', 'orders', 'reviews'],
-    STORE_MANAGER: ['dashboard', 'stores', 'inventory', 'orders', 'reviews'],
+    ADMIN: ['dashboard', 'catalog', 'stores', 'inventory', 'orders', 'reviews', 'reports'],
+    STORE_MANAGER: ['dashboard', 'stores', 'inventory', 'orders', 'reviews', 'reports'],
     STAFF: ['dashboard', 'inventory', 'orders', 'reviews'],
   };
 
@@ -101,6 +101,12 @@ export const AdminLayout: React.FC = () => {
       icon: <CommentOutlined />,
       label: 'Đánh giá & Phản hồi',
       onClick: () => navigate('/admin/reviews'),
+    },
+    {
+      key: 'reports',
+      icon: <BarChartOutlined />,
+      label: 'Báo cáo & Thống kê',
+      onClick: () => navigate('/admin/reports'),
     },
   ];
 
