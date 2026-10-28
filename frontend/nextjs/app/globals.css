@@ -194,26 +194,28 @@ select option:hover {
 }
 
 .hero h1 {
-  display: grid;
-  gap: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.4vw, 16px);
   max-width: 640px;
   margin: 8px 0 0;
   font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: clamp(48px, 5.2vw, 74px);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .hero h1 strong {
-  display: inline;
-  padding: 0.04em 0.2em;
-  border-radius: 0.24em;
-  background: linear-gradient(180deg, #d7ad29, #c9a227);
+  display: inline-block;
+  vertical-align: baseline;
+  line-height: 0.95;
+  padding: 0.02em 0.16em 0.06em;
+  border-radius: 0.2em;
+  background: linear-gradient(180deg, #E5C358, #C9A227);
   color: var(--espresso);
   font-weight: inherit;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+  box-shadow: 0 4px 16px rgba(201, 162, 39, 0.25);
 }
 
 .hero-copy p {

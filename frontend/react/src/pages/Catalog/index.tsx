@@ -152,18 +152,9 @@ export const CatalogPage: React.FC = () => {
             >
               {record.name}
               {record.isBestSeller && (
-                <Tag
-                  color="#C9A227"
-                  style={{
-                    marginLeft: 8,
-                    borderRadius: 999,
-                    color: '#16100D',
-                    fontWeight: 700,
-                    fontSize: 10,
-                  }}
-                >
-                  BEST SELLER
-                </Tag>
+                <span className="badge-best-seller" style={{ marginLeft: 8 }}>
+                  ★ Best Seller
+                </span>
               )}
             </div>
             <div style={{ fontSize: 12, color: '#6B6259', marginTop: 2 }}>
