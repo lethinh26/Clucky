@@ -1,0 +1,414 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+
+.trackingContainer {
+  width: min(1140px, calc(100% - 48px));
+  margin: 40px auto 100px;
+  font-family: 'Quicksand', system-ui, sans-serif;
+  color: #16100d;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b6259;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  margin-bottom: 24px;
+  transition: color 0.2s ease;
+}
+
+.backLink:hover {
+  color: #8f1216;
+}
+
+.orderHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.orderCode {
+  display: inline-block;
+  color: #c9a227;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 700;
+  color: #16100d;
+  line-height: 1.15;
+}
+
+.orderSub {
+  margin: 0;
+  color: #6b6259;
+  font-size: 15px;
+}
+
+.trackingGrid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 36px;
+  align-items: start;
+}
+
+/* Timeline Box */
+.timelineCard {
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 24px;
+  padding: 32px;
+  margin-bottom: 28px;
+  box-shadow: 0 6px 20px rgba(22, 16, 13, 0.04);
+}
+
+.cardTitle {
+  margin: 0 0 24px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: #16100d;
+}
+
+.timelineList {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-left: 10px;
+}
+
+.timelineItem {
+  display: flex;
+  gap: 20px;
+  position: relative;
+  padding-bottom: 30px;
+}
+
+.timelineItem:last-child {
+  padding-bottom: 0;
+}
+
+/* Vertical connector line */
+.timelineItem:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: 0;
+  width: 2px;
+  background: #e8e2d9;
+}
+
+.timelineItemDone:not(:last-child)::after {
+  background: #8f1216;
+}
+
+.timelineIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f5ede0;
+  color: #6b6259;
+  border: 2px solid #e8e2d9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.timelineItemDone .timelineIcon {
+  background: #8f1216;
+  border-color: #8f1216;
+  color: #fff;
+}
+
+.timelineItemCurrent .timelineIcon {
+  background: #c9a227;
+  border-color: #c9a227;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(201, 162, 39, 0.25);
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.timelineContent {
+  flex: 1;
+}
+
+.timelineHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.stepTitle {
+  margin: 0;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: #16100d;
+}
+
+.stepTime {
+  font-size: 12px;
+  color: #6b6259;
+  font-weight: 600;
+}
+
+.stepDesc {
+  margin: 0;
+  font-size: 13px;
+  color: #6b6259;
+  line-height: 1.5;
+}
+
+/* Order Details Breakdown Card */
+.orderDetailCard {
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 6px 20px rgba(22, 16, 13, 0.04);
+}
+
+.itemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Payment Widget / VietQR Slot (Contract M4) */
+.paymentWidget {
+  background: #fffaf3;
+  border: 2px solid #c9a227;
+  border-radius: 24px;
+  padding: 24px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.qrBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(201, 162, 39, 0.2);
+  color: #8c6e0d;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.qrTitle {
+  margin: 0 0 8px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.qrTimer {
+  font-size: 13px;
+  color: #d97706;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.qrImageWrapper {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 18px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e8e2d9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qrImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.bankDetails {
+  text-align: left;
+  background: #f5ede0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bankRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.bankRow strong {
+  color: #16100d;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 14px;
+}
+
+/* Receiver Info Box */
+.infoBox {
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.infoLabel {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b6259;
+}
+
+.infoVal {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #16100d;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Cancel order action */
+.cancelBtn {
+  width: 100%;
+  padding: 14px;
+  background: transparent;
+  color: #b42318;
+  border: 1px solid #b42318;
+  border-radius: 999px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 14px;
+  transition: all 0.2s ease;
+}
+
+.cancelBtn:hover {
+  background: #b42318;
+  color: #fff;
+}
+
+/* Cancel Modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 16, 13, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modalBox {
+  background: #fffaf3;
+  border-radius: 24px;
+  padding: 32px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.modalTitle {
+  margin: 0 0 10px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 22px;
+  color: #b42318;
+}
+
+.modalDesc {
+  color: #6b6259;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.modalTextarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 12px;
+  border: 1px solid #e8e2d9;
+  border-radius: 12px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  margin-bottom: 20px;
+  outline: none;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modalCancelBtn {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid #e8e2d9;
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.modalConfirmBtn {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: none;
+  background: #b42318;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .trackingGrid {
+    grid-template-columns: 1fr;
+  }
+}

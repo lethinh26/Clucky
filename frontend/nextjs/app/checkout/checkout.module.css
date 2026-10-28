@@ -1,0 +1,416 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+
+.checkoutContainer {
+  width: min(1140px, calc(100% - 48px));
+  margin: 40px auto 100px;
+  font-family: 'Quicksand', system-ui, sans-serif;
+  color: #16100d;
+}
+
+.checkoutHeading {
+  margin-bottom: 36px;
+}
+
+.eyebrow {
+  display: inline-block;
+  color: #c9a227;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.title {
+  margin: 0 0 10px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: clamp(36px, 4.5vw, 52px);
+  font-weight: 700;
+  color: #16100d;
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin: 0;
+  color: #6b6259;
+  font-size: 16px;
+}
+
+.checkoutGrid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 36px;
+  align-items: start;
+}
+
+.formSections {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.sectionCard {
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 4px 16px rgba(22, 16, 13, 0.03);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.stepNumber {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #8f1216;
+  color: #fff;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #16100d;
+}
+
+/* Delivery / Pickup Tab Switcher */
+.typeTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+  background: #f5ede0;
+  padding: 6px;
+  border-radius: 16px;
+}
+
+.tabBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #6b6259;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tabBtnActive {
+  background: #fffaf3;
+  color: #8f1216;
+  box-shadow: 0 4px 12px rgba(22, 16, 13, 0.08);
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fieldLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: #16100d;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e8e2d9;
+  border-radius: 14px;
+  background: #fff;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  color: #16100d;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: #8f1216;
+  box-shadow: 0 0 0 3px rgba(143, 18, 22, 0.12);
+}
+
+.textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+/* Payment selection */
+.paymentOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.paymentCard {
+  border: 2px solid #e8e2d9;
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fff;
+}
+
+.paymentCardActive {
+  border-color: #8f1216;
+  background: rgba(143, 18, 22, 0.02);
+}
+
+.paymentLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.paymentRadio {
+  width: 20px;
+  height: 20px;
+  accent-color: #8f1216;
+}
+
+.paymentTitle {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #16100d;
+}
+
+.paymentDesc {
+  margin: 0;
+  font-size: 13px;
+  color: #6b6259;
+}
+
+.paymentBadge {
+  padding: 4px 10px;
+  background: rgba(201, 162, 39, 0.18);
+  color: #8c6e0d;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* Voucher & Loyalty Slots (Contract M5) */
+.promoBlock {
+  display: flex;
+  gap: 10px;
+}
+
+.promoInput {
+  flex: 1;
+}
+
+.applyBtn {
+  padding: 0 24px;
+  background: #16100d;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.applyBtn:hover {
+  background: #8f1216;
+}
+
+.loyaltyBox {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: rgba(201, 162, 39, 0.12);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.loyaltyLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #16100d;
+  cursor: pointer;
+}
+
+.loyaltyPoints {
+  color: #8c6e0d;
+  font-weight: 700;
+}
+
+/* Order Summary Box */
+.summaryBox {
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 24px;
+  padding: 28px;
+  position: sticky;
+  top: 100px;
+  box-shadow: 0 12px 36px rgba(22, 16, 13, 0.06);
+}
+
+.summaryTitle {
+  margin: 0 0 18px;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.orderItemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.miniItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #e8e2d9;
+}
+
+.miniItemName {
+  color: #16100d;
+  font-weight: 600;
+}
+
+.miniItemQty {
+  color: #6b6259;
+  font-size: 12px;
+}
+
+.miniItemPrice {
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 600;
+  color: #16100d;
+}
+
+.costRow {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0;
+  font-size: 14px;
+  color: #6b6259;
+}
+
+.costRow strong {
+  color: #16100d;
+}
+
+.discountText {
+  color: #1e7a46 !important;
+  font-weight: 700;
+}
+
+.divider {
+  border: none;
+  height: 1px;
+  background: #e8e2d9;
+  margin: 18px 0;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 18px;
+  margin-bottom: 24px;
+}
+
+.totalPrice {
+  font-size: 28px;
+  font-weight: 700;
+  color: #8f1216;
+}
+
+.submitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  background: #8f1216;
+  color: #fff;
+  border-radius: 999px;
+  border: none;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 20px rgba(143, 18, 22, 0.3);
+}
+
+.submitBtn:hover {
+  background: #730e12;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(143, 18, 22, 0.4);
+}
+
+.guaranteeNote {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #6b6259;
+}
+
+@media (max-width: 900px) {
+  .checkoutGrid {
+    grid-template-columns: 1fr;
+  }
+  .summaryBox {
+    position: static;
+  }
+  .fieldGrid {
+    grid-template-columns: 1fr;
+  }
+}
