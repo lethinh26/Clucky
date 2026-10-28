@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { formatPrice } from "@/lib/products";
 import { useOrder } from "@/components/order/order-provider";
+import { OrderProgress } from "@/components/order/order-progress";
 import type { Order } from "@/lib/types/order";
 import {
   ArrowRight,
@@ -73,118 +74,116 @@ export default function OrdersHistoryPage() {
   };
 
   return (
-    <main className={`${styles.historyContainer} m3-page`}>
-      <div className={styles.heading}>
-        <span className={styles.eyebrow}>Lịch sử mua hàng</span>
-        <h1 className={styles.title}>Đơn hàng của tôi</h1>
-        <p className={styles.sub}>
-          Theo dõi trạng thái giao món, xem lại hóa đơn hoặc đặt lại đơn hàng
-          yêu thích.
-        </p>
-      </div>
-
-      {activeOrder && (
-        <div className={styles.activeBanner}>
-          <Clock3 size={20} />
-          <div>
-            <strong>Bạn có đơn đang xử lý</strong>
-            <span>
-              {activeOrder.orderCode} · {activeOrder.storeName}
-            </span>
-          </div>
-          <Link href={`/orders/${activeOrder.id}`}>
-            Theo dõi <ArrowRight size={15} />
-          </Link>
+    <>
+            <main className={`${styles.historyContainer} m3-page`}>
+        <div className={styles.heading}>
+          <span className={styles.eyebrow}>Lịch sử mua hàng</span>
+          <h1 className={styles.title}>Đơn hàng của tôi</h1>
+          <p className={styles.sub}>
+            Theo dõi trạng thái giao món, xem lại hóa đơn hoặc đặt lại đơn hàng
+            yêu thích.
+          </p>
         </div>
-      )}
-      {/* Quick Search */}
-      <div className={styles.searchBar}>
-        <input
-          type="text"
-          placeholder="Tìm theo mã đơn (CLU-...) hoặc tên quán..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className={styles.searchInput}
-          aria-label="Tìm kiếm đơn hàng"
-        />
-        {searchQuery && (
+
+        {activeOrder && (
+          <div className={styles.activeBanner}>
+            <Clock3 size={20} />
+            <div>
+              <strong>Bạn có đơn đang xử lý</strong>
+              <span>
+                {activeOrder.orderCode} · {activeOrder.storeName}
+              </span>
+            </div>
+            <Link href={`/orders/${activeOrder.id}`}>
+              Theo dõi <ArrowRight size={15} />
+            </Link>
+          </div>
+        )}
+        {/* Quick Search */}
+        <div className={styles.searchBar}>
+          <input
+            type="text"
+            placeholder="Tìm theo mã đơn (CLU-...) hoặc tên quán..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={styles.searchInput}
+            aria-label="Tìm kiếm đơn hàng"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className={styles.searchBtn}
+              style={{ background: "#6b6259" }}
+            >
+              Xóa
+            </button>
+          )}
+        </div>
+
+        {/* Status Tabs */}
+        <div className={styles.tabsList} aria-label="Lọc trạng thái đơn">
           <button
             type="button"
-            onClick={() => setSearchQuery("")}
-            className={styles.searchBtn}
-            style={{ background: "#6b6259" }}
+
+            aria-pressed={activeTab === "ALL"}
+            className={`${styles.tabItem} ${activeTab === "ALL" ? styles.tabItemActive : ""}`}
+            onClick={() => setActiveTab("ALL")}
           >
-            Xóa
+            Tất cả đơn ({orders.length})
           </button>
-        )}
-      </div>
+          <button
+            type="button"
 
-      {/* Status Tabs */}
-      <div className={styles.tabsList} aria-label="Lọc trạng thái đơn">
-        <button
-          type="button"
-          aria-pressed={activeTab === "ALL"}
-          className={`${styles.tabItem} ${activeTab === "ALL" ? styles.tabItemActive : ""}`}
-          onClick={() => setActiveTab("ALL")}
-        >
-          Tất cả đơn ({orders.length})
-        </button>
-        <button
-          type="button"
-          aria-pressed={activeTab === "ACTIVE"}
-          className={`${styles.tabItem} ${activeTab === "ACTIVE" ? styles.tabItemActive : ""}`}
-          onClick={() => setActiveTab("ACTIVE")}
-        >
-          Đang xử lý
-        </button>
-        <button
-          type="button"
-          aria-pressed={activeTab === "COMPLETED"}
-          className={`${styles.tabItem} ${activeTab === "COMPLETED" ? styles.tabItemActive : ""}`}
-          onClick={() => setActiveTab("COMPLETED")}
-        >
-          Đã nhận món
-        </button>
-        <button
-          type="button"
-          aria-pressed={activeTab === "CANCELLED"}
-          className={`${styles.tabItem} ${activeTab === "CANCELLED" ? styles.tabItemActive : ""}`}
-          onClick={() => setActiveTab("CANCELLED")}
-        >
-          Đã hủy
-        </button>
-      </div>
+            aria-pressed={activeTab === "ACTIVE"}
+            className={`${styles.tabItem} ${activeTab === "ACTIVE" ? styles.tabItemActive : ""}`}
+            onClick={() => setActiveTab("ACTIVE")}
+          >
+            Đang xử lý
+          </button>
+          <button
+            type="button"
 
-      {/* Orders List */}
-      {!ready ? (
-        <div className="order-skeleton" role="status">
-          Đang tải lịch sử đơn…
+            aria-pressed={activeTab === "COMPLETED"}
+            className={`${styles.tabItem} ${activeTab === "COMPLETED" ? styles.tabItemActive : ""}`}
+            onClick={() => setActiveTab("COMPLETED")}
+          >
+            Đã hoàn thành
+          </button>
+          <button
+            type="button"
+
+            aria-pressed={activeTab === "CANCELLED"}
+            className={`${styles.tabItem} ${activeTab === "CANCELLED" ? styles.tabItemActive : ""}`}
+            onClick={() => setActiveTab("CANCELLED")}
+          >
+            Đã hủy
+          </button>
         </div>
-      ) : filteredOrders.length === 0 ? (
-        <div className={styles.emptyState}>
-          <div className={styles.emptyEmoji} aria-hidden="true">
-            📋
+
+        {/* Order Cards */}
+        {!ready ? (
+          <div className="order-skeleton" role="status">
+            Đang tải đơn hàng…
           </div>
-          <h2 className={styles.emptyTitle}>Chưa tìm thấy đơn hàng nào</h2>
-          <p className={styles.emptyDesc}>
-            {searchQuery
-              ? `Không có đơn hàng nào khớp với từ khóa "${searchQuery}".`
-              : "Bạn chưa có đơn hàng nào trong mục này."}
-          </p>
-          <Link href="/menu" className={styles.browseBtn}>
-            Đặt món ngay <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        </div>
-      ) : (
-        <div className={styles.ordersList}>
-          {filteredOrders.map((order) => {
-            return (
+        ) : filteredOrders.length === 0 ? (
+          <div className={styles.emptyState}>
+            <h3 className={styles.emptyTitle}>Không tìm thấy đơn hàng nào</h3>
+            <p className={styles.emptyDesc}>
+              Bạn chưa có đơn hàng nào trong mục này hoặc từ khóa tìm kiếm không
+              khớp.
+            </p>
+          </div>
+        ) : (
+          <div className={styles.ordersList}>
+            {filteredOrders.map((order) => (
               <article key={order.id} className={styles.orderCard}>
                 <div className={styles.cardHead}>
                   <div>
-                    <div className={styles.orderCode}>{order.orderCode}</div>
+                    <span className={styles.orderCode}>{order.orderCode}</span>
                     <span className={styles.orderDate}>
-                      {displayOrderTime(order.createdAt)}
+                      {" "}
+                      · {displayOrderTime(order.createdAt)}
                     </span>
                   </div>
                   <OrderStatusChip status={order.status} />
@@ -202,7 +201,7 @@ export default function OrdersHistoryPage() {
                       ))}
                     </div>
                     <span className={styles.storeName}>
-                      <Store size={16} aria-hidden="true" /> {order.storeName}
+                      <Store size={15} /> {order.storeName}
                     </span>
                     <span className={styles.itemsSummary}>
                       {order.items
@@ -212,58 +211,63 @@ export default function OrdersHistoryPage() {
                   </div>
 
                   <div className={styles.cardPriceGroup}>
-                    <span className={styles.cardPriceLabel}>Tổng tiền</span>
-                    <strong className={styles.cardPriceVal}>
+                    <span className={styles.cardPriceLabel}>
+                      Tổng thanh toán
+                    </span>
+                    <span className={styles.cardPriceVal}>
                       {formatPrice(order.totalAmount)}
-                    </strong>
-                    <span className={styles.paymentMethodTag}>
-                      {order.paymentMethod === "BANK_TRANSFER"
-                        ? "VietQR"
-                        : "Tiền mặt (COD)"}
                     </span>
                   </div>
                 </div>
 
+                <OrderProgress
+                  status={order.status}
+                  type={order.type}
+                  compact
+                  orderCode={order.orderCode}
+                  updatedAt={order.updatedAt ?? order.createdAt}
+                  history={order.timeline}
+                />
                 <div className={styles.cardActions}>
                   <button
                     type="button"
                     onClick={() => handleReorder(order)}
                     className={styles.reorderBtn}
                   >
-                    <RotateCcw size={16} aria-hidden="true" /> Đặt lại đơn này
+                    <RotateCcw size={15} /> Đặt lại đơn này
                   </button>
 
                   <Link
                     href={`/orders/${order.id}`}
                     className={styles.detailBtn}
                   >
-                    Xem chi tiết <ArrowRight size={16} aria-hidden="true" />
+                    Xem chi tiết →
                   </Link>
                 </div>
               </article>
-            );
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {/* Toast notification for reorder action */}
-      {toastMessage && (
-        <div className={styles.reorderToast} role="status">
-          <span>
-            <CheckCircle2 size={17} /> {toastMessage}
-          </span>
-          <Link
-            href="/cart"
-            style={{
-              color: "#c9a227",
-              textDecoration: "underline",
-              marginLeft: 8,
-            }}
-          >
-            Đến giỏ hàng <ArrowRight size={14} aria-hidden="true" />
-          </Link>
-        </div>
-      )}
-    </main>
+        {/* Toast notification for reorder action */}
+        {toastMessage && (
+          <div className={styles.reorderToast} role="status">
+            <span>
+              <CheckCircle2 size={17} /> {toastMessage}
+            </span>
+            <Link
+              href="/cart"
+              style={{
+                color: "#c9a227",
+                textDecoration: "underline",
+                marginLeft: 8,
+              }}
+            >
+              Đến giỏ hàng →
+            </Link>
+          </div>
+        )}
+      </main>
+          </>
   );
 }

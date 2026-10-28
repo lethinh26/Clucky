@@ -8,17 +8,7 @@ export type AdminOrderStatus =
   | "CANCELLED";
 
 export type AdminPaymentMethod = "COD" | "BANK_TRANSFER";
-// SRS 5.3: chuyển khoản UNPAID → PENDING → PAID/EXPIRED/MISMATCH; COD UNPAID → COLLECTED; hoàn PAID → REFUND_PENDING → REFUNDED.
-export type AdminPaymentStatus =
-  | "UNPAID"
-  | "PENDING"
-  | "PAID"
-  | "FAILED"
-  | "EXPIRED"
-  | "MISMATCH"
-  | "COLLECTED"
-  | "REFUND_PENDING"
-  | "REFUNDED";
+export type AdminPaymentStatus = "PENDING" | "PAID" | "FAILED";
 
 export interface AdminOrderItem {
   id: string;

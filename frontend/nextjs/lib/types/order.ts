@@ -11,26 +11,12 @@ export type OrderStatus =
 
 export type PaymentMethod = "COD" | "BANK_TRANSFER";
 
-// SRS 5.3 — dùng chung enum với Payment Service.
-export type PaymentStatus =
-  | "UNPAID"
-  | "PENDING"
-  | "PAID"
-  | "FAILED"
-  | "EXPIRED"
-  | "MISMATCH"
-  | "COLLECTED"
-  | "REFUND_PENDING"
-  | "REFUNDED";
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED";
 
 export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED";
 
 export type PartyOrderStatus =
-  | "NEW"
-  | "CONTACTED"
-  | "QUOTED"
-  | "CONFIRMED"
-  | "CLOSED";
+  "NEW" | "CONTACTED" | "QUOTED" | "CONFIRMED" | "CLOSED";
 
 export interface CartItemOption {
   groupName: string;
