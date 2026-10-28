@@ -239,12 +239,13 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 900 });
+  await page.route("https://vietqr.app/img?*", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
   await page.goto(customer + "/orders/demo-clucky");
   await expect(
     page.getByRole("heading", { name: "Thông tin giao hàng" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Chuyển khoản VietQR" }),
+    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }),
   ).toHaveCount(0);
   await page.evaluate(() => {
     const key = "clucky-order-workspace-v1";
@@ -259,8 +260,14 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   });
   await page.reload();
   await expect(
-    page.getByRole("img", { name: "Minh họa QR, không dùng thanh toán" }),
+    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }),
   ).toBeVisible();
+  const qrUrl = new URL((await page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }).getAttribute("src"))!);
+  expect(qrUrl.origin + qrUrl.pathname).toBe("https://vietqr.app/img");
+  expect(qrUrl.searchParams.get("amount")).toBe("262000");
+  expect(qrUrl.searchParams.get("des")).toBe("CLU240826");
+  await expect(page.getByText("Phí giao hàng", { exact: true })).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Điều khiển tiến trình đơn hàng" })).not.toBeVisible();
   await expectNoOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("order-payment-mobile.png"),
@@ -271,7 +278,7 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await page.getByRole("button", { name: "Xác nhận hủy", exact: true }).click();
   await expect(page.getByText("Đơn đã được hủy thành công.")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Chuyển khoản VietQR" }),
+    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }),
   ).toHaveCount(0);
 });
 

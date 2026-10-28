@@ -17,11 +17,16 @@ createRoot(document.getElementById("root")!).render(
         amount={245000}
         expiresAt={params.has("expired") ? 0 : undefined}
         qrUrl={params.has("missing") ? undefined : "/qr.svg"}
-        bankInfo={{
-          bankName: "Ngân hàng demo",
-          accountNo: "000000",
-          accountName: "CLUCKY DEMO",
-        }}
+        bankInfo={
+          params.has("missing")
+            ? undefined
+            : {
+                bankCode: "MB",
+                bankName: "Ngân hàng demo",
+                accountNo: "000000",
+                accountName: "CLUCKY DEMO",
+              }
+        }
       />
       <PaymentStatusBadge status="FAILED" />
       <ShipmentCard

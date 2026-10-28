@@ -103,6 +103,17 @@
   padding: 28px;
   text-align: center;
 }
+.paymentWidget.embedded {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  padding: 0;
+  margin-top: 20px;
+}
+.embedded .bankDetails {
+  background: none;
+  padding: 0;
+}
 
 .qrBadge {
   display: inline-block;

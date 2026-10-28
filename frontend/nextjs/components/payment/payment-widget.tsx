@@ -1,25 +1,24 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Clock, QrCode } from "lucide-react";
+import { Clock } from "lucide-react";
 import { formatPrice } from "@/lib/products";
+import { buildVietQrUrl, transferReference, type BankInfo } from "@/lib/vietqr";
 import styles from "./payment-shared.module.css";
 
-export interface BankInfo {
-  bankName: string;
-  accountNo: string;
-  accountName: string;
-}
+export type { BankInfo } from "@/lib/vietqr";
 
 export interface PaymentWidgetProps {
   orderCode: string;
   amount: number;
   /** ISO string hoặc timestamp ms khi QR hết hạn; bỏ trống nếu không hiển thị đếm ngược */
   expiresAt?: string | number | Date;
-  /** URL ảnh QR do Payment Service trả về qua Gateway. */
+  /** Override image URL; otherwise build a VietQR image from bank and order data. */
   qrUrl?: string;
   bankInfo?: BankInfo;
   demo?: boolean;
+  storeName?: string;
+  embedded?: boolean;
   className?: string;
 }
 
@@ -37,6 +36,8 @@ export function PaymentWidget({
   qrUrl,
   bankInfo,
   demo = false,
+  storeName,
+  embedded = false,
   className = "",
 }: PaymentWidgetProps) {
   const expiresMs = useMemo(() => {
@@ -59,14 +60,28 @@ export function PaymentWidget({
   const remaining =
     expiresMs != null && !invalidExpiry ? expiresMs - now : null;
   const expired = remaining != null && remaining <= 0;
-  const unavailable = invalidExpiry || !qrUrl || !bankInfo;
+  const imageUrl =
+    qrUrl ??
+    (bankInfo
+      ? buildVietQrUrl({
+          bank: bankInfo,
+          amount,
+          description: orderCode,
+          storeName,
+        })
+      : null);
+  const unavailable = invalidExpiry || !imageUrl || !bankInfo;
 
   return (
     <div
-      className={`${styles.paymentWidget} ${styles.paymentScope} ${className}`}
+      className={`${styles.paymentWidget} ${styles.paymentScope} ${embedded ? styles.embedded : ""} ${className}`}
     >
-      <span className={styles.qrBadge}>Quét mã thanh toán</span>
-      <h3 className={styles.qrTitle}>Chuyển khoản VietQR</h3>
+      {!embedded && (
+        <>
+          <span className={styles.qrBadge}>Quét mã thanh toán</span>
+          <h3 className={styles.qrTitle}>Chuyển khoản VietQR</h3>
+        </>
+      )}
 
       {remaining != null && (
         <p
@@ -84,17 +99,9 @@ export function PaymentWidget({
           Không chuyển khoản bằng mã đã hết hạn. Kiểm tra trạng thái đơn trước
           khi thanh toán lại.
         </p>
-      ) : demo ? (
-        <div
-          className={styles.qrImageWrapper}
-          role="img"
-          aria-label="Minh họa QR, không dùng thanh toán"
-        >
-          <QrCode size={160} aria-hidden="true" />
-        </div>
       ) : unavailable ? (
         <p role="status">Chưa có thông tin thanh toán. Vui lòng thử lại sau.</p>
-      ) : failedSrc === qrUrl ? (
+      ) : failedSrc === imageUrl ? (
         <p role="alert">
           Không tải được mã QR.{" "}
           <button type="button" onClick={() => setFailedSrc(null)}>
@@ -102,14 +109,17 @@ export function PaymentWidget({
           </button>
         </p>
       ) : (
-        <div className={styles.qrImageWrapper} aria-busy={loadedSrc !== qrUrl}>
-          {loadedSrc !== qrUrl && <span role="status">Đang tải QR…</span>}
+        <div
+          className={styles.qrImageWrapper}
+          aria-busy={loadedSrc !== imageUrl}
+        >
+          {loadedSrc !== imageUrl && <span role="status">Đang tải QR…</span>}
           <img
-            src={qrUrl}
+            src={imageUrl}
             alt={`VietQR thanh toán đơn ${orderCode}`}
             className={styles.qrImage}
-            onLoad={() => setLoadedSrc(qrUrl)}
-            onError={() => setFailedSrc(qrUrl)}
+            onLoad={() => setLoadedSrc(imageUrl)}
+            onError={() => setFailedSrc(imageUrl)}
           />
         </div>
       )}
@@ -137,13 +147,13 @@ export function PaymentWidget({
         </div>
         <div className={styles.bankRow}>
           <span>Nội dung:</span>
-          <strong className={styles.bankAmount}>{orderCode}</strong>
+          <strong className={styles.bankAmount}>{transferReference(orderCode)}</strong>
         </div>
       </div>
 
       <p className={styles.paymentNote}>
         {demo
-          ? "Giao diện minh họa Sprint 1 — không chuyển tiền. QR thật sẽ được cấp bởi Payment Service."
+          ? "QR dùng tài khoản mẫu để xem giao diện. Không chuyển tiền."
           : "Quét bằng app ngân hàng hỗ trợ VietQR. Hệ thống xác nhận sau khi nhận được tiền."}
       </p>
     </div>
