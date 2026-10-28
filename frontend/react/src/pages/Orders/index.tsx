@@ -1,1 +1,4 @@
-export { OrdersPage, default } from './OrdersPage';
+import { OrdersPage } from './OrdersPage';
+
+export { OrdersPage };
+export default OrdersPage;
