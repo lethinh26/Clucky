@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Layout,
@@ -21,6 +21,7 @@ import {
   ShopOutlined,
   InboxOutlined,
   FileTextOutlined,
+  CommentOutlined,
   BarChartOutlined,
   BellOutlined,
   UserOutlined,
@@ -38,6 +39,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   '/admin/stores': 'Quản lý Chi nhánh',
   '/admin/inventory': 'Tồn kho Chi nhánh',
   '/admin/orders': 'Quản lý Đơn hàng',
+  '/admin/reviews': 'Quản lý Đánh giá',
   '/admin/reports': 'Báo cáo & Thống kê',
 };
 
@@ -54,12 +56,13 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes('/stores')) selectedKey = 'stores';
   else if (pathname.includes('/inventory')) selectedKey = 'inventory';
   else if (pathname.includes('/orders')) selectedKey = 'orders';
+  else if (pathname.includes('/reviews')) selectedKey = 'reviews';
   else if (pathname.includes('/reports')) selectedKey = 'reports';
 
   const roleNavPermissions: Record<'ADMIN' | 'STORE_MANAGER' | 'STAFF', string[]> = {
-    ADMIN: ['dashboard', 'catalog', 'stores', 'inventory', 'orders'],
-    STORE_MANAGER: ['dashboard', 'stores', 'inventory', 'orders'],
-    STAFF: ['dashboard', 'inventory', 'orders'],
+    ADMIN: ['dashboard', 'catalog', 'stores', 'inventory', 'orders', 'reviews'],
+    STORE_MANAGER: ['dashboard', 'stores', 'inventory', 'orders', 'reviews'],
+    STAFF: ['dashboard', 'inventory', 'orders', 'reviews'],
   };
 
   const navItems: MenuProps['items'] = [
@@ -92,6 +95,12 @@ export const AdminLayout: React.FC = () => {
       icon: <FileTextOutlined />,
       label: 'Quản lý Đơn hàng',
       onClick: () => navigate('/admin/orders'),
+    },
+    {
+      key: 'reviews',
+      icon: <CommentOutlined />,
+      label: 'Đánh giá & Phản hồi',
+      onClick: () => navigate('/admin/reviews'),
     },
   ];
 
