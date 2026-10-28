@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Table, Tabs, Input, Select, Button, Tag, Space, Typography, Badge, message } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { SearchOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons';
+import { SearchOutlined, EyeOutlined, ReloadOutlined, CarOutlined, ShopOutlined } from '@ant-design/icons';
 import { AdminOrder, AdminOrderStatus } from '../../types/order';
 import { MOCK_ADMIN_ORDERS } from '../../mocks/adminOrderData';
 import { OrderDetailDrawer } from './components/OrderDetailDrawer';
@@ -143,7 +143,7 @@ export const OrdersPage: React.FC = () => {
       key: 'orderType',
       render: (type) => (
         <Tag color={type === 'DELIVERY' ? 'blue' : 'purple'}>
-          {type === 'DELIVERY' ? '🛵 Giao hàng' : '🏪 Nhận tại quầy'}
+          {type === 'DELIVERY' ? <><CarOutlined /> Giao hàng</> : <><ShopOutlined /> Nhận tại quầy</>}
         </Tag>
       ),
     },
@@ -170,8 +170,8 @@ export const OrdersPage: React.FC = () => {
             {method === 'BANK_TRANSFER' ? 'VietQR' : 'Tiền mặt (COD)'}
           </span>
           <div>
-            <Tag color={record.paymentStatus === 'PAID' ? 'green' : 'gold'} style={{ fontSize: 11 }}>
-              {record.paymentStatus === 'PAID' ? 'Đã thu' : 'Chưa thu'}
+            <Tag color={['PAID', 'COLLECTED'].includes(record.paymentStatus) ? 'green' : 'gold'} style={{ fontSize: 11 }}>
+              {['PAID', 'COLLECTED'].includes(record.paymentStatus) ? 'Đã thu' : 'Chưa thu'}
             </Tag>
           </div>
         </div>

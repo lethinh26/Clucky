@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
 
 .ordersContainer {
   font-family: 'Quicksand', system-ui, sans-serif;
@@ -30,7 +30,7 @@
 }
 
 .moneyText {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   color: #8f1216;
 }
@@ -47,7 +47,7 @@
 }
 
 .drawerSectionTitle {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 16px;
   font-weight: 600;
   color: #16100d;
@@ -98,7 +98,7 @@
 }
 
 .itemPrice {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   color: #8f1216;
 }
@@ -112,7 +112,7 @@
 }
 
 .refundAlertTitle {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 15px;
   font-weight: 700;
   color: #b42318;

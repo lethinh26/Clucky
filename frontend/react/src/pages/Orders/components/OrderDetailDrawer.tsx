@@ -1,5 +1,6 @@
 import React from 'react';
 import { Drawer, Button, Tag, Space, Typography, Divider } from 'antd';
+import { CarOutlined, ShopOutlined, WarningOutlined } from '@ant-design/icons';
 import { AdminOrder } from '../../../types/order';
 import styles from '../orders.module.css';
 
@@ -64,7 +65,7 @@ export const OrderDetailDrawer: React.FC<OrderDetailDrawerProps> = ({
     >
       {order.hasRefundRequest && (
         <div className={styles.refundAlert}>
-          <div className={styles.refundAlertTitle}>⚠️ Có yêu cầu hoàn tiền đang chờ duyệt</div>
+          <div className={styles.refundAlertTitle}><WarningOutlined /> Có yêu cầu hoàn tiền đang chờ duyệt</div>
           <p className={styles.refundAlertDesc}>
             Số tiền yêu cầu: <strong>{new Intl.NumberFormat('vi-VN').format(order.refundAmount || 0)}đ</strong>
             <br />
@@ -87,7 +88,7 @@ export const OrderDetailDrawer: React.FC<OrderDetailDrawerProps> = ({
         <div className={styles.infoRow}>
           <span className={styles.infoLabel}>Hình thức:</span>
           <span className={styles.infoVal}>
-            {order.orderType === 'DELIVERY' ? '🛵 Giao tận nơi' : '🏪 Nhận tại quầy'}
+            {order.orderType === 'DELIVERY' ? <><CarOutlined /> Giao tận nơi</> : <><ShopOutlined /> Nhận tại quầy</>}
           </span>
         </div>
         {order.deliveryAddress && (
@@ -146,8 +147,8 @@ export const OrderDetailDrawer: React.FC<OrderDetailDrawerProps> = ({
         </div>
         <div className={styles.infoRow}>
           <span className={styles.infoLabel}>Trạng thái thanh toán:</span>
-          <Tag color={order.paymentStatus === 'PAID' ? 'green' : 'gold'}>
-            {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+          <Tag color={['PAID', 'COLLECTED'].includes(order.paymentStatus) ? 'green' : 'gold'}>
+            {['PAID', 'COLLECTED'].includes(order.paymentStatus) ? 'Đã thanh toán' : 'Chưa thanh toán'}
           </Tag>
         </div>
         <div className={styles.infoRow}>
