@@ -1,5 +1,4 @@
 /* Scoped CSS for Payment & Shipping shared components — Clucky brand tokens */
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
 
 .paymentScope {
   --clu-espresso: #16100d;
@@ -13,8 +12,8 @@
   --clu-status-info: #22577a;
   --clu-muted: #6b6259;
   --clu-border: #e8e2d9;
-  --clu-font-heading: 'Baloo 2', system-ui, sans-serif;
-  --clu-font-body: 'Quicksand', system-ui, sans-serif;
+  --clu-font-heading: "Fredoka", system-ui, sans-serif;
+  --clu-font-body: "Quicksand", system-ui, sans-serif;
   font-family: var(--clu-font-body);
 }
 
@@ -25,7 +24,7 @@
   gap: 6px;
   padding: 6px 14px;
   border-radius: 999px;
-  font-family: 'Quicksand', sans-serif;
+  font-family: "Quicksand", sans-serif;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -41,7 +40,7 @@
 .payUnpaid,
 .payPending {
   background: rgba(217, 119, 6, 0.12);
-  color: #b45309;
+  color: #92400e;
   border: 1px solid rgba(217, 119, 6, 0.3);
 }
 .payUnpaid .payDot,
@@ -109,7 +108,7 @@
   display: inline-block;
   padding: 4px 12px;
   background: rgba(201, 162, 39, 0.2);
-  color: #8c6e0d;
+  color: #705707;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
@@ -120,7 +119,7 @@
 
 .qrTitle {
   margin: 0 0 8px;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: "Fredoka", sans-serif;
   font-size: 20px;
   font-weight: 600;
   color: var(--clu-espresso);
@@ -128,7 +127,7 @@
 
 .qrTimer {
   font-size: 13px;
-  color: var(--clu-status-warning);
+  color: #9a4e05;
   font-weight: 700;
   margin: 0 0 16px;
   display: inline-flex;
@@ -141,8 +140,8 @@
 }
 
 .qrImageWrapper {
-  width: 240px;
-  height: 240px;
+  width: min(240px, 100%);
+  aspect-ratio: 1;
   margin: 0 auto 20px;
   padding: 16px;
   background: #fff;
@@ -156,7 +155,7 @@
 .qrImage {
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  object-fit: contain;
   display: block;
 }
 
@@ -181,7 +180,7 @@
 
 .bankRow strong {
   color: var(--clu-espresso);
-  font-family: 'Baloo 2', sans-serif;
+  font-family: "Fredoka", sans-serif;
   font-size: 14px;
   text-align: right;
   word-break: break-all;
@@ -221,7 +220,7 @@
 
 .shipmentTitle {
   margin: 0;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: "Fredoka", sans-serif;
   font-size: 18px;
   font-weight: 600;
   color: var(--clu-espresso);
@@ -276,7 +275,7 @@
 
 .feeRow strong {
   color: var(--clu-espresso);
-  font-family: 'Baloo 2', sans-serif;
+  font-family: "Fredoka", sans-serif;
   font-size: 15px;
 }
 
@@ -296,7 +295,36 @@
   }
 
   .qrImageWrapper {
-    width: 200px;
-    height: 200px;
+    width: min(200px, 100%);
+    height: auto;
   }
+}
+
+.paymentWidget,
+.shipmentCard,
+.feeCard {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.qrImageWrapper {
+  box-sizing: border-box;
+  position: relative;
+}
+.qrImageWrapper [role="status"] {
+  position: absolute;
+}
+.bankRow > span {
+  flex-shrink: 0;
+}
+.shipmentVal {
+  flex-wrap: wrap;
+}
+.feeRow {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.paymentWidget button:focus-visible,
+.shipmentCard a:focus-visible {
+  outline: 3px solid #8f1216;
+  outline-offset: 3px;
 }

@@ -1,0 +1,26 @@
+# Development profile overrides — applied to every service when it requests the
+# `dev` profile. Secrets still come from env vars; never commit real values.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+logging:
+  level:
+    root: info
+    com.clucky: debug
+
+# Feature flags for local development
+cloudinary:
+  enabled: ${CLOUDINARY_ENABLED:false}
+mail:
+  sender:
+    enabled: ${MAIL_SENDER_ENABLED:false}
+

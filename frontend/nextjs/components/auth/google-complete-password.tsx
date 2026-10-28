@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import styles from './auth-shared.module.css';
+import React, { useState } from "react";
+import styles from "./auth-shared.module.css";
 
 export interface GoogleCompletePasswordProps {
   /** Email Google đã xác thực — hiển thị cho user biết đang tạo mật khẩu cho tài khoản nào */
@@ -16,23 +16,24 @@ export function GoogleCompletePassword({
   email,
   onSubmit,
   loading = false,
-  className = '',
+  className = "",
 }: GoogleCompletePasswordProps) {
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState('');
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     if (password.length < 8) {
-      setError('Mật khẩu phải có ít nhất 8 ký tự.');
+      setError("Mật khẩu phải có ít nhất 8 ký tự.");
       return;
     }
     if (password !== confirm) {
-      setError('Mật khẩu nhập lại không khớp.');
+      setError("Mật khẩu nhập lại không khớp.");
       return;
     }
-    setError('');
+    setError("");
     await onSubmit?.(password);
   };
 
@@ -40,8 +41,8 @@ export function GoogleCompletePassword({
     <div className={`${styles.completeCard} ${styles.authScope} ${className}`}>
       <h2 className={styles.completeTitle}>Tạo mật khẩu Clucky</h2>
       <p className={styles.completeDesc}>
-        Tài khoản Google <strong>{email}</strong> chưa có mật khẩu. Đặt mật khẩu để sau này
-        đăng nhập được cả bằng email + mật khẩu, không cần Google.
+        Tài khoản Google <strong>{email}</strong> chưa có mật khẩu. Đặt mật khẩu
+        để sau này đăng nhập được cả bằng email + mật khẩu, không cần Google.
       </p>
 
       <form onSubmit={handleSubmit} noValidate>
@@ -57,12 +58,19 @@ export function GoogleCompletePassword({
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
             minLength={8}
+            autoFocus
+            disabled={loading}
+            aria-invalid={!!error}
+            aria-describedby={error ? "google-password-error" : undefined}
             required
           />
         </div>
 
         <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor="google-confirm-password">
+          <label
+            className={styles.fieldLabel}
+            htmlFor="google-confirm-password"
+          >
             Nhập lại mật khẩu
           </label>
           <input
@@ -72,18 +80,25 @@ export function GoogleCompletePassword({
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"
+            disabled={loading}
+            aria-invalid={!!error}
+            aria-describedby={error ? "google-password-error" : undefined}
             required
           />
         </div>
 
         {error && (
-          <p className={styles.fieldError} role="alert">
+          <p
+            id="google-password-error"
+            className={styles.fieldError}
+            role="alert"
+          >
             {error}
           </p>
         )}
 
         <button type="submit" className={styles.submitBtn} disabled={loading}>
-          {loading ? 'Đang tạo tài khoản…' : 'Hoàn tất đăng ký'}
+          {loading ? "Đang tạo tài khoản…" : "Hoàn tất đăng ký"}
         </button>
       </form>
     </div>

@@ -2,8 +2,6 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { CustomerHeader } from '@/components/customer-header';
-import { CustomerFooter } from '@/components/customer-footer';
 import { stores, type Store } from '@/lib/products';
 import {
   MapPin,
@@ -39,8 +37,7 @@ export default function StoresPage() {
 
   return (
     <>
-      <CustomerHeader />
-      <main style={{ maxWidth: 1240, margin: '0 auto', padding: '32px 24px 100px' }}>
+            <main style={{ maxWidth: 1240, margin: '0 auto', padding: '32px 24px 100px' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <span className="eyebrow">
@@ -371,7 +368,6 @@ export default function StoresPage() {
           </div>
         )}
       </main>
-      <CustomerFooter />
-    </>
+          </>
   );
 }

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import styles from './auth-shared.module.css';
+import React from "react";
+import styles from "./auth-shared.module.css";
 
 export interface GoogleButtonProps {
   onClick?: () => void;
@@ -38,8 +38,8 @@ export function GoogleButton({
   onClick,
   loading = false,
   disabled = false,
-  label = 'Đăng nhập bằng Google',
-  className = '',
+  label = "Đăng nhập bằng Google",
+  className = "",
 }: GoogleButtonProps) {
   return (
     <button
@@ -50,7 +50,7 @@ export function GoogleButton({
       aria-busy={loading}
     >
       <GoogleIcon />
-      {loading ? 'Đang mở Google…' : label}
+      {loading ? "Đang mở Google…" : label}
     </button>
   );
 }

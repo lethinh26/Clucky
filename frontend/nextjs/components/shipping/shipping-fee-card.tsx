@@ -1,6 +1,6 @@
-import React from 'react';
-import { formatPrice } from '@/lib/products';
-import styles from '../payment/payment-shared.module.css';
+import React from "react";
+import { formatPrice } from "@/lib/products";
+import styles from "../payment/payment-shared.module.css";
 
 export interface ShippingFeeCardProps {
   /** Phí ship đã tính; null = chưa tính được */
@@ -18,18 +18,25 @@ export function ShippingFeeCard({
   freeFromAmount,
   subtotal,
   loading = false,
-  className = '',
+  className = "",
 }: ShippingFeeCardProps) {
-  const missing = freeFromAmount != null && subtotal != null ? Math.max(0, freeFromAmount - subtotal) : null;
+  const missing =
+    freeFromAmount != null && subtotal != null
+      ? Math.max(0, freeFromAmount - subtotal)
+      : null;
 
   return (
-    <div className={`${styles.feeCard} ${styles.paymentScope} ${className}`}>
+    <div
+      className={`${styles.feeCard} ${styles.paymentScope} ${className}`}
+      role="status"
+      aria-busy={loading}
+    >
       <div className={styles.feeRow}>
         <span>Phí giao hàng</span>
         {loading ? (
           <strong>Đang tính…</strong>
         ) : fee == null ? (
-          <strong>—</strong>
+          <strong>Chưa tính được phí</strong>
         ) : fee === 0 ? (
           <strong className={styles.feeFree}>Miễn phí</strong>
         ) : (

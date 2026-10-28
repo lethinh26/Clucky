@@ -54,5 +54,13 @@ Thumbs.db
 /architechture/_lark*.json
 /architechture/_lark*.txt
 
+# Personal tasks and UI reference docs
+TASKS-M3-TRAN-DUC-ANH.md
+**/TASKS-M3-TRAN-DUC-ANH.md
+stitch_clucky_ui_component_reference/
+**/stitch_clucky_ui_component_reference/
+
 # TypeScript build info
 *.tsbuildinfo
+test-results/
+playwright-report/

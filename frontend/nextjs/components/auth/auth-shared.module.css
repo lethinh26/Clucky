@@ -1,8 +1,7 @@
 /* Auth shared styles — Google login + complete-password screens (customer app) */
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
 
 .authScope {
-  font-family: 'Quicksand', system-ui, sans-serif;
+  font-family: "Quicksand", system-ui, sans-serif;
   color: #16100d;
 }
 
@@ -18,11 +17,14 @@
   color: #16100d;
   border: 1px solid #e8e2d9;
   border-radius: 999px;
-  font-family: 'Quicksand', sans-serif;
+  font-family: "Quicksand", sans-serif;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.1s ease;
 }
 
 .googleBtn:hover {
@@ -58,7 +60,7 @@
 
 .divider::before,
 .divider::after {
-  content: '';
+  content: "";
   flex: 1;
   height: 1px;
   background: #e8e2d9;
@@ -77,7 +79,7 @@
 
 .completeTitle {
   margin: 0 0 8px;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: "Fredoka", sans-serif;
   font-size: 26px;
   font-weight: 700;
   color: #16100d;
@@ -112,11 +114,13 @@
   padding: 12px 14px;
   border: 1px solid #e8e2d9;
   border-radius: 12px;
-  font-family: 'Quicksand', sans-serif;
+  font-family: "Quicksand", sans-serif;
   font-size: 15px;
   background: #fff;
   outline: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .fieldInput:focus {
@@ -138,11 +142,13 @@
   color: #fff;
   border: none;
   border-radius: 999px;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: "Fredoka", sans-serif;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.1s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.1s ease;
 }
 
 .submitBtn:hover {
@@ -152,4 +158,28 @@
 .submitBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.googleBtn:focus-visible,
+.submitBtn:focus-visible {
+  outline: 3px solid #8f1216;
+  outline-offset: 3px;
+}
+.completeCard {
+  box-sizing: border-box;
+}
+.completeDesc {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .completeCard {
+    padding: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .googleBtn,
+  .submitBtn,
+  .fieldInput {
+    transition: none;
+  }
 }

@@ -1,0 +1,37 @@
+# Production profile overrides — applied to every service when it requests the
+# `prod` profile. All hosts/credentials MUST be injected via environment
+# variables or the deployment secret store. Placeholders are intentional.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${DB_NAME}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+
+logging:
+  level:
+    root: warn
+    com.clucky: info
+
+cloudinary:
+  enabled: ${CLOUDINARY_ENABLED:false}
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  folder: ${CLOUDINARY_FOLDER:clucky}
+
+mail:
+  sender:
+    enabled: ${MAIL_SENDER_ENABLED:false}
+    username: ${MAIL_SENDER_USERNAME:}
+    app-password: ${MAIL_SENDER_APP_PASSWORD:}
+
