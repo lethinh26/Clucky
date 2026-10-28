@@ -236,7 +236,7 @@ Email transactional MVP gồm OTP đăng ký/quên mật khẩu, xác nhận đ�
 | NFR-03 | Tính sẵn sàng | Hệ thống chạy bằng Docker Compose với restart policy; service lỗi được tự khởi động lại; thanh toán có cơ chế đối soát thủ công khi webhook lỗi |
 | NFR-04 | Bảo mật | Mật khẩu băm BCrypt; JWT ngắn hạn + refresh token; Google login verify Firebase ID token bằng Firebase Admin SDK (chữ ký + `aud` + `iss` + `email_verified`); RBAC kiểm tra ở Gateway và từng service (@PreAuthorize); Staff/Manager bị ép phạm vi storeId ở backend; webhook thanh toán phải kiểm tra chữ ký/IP whitelist của SePay/Casso; chống SQL injection (JPA), XSS, CSRF theo chuẩn Spring Security |
 | NFR-05 | Toàn vẹn giao dịch | Tạo đơn dùng mẫu Saga qua sự kiện Kafka + trạng thái thanh toán rõ ràng; không trừ điểm/trừ lượt voucher khi đơn chưa tạo thành công; idempotency key cho webhook thanh toán (một giao dịch ngân hàng chỉ xử lý một lần) |
-| NFR-06 | Khả dụng (Usability) | Mobile-first, tiếng Việt toàn bộ giao diện, font Be Vietnam Pro dễ đọc; thao tác đặt hàng tối đa 4 bước chính |
+| NFR-06 | Khả dụng (Usability) | Mobile-first, tiếng Việt toàn bộ giao diện, font Baloo 2 (tiêu đề) + Quicksand (nội dung) theo Brand Guidelines; thao tác đặt hàng tối đa 4 bước chính |
 | NFR-07 | Tương thích | Chạy trên Chrome/Edge/Firefox/Safari bản mới, responsive từ 360 px đến desktop |
 | NFR-08 | Khả năng bảo trì | Mỗi service có README, OpenAPI/Swagger riêng; code theo chuẩn REST; log có correlation-id xuyên service |
 | NFR-09 | Triển khai | Toàn bộ hệ thống dựng bằng 1 lệnh docker compose up -d trên VPS; cấu hình qua biến môi trường (.env), không hard-code secrets. Mail Sender dùng Gmail SMTP App Password từ env, không lưu trong DB/Git |
