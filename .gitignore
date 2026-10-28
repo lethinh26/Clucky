@@ -1,8 +1,15 @@
 # Environment and secrets
 .env
+**/.env
 .env.*
+**/.env.*
 !.env.example
+!**/.env.example
 !.env.*.example
+!**/.env.*.example
+
+# Local runner and dashboard
+start/
 
 # Node.js
 node_modules/
@@ -19,6 +26,7 @@ coverage/
 # Java / Gradle
 .gradle/
 **/build/
+**/bin/
 *.class
 
 # Python

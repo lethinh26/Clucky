@@ -17,7 +17,6 @@ import {
   Progress,
   Row,
   Segmented,
-  Space,
   Statistic,
   Table,
   Tag,
@@ -29,10 +28,8 @@ import viVN from 'antd/locale/vi_VN';
 import {
   BarChartOutlined,
   BellOutlined,
-  CheckCircleOutlined,
   CoffeeOutlined,
   DashboardOutlined,
-  EnvironmentOutlined,
   FileTextOutlined,
   LogoutOutlined,
   MoreOutlined,
@@ -42,20 +39,23 @@ import {
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import { OrdersPage } from './pages/Orders/OrdersPage';
+import { StaffOrdersPage } from './pages/Staff/StaffOrdersPage';
 import './style.css';
 
 type Order = { key: string; code: string; customer: string; items: number; status: string; total: string; time: string };
 
 const orders: Order[] = [
-  { key: '1', code: '#CLU-240826', customer: 'Nguyễn Minh Anh', items: 3, status: 'Đang chuẩn bị', total: '257.000đ', time: '10:42' },
-  { key: '2', code: '#CLU-240825', customer: 'Trần Gia Huy', items: 2, status: 'Hoàn thành', total: '158.000đ', time: '10:36' },
-  { key: '3', code: '#CLU-240824', customer: 'Lê Hoàng Nam', items: 5, status: 'Đang giao', total: '429.000đ', time: '10:21' },
-  { key: '4', code: '#CLU-240823', customer: 'Phạm Thuỳ Linh', items: 1, status: 'Chờ xác nhận', total: '89.000đ', time: '10:05' },
+  { key: '1', code: '#CLU-240826', customer: 'Trần Đức Anh', items: 3, status: 'Đang chuẩn bị', total: '262.000đ', time: '10:42' },
+  { key: '2', code: '#CLU-240825', customer: 'Nguyễn Minh Anh', items: 1, status: 'Hoàn thành', total: '129.000đ', time: '10:36' },
+  { key: '3', code: '#CLU-240824', customer: 'Lê Hoàng Nam', items: 3, status: 'Đang giao', total: '437.000đ', time: '10:21' },
+  { key: '4', code: '#CLU-240823', customer: 'Phạm Thuỳ Linh', items: 1, status: 'Chờ xác nhận', total: '109.000đ', time: '10:05' },
 ];
 
 const navItems: MenuProps['items'] = [
   { key: 'dashboard', icon: <DashboardOutlined />, label: 'Tổng quan' },
-  { key: 'orders', icon: <FileTextOutlined />, label: 'Đơn hàng', children: [{ key: 'orders-all', label: 'Tất cả đơn hàng' }, { key: 'orders-refund', label: 'Yêu cầu hoàn tiền' }] },
+  { key: 'orders', icon: <FileTextOutlined />, label: 'Đơn hàng (Admin)' },
+  { key: 'staff-orders', icon: <CoffeeOutlined />, label: 'Đơn ca trực (Staff)' },
   { key: 'catalog', icon: <CoffeeOutlined />, label: 'Thực đơn' },
   { key: 'stores', icon: <ShopOutlined />, label: 'Chi nhánh' },
   { key: 'customers', icon: <TeamOutlined />, label: 'Khách hàng' },
@@ -104,20 +104,131 @@ function StoreHealth({ name, status, orders, warning = false }: { name: string; 
 function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: React.ReactNode }) { return <div className="page-intro"><div><Typography.Text className="eyebrow">{eyebrow}</Typography.Text><Typography.Title>{title}</Typography.Title><Typography.Paragraph>{description}</Typography.Paragraph></div>{action}</div>; }
 
 function SectionPage({ page }: { page: string }) {
-  const config: Record<string, { eyebrow: string; title: string; description: string; icon: React.ReactNode }> = { orders: { eyebrow: 'Operations', title: 'Đơn hàng', description: 'Quản lý trạng thái và xử lý các đơn hàng trong hệ thống.', icon: <FileTextOutlined /> }, catalog: { eyebrow: 'Catalog', title: 'Thực đơn', description: 'Quản lý món ăn, combo và trạng thái hiển thị.', icon: <CoffeeOutlined /> }, stores: { eyebrow: 'Network', title: 'Chi nhánh', description: 'Theo dõi hiệu suất và tình trạng vận hành từng cửa hàng.', icon: <ShopOutlined /> }, customers: { eyebrow: 'Relationship', title: 'Khách hàng', description: 'Xem hồ sơ, lịch sử mua hàng và điểm thành viên.', icon: <TeamOutlined /> }, reports: { eyebrow: 'Insights', title: 'Báo cáo', description: 'Phân tích doanh thu và các chỉ số vận hành của Clucky.', icon: <BarChartOutlined /> } };
-  const current = config[page] ?? config.orders;
-  return <><PageIntro eyebrow={current.eyebrow} title={current.title} description={current.description} action={<Button type="primary" icon={<PlusOutlined />} onClick={() => message.success('Đã mở biểu mẫu tạo mới.')}>Tạo mới</Button>} />{page === 'orders' ? <Card><OrdersTable /></Card> : <Card className="placeholder-card"><Empty image={current.icon} description={<><Typography.Title level={4}>Khu vực {current.title.toLowerCase()}</Typography.Title><Typography.Text type="secondary">Khung giao diện đã sẵn sàng để nối dữ liệu backend.</Typography.Text></>}><Button type="primary" onClick={() => message.info('Tính năng đang được nối API.')}>Xem bản demo</Button></Empty></Card>}</>;
+  const config: Record<string, { eyebrow: string; title: string; description: string; icon: React.ReactNode }> = {
+    catalog: { eyebrow: 'Catalog', title: 'Thực đơn', description: 'Quản lý món ăn, combo và trạng thái hiển thị.', icon: <CoffeeOutlined /> },
+    stores: { eyebrow: 'Network', title: 'Chi nhánh', description: 'Theo dõi hiệu suất và tình trạng vận hành từng cửa hàng.', icon: <ShopOutlined /> },
+    customers: { eyebrow: 'Relationship', title: 'Khách hàng', description: 'Xem hồ sơ, lịch sử mua hàng và điểm thành viên.', icon: <TeamOutlined /> },
+    reports: { eyebrow: 'Insights', title: 'Báo cáo', description: 'Phân tích doanh thu và các chỉ số vận hành của Clucky.', icon: <BarChartOutlined /> },
+  };
+  const current = config[page] ?? config.catalog;
+  return (
+    <>
+      <PageIntro eyebrow={current.eyebrow} title={current.title} description={current.description} action={<Button type="primary" icon={<PlusOutlined />} onClick={() => message.success('Đã mở biểu mẫu tạo mới.')}>Tạo mới</Button>} />
+      <Card className="placeholder-card">
+        <Empty image={current.icon} description={<><Typography.Title level={4}>Khu vực {current.title.toLowerCase()}</Typography.Title><Typography.Text type="secondary">Khung giao diện đã sẵn sàng để nối dữ liệu backend.</Typography.Text></>}>
+          <Button type="primary" onClick={() => message.info('Tính năng đang được nối API.')}>Xem bản demo</Button>
+        </Empty>
+      </Card>
+    </>
+  );
 }
 
 function App() {
   const [page, setPage] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
-  const pageLabels: Record<string, string> = { dashboard: 'Tổng quan', orders: 'Đơn hàng', catalog: 'Thực đơn', stores: 'Chi nhánh', customers: 'Khách hàng', reports: 'Báo cáo' };
+
+  const pageLabels: Record<string, string> = {
+    dashboard: 'Tổng quan',
+    orders: 'Quản lý Đơn hàng (Admin)',
+    'staff-orders': 'Ca trực Nhân viên (Staff)',
+    catalog: 'Thực đơn',
+    stores: 'Chi nhánh',
+    customers: 'Khách hàng',
+    reports: 'Báo cáo',
+  };
   const pageTitle = pageLabels[page] ?? 'Tổng quan';
-  const profileItems: MenuProps['items'] = [{ key: 'profile', icon: <UserOutlined />, label: 'Hồ sơ cá nhân' }, { type: 'divider' }, { key: 'logout', icon: <LogoutOutlined />, label: 'Đăng xuất' }];
+
+  const profileItems: MenuProps['items'] = [
+    { key: 'profile', icon: <UserOutlined />, label: 'Hồ sơ cá nhân' },
+    { type: 'divider' },
+    { key: 'logout', icon: <LogoutOutlined />, label: 'Đăng xuất' },
+  ];
+
   const navigate = (key: string) => setPage(key.startsWith('orders-') ? 'orders' : key);
-  return <ConfigProvider locale={viVN} theme={{ token: { colorPrimary: '#8f1216', colorInfo: '#8f1216', colorSuccess: '#4f7770', borderRadius: 14, fontFamily: 'Quicksand, system-ui, sans-serif', colorBgLayout: '#f5ede0', colorBgContainer: '#fffaf3' }, components: { Menu: { darkItemBg: '#16100d', darkItemSelectedBg: '#8f1216', darkItemHoverBg: '#34211c' }, Button: { controlHeight: 42 } } }}><AntApp message={{ maxCount: 3 }}>{contextHolder}<Layout className="admin-layout"><Layout.Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={252} className="admin-sider"><div className="sider-brand"><img src="/logo_primary.png" alt="Clucky" /><span>CLUCKY</span></div><div className="sider-section-label">WORKSPACE</div><Menu theme="dark" mode="inline" selectedKeys={[page]} items={navItems} onClick={({ key }) => navigate(key)} /></Layout.Sider><Layout><Layout.Header className="admin-header"><Button className="mobile-menu" type="text" icon={<DashboardOutlined />} onClick={() => setCollapsed(!collapsed)} /><Breadcrumb items={[{ title: 'Clucky' }, { title: pageTitle }]} /><Flex align="center" gap={20}><Badge dot color="#8f1216"><Button type="text" icon={<BellOutlined />} aria-label="Thông báo" /></Badge><Dropdown menu={{ items: profileItems, onClick: ({ key }) => key === 'logout' && messageApi.info('Tính năng đăng xuất sẽ nối cùng Auth Service.') }} trigger={['click']}><Button type="text" className="profile-button"><Avatar size={32} style={{ background: '#8f1216' }}>LT</Avatar><span className="profile-name">Lê Phú Thịnh</span></Button></Dropdown></Flex></Layout.Header><Layout.Content className="admin-content"><div className="content-inner">{page === 'dashboard' ? <Dashboard onNavigate={navigate} /> : <SectionPage page={page} />}</div></Layout.Content><Layout.Footer className="admin-footer">Clucky Operations · Internal workspace <span>v0.1.0</span></Layout.Footer></Layout></Layout></AntApp></ConfigProvider>;
+
+  const renderContent = () => {
+    if (page === 'dashboard') return <Dashboard onNavigate={navigate} />;
+    if (page === 'orders') return <OrdersPage />;
+    if (page === 'staff-orders') return <StaffOrdersPage />;
+    return <SectionPage page={page} />;
+  };
+
+  return (
+    <ConfigProvider
+      locale={viVN}
+      theme={{
+        token: {
+          colorPrimary: '#8f1216',
+          colorInfo: '#8f1216',
+          colorSuccess: '#1e7a46',
+          colorWarning: '#d97706',
+          colorError: '#b42318',
+          borderRadius: 14,
+          fontFamily: 'Quicksand, system-ui, sans-serif',
+          colorBgLayout: '#f5ede0',
+          colorBgContainer: '#fffaf3',
+        },
+        components: {
+          Menu: {
+            darkItemBg: '#16100d',
+            darkItemSelectedBg: '#8f1216',
+            darkItemHoverBg: '#34211c',
+          },
+          Button: { controlHeight: 42 },
+        },
+      }}
+    >
+      <AntApp message={{ maxCount: 3 }}>
+        {contextHolder}
+        <Layout className="admin-layout">
+          <Layout.Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={252} className="admin-sider">
+            <div className="sider-brand">
+              <img src="/logo_primary.png" alt="Clucky" />
+              <span>CLUCKY</span>
+            </div>
+            <div className="sider-section-label">WORKSPACE</div>
+            <Menu theme="dark" mode="inline" selectedKeys={[page]} items={navItems} onClick={({ key }) => navigate(key)} />
+          </Layout.Sider>
+          <Layout>
+            <Layout.Header className="admin-header">
+              <Button className="mobile-menu" type="text" icon={<DashboardOutlined />} onClick={() => setCollapsed(!collapsed)} />
+              <Breadcrumb items={[{ title: 'Clucky' }, { title: pageTitle }]} />
+              <Flex align="center" gap={20}>
+                <Badge dot color="#8f1216">
+                  <Button type="text" icon={<BellOutlined />} aria-label="Thông báo" />
+                </Badge>
+                <Dropdown
+                  menu={{
+                    items: profileItems,
+                    onClick: ({ key }) => key === 'logout' && messageApi.info('Tính năng đăng xuất sẽ nối cùng Auth Service.'),
+                  }}
+                  trigger={['click']}
+                >
+                  <Button type="text" className="profile-button">
+                    <Avatar size={32} style={{ background: '#8f1216' }}>
+                      ĐA
+                    </Avatar>
+                    <span className="profile-name">Trần Đức Anh</span>
+                  </Button>
+                </Dropdown>
+              </Flex>
+            </Layout.Header>
+            <Layout.Content className="admin-content">
+              <div className="content-inner">{renderContent()}</div>
+            </Layout.Content>
+            <Layout.Footer className="admin-footer">
+              Clucky Operations · Internal workspace <span>v0.1.0</span>
+            </Layout.Footer>
+          </Layout>
+        </Layout>
+      </AntApp>
+    </ConfigProvider>
+  );
 }
 
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+);

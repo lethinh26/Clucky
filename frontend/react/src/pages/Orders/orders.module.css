@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+
+.ordersContainer {
+  font-family: 'Quicksand', system-ui, sans-serif;
+  color: #16100d;
+}
+
+.filterBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  background: #fffaf3;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: 1px solid #e8e2d9;
+}
+
+.leftControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.searchInput {
+  width: 260px;
+}
+
+.moneyText {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  color: #8f1216;
+}
+
+.statusTag {
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+/* Detail Drawer Styles */
+.drawerSection {
+  margin-bottom: 24px;
+}
+
+.drawerSectionTitle {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #16100d;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #e8e2d9;
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.infoLabel {
+  color: #6b6259;
+}
+
+.infoVal {
+  font-weight: 600;
+  color: #16100d;
+}
+
+.itemsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.itemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 10px;
+  background: #f5ede0;
+  border-radius: 10px;
+}
+
+.itemTitle {
+  font-weight: 700;
+  color: #16100d;
+}
+
+.itemSub {
+  font-size: 12px;
+  color: #6b6259;
+}
+
+.itemPrice {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  color: #8f1216;
+}
+
+.refundAlert {
+  background: rgba(180, 35, 24, 0.08);
+  border: 1px solid rgba(180, 35, 24, 0.25);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.refundAlertTitle {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #b42318;
+  margin-bottom: 4px;
+}
+
+.refundAlertDesc {
+  font-size: 13px;
+  color: #6b6259;
+  margin: 0;
+}

@@ -1,0 +1,292 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+
+.historyContainer {
+  width: min(1080px, calc(100% - 48px));
+  margin: 40px auto 100px;
+  font-family: 'Quicksand', system-ui, sans-serif;
+  color: #16100d;
+}
+
+.heading {
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  display: inline-block;
+  color: #c9a227;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.title {
+  margin: 0 0 10px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: clamp(34px, 4vw, 48px);
+  font-weight: 700;
+  color: #16100d;
+}
+
+.sub {
+  margin: 0;
+  color: #6b6259;
+  font-size: 16px;
+}
+
+/* Fast Search Bar */
+.searchBar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 30px;
+  max-width: 540px;
+}
+
+.searchInput {
+  flex: 1;
+  padding: 12px 18px;
+  border: 1px solid #e8e2d9;
+  border-radius: 999px;
+  background: #fffaf3;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.searchInput:focus {
+  border-color: #8f1216;
+}
+
+.searchBtn {
+  padding: 0 24px;
+  background: #8f1216;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.searchBtn:hover {
+  background: #730e12;
+}
+
+/* Tabs */
+.tabsList {
+  display: flex;
+  gap: 10px;
+  border-bottom: 2px solid #e8e2d9;
+  margin-bottom: 30px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.tabItem {
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #6b6259;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.tabItem:hover {
+  color: #8f1216;
+}
+
+.tabItemActive {
+  color: #8f1216;
+}
+
+.tabItemActive::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #8f1216;
+  border-radius: 3px;
+}
+
+/* Order Cards */
+.ordersList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.orderCard {
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 22px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 4px 16px rgba(22, 16, 13, 0.03);
+  transition: all 0.2s ease;
+}
+
+.orderCard:hover {
+  border-color: #c9a227;
+  box-shadow: 0 8px 24px rgba(22, 16, 13, 0.06);
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0e7dc;
+}
+
+.orderCode {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #16100d;
+}
+
+.orderDate {
+  font-size: 13px;
+  color: #6b6259;
+}
+
+.cardBody {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.storeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.storeName {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #16100d;
+}
+
+.itemsSummary {
+  font-size: 14px;
+  color: #6b6259;
+}
+
+.cardPriceGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.cardPriceLabel {
+  font-size: 12px;
+  color: #6b6259;
+}
+
+.cardPriceVal {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #8f1216;
+}
+
+.cardActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px dashed #f0e7dc;
+}
+
+.reorderBtn {
+  padding: 10px 20px;
+  background: transparent;
+  color: #8f1216;
+  border: 1px solid #8f1216;
+  border-radius: 999px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reorderBtn:hover {
+  background: #8f1216;
+  color: #fff;
+}
+
+.detailBtn {
+  padding: 10px 22px;
+  background: #16100d;
+  color: #fff;
+  border-radius: 999px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.detailBtn:hover {
+  background: #8f1216;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 60px 20px;
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 24px;
+}
+
+.emptyTitle {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 22px;
+  color: #16100d;
+  margin-bottom: 8px;
+}
+
+.emptyDesc {
+  color: #6b6259;
+  font-size: 14px;
+}
+
+.reorderToast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #16100d;
+  color: #fff;
+  padding: 16px 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1000;
+}
