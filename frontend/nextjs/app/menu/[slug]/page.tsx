@@ -1,6 +1,4 @@
 import { notFound } from 'next/navigation';
-import { CustomerHeader } from '@/components/customer-header';
-import { CustomerFooter } from '@/components/customer-footer';
 import { ProductDetailClient } from '@/components/product-detail-client';
 import { getProduct, products } from '@/lib/products';
 
@@ -22,11 +20,9 @@ export default async function ProductPage({
 
   return (
     <>
-      <CustomerHeader />
-      <main>
+            <main>
         <ProductDetailClient product={product} />
       </main>
-      <CustomerFooter />
-    </>
+          </>
   );
 }

@@ -1,32 +1,23 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  formatPrice,
-  type Product,
-  type ProductOptionGroup,
-  type ProductTopping,
-} from '@/lib/products';
-import {
-  ArrowLeft,
-  Star,
-  Minus,
-  Plus,
-  ShoppingBag,
-  Check,
-} from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { FoodImage } from "@/components/order/food-image";
+import Link from "next/link";
+import { useOrder } from "@/components/order/order-provider";
+import { formatPrice, type Product } from "@/lib/products";
+import { ArrowLeft, Star, Minus, Plus, ShoppingBag, Check } from "lucide-react";
 
 interface ProductDetailClientProps {
   product: Product;
 }
 
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
-  const router = useRouter();
+  const { addItem, ready } = useOrder();
 
   // Selected single options (one choice per group)
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string>
+  >(() => {
     const initial: Record<string, string> = {};
     product.options?.forEach((group) => {
       if (group.choices.length > 0) {
@@ -41,7 +32,14 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   // Quantity stepper
   const [quantity, setQuantity] = useState<number>(1);
-  const [specialNote, setSpecialNote] = useState<string>('');
+  const [specialNote, setSpecialNote] = useState<string>("");
+  const addTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (addTimer.current) clearTimeout(addTimer.current);
+    },
+    [],
+  );
   const [isAddedSuccess, setIsAddedSuccess] = useState<boolean>(false);
 
   // Toggle single option
@@ -57,7 +55,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     setSelectedToppings((prev) =>
       prev.includes(toppingId)
         ? prev.filter((id) => id !== toppingId)
-        : [...prev, toppingId]
+        : [...prev, toppingId],
     );
   };
 
@@ -104,30 +102,61 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   }, [product, selectedOptions, selectedToppings, quantity]);
 
   const handleAddToCart = () => {
+    if (!ready || isSoldOut || isAddedSuccess) return;
+    addItem({
+      id: crypto.randomUUID(),
+      slug: product.slug,
+      name: product.name,
+      category: product.categoryName,
+      basePrice: product.basePrice || product.price,
+      unitPrice,
+      quantity,
+      image: product.imageUrl || product.image,
+      note: specialNote.trim(),
+      options: product.options?.flatMap((group) => {
+        const choice = group.choices.find(
+          (entry) => entry.id === selectedOptions[group.id],
+        );
+        return choice
+          ? [
+              {
+                groupName: group.name,
+                name: choice.name,
+                extraPrice: choice.priceAdjustment,
+              },
+            ]
+          : [];
+      }),
+      toppings: product.toppings
+        ?.filter((top) => selectedToppings.includes(top.id))
+        .map((top) => ({ name: top.name, extraPrice: top.price })),
+    });
     setIsAddedSuccess(true);
-    setTimeout(() => {
+    if (addTimer.current) clearTimeout(addTimer.current);
+    addTimer.current = setTimeout(() => {
       setIsAddedSuccess(false);
-      router.push('/cart');
     }, 600);
   };
 
   const isSoldOut = product.isSoldOut || !product.isAvailable;
 
   return (
-    <div style={{ maxWidth: 1240, margin: '0 auto', padding: '32px 24px 120px' }}>
+    <div
+      style={{ maxWidth: 1240, margin: "0 auto", padding: "32px 24px 120px" }}
+    >
       {/* Back button */}
       <Link
         href="/menu"
         style={{
-          display: 'inline-flex',
-          alignItems: 'center',
+          display: "inline-flex",
+          alignItems: "center",
           gap: 8,
-          color: '#6B6259',
-          fontFamily: 'Quicksand, sans-serif',
+          color: "#6B6259",
+          fontFamily: "Quicksand, sans-serif",
           fontWeight: 700,
           fontSize: 14,
           marginBottom: 32,
-          transition: 'color 0.2s',
+          transition: "color 0.2s",
         }}
       >
         <ArrowLeft size={18} />
@@ -137,69 +166,73 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       {/* Main 2-Column Detail Grid */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-          gap: 'clamp(36px, 6vw, 72px)',
-          alignItems: 'start',
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
+          gap: "clamp(36px, 6vw, 72px)",
+          alignItems: "start",
         }}
       >
         {/* Left Column: Big Image & Badges */}
         <div>
           <div
             style={{
-              position: 'relative',
+              position: "relative",
               borderRadius: 32,
-              overflow: 'hidden',
-              boxShadow: '0 24px 60px rgba(22, 16, 13, 0.12)',
-              border: '1px solid #E8E2D9',
-              background: '#FFFAF3',
+              overflow: "hidden",
+              boxShadow: "0 24px 60px rgba(22, 16, 13, 0.12)",
+              border: "1px solid #E8E2D9",
+              background: "#FFFAF3",
             }}
           >
-            <img
+            <FoodImage
               src={product.imageUrl || product.image}
               alt={product.alt || product.name}
               style={{
-                width: '100%',
+                width: "100%",
                 aspectRatio: 1,
-                objectFit: 'cover',
-                display: 'block',
+                objectFit: "cover",
+                display: "block",
               }}
             />
 
             {product.isBestSeller && !isSoldOut && (
               <span
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   top: 20,
                   left: 20,
-                  background: 'linear-gradient(135deg, #E5C358, #C9A227)',
-                  color: '#16100D',
-                  fontFamily: 'Baloo 2, sans-serif',
+                  background: "linear-gradient(135deg, #E5C358, #C9A227)",
+                  color: "#16100D",
+                  fontFamily: "Baloo 2, sans-serif",
                   fontWeight: 700,
                   fontSize: 13,
-                  letterSpacing: '0.08em',
-                  padding: '6px 16px',
+                  letterSpacing: "0.08em",
+                  padding: "6px 16px",
                   borderRadius: 999,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-                  textTransform: 'uppercase',
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                  textTransform: "uppercase",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
                 }}
               >
-                ★ Best Seller
+                <Star size={13} fill="currentColor" /> Best Seller
               </span>
             )}
 
             {isSoldOut && (
               <span
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   top: 20,
                   right: 20,
-                  background: '#B42318',
-                  color: '#FFFFFF',
-                  fontFamily: 'Quicksand, sans-serif',
+                  background: "#B42318",
+                  color: "#FFFFFF",
+                  fontFamily: "Quicksand, sans-serif",
                   fontWeight: 700,
                   fontSize: 12,
-                  padding: '6px 14px',
+                  padding: "6px 14px",
                   borderRadius: 999,
                 }}
               >
@@ -211,76 +244,82 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Quality Promises */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gap: 12,
               marginTop: 24,
             }}
           >
             <div
               style={{
-                padding: '16px 12px',
+                padding: "16px 12px",
                 borderRadius: 18,
-                background: '#FFFAF3',
-                border: '1px solid #E8E2D9',
-                textAlign: 'center',
+                background: "#FFFAF3",
+                border: "1px solid #E8E2D9",
+                textAlign: "center",
               }}
             >
               <strong
                 style={{
-                  display: 'block',
-                  fontFamily: 'Baloo 2, sans-serif',
+                  display: "block",
+                  fontFamily: "Baloo 2, sans-serif",
                   fontSize: 16,
-                  color: '#16100D',
+                  color: "#16100D",
                 }}
               >
                 Giòn tan
               </strong>
-              <span style={{ fontSize: 12, color: '#6B6259' }}>Làm mới mỗi phần</span>
+              <span style={{ fontSize: 12, color: "#6B6259" }}>
+                Làm mới mỗi phần
+              </span>
             </div>
 
             <div
               style={{
-                padding: '16px 12px',
+                padding: "16px 12px",
                 borderRadius: 18,
-                background: '#FFFAF3',
-                border: '1px solid #E8E2D9',
-                textAlign: 'center',
+                background: "#FFFAF3",
+                border: "1px solid #E8E2D9",
+                textAlign: "center",
               }}
             >
               <strong
                 style={{
-                  display: 'block',
-                  fontFamily: 'Baloo 2, sans-serif',
+                  display: "block",
+                  fontFamily: "Baloo 2, sans-serif",
                   fontSize: 16,
-                  color: '#16100D',
+                  color: "#16100D",
                 }}
               >
                 {product.kcal} kcal
               </strong>
-              <span style={{ fontSize: 12, color: '#6B6259' }}>Khẩu phần vừa đủ</span>
+              <span style={{ fontSize: 12, color: "#6B6259" }}>
+                Khẩu phần vừa đủ
+              </span>
             </div>
 
             <div
               style={{
-                padding: '16px 12px',
+                padding: "16px 12px",
                 borderRadius: 18,
-                background: '#FFFAF3',
-                border: '1px solid #E8E2D9',
-                textAlign: 'center',
+                background: "#FFFAF3",
+                border: "1px solid #E8E2D9",
+                textAlign: "center",
               }}
             >
               <strong
                 style={{
-                  display: 'block',
-                  fontFamily: 'Baloo 2, sans-serif',
+                  display: "block",
+                  fontFamily: "Baloo 2, sans-serif",
                   fontSize: 16,
-                  color: '#16100D',
+                  color: "#16100D",
                 }}
               >
                 15 phút
               </strong>
-              <span style={{ fontSize: 12, color: '#6B6259' }}>Chuẩn bị nóng hổi</span>
+              <span style={{ fontSize: 12, color: "#6B6259" }}>
+                Chuẩn bị nóng hổi
+              </span>
             </div>
           </div>
         </div>
@@ -290,17 +329,17 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Tag & Title */}
           <div
             style={{
-              display: 'inline-block',
-              padding: '4px 12px',
+              display: "inline-block",
+              padding: "4px 12px",
               borderRadius: 999,
-              backgroundColor: '#F5EDE0',
-              border: '1px solid #E8E2D9',
-              color: '#8F1216',
-              fontFamily: 'Quicksand, sans-serif',
+              backgroundColor: "#F5EDE0",
+              border: "1px solid #E8E2D9",
+              color: "#8F1216",
+              fontFamily: "Quicksand, sans-serif",
               fontWeight: 700,
               fontSize: 12,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
               marginBottom: 10,
             }}
           >
@@ -309,13 +348,13 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
           <h1
             style={{
-              fontFamily: 'Baloo 2, sans-serif',
+              fontFamily: "Baloo 2, sans-serif",
               fontWeight: 700,
-              fontSize: 'clamp(32px, 4vw, 44px)',
+              fontSize: "clamp(32px, 4vw, 44px)",
               lineHeight: 1.1,
-              color: '#16100D',
-              margin: '0 0 12px',
-              letterSpacing: '-0.02em',
+              color: "#16100D",
+              margin: "0 0 12px",
+              letterSpacing: "-0.02em",
             }}
           >
             {product.name}
@@ -324,28 +363,28 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Rating */}
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
+              display: "flex",
+              alignItems: "center",
               gap: 8,
               marginBottom: 18,
             }}
           >
-            <div style={{ display: 'flex', color: '#C9A227' }}>
+            <div style={{ display: "flex", color: "#C9A227" }}>
               {[1, 2, 3, 4, 5].map((s) => (
                 <Star key={s} size={18} fill="#C9A227" stroke="#C9A227" />
               ))}
             </div>
             <span
               style={{
-                fontFamily: 'Quicksand, sans-serif',
+                fontFamily: "Quicksand, sans-serif",
                 fontWeight: 700,
                 fontSize: 14,
-                color: '#16100D',
+                color: "#16100D",
               }}
             >
               {product.rating || 4.9}
             </span>
-            <span style={{ color: '#6B6259', fontSize: 13 }}>
+            <span style={{ color: "#6B6259", fontSize: 13 }}>
               ({product.reviewCount || 128} đánh giá từ thực khách)
             </span>
           </div>
@@ -353,11 +392,11 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Description */}
           <p
             style={{
-              fontFamily: 'Quicksand, sans-serif',
+              fontFamily: "Quicksand, sans-serif",
               fontSize: 15,
               lineHeight: 1.7,
-              color: '#6B6259',
-              margin: '0 0 28px',
+              color: "#6B6259",
+              margin: "0 0 28px",
             }}
           >
             {product.description}
@@ -368,28 +407,30 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             <div key={group.id} style={{ marginBottom: 24 }}>
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   marginBottom: 10,
                 }}
               >
                 <span
                   style={{
-                    fontFamily: 'Baloo 2, sans-serif',
+                    fontFamily: "Baloo 2, sans-serif",
                     fontWeight: 600,
                     fontSize: 16,
-                    color: '#16100D',
+                    color: "#16100D",
                   }}
                 >
                   {group.name}
                 </span>
-                <span style={{ fontSize: 12, color: '#8F1216', fontWeight: 700 }}>
+                <span
+                  style={{ fontSize: 12, color: "#8F1216", fontWeight: 700 }}
+                >
                   * Chọn 1
                 </span>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {group.choices.map((choice) => {
                   const isSelected = selectedOptions[group.id] === choice.id;
                   return (
@@ -398,25 +439,27 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                       type="button"
                       onClick={() => handleSelectOption(group.id, choice.id)}
                       style={{
-                        padding: '10px 18px',
+                        padding: "10px 18px",
                         borderRadius: 999,
-                        border: `2px solid ${isSelected ? '#8F1216' : '#E8E2D9'}`,
-                        backgroundColor: isSelected ? '#FFFAF3' : '#FFFFFF',
-                        color: isSelected ? '#8F1216' : '#16100D',
-                        fontFamily: 'Quicksand, sans-serif',
+                        border: `2px solid ${isSelected ? "#8F1216" : "#E8E2D9"}`,
+                        backgroundColor: isSelected ? "#FFFAF3" : "#FFFFFF",
+                        color: isSelected ? "#8F1216" : "#16100D",
+                        fontFamily: "Quicksand, sans-serif",
                         fontWeight: 700,
                         fontSize: 14,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        display: 'inline-flex',
-                        alignItems: 'center',
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                        display: "inline-flex",
+                        alignItems: "center",
                         gap: 8,
                       }}
                     >
-                      {isSelected && <Check size={16} className="text-[#8F1216]" />}
+                      {isSelected && (
+                        <Check size={16} className="text-[#8F1216]" />
+                      )}
                       <span>{choice.name}</span>
                       {choice.priceAdjustment > 0 && (
-                        <span style={{ color: '#8F1216', fontSize: 13 }}>
+                        <span style={{ color: "#8F1216", fontSize: 13 }}>
                           +{formatPrice(choice.priceAdjustment)}
                         </span>
                       )}
@@ -432,28 +475,36 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             <div style={{ marginBottom: 28 }}>
               <div
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   marginBottom: 10,
                 }}
               >
                 <span
                   style={{
-                    fontFamily: 'Baloo 2, sans-serif',
+                    fontFamily: "Baloo 2, sans-serif",
                     fontWeight: 600,
                     fontSize: 16,
-                    color: '#16100D',
+                    color: "#16100D",
                   }}
                 >
                   Thêm Topping hảo hạng
                 </span>
-                <span style={{ fontSize: 12, color: '#6B6259', fontWeight: 600 }}>
+                <span
+                  style={{ fontSize: 12, color: "#6B6259", fontWeight: 600 }}
+                >
                   Chọn nhiều tùy thích
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: 10,
+                }}
+              >
                 {product.toppings.map((top) => {
                   const isSelected = selectedToppings.includes(top.id);
                   return (
@@ -462,40 +513,56 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                       type="button"
                       onClick={() => handleToggleTopping(top.id)}
                       style={{
-                        padding: '12px 16px',
+                        padding: "12px 16px",
                         borderRadius: 16,
-                        border: `1.5px solid ${isSelected ? '#C9A227' : '#E8E2D9'}`,
-                        backgroundColor: isSelected ? '#FEFDF8' : '#FFFFFF',
-                        color: '#16100D',
-                        fontFamily: 'Quicksand, sans-serif',
+                        border: `1.5px solid ${isSelected ? "#C9A227" : "#E8E2D9"}`,
+                        backgroundColor: isSelected ? "#FEFDF8" : "#FFFFFF",
+                        color: "#16100D",
+                        fontFamily: "Quicksand, sans-serif",
                         fontSize: 14,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        textAlign: 'left',
-                        boxShadow: isSelected ? '0 4px 14px rgba(201, 162, 39, 0.15)' : 'none',
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        textAlign: "left",
+                        boxShadow: isSelected
+                          ? "0 4px 14px rgba(201, 162, 39, 0.15)"
+                          : "none",
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
                         <div
                           style={{
                             width: 18,
                             height: 18,
                             borderRadius: 4,
-                            border: `2px solid ${isSelected ? '#C9A227' : '#B0A8A0'}`,
-                            backgroundColor: isSelected ? '#C9A227' : 'transparent',
-                            display: 'grid',
-                            placeItems: 'center',
-                            color: '#FFFFFF',
+                            border: `2px solid ${isSelected ? "#C9A227" : "#B0A8A0"}`,
+                            backgroundColor: isSelected
+                              ? "#C9A227"
+                              : "transparent",
+                            display: "grid",
+                            placeItems: "center",
+                            color: "#FFFFFF",
                           }}
                         >
                           {isSelected && <Check size={12} strokeWidth={3} />}
                         </div>
                         <span style={{ fontWeight: 600 }}>{top.name}</span>
                       </div>
-                      <span style={{ color: '#8F1216', fontWeight: 700, fontSize: 13 }}>
+                      <span
+                        style={{
+                          color: "#8F1216",
+                          fontWeight: 700,
+                          fontSize: 13,
+                        }}
+                      >
                         +{formatPrice(top.price)}
                       </span>
                     </button>
@@ -510,11 +577,11 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             <label
               htmlFor="special-note"
               style={{
-                display: 'block',
-                fontFamily: 'Baloo 2, sans-serif',
+                display: "block",
+                fontFamily: "Baloo 2, sans-serif",
                 fontWeight: 600,
                 fontSize: 16,
-                color: '#16100D',
+                color: "#16100D",
                 marginBottom: 8,
               }}
             >
@@ -527,16 +594,16 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               onChange={(e) => setSpecialNote(e.target.value)}
               placeholder="Ví dụ: Gà chiên giòn kỹ, sốt để riêng, không lấy tương ớt..."
               style={{
-                width: '100%',
-                padding: '12px 16px',
+                width: "100%",
+                padding: "12px 16px",
                 borderRadius: 16,
-                border: '1px solid #E8E2D9',
-                backgroundColor: '#FFFFFF',
-                fontFamily: 'Quicksand, sans-serif',
+                border: "1px solid #E8E2D9",
+                backgroundColor: "#FFFFFF",
+                fontFamily: "Quicksand, sans-serif",
                 fontSize: 14,
-                color: '#16100D',
-                outline: 'none',
-                resize: 'none',
+                color: "#16100D",
+                outline: "none",
+                resize: "none",
               }}
             />
           </div>
@@ -544,20 +611,20 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           {/* Stepper & Dynamic Price Row */}
           <div
             style={{
-              padding: '24px 28px',
-              background: '#FFFAF3',
+              padding: "24px 28px",
+              background: "#FFFAF3",
               borderRadius: 24,
-              border: '1px solid #E8E2D9',
-              boxShadow: '0 8px 30px rgba(22, 16, 13, 0.04)',
+              border: "1px solid #E8E2D9",
+              boxShadow: "0 8px 30px rgba(22, 16, 13, 0.04)",
               marginBottom: 24,
             }}
           >
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
                 gap: 20,
               }}
             >
@@ -565,25 +632,25 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               <div>
                 <span
                   style={{
-                    display: 'block',
+                    display: "block",
                     fontSize: 12,
                     fontWeight: 700,
-                    color: '#6B6259',
+                    color: "#6B6259",
                     marginBottom: 6,
-                    textTransform: 'uppercase',
+                    textTransform: "uppercase",
                   }}
                 >
                   Số lượng phần
                 </span>
                 <div
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
+                    display: "inline-flex",
+                    alignItems: "center",
                     gap: 12,
-                    padding: '4px 8px',
+                    padding: "4px 8px",
                     borderRadius: 999,
-                    border: '1px solid #E8E2D9',
-                    background: '#FFFFFF',
+                    border: "1px solid #E8E2D9",
+                    background: "#FFFFFF",
                   }}
                 >
                   <button
@@ -594,25 +661,25 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     style={{
                       width: 36,
                       height: 36,
-                      borderRadius: '50%',
-                      border: 'none',
-                      background: quantity <= 1 ? '#F5EDE0' : '#EAF0F6',
-                      cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
-                      display: 'grid',
-                      placeItems: 'center',
-                      color: '#16100D',
-                      transition: 'background-color 0.2s',
+                      borderRadius: "50%",
+                      border: "none",
+                      background: quantity <= 1 ? "#F5EDE0" : "#EAF0F6",
+                      cursor: quantity <= 1 ? "not-allowed" : "pointer",
+                      display: "grid",
+                      placeItems: "center",
+                      color: "#16100D",
+                      transition: "background-color 0.2s",
                     }}
                   >
                     <Minus size={16} />
                   </button>
                   <strong
                     style={{
-                      fontFamily: 'Baloo 2, sans-serif',
+                      fontFamily: "Baloo 2, sans-serif",
                       fontSize: 18,
                       minWidth: 28,
-                      textAlign: 'center',
-                      color: '#16100D',
+                      textAlign: "center",
+                      color: "#16100D",
                     }}
                   >
                     {quantity}
@@ -624,14 +691,14 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     style={{
                       width: 36,
                       height: 36,
-                      borderRadius: '50%',
-                      border: 'none',
-                      background: '#EAF0F6',
-                      cursor: 'pointer',
-                      display: 'grid',
-                      placeItems: 'center',
-                      color: '#16100D',
-                      transition: 'background-color 0.2s',
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "#EAF0F6",
+                      cursor: "pointer",
+                      display: "grid",
+                      placeItems: "center",
+                      color: "#16100D",
+                      transition: "background-color 0.2s",
                     }}
                   >
                     <Plus size={16} />
@@ -640,32 +707,32 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               </div>
 
               {/* Dynamic Price Display */}
-              <div style={{ textAlign: 'right' }}>
+              <div style={{ textAlign: "right" }}>
                 <span
                   style={{
-                    display: 'block',
+                    display: "block",
                     fontSize: 12,
                     fontWeight: 700,
-                    color: '#6B6259',
+                    color: "#6B6259",
                     marginBottom: 2,
-                    textTransform: 'uppercase',
+                    textTransform: "uppercase",
                   }}
                 >
                   Tổng tiền ({quantity} phần)
                 </span>
                 <div
                   style={{
-                    fontFamily: 'Baloo 2, sans-serif',
+                    fontFamily: "Baloo 2, sans-serif",
                     fontSize: 32,
                     fontWeight: 700,
-                    color: '#8F1216',
-                    letterSpacing: '-0.02em',
-                    transition: 'color 0.2s',
+                    color: "#8F1216",
+                    letterSpacing: "-0.02em",
+                    transition: "color 0.2s",
                   }}
                 >
                   {formatPrice(totalPrice)}
                 </div>
-                <div style={{ fontSize: 12, color: '#6B6259', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: "#6B6259", marginTop: 2 }}>
                   Đơn giá: {formatPrice(unitPrice)}/phần
                 </div>
               </div>
@@ -675,78 +742,30 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={isSoldOut}
+              disabled={isSoldOut || !ready || isAddedSuccess}
+              data-added={isAddedSuccess}
               className="btn-primary"
               style={{
-                width: '100%',
+                width: "100%",
                 marginTop: 20,
                 height: 52,
                 fontSize: 16,
-                border: 'none',
-                cursor: isSoldOut ? 'not-allowed' : 'pointer',
+                border: "none",
+                cursor: isSoldOut ? "not-allowed" : "pointer",
                 opacity: isSoldOut ? 0.6 : 1,
               }}
             >
               <ShoppingBag size={20} />
               <span>
                 {isSoldOut
-                  ? 'Món ăn tạm hết hàng'
+                  ? "Món ăn tạm hết hàng"
                   : isAddedSuccess
-                  ? '✓ Đã thêm vào giỏ hàng!'
-                  : `Thêm vào giỏ hàng · ${formatPrice(totalPrice)}`}
+                    ? "Đã thêm vào giỏ hàng!"
+                    : `Thêm vào giỏ hàng · ${formatPrice(totalPrice)}`}
               </span>
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Mobile Sticky Bottom Bar */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          backgroundColor: '#FFFAF3',
-          borderTop: '1px solid #E8E2D9',
-          padding: '12px 20px',
-          boxShadow: '0 -8px 24px rgba(22, 16, 13, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          zIndex: 40,
-        }}
-        className="md:hidden"
-      >
-        <div>
-          <span style={{ fontSize: 11, color: '#6B6259', fontWeight: 600 }}>TỔNG TIỀN</span>
-          <div
-            style={{
-              fontFamily: 'Baloo 2, sans-serif',
-              fontSize: 22,
-              fontWeight: 700,
-              color: '#8F1216',
-            }}
-          >
-            {formatPrice(totalPrice)}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleAddToCart}
-          disabled={isSoldOut}
-          className="btn-primary"
-          style={{
-            padding: '10px 24px',
-            fontSize: 14,
-            border: 'none',
-            cursor: isSoldOut ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <ShoppingBag size={18} />
-          <span>{isSoldOut ? 'Tạm hết' : 'Thêm giỏ'}</span>
-        </button>
       </div>
     </div>
   );

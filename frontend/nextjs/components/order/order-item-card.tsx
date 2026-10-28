@@ -1,7 +1,8 @@
-import React from 'react';
-import { formatPrice } from '@/lib/products';
-import { CartItemOption, CartItemTopping } from '@/lib/types/order';
-import styles from './order-shared.module.css';
+import React from "react";
+import { formatPrice } from "@/lib/products";
+import { CartItemOption, CartItemTopping } from "@/lib/types/order";
+import { FoodImage } from "@/components/order/food-image";
+import styles from "./order-shared.module.css";
 
 interface OrderItemCardProps {
   image: string;
@@ -30,7 +31,7 @@ export function OrderItemCard({
 }: OrderItemCardProps) {
   return (
     <article className={styles.itemCard}>
-      <img src={image} alt={name} className={styles.itemImage} />
+      <FoodImage src={image} alt={name} className={styles.itemImage} />
       <div className={styles.itemInfo}>
         {category && <span className={styles.itemTag}>{category}</span>}
         <h3 className={styles.itemName}>{name}</h3>
@@ -43,7 +44,7 @@ export function OrderItemCard({
             {options.map((opt, idx) => (
               <span key={`opt-${idx}`} className={styles.addonChip}>
                 {opt.groupName}: {opt.name}
-                {opt.extraPrice > 0 ? ` (+${formatPrice(opt.extraPrice)})` : ''}
+                {opt.extraPrice > 0 ? ` (+${formatPrice(opt.extraPrice)})` : ""}
               </span>
             ))}
             {toppings.map((top, idx) => (

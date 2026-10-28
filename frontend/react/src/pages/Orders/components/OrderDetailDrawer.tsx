@@ -1,232 +1,340 @@
-import React from 'react';
-import { Drawer, Button, Tag, Space, Typography, Divider } from 'antd';
-import { AdminOrder } from '../../../types/order';
-import styles from '../orders.module.css';
+import { useState } from "react";
+import { App as AntApp, Drawer, Button, Modal, Input, Popconfirm } from "antd";
+import {
+  Clock3,
+  UserRound,
+  ShoppingBag,
+  MapPin,
+  Wallet,
+  MessageSquare,
+  CircleAlert,
+  ChefHat,
+  PackageCheck,
+  CheckCircle2,
+  XCircle,
+  Store,
+  Truck,
+} from "lucide-react";
+import type { AdminOrder } from "../../../types/order";
+import { OrderProgress } from "../../../components/ui/OrderProgress";
+import { OrderStatusBadge } from "../../../components/ui/OrderStatusBadge";
+import { FoodImage } from "../../../components/ui/FoodImage";
+import { displayOrderTime } from "../../../lib/order-demo";
+import { useOrders } from "../../../context/OrderContext";
+import { useAuth } from "../../../context/AuthContext";
+import styles from "../orders.module.css";
 
-interface OrderDetailDrawerProps {
+interface Props {
   order: AdminOrder | null;
   open: boolean;
   onClose: () => void;
-  onStatusChange: (orderId: string, newStatus: AdminOrder['status']) => void;
-  onOpenRefundModal: (order: AdminOrder) => void;
+  onStatusChange: (
+    id: string,
+    status: AdminOrder["status"],
+    reason?: string,
+  ) => boolean;
+  onOpenRefundModal?: (order: AdminOrder) => void;
 }
-
-const statusColors: Record<string, string> = {
-  CONFIRMED: 'blue',
-  PREPARING: 'orange',
-  READY: 'gold',
-  SHIPPING: 'cyan',
-  COMPLETED: 'green',
-  CANCELLED: 'red',
-};
-
-const statusLabels: Record<string, string> = {
-  PENDING_PAYMENT: 'Chờ thanh toán',
-  CONFIRMED: 'Đã xác nhận',
-  PREPARING: 'Đang nấu',
-  READY: 'Sẵn sàng giao',
-  SHIPPING: 'Đang giao',
-  COMPLETED: 'Hoàn thành',
-  CANCELLED: 'Đã hủy',
-};
-
-export const OrderDetailDrawer: React.FC<OrderDetailDrawerProps> = ({
+const money = (amount: number) =>
+  new Intl.NumberFormat("vi-VN").format(amount) + "đ";
+export function OrderDetailDrawer({
   order,
   open,
   onClose,
   onStatusChange,
   onOpenRefundModal,
-}) => {
+}: Props) {
+  const { confirmCOD, actionError } = useOrders();
+  const { isStaff } = useAuth();
+  const { message } = AntApp.useApp();
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [reason, setReason] = useState("");
   if (!order) return null;
-
+  const collect = () => {
+    if (confirmCOD(order.id))
+      message.success("Đã xác nhận thu COD trong bản demo.");
+    else message.warning("Đơn không còn khoản COD cần xác nhận.");
+  };
   return (
-    <Drawer
-      title={
-        <Space>
-          <span>Chi tiết đơn: {order.orderCode}</span>
-          <Tag color={statusColors[order.status] ?? 'default'} className={styles.statusTag}>
-            {statusLabels[order.status] ?? order.status}
-          </Tag>
-        </Space>
-      }
-      width={520}
-      open={open}
-      onClose={onClose}
-      extra={
-        <Space>
-          {order.hasRefundRequest && (
-            <Button danger onClick={() => onOpenRefundModal(order)}>
-              Duyệt hoàn tiền
-            </Button>
-          )}
-        </Space>
-      }
-    >
-      {order.hasRefundRequest && (
-        <div className={styles.refundAlert}>
-          <div className={styles.refundAlertTitle}>⚠️ Có yêu cầu hoàn tiền đang chờ duyệt</div>
-          <p className={styles.refundAlertDesc}>
-            Số tiền yêu cầu: <strong>{new Intl.NumberFormat('vi-VN').format(order.refundAmount || 0)}đ</strong>
-            <br />
-            Lý do: {order.refundReason}
-          </p>
-        </div>
-      )}
-
-      {/* Customer Info */}
-      <div className={styles.drawerSection}>
-        <div className={styles.drawerSectionTitle}>Khách hàng & Nhận hàng</div>
-        <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Khách hàng:</span>
-          <span className={styles.infoVal}>{order.customerName}</span>
-        </div>
-        <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Số điện thoại:</span>
-          <span className={styles.infoVal}>{order.customerPhone}</span>
-        </div>
-        <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Hình thức:</span>
-          <span className={styles.infoVal}>
-            {order.orderType === 'DELIVERY' ? '🛵 Giao tận nơi' : '🏪 Nhận tại quầy'}
+    <>
+      <Drawer
+        title={
+          <div className={styles.drawerTitle}>
+            <span>Chi tiết {order.orderCode}</span>
+            <OrderStatusBadge status={order.status} />
+          </div>
+        }
+        size="min(720px, 100vw)"
+        open={open}
+        onClose={onClose}
+      >
+        <div className={styles.drawerMeta}>
+          <span>
+            <Clock3 size={14} />
+            Đặt: {displayOrderTime(order.createdAt)}
+          </span>
+          <span>
+            Cập nhật: {displayOrderTime(order.updatedAt ?? order.createdAt)}
           </span>
         </div>
-        {order.deliveryAddress && (
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Địa chỉ giao:</span>
-            <span className={styles.infoVal}>{order.deliveryAddress}</span>
+        <OrderProgress order={order} surface="detail" />
+        {actionError && (
+          <p role="alert" className={styles.drawerError}>
+            <CircleAlert size={16} />
+            {actionError}
+          </p>
+        )}
+        {order.hasRefundRequest && (
+          <div className={styles.refundAlert}>
+            <strong>
+              <CircleAlert size={17} />
+              Yêu cầu hoàn tiền đang chờ duyệt
+            </strong>
+            <p>
+              {money(order.refundAmount ?? order.total)} · {order.refundReason}
+            </p>
+            {!isStaff && onOpenRefundModal && (
+              <Button danger onClick={() => onOpenRefundModal(order)}>
+                Xử lý yêu cầu hoàn tiền
+              </Button>
+            )}
           </div>
         )}
-        <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Chi nhánh xử lý:</span>
-          <span className={styles.infoVal}>{order.storeName}</span>
-        </div>
-        {order.note && (
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Ghi chú đơn:</span>
-            <span className={styles.infoVal} style={{ color: '#8f1216' }}>
-              {order.note}
-            </span>
-          </div>
+        {order.refundStatus && !order.hasRefundRequest && (
+          <p className={styles.drawerNotice}>
+            Quyết định hoàn tiền:{" "}
+            {order.refundStatus === "APPROVED"
+              ? "Đã duyệt"
+              : order.refundStatus === "REJECTED"
+                ? "Đã từ chối"
+                : order.refundStatus}
+            .
+          </p>
         )}
-      </div>
-
-      <Divider style={{ margin: '16px 0' }} />
-
-      {/* Items Breakdown */}
-      <div className={styles.drawerSection}>
-        <div className={styles.drawerSectionTitle}>Danh sách món ăn ({order.items.length})</div>
-        <div className={styles.itemsList}>
-          {order.items.map((item) => (
-            <div key={item.id} className={styles.itemRow}>
-              <div>
-                <div className={styles.itemTitle}>{item.itemName}</div>
-                <div className={styles.itemSub}>
-                  {new Intl.NumberFormat('vi-VN').format(item.unitPrice)}đ × {item.quantity} phần
-                  {item.options && ` · ${item.options}`}
-                </div>
+        <section className={styles.drawerSection}>
+          <h2 className={styles.drawerHeading}>
+            <UserRound size={18} />
+            Khách hàng & nhận món
+          </h2>
+          <dl className={styles.drawerInfoGrid}>
+            <div>
+              <dt>Khách hàng</dt>
+              <dd>{order.customerName}</dd>
+            </div>
+            <div>
+              <dt>Điện thoại</dt>
+              <dd>
+                <a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a>
+              </dd>
+            </div>
+            <div>
+              <dt>Hình thức</dt>
+              <dd className={styles.inlineValue}>
+                {order.orderType === "PICKUP" ? (
+                  <Store size={15} />
+                ) : (
+                  <Truck size={15} />
+                )}
+                {order.orderType === "PICKUP"
+                  ? "Nhận tại quầy"
+                  : "Giao tận nơi"}
+              </dd>
+            </div>
+            <div>
+              <dt>Chi nhánh</dt>
+              <dd>{order.storeName}</dd>
+            </div>
+            {order.deliveryAddress && (
+              <div className={styles.wideField}>
+                <dt>
+                  <MapPin size={13} /> Địa chỉ nhận
+                </dt>
+                <dd>{order.deliveryAddress}</dd>
               </div>
-              <div className={styles.itemPrice}>
-                {new Intl.NumberFormat('vi-VN').format(item.lineTotal)}đ
+            )}
+          </dl>
+        </section>
+        <section className={styles.drawerSection}>
+          <h2 className={styles.drawerHeading}>
+            <ShoppingBag size={18} />
+            Món đã đặt{" "}
+            <span>
+              {order.items.reduce((sum, item) => sum + item.quantity, 0)} phần
+            </span>
+          </h2>
+          <div className={styles.drawerItems}>
+            {order.items.map((item) => (
+              <article key={item.id} className={styles.drawerItem}>
+                <FoodImage
+                  src={item.image}
+                  alt={item.itemName}
+                  width={64}
+                  height={64}
+                />
+                <div>
+                  <strong>{item.itemName}</strong>
+                  <p>
+                    {item.quantity} phần × {money(item.unitPrice)}
+                  </p>
+                  {item.options && <small>{item.options}</small>}
+                  {item.note && <small>Ghi chú: {item.note}</small>}
+                </div>
+                <b>{money(item.lineTotal)}</b>
+              </article>
+            ))}
+          </div>
+          {order.note && (
+            <div className={styles.drawerNote}>
+              <MessageSquare size={17} />
+              <div>
+                <strong>Ghi chú của khách</strong>
+                <p>{order.note}</p>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <Divider style={{ margin: '16px 0' }} />
-
-      {/* Payment & Total */}
-      <div className={styles.drawerSection}>
-        <div className={styles.drawerSectionTitle}>Thanh toán</div>
-        <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Hình thức:</span>
-          <span className={styles.infoVal}>
-            {order.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản VietQR' : 'Tiền mặt (COD)'}
-          </span>
-        </div>
-        <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Trạng thái thanh toán:</span>
-          <Tag color={order.paymentStatus === 'PAID' ? 'green' : 'gold'}>
-            {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
-          </Tag>
-        </div>
-        <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Tạm tính:</span>
-          <span className={styles.infoVal}>{new Intl.NumberFormat('vi-VN').format(order.subtotal)}đ</span>
-        </div>
-        {order.discount > 0 && (
-          <div className={styles.infoRow}>
-            <span className={styles.infoLabel}>Giảm giá voucher:</span>
-            <span className={styles.infoVal} style={{ color: '#1e7a46' }}>
-              -{new Intl.NumberFormat('vi-VN').format(order.discount)}đ
-            </span>
+          )}
+        </section>
+        <section className={styles.drawerSection}>
+          <h2 className={styles.drawerHeading}>
+            <Wallet size={18} />
+            Thanh toán & hóa đơn
+          </h2>
+          <dl className={styles.receiptRows}>
+            <div>
+              <dt>Phương thức</dt>
+              <dd>
+                {order.paymentMethod === "COD"
+                  ? "Tiền mặt (COD)"
+                  : "Chuyển khoản"}
+              </dd>
+            </div>
+            <div>
+              <dt>Trạng thái</dt>
+              <dd data-paid={order.paymentStatus === "PAID"}>
+                {order.paymentStatus === "PAID"
+                  ? "Đã thanh toán"
+                  : order.paymentStatus === "FAILED"
+                    ? "Thất bại"
+                    : "Chưa thanh toán"}
+              </dd>
+            </div>
+            <div>
+              <dt>Tạm tính</dt>
+              <dd>{money(order.subtotal)}</dd>
+            </div>
+            {order.discount > 0 && (
+              <div>
+                <dt>Giảm giá</dt>
+                <dd>-{money(order.discount)}</dd>
+              </div>
+            )}
+            <div>
+              <dt>Phí giao hàng</dt>
+              <dd>{money(order.shippingFee)}</dd>
+            </div>
+            <div className={styles.receiptTotal}>
+              <dt>Tổng thanh toán</dt>
+              <dd>{money(order.total)}</dd>
+            </div>
+          </dl>
+        </section>
+        <section className={styles.drawerSection}>
+          <h2 className={styles.drawerHeading}>Thao tác đơn hàng</h2>
+          <p className={styles.actionHint}>
+            Thao tác theo trạng thái hiện tại và vai trò demo của bạn.
+          </p>
+          <div className={styles.drawerActions}>
+            {order.status === "CONFIRMED" && (
+              <Button
+                type="primary"
+                icon={<ChefHat size={16} />}
+                onClick={() => onStatusChange(order.id, "PREPARING")}
+              >
+                Bắt đầu chế biến
+              </Button>
+            )}
+            {order.status === "PREPARING" && (
+              <Button
+                type="primary"
+                icon={<PackageCheck size={16} />}
+                onClick={() => onStatusChange(order.id, "READY")}
+              >
+                Món sẵn sàng
+              </Button>
+            )}
+            {order.paymentMethod === "COD" &&
+              order.paymentStatus === "PENDING" &&
+              !["CANCELLED", "COMPLETED"].includes(order.status) && (
+                <Popconfirm
+                  title="Xác nhận đã thu COD?"
+                  description={`${money(order.total)} · ${order.orderCode}`}
+                  okText="Đã thu"
+                  cancelText="Đóng"
+                  onConfirm={collect}
+                >
+                  <Button icon={<Wallet size={16} />}>Xác nhận thu COD</Button>
+                </Popconfirm>
+              )}
+            {["READY", "SHIPPING"].includes(order.status) && (
+              <Button
+                type="primary"
+                disabled={order.paymentStatus !== "PAID"}
+                icon={<CheckCircle2 size={16} />}
+                onClick={() => onStatusChange(order.id, "COMPLETED")}
+              >
+                Hoàn thành đơn hàng
+              </Button>
+            )}
+            {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
+              <Button
+                danger
+                icon={<XCircle size={16} />}
+                onClick={() => {
+                  setReason("");
+                  setCancelOpen(true);
+                }}
+              >
+                Từ chối / hủy đơn
+              </Button>
+            )}
+            {["COMPLETED", "CANCELLED"].includes(order.status) && (
+              <p className={styles.drawerNotice}>
+                Đơn đã kết thúc. Không còn thao tác chuyển trạng thái.
+              </p>
+            )}
           </div>
-        )}
-        <div className={styles.infoRow}>
-          <span className={styles.infoLabel}>Phí giao hàng:</span>
-          <span className={styles.infoVal}>
-            {new Intl.NumberFormat('vi-VN').format(order.shippingFee)}đ
-          </span>
-        </div>
-        <div className={styles.infoRow} style={{ marginTop: 12 }}>
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            Tổng thanh toán:
-          </Typography.Title>
-          <span className={styles.moneyText} style={{ fontSize: 22 }}>
-            {new Intl.NumberFormat('vi-VN').format(order.total)}đ
-          </span>
-        </div>
-      </div>
-
-      <Divider style={{ margin: '16px 0' }} />
-
-      {/* Quick Status Action Controls */}
-      <div className={styles.drawerSection}>
-        <div className={styles.drawerSectionTitle}>Thao tác trạng thái đơn</div>
-        <Space wrap>
-          {order.status === 'CONFIRMED' && (
-            <Button
-              type="primary"
-              style={{ background: '#d97706', borderColor: '#d97706' }}
-              onClick={() => onStatusChange(order.id, 'PREPARING')}
-            >
-              Chuyển sang Đang nấu
-            </Button>
-          )}
-          {order.status === 'PREPARING' && (
-            <Button
-              type="primary"
-              style={{ background: '#c9a227', borderColor: '#c9a227' }}
-              onClick={() => onStatusChange(order.id, 'READY')}
-            >
-              Báo món Đã sẵn sàng
-            </Button>
-          )}
-          {order.status === 'READY' && order.orderType === 'DELIVERY' && (
-            <Button
-              type="primary"
-              style={{ background: '#22577a', borderColor: '#22577a' }}
-              onClick={() => onStatusChange(order.id, 'SHIPPING')}
-            >
-              Giao cho tài xế (Đang giao)
-            </Button>
-          )}
-          {(order.status === 'READY' || order.status === 'SHIPPING') && (
-            <Button
-              type="primary"
-              style={{ background: '#1e7a46', borderColor: '#1e7a46' }}
-              onClick={() => onStatusChange(order.id, 'COMPLETED')}
-            >
-              Hoàn thành đơn hàng
-            </Button>
-          )}
-          {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && (
-            <Button danger onClick={() => onStatusChange(order.id, 'CANCELLED')}>
-              Từ chối / Hủy đơn
-            </Button>
-          )}
-        </Space>
-      </div>
-    </Drawer>
+          {["READY", "SHIPPING"].includes(order.status) &&
+            order.paymentStatus !== "PAID" && (
+              <p className={styles.actionHint}>
+                Xác nhận thu tiền trước khi hoàn thành đơn.
+              </p>
+            )}
+        </section>
+      </Drawer>
+      <Modal
+        title={`Hủy đơn ${order.orderCode}`}
+        open={cancelOpen}
+        onCancel={() => setCancelOpen(false)}
+        okText="Xác nhận hủy"
+        cancelText="Giữ đơn"
+        okButtonProps={{ danger: true, disabled: !reason.trim() }}
+        onOk={() => {
+          if (onStatusChange(order.id, "CANCELLED", reason.trim()))
+            setCancelOpen(false);
+        }}
+      >
+        <p>
+          Nhập lý do hủy. Đơn đã thanh toán sẽ tạo yêu cầu hoàn tiền trong bản
+          demo.
+        </p>
+        <label htmlFor="staff-cancel-reason">Lý do hủy *</label>
+        <Input.TextArea
+          id="staff-cancel-reason"
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          rows={3}
+          maxLength={500}
+        />
+      </Modal>
+    </>
   );
-};
+}

@@ -1,14 +1,14 @@
 export type AdminOrderStatus =
-  | 'PENDING_PAYMENT'
-  | 'CONFIRMED'
-  | 'PREPARING'
-  | 'READY'
-  | 'SHIPPING'
-  | 'COMPLETED'
-  | 'CANCELLED';
+  | "PENDING_PAYMENT"
+  | "CONFIRMED"
+  | "PREPARING"
+  | "READY"
+  | "SHIPPING"
+  | "COMPLETED"
+  | "CANCELLED";
 
-export type AdminPaymentMethod = 'COD' | 'BANK_TRANSFER';
-export type AdminPaymentStatus = 'PENDING' | 'PAID' | 'FAILED';
+export type AdminPaymentMethod = "COD" | "BANK_TRANSFER";
+export type AdminPaymentStatus = "PENDING" | "PAID" | "FAILED";
 
 export interface AdminOrderItem {
   id: string;
@@ -17,6 +17,8 @@ export interface AdminOrderItem {
   unitPrice: number;
   options?: string;
   lineTotal: number;
+  image?: string;
+  note?: string;
 }
 
 export interface AdminOrder {
@@ -26,7 +28,7 @@ export interface AdminOrder {
   customerPhone: string;
   storeId: string;
   storeName: string;
-  orderType: 'DELIVERY' | 'PICKUP';
+  orderType: "DELIVERY" | "PICKUP";
   deliveryAddress?: string;
   status: AdminOrderStatus;
   paymentMethod: AdminPaymentMethod;
@@ -42,4 +44,13 @@ export interface AdminOrder {
   hasRefundRequest?: boolean;
   refundReason?: string;
   refundAmount?: number;
+  refundStatus?: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED";
+  updatedAt?: string;
+  timeline?: {
+    status: AdminOrderStatus;
+    title: string;
+    description: string;
+    time: string;
+    actor?: string;
+  }[];
 }

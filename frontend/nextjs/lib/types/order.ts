@@ -1,21 +1,22 @@
-export type OrderType = 'DELIVERY' | 'PICKUP';
+export type OrderType = "DELIVERY" | "PICKUP";
 
 export type OrderStatus =
-  | 'PENDING_PAYMENT'
-  | 'CONFIRMED'
-  | 'PREPARING'
-  | 'READY'
-  | 'SHIPPING'
-  | 'COMPLETED'
-  | 'CANCELLED';
+  | "PENDING_PAYMENT"
+  | "CONFIRMED"
+  | "PREPARING"
+  | "READY"
+  | "SHIPPING"
+  | "COMPLETED"
+  | "CANCELLED";
 
-export type PaymentMethod = 'COD' | 'BANK_TRANSFER';
+export type PaymentMethod = "COD" | "BANK_TRANSFER";
 
-export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED";
 
-export type RefundStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'REFUNDED';
+export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED";
 
-export type PartyOrderStatus = 'NEW' | 'CONTACTED' | 'QUOTED' | 'CONFIRMED' | 'CLOSED';
+export type PartyOrderStatus =
+  "NEW" | "CONTACTED" | "QUOTED" | "CONFIRMED" | "CLOSED";
 
 export interface CartItemOption {
   groupName: string;
@@ -44,8 +45,9 @@ export interface CartItem {
 
 export interface OrderItem {
   id: string;
+  slug?: string;
   itemName: string;
-  itemType: 'PRODUCT' | 'COMBO';
+  itemType: "PRODUCT" | "COMBO";
   unitPrice: number;
   quantity: number;
   image: string;
@@ -76,6 +78,8 @@ export interface Order {
   deliveryAddress?: string;
   note?: string;
   createdAt: string;
+  updatedAt?: string;
+  refundStatus?: RefundStatus;
   items: OrderItem[];
   timeline: {
     status: OrderStatus;

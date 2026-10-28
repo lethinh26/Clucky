@@ -3,8 +3,6 @@
 import React, { useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CustomerHeader } from '@/components/customer-header';
-import { CustomerFooter } from '@/components/customer-footer';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
 import { StyledSelect } from '@/components/styled-select';
@@ -348,8 +346,7 @@ function MenuContent() {
 export default function MenuPage() {
   return (
     <>
-      <CustomerHeader />
-      <main>
+            <main>
         <Suspense
           fallback={
             <div style={{ maxWidth: 1240, margin: '60px auto', padding: '0 24px', textAlign: 'center' }}>
@@ -372,7 +369,6 @@ export default function MenuPage() {
           <MenuContent />
         </Suspense>
       </main>
-      <CustomerFooter />
-    </>
+          </>
   );
 }

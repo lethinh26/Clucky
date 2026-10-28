@@ -1,257 +1,431 @@
-import React, { useState } from 'react';
-import { Tag, Badge, Select, message } from 'antd';
-import { CoffeeOutlined, CheckCircleOutlined, DollarOutlined, ClockCircleOutlined } from '@ant-design/icons';
-import { AdminOrder, AdminOrderStatus } from '../../types/order';
-import { MOCK_ADMIN_ORDERS } from '../../mocks/adminOrderData';
-import styles from './staff-orders.module.css';
+import { useMemo, useState } from "react";
+import {
+  App as AntApp,
+  Button,
+  Input,
+  Select,
+  Skeleton,
+  Popconfirm,
+} from "antd";
+import {
+  Search,
+  ChefHat,
+  CheckCircle2,
+  Clock3,
+  Wallet,
+  Store,
+  Eye,
+  ArrowRight,
+  MessageSquare,
+  PackageCheck,
+  Truck,
+  CircleAlert,
+  CalendarDays,
+  SlidersHorizontal,
+} from "lucide-react";
+import type { AdminOrderStatus } from "../../types/order";
+import { useOrders } from "../../context/OrderContext";
+import { useAuth } from "../../context/AuthContext";
+import { OrderProgress } from "../../components/ui/OrderProgress";
+import { OrderStatusBadge } from "../../components/ui/OrderStatusBadge";
+import { FoodImage } from "../../components/ui/FoodImage";
+import { OrderDetailDrawer } from "../Orders/components/OrderDetailDrawer";
+import styles from "./staff-orders.module.css";
 
-export const StaffOrdersPage: React.FC = () => {
-  const [orders, setOrders] = useState<AdminOrder[]>(MOCK_ADMIN_ORDERS);
-  const [currentStoreId, setCurrentStoreId] = useState<string>('1');
+const formatMoney = (amount: number) =>
+  new Intl.NumberFormat("vi-VN").format(amount) + "đ";
+const filters = [
+  ["ACTIVE", "Đang xử lý"],
+  ["PENDING_PAYMENT", "Chờ thanh toán"],
+  ["CONFIRMED", "Đơn mới"],
+  ["PREPARING", "Chế biến"],
+  ["READY", "Sẵn sàng"],
+  ["COMPLETED", "Hoàn thành"],
+  ["ALL", "Tất cả"],
+];
 
-  // Filter orders by staff's storeId
-  const branchOrders = orders.filter((o) => o.storeId === currentStoreId);
-
-  const handleUpdateStatus = (orderId: string, newStatus: AdminOrderStatus) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    );
-    message.success('Đã cập nhật trạng thái đơn thành công!');
+export function StaffOrdersPage() {
+  const { message } = AntApp.useApp();
+  const {
+    orders,
+    updateStatus,
+    confirmCOD,
+    loading,
+    storageError,
+    actionError,
+  } = useOrders();
+  const { user } = useAuth();
+  const [filter, setFilter] = useState("ACTIVE");
+  const [query, setQuery] = useState("");
+  const [date, setDate] = useState("");
+  const [sort, setSort] = useState("DESC");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedOrder = orders.find((order) => order.id === selectedId) ?? null;
+  const metrics = useMemo(
+    () => [
+      {
+        label: "Chờ tiếp nhận",
+        count: orders.filter((order) => order.status === "CONFIRMED").length,
+        icon: Clock3,
+        filter: "CONFIRMED",
+      },
+      {
+        label: "Đang chế biến",
+        count: orders.filter((order) => order.status === "PREPARING").length,
+        icon: ChefHat,
+        filter: "PREPARING",
+      },
+      {
+        label: "Món sẵn sàng",
+        count: orders.filter((order) => order.status === "READY").length,
+        icon: PackageCheck,
+        filter: "READY",
+      },
+      {
+        label: "COD chưa thu",
+        count: orders.filter(
+          (order) =>
+            order.paymentMethod === "COD" &&
+            order.paymentStatus === "PENDING" &&
+            !["CANCELLED", "COMPLETED"].includes(order.status),
+        ).length,
+        icon: Wallet,
+        filter: "COD",
+      },
+    ],
+    [orders],
+  );
+  const visible = useMemo(
+    () =>
+      orders
+        .filter((order) => {
+          const text =
+            `${order.orderCode} ${order.customerName} ${order.customerPhone}`.toLocaleLowerCase(
+              "vi-VN",
+            );
+          if (
+            query.trim() &&
+            !text.includes(query.trim().toLocaleLowerCase("vi-VN"))
+          )
+            return false;
+          if (date && order.createdAt.slice(0, 10) !== date) return false;
+          if (filter === "ACTIVE")
+            return !["COMPLETED", "CANCELLED"].includes(order.status);
+          if (filter === "COD")
+            return (
+              order.paymentMethod === "COD" &&
+              order.paymentStatus === "PENDING" &&
+              !["COMPLETED", "CANCELLED"].includes(order.status)
+            );
+          return filter === "ALL" || order.status === filter;
+        })
+        .sort((a, b) =>
+          sort === "DESC"
+            ? b.createdAt.localeCompare(a.createdAt)
+            : a.createdAt.localeCompare(b.createdAt),
+        ),
+    [orders, query, date, sort, filter],
+  );
+  const changeStatus = (
+    id: string,
+    status: AdminOrderStatus,
+    reason?: string,
+  ) => {
+    const result = updateStatus(id, status, reason);
+    if (result) message.success("Đã cập nhật tiến trình đơn demo.");
+    else
+      message.warning(
+        "Không thể thực hiện thao tác. Kiểm tra trạng thái, chi nhánh và thanh toán.",
+      );
+    return result;
   };
-
-  const handleConfirmCOD = (orderId: string) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, paymentStatus: 'PAID' } : o))
-    );
-    message.success('Đã xác nhận thu tiền mặt (COD) thành công!');
+  const collect = (id: string) => {
+    if (confirmCOD(id)) message.success("Đã xác nhận thu COD trong bản demo.");
+    else message.warning("Đơn không còn khoản COD cần xác nhận.");
   };
-
-  // Metrics
-  const pendingCount = branchOrders.filter((o) => o.status === 'CONFIRMED').length;
-  const preparingCount = branchOrders.filter((o) => o.status === 'PREPARING').length;
-  const readyCount = branchOrders.filter((o) => o.status === 'READY').length;
-  const uncollectedCodCount = branchOrders.filter(
-    (o) => o.paymentMethod === 'COD' && o.paymentStatus !== 'PAID'
-  ).length;
-
   return (
-    <div className={styles.staffContainer}>
-      {/* Shift & Branch Header */}
-      <div className={styles.shiftHeader}>
+    <div className={`${styles.staffContainer} m3-admin-page`}>
+      <header className={styles.pageHeader}>
         <div>
-          <h1 className={styles.branchTitle}>Màn hình Tác nghiệp Ca trực — Nhân viên</h1>
-          <p className={styles.branchSub}>
-            Tiếp nhận, xử lý đơn hàng và thu ngân tiền mặt tại chi nhánh hôm nay.
+          <span className={styles.eyebrow}>KHÔNG GIAN NHÂN VIÊN</span>
+          <h1>Đơn hàng của chi nhánh</h1>
+          <p>
+            Tiếp nhận món, theo dõi tiến trình và xác nhận thu tiền trong một
+            nơi.
           </p>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontWeight: 600 }}>Chi nhánh hiện tại:</span>
-          <Select
-            value={currentStoreId}
-            onChange={setCurrentStoreId}
-            style={{ width: 220 }}
-            options={[
-              { value: '1', label: 'Quán Nguyễn Trãi (Quận 5)' },
-              { value: '2', label: 'Quán Phan Văn Trị (Bình Thạnh)' },
-              { value: '3', label: 'Quán Lê Văn Việt (Thủ Đức)' },
-            ]}
-          />
+        <div className={styles.branchChip}>
+          <Store size={18} />
+          <div>
+            <strong>{orders[0]?.storeName ?? user.storeName}</strong>
+            <span>Chi nhánh hoạt động</span>
+          </div>
         </div>
-      </div>
-
-      {/* Metrics Row */}
+      </header>
+      {(storageError || actionError) && (
+        <p className={styles.alert} role="alert">
+          <CircleAlert size={17} />
+          {actionError || storageError}
+        </p>
+      )}
       <div className={styles.metricsGrid}>
-        <div className={styles.metricCard}>
-          <span className={styles.metricTitle}>
-            <ClockCircleOutlined /> Đơn mới chờ nấu
-          </span>
-          <span className={`${styles.metricVal} ${pendingCount > 0 ? styles.metricHighlight : ''}`}>
-            {pendingCount}
-          </span>
-        </div>
-
-        <div className={styles.metricCard}>
-          <span className={styles.metricTitle}>
-            <CoffeeOutlined /> Đang chế biến
-          </span>
-          <span className={styles.metricVal} style={{ color: '#d97706' }}>
-            {preparingCount}
-          </span>
-        </div>
-
-        <div className={styles.metricCard}>
-          <span className={styles.metricTitle}>
-            <CheckCircleOutlined /> Món sẵn sàng
-          </span>
-          <span className={styles.metricVal} style={{ color: '#1e7a46' }}>
-            {readyCount}
-          </span>
-        </div>
-
-        <div className={styles.metricCard}>
-          <span className={styles.metricTitle}>
-            <DollarOutlined /> Đơn COD chưa thu
-          </span>
-          <span className={styles.metricVal} style={{ color: '#8f1216' }}>
-            {uncollectedCodCount}
-          </span>
-        </div>
+        {metrics.map((metric) => (
+          <button
+            key={metric.label}
+            type="button"
+            className={styles.metricCard}
+            aria-pressed={filter === metric.filter}
+            onClick={() => setFilter(metric.filter)}
+          >
+            <metric.icon size={20} />
+            <span>{metric.label}</span>
+            <strong>{metric.count}</strong>
+          </button>
+        ))}
       </div>
-
-      {/* Active Orders Cards Grid */}
-      <div className={styles.cardsGrid}>
-        {branchOrders.map((order) => {
-          const isUrgent = order.status === 'CONFIRMED' || order.status === 'PREPARING';
-
-          return (
+      <section className={styles.toolbar} aria-label="Tìm và lọc đơn ca trực">
+        <Input
+          aria-label="Tìm đơn ca trực"
+          prefix={<Search size={16} />}
+          placeholder="Mã đơn, tên hoặc số điện thoại…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          allowClear
+        />
+        <label className={styles.dateFilter}>
+          <CalendarDays size={16} />
+          <input
+            aria-label="Lọc ngày đặt đơn"
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+          />
+        </label>
+        <Select
+          aria-label="Sắp xếp thời gian"
+          value={sort}
+          onChange={setSort}
+          options={[
+            { value: "DESC", label: "Mới nhất trước" },
+            { value: "ASC", label: "Cũ nhất trước" },
+          ]}
+        />
+        <Button
+          onClick={() => {
+            setFilter("ACTIVE");
+            setQuery("");
+            setDate("");
+            setSort("DESC");
+          }}
+          icon={<SlidersHorizontal size={15} />}
+        >
+          Đặt lại bộ lọc
+        </Button>
+      </section>
+      <div
+        className={styles.filterPills}
+        aria-label="Lọc trạng thái đơn ca trực"
+      >
+        {filters.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={filter === key}
+            onClick={() => setFilter(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className={styles.resultCount}>
+        <span>{visible.length} đơn phù hợp</span>
+        <small>
+          Chỉ hiển thị đơn của chi nhánh được gán trong vai trò demo.
+        </small>
+      </div>
+      {loading ? (
+        <div className={styles.cardsGrid}>
+          {[1, 2, 3].map((key) => (
+            <div key={key} className={styles.orderCard}>
+              <Skeleton active />
+            </div>
+          ))}
+        </div>
+      ) : !visible.length ? (
+        <div className={styles.emptyState}>
+          <CheckCircle2 size={40} />
+          <h2>Không có đơn trong mục này</h2>
+          <p>Đổi trạng thái, ngày hoặc từ khóa để tiếp tục kiểm tra.</p>
+          <Button
+            onClick={() => {
+              setFilter("ALL");
+              setQuery("");
+              setDate("");
+            }}
+          >
+            Xem tất cả đơn
+          </Button>
+        </div>
+      ) : (
+        <div className={styles.cardsGrid}>
+          {visible.map((order) => (
             <article
               key={order.id}
-              className={`${styles.orderCard} ${isUrgent ? styles.orderCardUrgent : ''}`}
+              className={styles.orderCard}
+              data-status={order.status}
             >
               <div className={styles.cardTop}>
                 <div>
-                  <span className={styles.orderCode}>{order.orderCode}</span>
-                  <div className={styles.orderTime}>{order.time}</div>
-                </div>
-                <Tag
-                  color={
-                    order.status === 'CONFIRMED'
-                      ? 'blue'
-                      : order.status === 'PREPARING'
-                      ? 'orange'
-                      : order.status === 'READY'
-                      ? 'gold'
-                      : order.status === 'SHIPPING'
-                      ? 'cyan'
-                      : order.status === 'COMPLETED'
-                      ? 'green'
-                      : 'red'
-                  }
-                  style={{ fontWeight: 700, borderRadius: 999 }}
-                >
-                  {order.status === 'CONFIRMED'
-                    ? 'Chờ nấu'
-                    : order.status === 'PREPARING'
-                    ? 'Đang chiên nấu'
-                    : order.status === 'READY'
-                    ? 'Đã sẵn sàng'
-                    : order.status === 'COMPLETED'
-                    ? 'Hoàn thành'
-                    : order.status}
-                </Tag>
-              </div>
-
-              <div className={styles.customerRow}>
-                <div>
-                  <div className={styles.customerName}>{order.customerName}</div>
-                  <div style={{ fontSize: 12, color: '#6b6259' }}>{order.customerPhone}</div>
-                </div>
-                <span className={styles.orderTypeBadge}>
-                  {order.orderType === 'DELIVERY' ? '🛵 Giao hàng' : '🏪 Nhận tại quầy'}
-                </span>
-              </div>
-
-              {/* Items List */}
-              <div className={styles.itemsBox}>
-                {order.items.map((item) => (
-                  <div key={item.id} className={styles.itemLine}>
-                    <div>
-                      <span className={styles.itemName}>
-                        {item.itemName} × {item.quantity}
-                      </span>
-                      {item.options && <div className={styles.itemNote}>{item.options}</div>}
-                    </div>
-                    <strong style={{ color: '#16100d' }}>
-                      {new Intl.NumberFormat('vi-VN').format(item.lineTotal)}đ
-                    </strong>
-                  </div>
-                ))}
-                {order.note && (
-                  <div
-                    style={{
-                      background: '#f5ede0',
-                      padding: '6px 10px',
-                      borderRadius: 8,
-                      fontSize: 12,
-                      color: '#8f1216',
-                      marginTop: 4,
-                    }}
-                  >
-                    📝 <em>{order.note}</em>
-                  </div>
-                )}
-              </div>
-
-              <div className={styles.cardFooter}>
-                <div className={styles.priceAndPay}>
-                  <div>
-                    <span style={{ fontSize: 12, color: '#6b6259' }}>Thanh toán: </span>
-                    <Badge
-                      status={order.paymentStatus === 'PAID' ? 'success' : 'warning'}
-                      text={
-                        order.paymentMethod === 'BANK_TRANSFER'
-                          ? 'VietQR (Đã thu)'
-                          : order.paymentStatus === 'PAID'
-                          ? 'COD (Đã thu tiền)'
-                          : 'COD (Chưa thu)'
-                      }
-                    />
-                  </div>
-                  <span className={styles.totalPrice}>
-                    {new Intl.NumberFormat('vi-VN').format(order.total)}đ
+                  <strong className={styles.orderCode}>
+                    {order.orderCode}
+                  </strong>
+                  <span className={styles.orderTime}>
+                    {order.time} ·{" "}
+                    {order.items.reduce((sum, item) => sum + item.quantity, 0)}{" "}
+                    phần
                   </span>
                 </div>
-
-                {/* COD confirmation button */}
-                {order.paymentMethod === 'COD' && order.paymentStatus !== 'PAID' && (
+                <OrderStatusBadge status={order.status} />
+              </div>
+              <div className={styles.customerRow}>
+                <div>
+                  <strong>{order.customerName}</strong>
+                  <a href={`tel:${order.customerPhone}`}>
+                    {order.customerPhone}
+                  </a>
+                </div>
+                <span className={styles.typeBadge}>
+                  {order.orderType === "PICKUP" ? (
+                    <Store size={14} />
+                  ) : (
+                    <Truck size={14} />
+                  )}
+                  {order.orderType === "PICKUP"
+                    ? "Nhận tại quầy"
+                    : "Giao tận nơi"}
+                </span>
+              </div>
+              <div className={styles.itemList}>
+                {order.items.slice(0, 2).map((item) => (
+                  <div key={item.id} className={styles.itemRow}>
+                    <FoodImage
+                      src={item.image}
+                      alt={item.itemName}
+                      width={48}
+                      height={48}
+                    />
+                    <div>
+                      <strong>{item.itemName}</strong>
+                      <p>
+                        {item.quantity} phần · {item.options || "Tiêu chuẩn"}
+                      </p>
+                    </div>
+                    <span>{formatMoney(item.lineTotal)}</span>
+                  </div>
+                ))}
+                {order.items.length > 2 && (
                   <button
                     type="button"
-                    onClick={() => handleConfirmCOD(order.id)}
-                    className={styles.codBtn}
+                    className={styles.moreItems}
+                    onClick={() => setSelectedId(order.id)}
                   >
-                    💵 Xác nhận đã thu tiền mặt (
-                    {new Intl.NumberFormat('vi-VN').format(order.total)}đ)
+                    Xem thêm {order.items.length - 2} món
                   </button>
                 )}
-
-                {/* One-touch Status Pills */}
-                <div className={styles.actionBtns}>
-                  {order.status === 'CONFIRMED' && (
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateStatus(order.id, 'PREPARING')}
-                      className={`${styles.statusBtn} ${styles.btnPrepare}`}
-                    >
-                      🍳 Bắt đầu nấu
-                    </button>
-                  )}
-
-                  {order.status === 'PREPARING' && (
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateStatus(order.id, 'READY')}
-                      className={`${styles.statusBtn} ${styles.btnReady}`}
-                    >
-                      🔔 Báo xong món
-                    </button>
-                  )}
-
-                  {(order.status === 'READY' || order.status === 'SHIPPING') && (
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateStatus(order.id, 'COMPLETED')}
-                      className={`${styles.statusBtn} ${styles.btnComplete}`}
-                    >
-                      ✓ Hoàn thành đơn
-                    </button>
-                  )}
+              </div>
+              {order.note && (
+                <div className={styles.note}>
+                  <MessageSquare size={15} />
+                  <p>{order.note}</p>
                 </div>
+              )}
+              <OrderProgress order={order} />
+              <div className={styles.paymentRow}>
+                <span>
+                  <Wallet size={15} />
+                  {order.paymentMethod === "COD" ? "COD" : "Chuyển khoản"}
+                  <b data-paid={order.paymentStatus === "PAID"}>
+                    {order.paymentStatus === "PAID"
+                      ? "Đã thu"
+                      : order.paymentStatus === "FAILED"
+                        ? "Thất bại"
+                        : "Chưa thu"}
+                  </b>
+                </span>
+                <strong>{formatMoney(order.total)}</strong>
+              </div>
+              {order.paymentMethod === "COD" &&
+                order.paymentStatus === "PENDING" &&
+                !["CANCELLED", "COMPLETED"].includes(order.status) && (
+                  <Popconfirm
+                    title="Xác nhận đã thu tiền COD?"
+                    description={`Ghi nhận ${formatMoney(order.total)} cho đơn ${order.orderCode} trong bản demo.`}
+                    okText="Đã thu tiền"
+                    cancelText="Đóng"
+                    onConfirm={() => collect(order.id)}
+                  >
+                    <button type="button" className={styles.codButton}>
+                      <Wallet size={16} />
+                      Xác nhận thu COD
+                    </button>
+                  </Popconfirm>
+                )}
+              <div className={styles.cardActions}>
+                <button
+                  type="button"
+                  className={styles.detailButton}
+                  onClick={() => setSelectedId(order.id)}
+                >
+                  <Eye size={16} />
+                  Xem chi tiết
+                </button>
+                {order.status === "CONFIRMED" && (
+                  <button
+                    type="button"
+                    className={styles.statusButton}
+                    onClick={() => changeStatus(order.id, "PREPARING")}
+                  >
+                    <ChefHat size={16} />
+                    Bắt đầu chế biến
+                  </button>
+                )}
+                {order.status === "PREPARING" && (
+                  <button
+                    type="button"
+                    className={styles.statusButton}
+                    onClick={() => changeStatus(order.id, "READY")}
+                  >
+                    <PackageCheck size={16} />
+                    Món sẵn sàng
+                  </button>
+                )}
+                {["READY", "SHIPPING"].includes(order.status) && (
+                  <button
+                    type="button"
+                    disabled={order.paymentStatus !== "PAID"}
+                    title={
+                      order.paymentStatus !== "PAID"
+                        ? "Xác nhận thu tiền trước khi hoàn thành"
+                        : undefined
+                    }
+                    className={styles.statusButton}
+                    onClick={() => changeStatus(order.id, "COMPLETED")}
+                  >
+                    <CheckCircle2 size={16} />
+                    Hoàn thành
+                  </button>
+                )}
               </div>
             </article>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
+      <OrderDetailDrawer
+        order={selectedOrder}
+        open={Boolean(selectedId)}
+        onClose={() => setSelectedId(null)}
+        onStatusChange={changeStatus}
+      />
     </div>
   );
-};
+}

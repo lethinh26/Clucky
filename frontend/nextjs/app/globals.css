@@ -1,31 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap&subset=vietnamese');
-@import 'tailwindcss';
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 :root {
-  --espresso: #16100D;
-  --cream: #F5EDE0;
-  --paper: #FFFAF3;
-  --wine: #8F1216;
-  --wine-dark: #6D0D10;
-  --gold: #C9A227;
-  --gold-light: #E5C358;
-  --muted: #6B6259;
-  --line: #E8E2D9;
-  --background: #F5EDE0;
-  --foreground: #16100D;
-  --card: #FFFAF3;
-  --card-foreground: #16100D;
-  --primary: #8F1216;
-  --primary-foreground: #FFFFFF;
-  --border: #E8E2D9;
-  --ring: #C9A227;
+  --font-heading: "Baloo 2", var(--font-body);
+  --font-body: "Quicksand", system-ui, sans-serif;
+  --espresso: #16100d;
+  --cream: #f5ede0;
+  --paper: #fffaf3;
+  --wine: #8f1216;
+  --wine-dark: #6d0d10;
+  --gold: #c9a227;
+  --gold-light: #e5c358;
+  --muted: #6b6259;
+  --line: #e8e2d9;
+  --background: #f5ede0;
+  --foreground: #16100d;
+  --card: #fffaf3;
+  --card-foreground: #16100d;
+  --primary: #8f1216;
+  --primary-foreground: #ffffff;
+  --border: #e8e2d9;
+  --ring: #c9a227;
   --radius: 1.25rem;
-  --status-success: #1E7A46;
-  --status-warning: #D97706;
-  --status-error: #B42318;
-  --status-info: #22577A;
+  --status-success: #1e7a46;
+  --status-warning: #d97706;
+  --status-error: #b42318;
+  --status-info: #22577a;
 }
 
 * {
@@ -40,12 +41,19 @@ body {
   margin: 0;
   background: var(--cream);
   color: var(--espresso);
-  font-family: 'Quicksand', system-ui, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, .font-heading, .brand, .price, .eyebrow {
-  font-family: 'Baloo 2', sans-serif;
+h1,
+h2,
+h3,
+h4,
+.font-heading,
+.brand,
+.price,
+.eyebrow {
+  font-family: var(--font-heading);
 }
 
 a {
@@ -53,11 +61,17 @@ a {
   text-decoration: none;
 }
 
-button, input, select, textarea {
-  font-family: 'Quicksand', sans-serif;
+button,
+input,
+select,
+textarea {
+  font-family: "Quicksand", sans-serif;
 }
 
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(143, 18, 22, 0.24);
   outline-offset: 3px;
 }
@@ -65,7 +79,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 select option {
   background: var(--paper);
   color: var(--espresso);
-  font-family: 'Quicksand', sans-serif;
+  font-family: "Quicksand", sans-serif;
 }
 
 select option:checked,
@@ -80,7 +94,7 @@ select option:hover {
 }
 
 .clucky-select-item[data-selected]::after {
-  content: '✓';
+  content: "✓";
   margin-left: 10px;
   color: var(--gold);
   font-weight: 700;
@@ -100,7 +114,7 @@ select option:hover {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: var(--font-heading);
   font-weight: 700;
   font-size: 28px;
   letter-spacing: -0.02em;
@@ -129,7 +143,9 @@ select option:hover {
 .nav a {
   color: var(--espresso);
   opacity: 0.75;
-  transition: opacity 0.2s, color 0.2s;
+  transition:
+    opacity 0.2s,
+    color 0.2s;
 }
 
 .nav a:hover {
@@ -144,7 +160,9 @@ select option:hover {
   color: #fff !important;
   opacity: 1 !important;
   box-shadow: 0 4px 14px rgba(143, 18, 22, 0.25);
-  transition: transform 0.15s, background-color 0.2s !important;
+  transition:
+    transform 0.15s,
+    background-color 0.2s !important;
 }
 
 .nav-order:hover {
@@ -164,7 +182,13 @@ select option:hover {
   overflow: hidden;
   position: relative;
   color: var(--cream);
-  background: radial-gradient(circle at 75% 45%, rgba(143, 18, 22, 0.55), transparent 35%), var(--espresso);
+  background:
+    radial-gradient(
+      circle at 75% 45%,
+      rgba(143, 18, 22, 0.55),
+      transparent 35%
+    ),
+    var(--espresso);
 }
 
 .hero-inner {
@@ -184,7 +208,7 @@ select option:hover {
 
 .eyebrow {
   color: var(--gold);
-  font-family: 'Baloo 2', sans-serif;
+  font-family: var(--font-heading);
   font-weight: 600;
   font-size: 14px;
   letter-spacing: 0.2em;
@@ -199,7 +223,7 @@ select option:hover {
   gap: clamp(10px, 1.4vw, 16px);
   max-width: 640px;
   margin: 8px 0 0;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: var(--font-heading);
   font-weight: 700;
   font-size: clamp(48px, 5.2vw, 74px);
   line-height: 1.15;
@@ -212,7 +236,7 @@ select option:hover {
   line-height: 0.95;
   padding: 0.02em 0.16em 0.06em;
   border-radius: 0.2em;
-  background: linear-gradient(180deg, #E5C358, #C9A227);
+  background: linear-gradient(180deg, #e5c358, #c9a227);
   color: var(--espresso);
   font-weight: inherit;
   box-shadow: 0 4px 16px rgba(201, 162, 39, 0.25);
@@ -290,13 +314,20 @@ select option:hover {
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 50%;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 80px rgba(201, 162, 39, 0.18);
+  box-shadow:
+    0 25px 60px rgba(0, 0, 0, 0.5),
+    0 0 80px rgba(201, 162, 39, 0.18);
   animation: float 6s ease-in-out infinite;
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 /* Floating Category Dock (Option 2) */
@@ -317,7 +348,9 @@ select option:hover {
   background: var(--paper);
   border: 1px solid rgba(201, 162, 39, 0.35);
   border-radius: 999px;
-  box-shadow: 0 20px 48px rgba(22, 16, 13, 0.16), 0 4px 14px rgba(22, 16, 13, 0.06);
+  box-shadow:
+    0 20px 48px rgba(22, 16, 13, 0.16),
+    0 4px 14px rgba(22, 16, 13, 0.06);
   backdrop-filter: blur(16px);
   overflow-x: auto;
   max-width: 100%;
@@ -338,7 +371,7 @@ select option:hover {
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: var(--font-heading);
   font-weight: 600;
   font-size: 14px;
   color: var(--espresso);
@@ -394,7 +427,9 @@ select option:hover {
   border-radius: 24px;
   background: var(--paper);
   box-shadow: 0 8px 30px rgba(22, 16, 13, 0.05);
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
 }
@@ -428,9 +463,9 @@ select option:hover {
   position: absolute;
   top: 14px;
   left: 14px;
-  background: linear-gradient(135deg, #E5C358, #C9A227);
-  color: #16100D;
-  font-family: 'Baloo 2', sans-serif;
+  background: linear-gradient(135deg, #e5c358, #c9a227);
+  color: #16100d;
+  font-family: var(--font-heading);
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -446,7 +481,7 @@ select option:hover {
   right: 14px;
   background: var(--status-error);
   color: #fff;
-  font-family: 'Quicksand', sans-serif;
+  font-family: "Quicksand", sans-serif;
   font-weight: 700;
   font-size: 11px;
   padding: 4px 10px;
@@ -468,9 +503,10 @@ select option:hover {
   text-transform: uppercase;
 }
 
-.product-card h2, .product-card h3 {
+.product-card h2,
+.product-card h3 {
   margin: 6px 0 0;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: var(--font-heading);
   font-weight: 600;
   font-size: 20px;
   line-height: 1.25;
@@ -496,7 +532,7 @@ select option:hover {
 
 .price {
   color: var(--wine);
-  font-family: 'Baloo 2', sans-serif;
+  font-family: var(--font-heading);
   font-weight: 700;
   font-size: 20px;
 }
@@ -510,7 +546,7 @@ select option:hover {
   background: var(--espresso);
   color: var(--cream);
   font-size: 22px;
-  font-family: 'Baloo 2', sans-serif;
+  font-family: var(--font-heading);
   font-weight: 600;
   transition: all 0.2s;
   box-shadow: 0 4px 12px rgba(22, 16, 13, 0.15);
@@ -546,7 +582,7 @@ select option:hover {
   width: 52px;
   height: 52px;
   border-radius: 16px;
-  background: #F5EDE0;
+  background: #f5ede0;
   display: grid;
   place-items: center;
   font-size: 26px;
@@ -554,7 +590,7 @@ select option:hover {
 }
 
 .promise-card h3 {
-  font-family: 'Baloo 2', sans-serif;
+  font-family: var(--font-heading);
   font-weight: 600;
   font-size: 20px;
   margin: 0 0 8px;
@@ -570,12 +606,16 @@ select option:hover {
 
 /* Skeleton Loading (Warm Shimmer #EFE4D4) */
 @keyframes shimmerWarm {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skeleton-shimmer {
-  background: linear-gradient(90deg, #EFE4D4 25%, #F7EFE4 50%, #EFE4D4 75%);
+  background: linear-gradient(90deg, #efe4d4 25%, #f7efe4 50%, #efe4d4 75%);
   background-size: 200% 100%;
   animation: shimmerWarm 1.6s infinite;
   border-radius: 12px;
