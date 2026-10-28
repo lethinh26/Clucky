@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowRight, Bike, Lock, Store } from 'lucide-react';
 import { CustomerFooter } from '@/components/customer-footer';
 import { CustomerHeader } from '@/components/customer-header';
 import { formatPrice } from '@/lib/products';
@@ -87,14 +88,14 @@ export default function CheckoutPage() {
                   className={`${styles.tabBtn} ${orderType === 'DELIVERY' ? styles.tabBtnActive : ''}`}
                   onClick={() => setOrderType('DELIVERY')}
                 >
-                  🛵 Giao tận nơi
+                  <Bike size={16} aria-hidden="true" /> Giao tận nơi
                 </button>
                 <button
                   type="button"
                   className={`${styles.tabBtn} ${orderType === 'PICKUP' ? styles.tabBtnActive : ''}`}
                   onClick={() => setOrderType('PICKUP')}
                 >
-                  🏪 Tự đến lấy tại quán
+                  <Store size={16} aria-hidden="true" /> Tự đến lấy tại quán
                 </button>
               </div>
 
@@ -334,11 +335,11 @@ export default function CheckoutPage() {
             </div>
 
             <button type="submit" className={styles.submitBtn}>
-              Xác nhận đặt hàng →
+              Xác nhận đặt hàng <ArrowRight size={16} aria-hidden="true" />
             </button>
 
             <p className={styles.guaranteeNote}>
-              🔒 Đơn hàng được xử lý bảo mật. Gà rán luôn được chiên nóng giòn khi bạn nhận món.
+              <Lock size={14} aria-hidden="true" /> Đơn hàng được xử lý bảo mật. Gà rán luôn được chiên nóng giòn khi bạn nhận món.
             </p>
           </aside>
         </form>

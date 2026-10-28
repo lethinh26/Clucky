@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { ArrowLeft, ArrowRight, Drumstick } from 'lucide-react';
 import { CustomerFooter } from '@/components/customer-footer';
 import { CustomerHeader } from '@/components/customer-header';
 import { formatPrice } from '@/lib/products';
@@ -57,14 +58,14 @@ export default function CartPage() {
         {items.length === 0 ? (
           <div className={styles.emptyCart}>
             <div className={styles.emptyEmoji} aria-hidden="true">
-              🍗
+              <Drumstick size={48} aria-hidden="true" />
             </div>
             <h2 className={styles.emptyTitle}>Chưa có món nào trong giỏ</h2>
             <p className={styles.emptyDesc}>
               Hãy chọn những phần gà rán vàng giòn và combo ưu đãi đặc biệt từ Clucky ngay nhé!
             </p>
             <Link href="/menu" className={styles.browseBtn}>
-              Khám phá thực đơn ngay →
+              Khám phá thực đơn ngay <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
         ) : (
@@ -164,11 +165,11 @@ export default function CartPage() {
               </div>
 
               <Link href="/checkout" className={styles.checkoutBtn}>
-                Tiến hành đặt hàng →
+                Tiến hành đặt hàng <ArrowRight size={16} aria-hidden="true" />
               </Link>
 
               <Link href="/menu" className={styles.continueShopping}>
-                ← Tiếp tục chọn thêm món
+                <ArrowLeft size={16} aria-hidden="true" /> Tiếp tục chọn thêm món
               </Link>
             </aside>
           </div>

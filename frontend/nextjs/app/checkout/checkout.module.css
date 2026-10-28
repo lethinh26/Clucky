@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
 
 .checkoutContainer {
   width: min(1140px, calc(100% - 48px));
@@ -14,7 +14,7 @@
 .eyebrow {
   display: inline-block;
   color: #c9a227;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.16em;
@@ -24,7 +24,7 @@
 
 .title {
   margin: 0 0 10px;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: clamp(36px, 4.5vw, 52px);
   font-weight: 700;
   color: #16100d;
@@ -71,7 +71,7 @@
   border-radius: 50%;
   background: #8f1216;
   color: #fff;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 16px;
   font-weight: 700;
   display: flex;
@@ -81,7 +81,7 @@
 
 .sectionTitle {
   margin: 0;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 20px;
   font-weight: 600;
   color: #16100d;
@@ -99,7 +99,7 @@
 }
 
 .tabBtn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -292,7 +292,7 @@
 
 .summaryTitle {
   margin: 0 0 18px;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 22px;
   font-weight: 600;
 }
@@ -327,7 +327,7 @@
 }
 
 .miniItemPrice {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 600;
   color: #16100d;
 }
@@ -360,7 +360,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 18px;
   margin-bottom: 24px;
 }
@@ -372,6 +372,10 @@
 }
 
 .submitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   padding: 16px;
   background: #8f1216;

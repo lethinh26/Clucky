@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
 
 .partyContainer {
   width: min(1000px, calc(100% - 48px));
@@ -16,7 +16,7 @@
 .eyebrow {
   display: inline-block;
   color: #c9a227;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.18em;
@@ -26,7 +26,7 @@
 
 .title {
   margin: 0 0 14px;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: clamp(36px, 4.5vw, 54px);
   font-weight: 700;
   color: #16100d;
@@ -95,52 +95,11 @@
   resize: vertical;
 }
 
-/* Package options */
-.packageGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.packageCard {
-  border: 2px solid #e8e2d9;
-  border-radius: 18px;
-  padding: 20px;
-  cursor: pointer;
-  background: #fff;
-  transition: all 0.2s ease;
-  text-align: center;
-}
-
-.packageCardActive {
-  border-color: #8f1216;
-  background: rgba(143, 18, 22, 0.03);
-}
-
-.packageTitle {
-  margin: 0 0 6px;
-  font-family: 'Fredoka', sans-serif;
-  font-size: 18px;
-  font-weight: 600;
-  color: #16100d;
-}
-
-.packageDesc {
-  margin: 0 0 10px;
-  font-size: 12px;
-  color: #6b6259;
-}
-
-.packagePrice {
-  font-family: 'Fredoka', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: #8f1216;
-}
-
 .submitBtn {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   padding: 18px;
   background: #8f1216;
@@ -190,7 +149,7 @@
 }
 
 .modalTitle {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 26px;
   font-weight: 700;
   color: #16100d;
@@ -224,8 +183,7 @@
 }
 
 @media (max-width: 768px) {
-  .fieldGrid,
-  .packageGrid {
+  .fieldGrid {
     grid-template-columns: 1fr;
   }
   .partyCard {

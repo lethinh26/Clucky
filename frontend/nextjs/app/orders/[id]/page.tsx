@@ -2,6 +2,7 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
+import { Bike, Check, Clock, Store } from 'lucide-react';
 import { CustomerFooter } from '@/components/customer-footer';
 import { CustomerHeader } from '@/components/customer-header';
 import { formatPrice } from '@/lib/products';
@@ -59,10 +60,10 @@ export default function OrderTrackingPage({
             <span className={styles.orderCode}>Mã đơn hàng: {order.orderCode}</span>
             <h1 className={styles.title}>
               {order.status === 'COMPLETED'
-                ? 'Đơn hàng đã hoàn thành 🎉'
+                ? 'Đơn hàng đã hoàn thành'
                 : order.status === 'CANCELLED'
                 ? 'Đơn hàng đã bị hủy'
-                : 'Đơn đang được chuẩn bị 🍗'}
+                : 'Đơn đang được chuẩn bị'}
             </h1>
             <p className={styles.orderSub}>
               Đặt lúc: {order.createdAt} · Chi nhánh: {order.storeName}
@@ -86,7 +87,7 @@ export default function OrderTrackingPage({
                     } ${step.current ? styles.timelineItemCurrent : ''}`}
                   >
                     <div className={styles.timelineIcon}>
-                      {step.done && !step.current ? '✓' : idx + 1}
+                      {step.done && !step.current ? <Check size={16} aria-hidden="true" /> : idx + 1}
                     </div>
                     <div className={styles.timelineContent}>
                       <div className={styles.timelineHead}>
@@ -138,7 +139,7 @@ export default function OrderTrackingPage({
               <div className={styles.paymentWidget}>
                 <span className={styles.qrBadge}>Quét mã thanh toán</span>
                 <h3 className={styles.qrTitle}>Chuyển khoản VietQR</h3>
-                <p className={styles.qrTimer}>⏱ Hết hạn sau 14:32</p>
+                <p className={styles.qrTimer}><Clock size={15} aria-hidden="true" /> Hết hạn sau 14:32</p>
 
                 <div className={styles.qrImageWrapper}>
                   {/* Dynamic VietQR placeholder with simulated payload */}
@@ -190,7 +191,7 @@ export default function OrderTrackingPage({
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>Hình thức</span>
                 <p className={styles.infoVal}>
-                  {order.type === 'DELIVERY' ? '🛵 Giao tận nơi' : '🏪 Nhận tại cửa hàng'}
+                  {order.type === 'DELIVERY' ? <><Bike size={16} aria-hidden="true" /> Giao tận nơi</> : <><Store size={16} aria-hidden="true" /> Nhận tại cửa hàng</>}
                 </p>
               </div>
 

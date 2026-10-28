@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Quicksand:wght@500;600;700&display=swap');
 
 .cartContainer {
   width: min(1140px, calc(100% - 48px));
@@ -14,7 +14,7 @@
 .eyebrow {
   display: inline-block;
   color: #c9a227;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.16em;
@@ -24,7 +24,7 @@
 
 .title {
   margin: 0 0 10px;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: clamp(36px, 4.5vw, 52px);
   font-weight: 700;
   color: #16100d;
@@ -92,7 +92,7 @@
 
 .itemName {
   margin: 0;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 20px;
   font-weight: 600;
   color: #16100d;
@@ -150,7 +150,7 @@
 }
 
 .lineTotal {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 20px;
   font-weight: 700;
   color: #8f1216;
@@ -188,7 +188,7 @@
 }
 
 .stepperVal {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 16px;
   font-weight: 700;
   min-width: 24px;
@@ -224,7 +224,7 @@
 
 .summaryTitle {
   margin: 0 0 20px;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 24px;
   font-weight: 600;
 }
@@ -253,7 +253,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 18px;
   margin-bottom: 24px;
 }
@@ -265,7 +265,7 @@
 }
 
 .checkoutBtn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -290,6 +290,10 @@
 }
 
 .continueShopping {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   display: block;
   text-align: center;
   margin-top: 16px;
@@ -320,7 +324,7 @@
 }
 
 .emptyTitle {
-  font-family: 'Fredoka', sans-serif;
+  font-family: 'Baloo 2', sans-serif;
   font-size: 28px;
   font-weight: 700;
   color: #16100d;

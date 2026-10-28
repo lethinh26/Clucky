@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { ArrowRight, RotateCcw, Store } from 'lucide-react';
 import { CustomerFooter } from '@/components/customer-footer';
 import { CustomerHeader } from '@/components/customer-header';
 import { formatPrice } from '@/lib/products';
@@ -144,7 +145,7 @@ export default function OrdersHistoryPage() {
 
                 <div className={styles.cardBody}>
                   <div className={styles.storeInfo}>
-                    <span className={styles.storeName}>🏪 {order.storeName}</span>
+                    <span className={styles.storeName}><Store size={16} aria-hidden="true" /> {order.storeName}</span>
                     <span className={styles.itemsSummary}>
                       {order.items.map((i) => `${i.itemName} (x${i.quantity})`).join(', ')}
                     </span>
@@ -162,11 +163,11 @@ export default function OrdersHistoryPage() {
                     onClick={() => handleReorder(order.orderCode)}
                     className={styles.reorderBtn}
                   >
-                    🔄 Đặt lại đơn này
+                    <RotateCcw size={16} aria-hidden="true" /> Đặt lại đơn này
                   </button>
 
                   <Link href={`/orders/${order.id}`} className={styles.detailBtn}>
-                    Xem chi tiết →
+                    Xem chi tiết <ArrowRight size={16} aria-hidden="true" />
                   </Link>
                 </div>
               </article>
@@ -182,7 +183,7 @@ export default function OrdersHistoryPage() {
               href="/cart"
               style={{ color: '#c9a227', textDecoration: 'underline', marginLeft: 8 }}
             >
-              Đến giỏ hàng →
+              Đến giỏ hàng <ArrowRight size={14} aria-hidden="true" />
             </Link>
           </div>
         )}

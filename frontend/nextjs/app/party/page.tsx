@@ -2,31 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { CustomerFooter } from '@/components/customer-footer';
 import { CustomerHeader } from '@/components/customer-header';
 import { MOCK_STORES } from '@/lib/mock/order-mock-data';
 import styles from './party.module.css';
-
-const PARTY_PACKAGES = [
-  {
-    id: 'pkg-birthday',
-    title: 'Tiệc Sinh Nhật Vui Vẻ',
-    desc: 'Phù hợp 10-15 người: 30 miếng gà giòn, 4 khoai lắc, nước ngọt thỏa thích.',
-    price: '1.290.000đ',
-  },
-  {
-    id: 'pkg-office',
-    title: 'Tiệc Công Ty & Hội Nghị',
-    desc: 'Phù hợp 20-30 người: 60 miếng gà giòn + sốt cay mật ong, 10 burger mini.',
-    price: '2.590.000đ',
-  },
-  {
-    id: 'pkg-custom',
-    title: 'Tự Chọn Thực Đơn',
-    desc: 'Đội ngũ tư vấn sẽ gọi điện thiết kế thực đơn phù hợp theo ngân sách.',
-    price: 'Tùy chọn',
-  },
-];
 
 export default function PartyOrderPage() {
   const [customerName, setCustomerName] = useState('');
@@ -36,7 +16,6 @@ export default function PartyOrderPage() {
   const [expectedTime, setExpectedTime] = useState('11:30');
   const [guestCount, setGuestCount] = useState<number>(15);
   const [selectedStore, setSelectedStore] = useState<string>(MOCK_STORES[0].id);
-  const [selectedPackage, setSelectedPackage] = useState<string>('pkg-birthday');
   const [notes, setNotes] = useState('');
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
@@ -60,26 +39,6 @@ export default function PartyOrderPage() {
 
         <div className={styles.partyCard}>
           <form onSubmit={handleSubmit}>
-            {/* Packages */}
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Chọn gói tiệc gợi ý</label>
-              <div className={styles.packageGrid}>
-                {PARTY_PACKAGES.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className={`${styles.packageCard} ${
-                      selectedPackage === pkg.id ? styles.packageCardActive : ''
-                    }`}
-                    onClick={() => setSelectedPackage(pkg.id)}
-                  >
-                    <h3 className={styles.packageTitle}>{pkg.title}</h3>
-                    <p className={styles.packageDesc}>{pkg.desc}</p>
-                    <div className={styles.packagePrice}>{pkg.price}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Contact Info */}
             <div className={styles.fieldGrid}>
               <div className={styles.fieldGroup}>
@@ -209,7 +168,7 @@ export default function PartyOrderPage() {
             </div>
 
             <button type="submit" className={styles.submitBtn}>
-              Gửi yêu cầu đặt tiệc →
+              Gửi yêu cầu đặt tiệc <ArrowRight size={16} aria-hidden="true" />
             </button>
           </form>
         </div>
