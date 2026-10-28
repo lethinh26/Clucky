@@ -2,12 +2,12 @@
 
 import { useState, use } from 'react';
 import Link from 'next/link';
-import { Bike, Check, Clock, Store } from 'lucide-react';
+import { Bike, Check, Store } from 'lucide-react';
 import { CustomerFooter } from '@/components/customer-footer';
 import { CustomerHeader } from '@/components/customer-header';
-import { formatPrice } from '@/lib/products';
 import { MOCK_ORDERS } from '@/lib/mock/order-mock-data';
 import { OrderStatusChip, OrderItemCard, OrderSummaryCard } from '@/components/order';
+import { PaymentWidget } from '@/components/payment';
 import styles from './tracking.module.css';
 
 export default function OrderTrackingPage({
@@ -136,43 +136,11 @@ export default function OrderTrackingPage({
           <aside>
             {/* VietQR Payment Block (Contract slot with M4) */}
             {isBankTransferPending && (
-              <div className={styles.paymentWidget}>
-                <span className={styles.qrBadge}>Quét mã thanh toán</span>
-                <h3 className={styles.qrTitle}>Chuyển khoản VietQR</h3>
-                <p className={styles.qrTimer}><Clock size={15} aria-hidden="true" /> Hết hạn sau 14:32</p>
-
-                <div className={styles.qrImageWrapper}>
-                  {/* Dynamic VietQR placeholder with simulated payload */}
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=240826-${order.totalAmount}-CLUCKY`}
-                    alt="VietQR thanh toán Clucky"
-                    className={styles.qrImage}
-                  />
-                </div>
-
-                <div className={styles.bankDetails}>
-                  <div className={styles.bankRow}>
-                    <span>Ngân hàng:</span>
-                    <strong>MB Bank</strong>
-                  </div>
-                  <div className={styles.bankRow}>
-                    <span>Số tài khoản:</span>
-                    <strong>0909123456789</strong>
-                  </div>
-                  <div className={styles.bankRow}>
-                    <span>Chủ tài khoản:</span>
-                    <strong>CLUCKY VIETNAM</strong>
-                  </div>
-                  <div className={styles.bankRow}>
-                    <span>Số tiền:</span>
-                    <strong style={{ color: '#8f1216' }}>{formatPrice(order.totalAmount)}</strong>
-                  </div>
-                  <div className={styles.bankRow}>
-                    <span>Nội dung:</span>
-                    <strong style={{ color: '#8f1216' }}>{order.orderCode}</strong>
-                  </div>
-                </div>
-              </div>
+              <PaymentWidget
+                orderCode={order.orderCode}
+                amount={order.totalAmount}
+                expiresAt={Date.now() + 15 * 60 * 1000}
+              />
             )}
 
             {/* Receiver & Delivery Information */}

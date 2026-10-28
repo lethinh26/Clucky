@@ -13,6 +13,7 @@ import { OrdersPage } from './pages/Orders';
 import { StaffOrdersPage } from './pages/Staff/StaffOrdersPage';
 import { ReviewsPage } from './pages/Reviews';
 import { ReportsPage } from './pages/Reports';
+import { PaymentsPage } from './pages/Payments';
 
 export const App: React.FC = () => {
   return (
@@ -104,6 +105,14 @@ export const App: React.FC = () => {
                   element={
                     <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER', 'STAFF']}>
                       <OrdersPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="payments"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'STORE_MANAGER']}>
+                      <PaymentsPage />
                     </ProtectedRoute>
                   }
                 />
