@@ -5,3 +5,10 @@ export function useRouter() {
     },
   };
 }
+
+export function usePathname() {
+  return location.pathname;
+}
+export function useSearchParams() {
+  return new URLSearchParams(location.search);
+}

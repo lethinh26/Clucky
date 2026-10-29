@@ -1,5 +1,7 @@
 import React from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useDeferredAction } from "../../components/ui-loader/use-deferred-action";
+import { Link } from "react-router-dom";
+import { useScopedNavigate as useNavigate } from "../../components/ui-loader/use-scoped-navigate";
 import { Form, Input, Button, Alert } from "antd";
 import { AuthLayout } from "./AuthLayout";
 import { authApi, getErrorMessage } from "../../lib/api";
@@ -7,15 +9,19 @@ import { useAuth } from "../../context/AuthContext";
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const startAction = useDeferredAction();
   const { switchRole } = useAuth();
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
   const onFinish = async (values: { email: string; password: string }) => {
+    if (loading) return;
+    const task = startAction();
     setError(null);
     setLoading(true);
     try {
       const tokens = await authApi.login(values);
+      if (!task.isCurrent()) return;
       localStorage.setItem("clucky_admin_access_token", tokens.accessToken);
       localStorage.setItem("clucky_admin_refresh_token", tokens.refreshToken);
       // Map API role → UI role for mock RBAC
@@ -28,11 +34,12 @@ export const LoginPage: React.FC = () => {
       }
       navigate("/admin/dashboard");
     } catch (err) {
+      if (!task.isCurrent()) return;
       setError(
         getErrorMessage(err, "Đăng nhập thất bại. Kiểm tra lại thông tin."),
       );
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   };
 

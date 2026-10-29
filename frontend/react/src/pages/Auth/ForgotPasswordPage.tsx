@@ -1,27 +1,34 @@
 import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { useScopedNavigate as useNavigate } from '../../components/ui-loader/use-scoped-navigate';
+import { useDeferredAction } from '../../components/ui-loader/use-deferred-action';
 import { Form, Input, Button, Alert } from 'antd';
 import { AuthLayout } from './AuthLayout';
 import { authApi, getErrorMessage } from '../../lib/api';
 
 export const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
+  const startDeferred = useDeferredAction();
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
   const onFinish = async (values: { email: string }) => {
+    if (loading) return;
+    const task = startDeferred();
     setError(null);
     setSuccess(null);
     setLoading(true);
     try {
       await authApi.forgotPassword(values);
+      if (!task.isCurrent()) return;
       setSuccess('Nếu email tồn tại, mã đặt lại mật khẩu đã được gửi.');
-      setTimeout(() => navigate(`/reset-password?email=${encodeURIComponent(values.email)}`), 1200);
+      task.schedule(() => navigate(`/reset-password?email=${encodeURIComponent(values.email)}`), 1200);
     } catch (err) {
+      if (!task.isCurrent()) return;
       setError(getErrorMessage(err, 'Không thể gửi yêu cầu.'));
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   };
 

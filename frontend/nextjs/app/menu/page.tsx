@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import Link from '@/components/ui-loader/navigation-link';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
 import { StyledSelect } from '@/components/styled-select';

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import { authApi, type AuthTokens } from "@/lib/api";
 import { getGoogleIdentity } from "@/lib/google-auth";
 import { GoogleButton } from "./google-button";
@@ -24,6 +25,7 @@ function errorMessage(error: unknown) {
 
 export function GoogleAuthFlow({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const startAction = useDeferredAction();
   const [pending, setPending] = useState<{
     token: string;
     email: string;
@@ -41,11 +43,14 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
 
   async function login() {
     if (loading) return;
+    const task = startAction();
     setLoading(true);
     setError("");
     try {
       const identity = await getGoogleIdentity();
+      if (!task.isCurrent()) return;
       const result = await authApi.google(identity.idToken);
+      if (!task.isCurrent()) return;
       if ("status" in result && result.status === "REQUIRES_PASSWORD") {
         if (!result.pendingToken)
           throw new Error("Thiếu phiên đăng ký Google. Vui lòng thử lại.");
@@ -54,19 +59,23 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
         finish(result as AuthTokens);
       }
     } catch (err) {
+      if (!task.isCurrent()) return;
       setError(errorMessage(err));
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   }
 
   async function complete(password: string) {
     if (!pending || loading) return;
+    const task = startAction();
     setLoading(true);
     setError("");
     try {
-      finish(await authApi.completeGoogle(pending.token, password));
+      const tokens = await authApi.completeGoogle(pending.token, password);
+      if (task.isCurrent()) finish(tokens);
     } catch (err) {
+      if (!task.isCurrent()) return;
       const status = (err as { status?: number }).status;
       if (status === 401 || status === 410) {
         setPending(null);
@@ -77,7 +86,7 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
         setError(errorMessage(err));
       }
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   }
 

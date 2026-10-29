@@ -20,6 +20,7 @@ import { ForgotPasswordPage } from "./pages/Auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/Auth/ResetPasswordPage";
 
 import { OrderProvider } from "./context/OrderContext";
+import { PageLoadingProvider } from "./components/ui-loader/page-loading";
 function OrdersRoute() {
   const { isStaff } = useAuth();
   return isStaff ? <StaffOrdersPage /> : <OrdersPage />;
@@ -66,119 +67,132 @@ export const App: React.FC = () => {
         <AuthProvider>
           <OrderProvider>
             <BrowserRouter>
-              <Routes>
-                <Route
-                  path="/"
-                  element={<Navigate to="/admin/dashboard" replace />}
-                />
-
-                {/* Public auth routes */}
-                <Route path="/login" element={<LoginPage />} />
-                {/* Internal accounts are provisioned; old signup URLs return to login. */}
-                <Route
-                  path="/register"
-                  element={<Navigate to="/login" replace />}
-                />
-                <Route
-                  path="/verify-otp"
-                  element={<Navigate to="/login" replace />}
-                />
-                <Route
-                  path="/forgot-password"
-                  element={<ForgotPasswordPage />}
-                />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-                <Route path="/admin" element={<AdminLayout />}>
+              <PageLoadingProvider>
+                <Routes>
                   <Route
-                    index
+                    path="/"
                     element={<Navigate to="/admin/dashboard" replace />}
                   />
-                  <Route path="dashboard" element={<Dashboard />} />
+
+                  {/* Public auth routes */}
+                  <Route path="/login" element={<LoginPage />} />
+                  {/* Internal accounts are provisioned; old signup URLs return to login. */}
                   <Route
-                    path="catalog"
-                    element={
-                      <ProtectedRoute allowedRoles={["ADMIN"]}>
-                        <CatalogPage />
-                      </ProtectedRoute>
-                    }
+                    path="/register"
+                    element={<Navigate to="/login" replace />}
                   />
                   <Route
-                    path="stores"
-                    element={
-                      <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
-                        <StoresPage />
-                      </ProtectedRoute>
-                    }
+                    path="/verify-otp"
+                    element={<Navigate to="/login" replace />}
                   />
                   <Route
-                    path="inventory"
-                    element={
-                      <ProtectedRoute
-                        allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
-                      >
-                        <StaffInventoryPage />
-                      </ProtectedRoute>
-                    }
+                    path="/forgot-password"
+                    element={<ForgotPasswordPage />}
                   />
                   <Route
-                    path="reviews"
-                    element={
-                      <ProtectedRoute
-                        allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
-                      >
-                        <ReviewsPage />
-                      </ProtectedRoute>
-                    }
+                    path="/reset-password"
+                    element={<ResetPasswordPage />}
                   />
-                  <Route
-                    path="reports"
-                    element={
-                      <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
-                        <ReportsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="orders"
-                    element={
-                      <ProtectedRoute
-                        allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
-                      >
-                        <OrdersRoute />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="users"
-                    element={
-                      <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
-                        <UsersPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="payments"
-                    element={
-                      <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
-                        <PaymentsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="staff/orders"
-                    element={
-                      <ProtectedRoute allowedRoles={["STAFF"]}>
-                        <StaffOrdersPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="*"
-                    element={<Navigate to="/admin/dashboard" replace />}
-                  />
-                </Route>
-              </Routes>
+
+                  <Route path="/admin" element={<AdminLayout />}>
+                    <Route
+                      index
+                      element={<Navigate to="/admin/dashboard" replace />}
+                    />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route
+                      path="catalog"
+                      element={
+                        <ProtectedRoute allowedRoles={["ADMIN"]}>
+                          <CatalogPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="stores"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                        >
+                          <StoresPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="inventory"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
+                        >
+                          <StaffInventoryPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="reviews"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
+                        >
+                          <ReviewsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="reports"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                        >
+                          <ReportsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="orders"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
+                        >
+                          <OrdersRoute />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="users"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                        >
+                          <UsersPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="payments"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                        >
+                          <PaymentsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="staff/orders"
+                      element={
+                        <ProtectedRoute allowedRoles={["STAFF"]}>
+                          <StaffOrdersPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="*"
+                      element={<Navigate to="/admin/dashboard" replace />}
+                    />
+                  </Route>
+                </Routes>
+              </PageLoadingProvider>
             </BrowserRouter>
           </OrderProvider>
         </AuthProvider>

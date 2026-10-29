@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
+import { useSearchParams } from "next/navigation";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
+import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { authApi, ApiError } from "@/lib/api";
 
@@ -10,6 +12,7 @@ const OTP_LENGTH = 6;
 
 function VerifyOtpForm() {
   const router = useRouter();
+  const startDeferred = useDeferredAction();
   const params = useSearchParams();
   const email = params.get("email") ?? "";
   const [digits, setDigits] = React.useState<string[]>(
@@ -47,6 +50,8 @@ function VerifyOtpForm() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || resending) return;
+    const task = startDeferred();
     setError(null);
     setSuccess(null);
     if (otp.length !== OTP_LENGTH) {
@@ -56,32 +61,37 @@ function VerifyOtpForm() {
     setLoading(true);
     try {
       const tokens = await authApi.verifyOtp({ email, otp });
+      if (!task.isCurrent()) return;
       if (typeof window !== "undefined") {
         localStorage.setItem("clucky_access_token", tokens.accessToken);
         localStorage.setItem("clucky_refresh_token", tokens.refreshToken);
       }
       setSuccess("Xác thực thành công! Đang chuyển hướng…");
-      setTimeout(() => router.push("/account"), 800);
+      task.schedule(() => router.push("/account"), 800);
     } catch (err) {
+      if (!task.isCurrent()) return;
       const apiErr = err as ApiError;
       setError(apiErr.message || "Mã OTP không đúng hoặc đã hết hạn.");
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   };
 
   const resend = async () => {
-    if (!email || cooldown > 0) return;
+    if (!email || cooldown > 0 || loading || resending) return;
+    const task = startDeferred();
     setResending(true);
     setError(null);
     try {
       await authApi.register({ fullName: "", email, password: "" });
+      if (!task.isCurrent()) return;
       setCooldown(60);
       setSuccess("Đã gửi lại mã OTP. Kiểm tra hộp thư của bạn.");
     } catch (err) {
+      if (!task.isCurrent()) return;
       setError((err as ApiError).message || "Không thể gửi lại mã.");
     } finally {
-      setResending(false);
+      if (task.isCurrent()) setResending(false);
     }
   };
 

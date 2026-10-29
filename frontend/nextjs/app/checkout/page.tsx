@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
+import Link from "@/components/ui-loader/navigation-link";
 import { Select } from "@base-ui/react/select";
 import { formatPrice } from "@/lib/products";
 import { MOCK_STORES } from "@/lib/mock/order-mock-data";
@@ -10,6 +10,7 @@ import { Order, OrderType, PaymentMethod } from "@/lib/types/order";
 import { FoodImage } from "@/components/order/food-image";
 import styles from "./checkout.module.css";
 import { useOrder } from "@/components/order/order-provider";
+import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import {
   ShoppingBag,
@@ -23,7 +24,8 @@ import {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotal, ready, placeDemoOrder, startNavigating } = useOrder();
+  const { items, subtotal, ready, placeDemoOrder } = useOrder();
+  useNavigationTask(!ready);
   const submitLock = useRef(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -140,7 +142,6 @@ export default function CheckoutPage() {
         },
       ],
     };
-    startNavigating?.("Đang hoàn tất đơn hàng và chuyển hướng…");
     placeDemoOrder(order);
     router.push(`/orders/${id}`);
   };
@@ -159,9 +160,7 @@ export default function CheckoutPage() {
         </div>
 
         {!ready || submitting ? (
-          <div className="order-skeleton" role="status">
-            {submitting ? "Đang xử lý đơn hàng và chuyển hướng…" : "Đang tải giỏ hàng…"}
-          </div>
+          <div className="order-skeleton" aria-hidden="true" />
         ) : !items.length ? (
           <div className="order-empty">
             <ShoppingBag size={48} />

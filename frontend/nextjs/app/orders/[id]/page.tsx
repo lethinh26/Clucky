@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, use } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
+import Link from "@/components/ui-loader/navigation-link";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,6 +22,7 @@ import {
 import { formatPrice } from "@/lib/products";
 import { displayOrderTime } from "@/lib/order-demo";
 import { useOrder } from "@/components/order/order-provider";
+import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import { OrderDialog } from "@/components/order/order-dialog";
 import { DemoOrderControls } from "@/components/order/demo-order-controls";
@@ -41,8 +42,9 @@ export default function OrderTrackingPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { orders, ready, cancelOrder, reorder, demoEnabled, startNavigating } =
+  const { orders, ready, cancelOrder, reorder, demoEnabled } =
     useOrder();
+  useNavigationTask(!ready);
   const order = orders.find(
     (entry) => entry.id === id || entry.orderCode === id,
   );
@@ -54,9 +56,7 @@ export default function OrderTrackingPage({
       <>
         <main className={`${styles.trackingContainer} m3-page`}>
           {!ready ? (
-            <div className="order-skeleton" role="status">
-              Đang tải đơn hàng…
-            </div>
+            <div className="order-skeleton" aria-hidden="true" />
           ) : (
             <div className="order-empty">
               <PackageCheck size={44} />
@@ -196,7 +196,6 @@ export default function OrderTrackingPage({
                   className={`${styles.primaryButton} ${styles.exploreAction}`}
                   onClick={() => {
                     reorder(order);
-                    startNavigating?.("Đang chuyển tới giỏ hàng…");
                     router.push("/cart");
                   }}
                 >

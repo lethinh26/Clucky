@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/ui-loader/navigation-link';
 import Image from 'next/image';
 import { Sparkles, ArrowRight } from 'lucide-react';
 

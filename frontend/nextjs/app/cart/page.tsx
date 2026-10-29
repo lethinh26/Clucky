@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui-loader/navigation-link";
 import { formatPrice } from "@/lib/products";
 import { useOrder } from "@/components/order/order-provider";
+import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import {
   ShoppingBag,
@@ -25,6 +26,7 @@ export default function CartPage() {
     updateNote,
     ready,
   } = useOrder();
+  useNavigationTask(!ready);
 
   return (
     <>
@@ -44,9 +46,7 @@ export default function CartPage() {
         </div>
 
         {!ready ? (
-          <div className="order-skeleton" role="status">
-            Đang tải giỏ hàng…
-          </div>
+          <div className="order-skeleton" aria-hidden="true" />
         ) : items.length === 0 ? (
           <div className={styles.emptyCart}>
             <div className={styles.emptyEmoji} aria-hidden="true">

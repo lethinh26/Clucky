@@ -46,12 +46,12 @@ export interface AdminUser {
 }
 
 export const usersApi = {
-  list: (params?: { role?: string; storeId?: number; keyword?: string }) =>
-    api.get<AdminUser[]>('/api/users', { params }).then((r) => r.data),
-  assignStore: (id: number, storeId: number) =>
-    api.put(`/api/users/${id}/assign-store`, { storeId }).then((r) => r.data),
-  lock: (id: number) => api.put(`/api/users/${id}/lock`).then((r) => r.data),
-  unlock: (id: number) => api.put(`/api/users/${id}/unlock`).then((r) => r.data),
+  list: (params?: { role?: string; storeId?: number; keyword?: string }, signal?: AbortSignal) =>
+    api.get<AdminUser[]>('/api/users', { params, signal }).then((r) => r.data),
+  assignStore: (id: number, storeId: number, signal?: AbortSignal) =>
+    api.put(`/api/users/${id}/assign-store`, { storeId }, { signal }).then((r) => r.data),
+  lock: (id: number, signal?: AbortSignal) => api.put(`/api/users/${id}/lock`, undefined, { signal }).then((r) => r.data),
+  unlock: (id: number, signal?: AbortSignal) => api.put(`/api/users/${id}/unlock`, undefined, { signal }).then((r) => r.data),
 };
 
 export default api;

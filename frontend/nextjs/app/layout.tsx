@@ -3,7 +3,7 @@ import "./globals.css";
 import "./order-theme.css";
 import {
   NavigationLoaderProvider,
-  ContentLoaderOverlay,
+  NavigationContent,
 } from "@/components/ui-loader";
 import { OrderProvider } from "@/components/order/order-provider";
 import { OrderDock } from "@/components/order/order-dock";
@@ -45,10 +45,7 @@ export default function RootLayout({
           <OrderProvider>
             <div className={loaderStyles.siteLayout}>
               <CustomerHeader />
-              <div className={loaderStyles.siteMainContent}>
-                {children}
-                <ContentLoaderOverlay />
-              </div>
+              <NavigationContent>{children}</NavigationContent>
               <CustomerFooter />
               <OrderDock />
             </div>
