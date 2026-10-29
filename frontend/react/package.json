@@ -6,6 +6,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
