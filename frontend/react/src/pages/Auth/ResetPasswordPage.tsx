@@ -1,11 +1,14 @@
 import React from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
+import { useScopedNavigate as useNavigate } from "../../components/ui-loader/use-scoped-navigate";
+import { useDeferredAction } from "../../components/ui-loader/use-deferred-action";
 import { Form, Input, Button, Alert } from "antd";
 import { AuthLayout } from "./AuthLayout";
 import { authApi, getErrorMessage } from "../../lib/api";
 
 export const ResetPasswordPage: React.FC = () => {
   const navigate = useNavigate();
+  const startDeferred = useDeferredAction();
   const [params] = useSearchParams();
   const email = params.get("email") ?? "";
   const [error, setError] = React.useState<string | null>(null);
@@ -17,6 +20,8 @@ export const ResetPasswordPage: React.FC = () => {
     password: string;
     confirm: string;
   }) => {
+    if (loading) return;
+    const task = startDeferred();
     setError(null);
     setSuccess(null);
     if (!/^\d{6}$/.test(values.otp)) {
@@ -34,12 +39,14 @@ export const ResetPasswordPage: React.FC = () => {
         otp: values.otp,
         newPassword: values.password,
       });
+      if (!task.isCurrent()) return;
       setSuccess("Đặt lại mật khẩu thành công. Đang chuyển đến đăng nhập…");
-      setTimeout(() => navigate("/login"), 1200);
+      task.schedule(() => navigate("/login"), 1200);
     } catch (err) {
+      if (!task.isCurrent()) return;
       setError(getErrorMessage(err, "Không thể đặt lại mật khẩu."));
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   };
 

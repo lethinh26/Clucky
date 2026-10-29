@@ -864,3 +864,4 @@ textarea:focus-visible {
     padding: 24px 16px 36px !important;
   }
 }
+.page-loading-content { min-height: 240px; outline: none; }

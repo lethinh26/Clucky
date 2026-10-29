@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { AdminFooter } from "../../components/AdminFooter";
+import { PageLoadingContent } from "../../components/ui-loader/page-loading";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -20,7 +21,7 @@ export const AuthLayout: React.FC<{
   return (
     <>
       <main className={styles.shell}>
-        <header className={styles.header}>
+        <header className={styles.header} data-loading-shell="top">
           <Link to="/" className={styles.brand}>
             <img src="/logo_primary.png" alt="" width={46} height={46} />
             <span>
@@ -105,7 +106,7 @@ export const AuthLayout: React.FC<{
               </span>
               <h1>{title}</h1>
               {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
-              {children}
+              <PageLoadingContent>{children}</PageLoadingContent>
               <div className={styles.formFooter}>
                 <Link to="/">
                   <ArrowLeft size={14} aria-hidden="true" /> Về không gian làm

@@ -1,5 +1,5 @@
 import { FoodImage } from "@/components/order/food-image";
-import Link from "next/link";
+import Link from "@/components/ui-loader/navigation-link";
 import Image from "next/image";
 import { formatPrice, type Product } from "@/lib/products";
 import { Plus, Flame, Star } from "lucide-react";

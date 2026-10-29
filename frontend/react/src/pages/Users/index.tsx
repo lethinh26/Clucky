@@ -1,4 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { usePageLoading } from "../../components/ui-loader/page-loading";
 import { Select, Button, Space, message, Tooltip } from "antd";
 import type { TableColumnsType } from "antd";
 import {
@@ -34,6 +41,10 @@ export const UsersPage: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const request = useRef<AbortController | null>(null);
+  const actionRequest = useRef<AbortController | null>(null);
+  usePageLoading(loading && initialLoad);
   const [apiAvailable, setApiAvailable] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
@@ -50,13 +61,18 @@ export const UsersPage: React.FC = () => {
   );
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     setLoading(true);
     try {
-      const data = await usersApi.list();
+      const data = await usersApi.list(undefined, controller.signal);
+      if (controller.signal.aborted) return;
       setUsers(data);
       setApiAvailable(true);
     } catch {
+      if (controller.signal.aborted) return;
       setApiAvailable(false);
       // Graceful fallback so the admin UI is still reviewable.
       setUsers([
@@ -120,13 +136,20 @@ export const UsersPage: React.FC = () => {
         },
       ]);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && request.current === controller) {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     }
-  };
+  }, []);
 
   useEffect(() => {
     void fetchUsers();
-  }, []);
+    return () => {
+      request.current?.abort();
+      actionRequest.current?.abort();
+    };
+  }, [fetchUsers]);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
@@ -173,15 +196,18 @@ export const UsersPage: React.FC = () => {
   };
 
   const confirmLockToggle = async () => {
-    if (!lockTarget) return;
+    if (!lockTarget || actionRequest.current) return;
+    const controller = new AbortController();
+    actionRequest.current = controller;
     setActionLoading(true);
     const target = lockTarget;
     const willLock = target.status !== "LOCKED";
     try {
       if (apiAvailable) {
-        if (willLock) await usersApi.lock(target.id);
-        else await usersApi.unlock(target.id);
+        if (willLock) await usersApi.lock(target.id, controller.signal);
+        else await usersApi.unlock(target.id, controller.signal);
       }
+      if (controller.signal.aborted) return;
       setUsers((prev) =>
         prev.map((u) =>
           u.id === target.id
@@ -193,20 +219,32 @@ export const UsersPage: React.FC = () => {
         `${willLock ? "Đã khóa" : "Đã mở khóa"} tài khoản ${target.fullName}.`,
       );
     } catch (err) {
-      message.error(getErrorMessage(err, "Thao tác thất bại."));
+      if (!controller.signal.aborted)
+        message.error(getErrorMessage(err, "Thao tác thất bại."));
     } finally {
-      setActionLoading(false);
-      setLockTarget(null);
+      if (!controller.signal.aborted) {
+        actionRequest.current = null;
+        setActionLoading(false);
+        setLockTarget(null);
+      }
     }
   };
 
   const confirmAssign = async () => {
-    if (!assignTarget || assignStoreId === undefined) return;
+    if (!assignTarget || assignStoreId === undefined || actionRequest.current)
+      return;
+    const controller = new AbortController();
+    actionRequest.current = controller;
     setActionLoading(true);
     const store = mockStores.find((s) => s.id === assignStoreId);
     try {
       if (apiAvailable)
-        await usersApi.assignStore(assignTarget.id, assignStoreId);
+        await usersApi.assignStore(
+          assignTarget.id,
+          assignStoreId,
+          controller.signal,
+        );
+      if (controller.signal.aborted) return;
       setUsers((prev) =>
         prev.map((u) =>
           u.id === assignTarget.id
@@ -218,11 +256,15 @@ export const UsersPage: React.FC = () => {
         `Đã gán ${assignTarget.fullName} cho ${store?.name ?? "chi nhánh mới"}.`,
       );
     } catch (err) {
-      message.error(getErrorMessage(err, "Gán chi nhánh thất bại."));
+      if (!controller.signal.aborted)
+        message.error(getErrorMessage(err, "Gán chi nhánh thất bại."));
     } finally {
-      setActionLoading(false);
-      setAssignTarget(null);
-      setAssignStoreId(undefined);
+      if (!controller.signal.aborted) {
+        actionRequest.current = null;
+        setActionLoading(false);
+        setAssignTarget(null);
+        setAssignStoreId(undefined);
+      }
     }
   };
 

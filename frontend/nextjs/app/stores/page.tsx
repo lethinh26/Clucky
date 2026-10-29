@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import Link from 'next/link';
+import Link from '@/components/ui-loader/navigation-link';
 import { stores, type Store } from '@/lib/products';
 import {
   MapPin,

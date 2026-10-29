@@ -37,6 +37,7 @@ import {
 import { OrderDetailDrawer } from "./components/OrderDetailDrawer";
 import { RefundModal } from "./components/RefundModal";
 import styles from "./orders.module.css";
+import { usePageLoading } from "../../components/ui-loader/page-loading";
 
 export const OrdersPage: React.FC = () => {
   const { message } = AntApp.useApp();
@@ -48,6 +49,7 @@ export const OrdersPage: React.FC = () => {
     actionError,
     loading,
   } = useOrders();
+  usePageLoading(loading);
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -404,7 +406,7 @@ export const OrdersPage: React.FC = () => {
       </div>
       <div className={styles.desktopTable}>
         <Table
-          loading={loading}
+          loading={false}
           columns={columns}
           dataSource={filteredOrders}
           rowKey="id"

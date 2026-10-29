@@ -34,6 +34,7 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext";
 import { AdminFooter } from "../components/AdminFooter";
+import { PageLoadingContent } from "../components/ui-loader/page-loading";
 
 const routeBreadcrumbMap: Record<string, string> = {
   "/admin": "Tổng quan",
@@ -241,6 +242,7 @@ export const AdminLayout: React.FC = () => {
       style={{ minHeight: "100vh", background: "#F5EDE0" }}
     >
       <Layout.Sider
+        data-loading-shell="left"
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
@@ -398,6 +400,7 @@ export const AdminLayout: React.FC = () => {
 
       <Layout style={{ minWidth: 0 }}>
         <Layout.Header
+          data-loading-shell="top"
           className="admin-header"
           style={{
             height: 72,
@@ -554,7 +557,11 @@ export const AdminLayout: React.FC = () => {
           }}
         >
           <div style={{ maxWidth: 1400, margin: "0 auto" }}>
-            <Outlet />
+            <PageLoadingContent>
+              <Outlet
+                key={`${location.pathname}${location.search}:${user.role}:${user.storeId ?? ""}`}
+              />
+            </PageLoadingContent>
           </div>
         </Layout.Content>
 

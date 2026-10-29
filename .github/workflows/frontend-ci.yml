@@ -93,9 +93,13 @@ jobs:
         run: npx --no-install playwright install --with-deps chromium
 
       # The existing Playwright suite starts Next.js in production mode,
-      # plus the admin Vite server and the Google/payment fixture server.
+      # plus the admin production preview and the Google/payment fixture server.
       - name: Build customer for UI tests
         run: npm run build
+
+      - name: Build admin for UI tests
+        run: npm run build
+        working-directory: frontend/react
 
       - name: UI tests
         run: npm run test:ui

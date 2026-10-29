@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useDeferredAction } from '../../components/ui-loader/use-deferred-action';
 import {
   Card,
   Row,
@@ -188,6 +189,8 @@ export const storePerformances: StorePerformance[] = [
 ];
 
 export const ReportsPage: React.FC = () => {
+  const startDeferredExport = useDeferredAction();
+  useEffect(() => () => { message.destroy('exportMsg'); }, []);
   const { user } = useAuth();
 
   // Mặc định 7 ngày gần nhất
@@ -238,6 +241,7 @@ export const ReportsPage: React.FC = () => {
 
   // Xử lý xuất file (Export Excel / PDF)
   const handleExport = (format: 'xlsx' | 'pdf') => {
+    const task = startDeferredExport();
     const storeLabel =
       selectedStore === 'ALL' ? 'Toan_He_Thong' : `Chi_Nhanh_${selectedStore}`;
     const fromStr = dateRange[0].format('YYYY-MM-DD');
@@ -245,7 +249,7 @@ export const ReportsPage: React.FC = () => {
     const fileName = `Bao_Cao_Doanh_Thu_Clucky_${storeLabel}_${fromStr}_${toStr}.${format}`;
 
     message.loading({ content: `Đang kết xuất báo cáo ${format.toUpperCase()}...`, key: 'exportMsg' });
-    setTimeout(() => {
+    task.schedule(() => {
       message.success({
         content: `Đã xuất báo cáo thành công: ${fileName}`,
         key: 'exportMsg',

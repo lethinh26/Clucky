@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui-loader/navigation-link";
 import { Hero } from "@/components/hero";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";

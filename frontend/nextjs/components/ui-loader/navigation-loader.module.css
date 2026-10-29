@@ -3,138 +3,23 @@
   display: flex;
   flex-direction: column;
 }
-
 .siteMainContent {
   flex: 1 0 auto;
   position: relative;
-  display: flex;
-  flex-direction: column;
+  min-width: 0;
   min-height: 450px;
+  outline: none;
 }
-
-.progressBarContainer {
+.fallback {
+  min-height: 60vh;
+}
+.serverFallback {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  z-index: 99999;
-  pointer-events: none;
-}
-
-.progressBar {
-  height: 100%;
-  background: linear-gradient(90deg, #8f1216 0%, #d32f2f 45%, #f59e0b 100%);
-  box-shadow: 0 0 10px rgba(211, 47, 47, 0.7), 0 0 5px rgba(245, 158, 11, 0.5);
-  border-radius: 0 2px 2px 0;
-  transition: width 0.25s cubic-bezier(0.1, 0.7, 0.1, 1), opacity 0.3s ease;
-}
-
-/* Covers ONLY the content area being rendered, leaving header and footer outside */
-.contentLoaderOverlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(254, 252, 248, 0.85);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 360px;
-  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: auto;
-}
-
-.loaderCard {
-  background: #ffffff;
-  border: 1px solid rgba(229, 219, 206, 0.9);
-  box-shadow: 0 12px 32px -4px rgba(66, 32, 10, 0.12), 0 4px 12px -2px rgba(66, 32, 10, 0.08);
-  border-radius: 20px;
-  padding: 24px 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  min-width: 240px;
-  max-width: 340px;
-  text-align: center;
-  animation: cardPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.spinnerWrapper {
-  position: relative;
-  width: 52px;
-  height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.spinnerRing {
-  position: absolute;
-  inset: 0;
-  border: 3.5px solid rgba(143, 18, 22, 0.12);
-  border-top-color: #8f1216;
-  border-right-color: #f59e0b;
-  border-radius: 50%;
-  animation: spin 0.85s linear infinite;
-}
-
-.spinnerIcon {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 24px;
+  background: #fffaf3;
+  border-radius: 16px;
   color: #8f1216;
-  animation: pulseScale 1.5s ease-in-out infinite alternate;
-}
-
-.loaderMessage {
-  margin: 0;
-  font-family: var(--font-quicksand, "Quicksand", sans-serif);
-  font-size: 15px;
-  font-weight: 600;
-  color: #2b2520;
-  line-height: 1.4;
-}
-
-.loaderHint {
-  margin: -8px 0 0;
-  font-size: 12px;
-  color: #8c7e72;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes pulseScale {
-  from {
-    transform: scale(0.92);
-  }
-  to {
-    transform: scale(1.08);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes cardPop {
-  from {
-    opacity: 0;
-    transform: scale(0.92) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }

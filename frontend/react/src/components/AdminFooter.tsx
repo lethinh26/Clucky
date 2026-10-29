@@ -3,6 +3,7 @@ import { Layout } from "antd";
 export function AdminFooter() {
   return (
     <Layout.Footer
+      data-loading-shell="bottom"
       style={{
         textAlign: "center",
         background: "#F5EDE0",

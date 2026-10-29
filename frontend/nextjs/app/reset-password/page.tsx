@@ -1,14 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
+import { useSearchParams } from "next/navigation";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
+import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Input } from "@/components/ui/input";
 import { authApi, ApiError } from "@/lib/api";
 
 function ResetPasswordForm() {
   const router = useRouter();
+  const startDeferred = useDeferredAction();
   const params = useSearchParams();
   const email = params.get("email") ?? "";
   const [otp, setOtp] = React.useState("");
@@ -20,6 +23,8 @@ function ResetPasswordForm() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    const task = startDeferred();
     setError(null);
     if (password !== confirm) {
       setError("Mật khẩu xác nhận không khớp.");
@@ -32,12 +37,14 @@ function ResetPasswordForm() {
     setLoading(true);
     try {
       await authApi.resetPassword({ email, otp, newPassword: password });
+      if (!task.isCurrent()) return;
       setSuccess("Đặt lại mật khẩu thành công. Đang chuyển đến đăng nhập…");
-      setTimeout(() => router.push("/login"), 1200);
+      task.schedule(() => router.push("/login"), 1200);
     } catch (err) {
+      if (!task.isCurrent()) return;
       setError((err as ApiError).message || "Không thể đặt lại mật khẩu.");
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   };
 

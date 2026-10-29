@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/ui-loader/navigation-link";
 import { usePathname } from "next/navigation";
 import { ShoppingBag, ArrowRight, Minus, Plus, Trash2, X } from "lucide-react";
 import { formatPrice } from "@/lib/products";
 import { isFloatingCartRoute } from "@/lib/order-demo";
 import { useOrder } from "./order-provider";
 import { OrderDialog } from "./order-dialog";
+import { useNavigationPending } from "@/components/ui-loader";
 import { FoodImage } from "./food-image";
 import styles from "./order-experience.module.css";
 
@@ -112,6 +113,7 @@ function MiniCartContent({ onNavigate }: { onNavigate: () => void }) {
 }
 
 export function OrderDock() {
+  const navigating = useNavigationPending();
   const { count, ready } = useOrder();
   const pathname = usePathname();
   const [preview, setPreview] = useState(false);
@@ -125,7 +127,7 @@ export function OrderDock() {
   useEffect(() => {
     setPreview(false);
     setOpen(false);
-  }, [pathname]);
+  }, [pathname, navigating]);
   useEffect(() => {
     let animation: Animation | undefined;
     if (
@@ -144,7 +146,7 @@ export function OrderDock() {
     previousCount.current = count;
     return () => animation?.cancel();
   }, [count, visible]);
-  if (!visible || !ready) return null;
+  if (!visible || !ready || navigating) return null;
   const close = () => {
     setOpen(false);
     setPreview(false);

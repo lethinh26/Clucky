@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/ui-loader/navigation-link";
 import { formatPrice } from "@/lib/products";
 import { useOrder } from "@/components/order/order-provider";
+import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import type { Order } from "@/lib/types/order";
 import {
@@ -22,6 +23,7 @@ type FilterTab = "ALL" | "ACTIVE" | "COMPLETED" | "CANCELLED";
 
 export default function OrdersHistoryPage() {
   const { orders, reorder, ready } = useOrder();
+  useNavigationTask(!ready);
   const activeOrder = orders.find(
     (order) => !["COMPLETED", "CANCELLED"].includes(order.status),
   );
@@ -163,9 +165,7 @@ export default function OrdersHistoryPage() {
 
         {/* Order Cards */}
         {!ready ? (
-          <div className="order-skeleton" role="status">
-            Đang tải đơn hàng…
-          </div>
+          <div className="order-skeleton" aria-hidden="true" />
         ) : filteredOrders.length === 0 ? (
           <div className={styles.emptyState}>
             <h3 className={styles.emptyTitle}>Không tìm thấy đơn hàng nào</h3>

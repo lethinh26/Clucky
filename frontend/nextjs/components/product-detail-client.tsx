@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { FoodImage } from "@/components/order/food-image";
-import Link from "next/link";
+import Link from "@/components/ui-loader/navigation-link";
 import { useOrder } from "@/components/order/order-provider";
 import { formatPrice, type Product } from "@/lib/products";
 import { ArrowLeft, Star, Minus, Plus, ShoppingBag, Check } from "lucide-react";

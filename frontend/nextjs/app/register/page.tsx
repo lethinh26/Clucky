@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
+import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { authApi, ApiError } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const startAction = useDeferredAction();
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState("");
@@ -19,6 +21,8 @@ export default function RegisterPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    const task = startAction();
     setError(null);
     if (!fullName.trim() || !email.trim() || !password) {
       setError("Vui lòng điền đầy đủ họ tên, email và mật khẩu.");
@@ -40,12 +44,13 @@ export default function RegisterPage() {
         phone: phone || undefined,
         password,
       });
-      router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}`);
+      if (task.isCurrent()) router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}`);
     } catch (err) {
+      if (!task.isCurrent()) return;
       const apiErr = err as ApiError;
       setError(apiErr.message || "Đăng ký không thành công.");
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   };
 

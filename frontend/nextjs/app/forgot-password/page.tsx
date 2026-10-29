@@ -1,14 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
+import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Input } from "@/components/ui/input";
 import { authApi, ApiError } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const startDeferred = useDeferredAction();
   const [email, setEmail] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
@@ -16,6 +18,8 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    const task = startDeferred();
     setError(null);
     setSuccess(null);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -25,15 +29,17 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       await authApi.forgotPassword({ email: email.trim() });
+      if (!task.isCurrent()) return;
       setSuccess("Nếu email tồn tại, mã đặt lại mật khẩu đã được gửi.");
-      setTimeout(
+      task.schedule(
         () => router.push(`/reset-password?email=${encodeURIComponent(email)}`),
         1200,
       );
     } catch (err) {
+      if (!task.isCurrent()) return;
       setError((err as ApiError).message || "Không thể gửi yêu cầu.");
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   };
 

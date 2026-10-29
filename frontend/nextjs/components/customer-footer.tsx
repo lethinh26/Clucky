@@ -1,9 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui-loader/navigation-link";
 
 export function CustomerFooter() {
   return (
-    <footer className="site-footer">
+    <footer className="site-footer" data-loading-shell="bottom">
       <div className="footer-inner">
         <Link className="brand" href="/" style={{ color: "#FFFAF3" }}>
           <Image

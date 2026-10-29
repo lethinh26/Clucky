@@ -15,6 +15,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   cancelText = 'Hủy bỏ',
   okButtonProps,
   cancelButtonProps,
+  confirmLoading = false,
   ...restProps
 }) => {
   return (
@@ -71,6 +72,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           padding: '0 20px',
         },
         ...cancelButtonProps,
+        disabled: confirmLoading || cancelButtonProps?.disabled,
       }}
       styles={{
         body: {
@@ -90,6 +92,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         },
       }}
       {...restProps}
+      confirmLoading={confirmLoading}
+      closable={confirmLoading ? false : restProps.closable}
+      maskClosable={confirmLoading ? false : restProps.maskClosable}
+      keyboard={confirmLoading ? false : restProps.keyboard}
+      onCancel={confirmLoading ? undefined : restProps.onCancel}
     >
       {children}
     </Modal>
@@ -125,6 +132,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       onCancel={onCancel}
       footer={null}
       closable={!loading}
+      maskClosable={!loading}
+      keyboard={!loading}
       centered
       width={440}
       styles={{

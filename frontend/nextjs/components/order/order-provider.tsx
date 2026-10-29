@@ -18,7 +18,6 @@ import {
 } from "@/lib/order-demo";
 import { MOCK_ORDERS } from "@/lib/mock/order-mock-data";
 import type { CartItem, Order } from "@/lib/types/order";
-import { useNavigationLoader } from "@/components/ui-loader";
 
 const storageKey = "clucky-order-workspace-v1";
 const cartSchema = z.array(
@@ -117,10 +116,6 @@ interface OrderContextValue {
   ready: boolean;
   storageError: boolean;
   demoEnabled: boolean;
-  isNavigating: boolean;
-  navigationMessage: string | null;
-  startNavigating: (message?: string) => void;
-  stopNavigating: () => void;
   runDemoAction: (
     id: string,
     action: DemoAction,
@@ -137,13 +132,6 @@ interface OrderContextValue {
 const OrderContext = createContext<OrderContextValue | null>(null);
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
-  const {
-    isLoading: isNavigating,
-    message: navigationMessage,
-    startLoading: startNavigating,
-    stopLoading: stopNavigating,
-  } = useNavigationLoader();
-
   const [workspace, setSnapshot] = useState<{
     items: CartItem[];
     orders: Order[];
@@ -346,10 +334,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       ready,
       storageError,
       demoEnabled: DEMO_CONTROLS_ENABLED,
-      isNavigating,
-      navigationMessage,
-      startNavigating,
-      stopNavigating,
       runDemoAction,
       addItem,
       updateQuantity,
@@ -364,10 +348,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       totals,
       ready,
       storageError,
-      isNavigating,
-      navigationMessage,
-      startNavigating,
-      stopNavigating,
       runDemoAction,
       addItem,
       updateQuantity,

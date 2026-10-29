@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
+import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { authApi, ApiError } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const startAction = useDeferredAction();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -17,6 +19,8 @@ export default function LoginPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    const task = startAction();
     setError(null);
     if (!email || !password) {
       setError("Vui lòng nhập email và mật khẩu.");
@@ -29,16 +33,18 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const tokens = await authApi.login({ email: email.trim(), password });
+      if (!task.isCurrent()) return;
       if (typeof window !== "undefined") {
         localStorage.setItem("clucky_access_token", tokens.accessToken);
         localStorage.setItem("clucky_refresh_token", tokens.refreshToken);
       }
       router.push("/account");
     } catch (err) {
+      if (!task.isCurrent()) return;
       const apiErr = err as ApiError;
       setError(apiErr.message || "Đăng nhập thất bại. Kiểm tra lại thông tin.");
     } finally {
-      setLoading(false);
+      if (task.isCurrent()) setLoading(false);
     }
   };
 

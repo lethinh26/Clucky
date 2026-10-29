@@ -1,5 +1,8 @@
 export {
   NavigationLoaderProvider,
-  useNavigationLoader,
-  ContentLoaderOverlay,
+  NavigationContent,
+  NavigationFallback,
+  NavigationError,
+  useNavigationPending,
+  useNavigationTask,
 } from "./navigation-loader-context";

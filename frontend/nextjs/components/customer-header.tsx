@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/ui-loader/navigation-link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Menu, ShoppingBag, UserRound, X } from "lucide-react";
 import { CartBadge } from "@/components/order";
@@ -50,7 +50,7 @@ export function CustomerHeader() {
     pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 
   return (
-    <header className={styles.header} ref={rootRef}>
+    <header className={styles.header} ref={rootRef} data-loading-shell="top">
       <div className={styles.topline}>
         Crispy outside. Happy inside.<span>Một bữa ngon, thêm niềm vui.</span>
       </div>
@@ -127,6 +127,7 @@ export function CustomerHeader() {
         id={menuId}
         hidden={!open}
         className={styles.mobileNav}
+        data-loading-shell="top"
         aria-label="Điều hướng di động"
       >
         <div className={styles.mobileLinks}>

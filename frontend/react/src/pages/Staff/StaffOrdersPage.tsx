@@ -31,6 +31,7 @@ import { OrderStatusBadge } from "../../components/ui/OrderStatusBadge";
 import { FoodImage } from "../../components/ui/FoodImage";
 import { OrderDetailDrawer } from "../Orders/components/OrderDetailDrawer";
 import styles from "./staff-orders.module.css";
+import { usePageLoading } from "../../components/ui-loader/page-loading";
 
 const formatMoney = (amount: number) =>
   new Intl.NumberFormat("vi-VN").format(amount) + "đ";
@@ -54,6 +55,7 @@ export function StaffOrdersPage() {
     storageError,
     actionError,
   } = useOrders();
+  usePageLoading(loading);
   const { user } = useAuth();
   const [filter, setFilter] = useState("ACTIVE");
   const [query, setQuery] = useState("");
@@ -244,10 +246,10 @@ export function StaffOrdersPage() {
         </small>
       </div>
       {loading ? (
-        <div className={styles.cardsGrid}>
+        <div className={styles.cardsGrid} aria-hidden="true">
           {[1, 2, 3].map((key) => (
             <div key={key} className={styles.orderCard}>
-              <Skeleton active />
+              <Skeleton />
             </div>
           ))}
         </div>

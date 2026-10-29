@@ -2,6 +2,8 @@ import React from 'react';
 import { Table, Input, Space, Empty, Skeleton, Card } from 'antd';
 import type { TableProps } from 'antd';
 import { SearchOutlined, InboxOutlined } from '@ant-design/icons';
+import { usePagePending } from '../ui-loader/page-loading';
+import { useDelayedLoading } from '../ui-loader/loading-surface';
 
 export interface AdminTableProps<T> extends TableProps<T> {
   searchPlaceholder?: string;
@@ -30,6 +32,9 @@ export function AdminTable<T extends object>({
   ...restProps
 }: AdminTableProps<T>) {
   const hasToolbar = onSearchChange || toolbarExtra || filterNodes;
+  const pagePending = usePagePending();
+  const pending = typeof loading === 'object' ? loading.spinning !== false : !!loading;
+  const visible = useDelayedLoading(pending);
 
   return (
     <Card
@@ -76,9 +81,11 @@ export function AdminTable<T extends object>({
         </div>
       )}
 
-      {loading ? (
-        <div style={{ padding: '24px 0' }} className="admin-skeleton-wrap">
-          <Skeleton active paragraph={{ rows: 6 }} />
+      {pending ? (
+        <div style={{ padding: '24px 0', minHeight: 220 }} className="admin-skeleton-wrap" aria-busy="true">
+          <div role={visible && !pagePending ? 'status' : undefined} aria-label={visible && !pagePending ? 'Đang tải dữ liệu' : undefined}>
+            <Skeleton active={visible && !pagePending} paragraph={{ rows: 6 }} />
+          </div>
         </div>
       ) : (
         <Table<T>
