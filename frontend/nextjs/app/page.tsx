@@ -2,11 +2,33 @@ import Link from "@/components/ui-loader/navigation-link";
 import { Hero } from "@/components/hero";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";
-import { products, categories } from "@/lib/products";
+import { products as fallbackProducts, categories as fallbackCategories } from "@/lib/products";
+import { catalogApi } from "@/lib/api";
 import { Flame, Award, Truck } from "lucide-react";
 
-export default function Home() {
-  const featuredProducts = products
+export default async function Home() {
+  let displayProducts = fallbackProducts;
+  let displayCategories = fallbackCategories;
+
+  try {
+    const [liveProds, liveCats] = await Promise.all([
+      catalogApi.getProducts({ activeOnly: true }),
+      catalogApi.getCategories(true),
+    ]);
+    if (liveProds && liveProds.length > 0) {
+      displayProducts = liveProds as unknown as typeof fallbackProducts;
+    }
+    if (liveCats && liveCats.length > 0) {
+      displayCategories = [
+        { id: 0, name: 'Tất cả' },
+        ...liveCats.map((c) => ({ id: Number(c.id), name: c.name })),
+      ];
+    }
+  } catch (err) {
+    // Keep fallback
+  }
+
+  const featuredProducts = displayProducts
     .filter((p) => p.isBestSeller || p.id <= 6)
     .slice(0, 6);
 
@@ -38,7 +60,7 @@ export default function Home() {
         {/* Floating Category Dock */}
         <section className="category-row-section" aria-label="Danh mục món ăn">
           <div className="category-dock">
-            {categories.map((cat) => (
+            {displayCategories.map((cat) => (
               <Link
                 key={cat.id}
                 href={cat.id === 0 ? "/menu" : `/menu?cat=${cat.id}`}

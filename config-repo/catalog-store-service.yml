@@ -3,6 +3,16 @@ server:
 spring:
   application:
     name: catalog-store-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${DB_NAME:clucky}?currentSchema=catalog_service
+  jpa:
+    properties:
+      hibernate:
+        default_schema: catalog_service
+  flyway:
+    schemas: catalog_service
+    default-schema: catalog_service
+    create-schemas: true
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}

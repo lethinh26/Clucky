@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Button,
   Space,
@@ -29,10 +29,13 @@ import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { AdminModal } from '../../../components/ui/AdminModal';
 import { useAuth } from '../../../context/AuthContext';
 import { InventoryItem, mockInventory, mockStores } from '../../../mocks/catalogData';
+import { inventoryApi, storesApi, getErrorMessage } from '../../../lib/api';
 
 export const StaffInventoryPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
+  const [stores, setStores] = useState(mockStores);
+  const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'LOW_STOCK' | 'SOLD_OUT'>('ALL');
   const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId || 1);
@@ -41,8 +44,28 @@ export const StaffInventoryPage: React.FC = () => {
   const [form] = Form.useForm();
 
   const activeStoreId = isAdmin ? adminSelectedStoreId : (user.storeId || 1);
-  const currentStore = mockStores.find((s) => s.id === activeStoreId);
+  const currentStore = stores.find((s) => s.id === activeStoreId);
   const currentStoreName = currentStore?.name || user.storeName || 'Chi nhánh Clucky Lê Lợi (Q.1)';
+
+  const fetchInventory = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [invList, storeList] = await Promise.all([
+        inventoryApi.getStoreInventory(activeStoreId),
+        storesApi.list(false),
+      ]);
+      if (invList && invList.length > 0) setInventory(invList);
+      if (storeList && storeList.length > 0) setStores(storeList);
+    } catch (err) {
+      console.warn('API error, using cached inventory', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeStoreId]);
+
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
 
   // Store-scoped inventory
   const storeInventory = useMemo(() => {
@@ -78,26 +101,31 @@ export const StaffInventoryPage: React.FC = () => {
   const availableCount = totalItems - soldOutCount;
 
   // Toggle "Hết món trong ca" (Local branch switch)
-  const handleToggleSoldOut = (item: InventoryItem, checked: boolean) => {
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    setInventory((prev) =>
-      prev.map((i) =>
-        i.productId === item.productId
-          ? {
-              ...i,
-              isSoldOut: checked,
-              updatedAt: now,
-              updatedBy: `${user.fullName} (${user.role})`,
-            }
-          : i
-      )
-    );
-    if (checked) {
-      message.warning(
-        `Đã đánh dấu "Hết món trong ca" cho "${item.productName}". Khách tại chi nhánh sẽ không thể đặt món này.`
+  const handleToggleSoldOut = async (item: InventoryItem, checked: boolean) => {
+    try {
+      await inventoryApi.updateAvailability(activeStoreId, item.productId, { isSoldOut: checked });
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      setInventory((prev) =>
+        prev.map((i) =>
+          i.productId === item.productId
+            ? {
+                ...i,
+                isSoldOut: checked,
+                updatedAt: now,
+                updatedBy: `${user.fullName} (${user.role})`,
+              }
+            : i
+        )
       );
-    } else {
-      message.success(`Đã mở bán lại món "${item.productName}" tại chi nhánh.`);
+      if (checked) {
+        message.warning(
+          `Đã đánh dấu "Hết món trong ca" cho "${item.productName}". Khách tại chi nhánh sẽ không thể đặt món này.`
+        );
+      } else {
+        message.success(`Đã mở bán lại món "${item.productName}" tại chi nhánh.`);
+      }
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái món tại chi nhánh!'));
     }
   };
 
@@ -113,25 +141,21 @@ export const StaffInventoryPage: React.FC = () => {
   const handleUpdateStockSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-      setInventory((prev) =>
-        prev.map((i) =>
-          i.productId === editingItem?.productId
-            ? {
-                ...i,
-                quantityAvailable: values.quantityAvailable,
-                lowStockThreshold: values.lowStockThreshold,
-                isSoldOut: values.quantityAvailable === 0 ? true : i.isSoldOut,
-                updatedAt: now,
-                updatedBy: `${user.fullName} (${user.role})`,
-              }
-            : i
-        )
-      );
-      message.success(`Đã cập nhật số lượng tồn kho cho "${editingItem?.productName}".`);
+      if (editingItem) {
+        const updated = await inventoryApi.updateInventory(activeStoreId, editingItem.productId, {
+          quantityAvailable: values.quantityAvailable,
+          lowStockThreshold: values.lowStockThreshold,
+        });
+        setInventory((prev) =>
+          prev.map((i) =>
+            i.productId === editingItem.productId ? updated : i
+          )
+        );
+        message.success(`Đã cập nhật số lượng tồn kho cho "${editingItem.productName}".`);
+      }
       setModalOpen(false);
-    } catch {
-      message.error('Vui lòng nhập số lượng hợp lệ.');
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi cập nhật tồn kho!'));
     }
   };
 

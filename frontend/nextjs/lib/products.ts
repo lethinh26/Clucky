@@ -495,7 +495,15 @@ export const formatPrice = (price: number): string => {
 };
 
 export const getProduct = (slug: string): Product | undefined => {
-  return products.find((product) => product.slug === slug);
+  const exact = products.find((product) => product.slug === slug);
+  if (exact) return exact;
+  const match = slug.match(/-(\d+)$/);
+  if (match) {
+    const id = Number(match[1]);
+    const foundById = products.find((p) => p.id === id);
+    if (foundById) return foundById;
+  }
+  return undefined;
 };
 
 export const getProductById = (id: number): Product | undefined => {
