@@ -1,4 +1,4 @@
-name: Frontend CI
+name: Frontend CI/CD
 
 on:
   push:
@@ -6,10 +6,12 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
+      - "deploy/frontend/**"
   pull_request:
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
+      - "deploy/frontend/**"
   workflow_dispatch:
 
 permissions:
@@ -17,11 +19,13 @@ permissions:
 
 concurrency:
   group: frontend-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Never interrupt a production deployment midway through a release switch.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CI: "true"
   NEXT_TELEMETRY_DISABLED: "1"
+  RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   frontend:
@@ -114,3 +118,173 @@ jobs:
             frontend/nextjs/test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  images:
+    name: Package frontend images
+    needs: [frontend, ui]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      vars.FRONTEND_CD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      release_id: ${{ steps.release.outputs.id }}
+    env:
+      PUBLIC_API_URL: ${{ vars.FRONTEND_API_URL }}
+      FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+    steps:
+      - name: Checkout checked revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Identify release bundle
+        id: release
+        run: echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Build production images on GitHub runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          for app in nextjs react; do
+            args=()
+            if [[ "$app" == nextjs ]]; then
+              image=customer
+              args+=(--build-arg "NEXT_PUBLIC_API_URL=$PUBLIC_API_URL")
+              args+=(--build-arg "NEXT_PUBLIC_FIREBASE_API_KEY=$FIREBASE_API_KEY")
+              args+=(--build-arg "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN")
+              args+=(--build-arg "NEXT_PUBLIC_FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID")
+            else
+              image=admin
+              args+=(--build-arg "VITE_API_URL=$PUBLIC_API_URL")
+            fi
+            docker build --pull "${args[@]}" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --label "com.clucky.component=$image" \
+              --tag "clucky-$image:$RELEASE_ID" "frontend/$app"
+          done
+
+      - name: Check production container health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in customer admin; do
+            container="frontend-smoke-$image"
+            docker run --detach --name "$container" "clucky-$image:$RELEASE_ID"
+            healthy=false
+            for attempt in $(seq 1 45); do
+              state=$(docker inspect --format '{{.State.Health.Status}}' "$container")
+              running=$(docker inspect --format '{{.State.Running}}' "$container")
+              if [[ "$state" == healthy ]]; then healthy=true; break; fi
+              if [[ "$state" == unhealthy || "$running" != true ]]; then break; fi
+              sleep 3
+            done
+            if [[ "$healthy" != true ]]; then
+              docker logs --tail 80 "$container"
+              echo "Production container $image did not become healthy." >&2
+              exit 1
+            fi
+          done
+
+      - name: Remove smoke container
+        if: always()
+        run: docker rm -f frontend-smoke-customer frontend-smoke-admin || true
+
+      - name: Export healthy image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundle
+          for image in customer admin; do
+            docker save "clucky-$image:$RELEASE_ID" | gzip -1 > "bundle/$image.tar.gz"
+          done
+
+      - name: Store immutable release image
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-images-${{ env.RELEASE_ID }}
+          path: bundle/*.tar.gz
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy frontend to VPS
+    needs: images
+    if: github.ref == 'refs/heads/main' && vars.FRONTEND_CD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: frontend-production
+    concurrency:
+      group: clucky-frontend-production
+      cancel-in-progress: false
+    env:
+      # Retain the packaged ID when only a failed deployment job is rerun.
+      RELEASE_ID: ${{ needs.images.outputs.release_id }}
+      DEPLOY_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
+      DEPLOY_PORT: ${{ vars.VPS_PORT || secrets.VPS_PORT || '8686' }}
+      DEPLOY_USER: ${{ vars.VPS_USER || secrets.VPS_USER }}
+      VPS_WORKDIR: ${{ vars.VPS_WORKDIR || secrets.VPS_WORKDIR || '/opt/clucky' }}
+    steps:
+      - name: Checkout release scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Reject an obsolete main revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          [[ "$current" == "$GITHUB_SHA" ]] || { echo 'A newer main revision exists; skip this release.' >&2; exit 1; }
+
+      - name: Download checked release images
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-images-${{ env.RELEASE_ID }}
+          path: bundle
+
+      - name: Prepare SSH and release manifest
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS || secrets.FRONTEND_SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || { echo 'Invalid or missing VPS_HOST' >&2; exit 1; }
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo 'Invalid or missing VPS_USER' >&2; exit 1; }
+          [[ "$VPS_WORKDIR" =~ ^/([A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*$ ]] || { echo 'VPS_WORKDIR must be an absolute path without spaces, dot segments or a trailing slash.' >&2; exit 1; }
+          [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]] && ((10#$DEPLOY_PORT >= 1 && 10#$DEPLOY_PORT <= 65535)) || { echo 'Invalid SSH port' >&2; exit 1; }
+          [[ -n "$SSH_PRIVATE_KEY" && -n "$SSH_KNOWN_HOSTS" ]] || { echo 'Configure VPS_SSH_KEY and VPS_KNOWN_HOSTS secrets first.' >&2; exit 1; }
+          umask 077
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$RUNNER_TEMP/frontend_key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/frontend_known_hosts"
+          cp deploy/frontend/compose.yml deploy/frontend/deploy.sh bundle/
+          printf 'IMAGE_TAG=%s\n' "$RELEASE_ID" > bundle/release.env
+          cd bundle
+          sha256sum customer.tar.gz admin.tar.gz compose.yml deploy.sh release.env > SHA256SUMS
+
+      - name: Transfer and activate release
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          incoming="$VPS_WORKDIR/frontend/incoming/$RELEASE_ID"
+          options=(-i "$RUNNER_TEMP/frontend_key" -o BatchMode=yes -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/frontend_known_hosts"
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "mkdir -p '$incoming'"
+          scp -P "$DEPLOY_PORT" "${options[@]}" \
+            bundle/customer.tar.gz bundle/admin.tar.gz bundle/compose.yml \
+            bundle/deploy.sh bundle/release.env bundle/SHA256SUMS "$target:$incoming/"
+          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "VPS_WORKDIR='$VPS_WORKDIR' bash '$incoming/deploy.sh' apply '$RELEASE_ID'"
+
+      - name: Remove runner SSH material
+        if: always()
+        shell: bash
+        run: rm -f -- "$RUNNER_TEMP/frontend_key" "$RUNNER_TEMP/frontend_known_hosts"
