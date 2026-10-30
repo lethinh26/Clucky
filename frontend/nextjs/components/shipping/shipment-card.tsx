@@ -1,8 +1,8 @@
-import React from "react";
-import { Bike, Store } from "lucide-react";
-import { formatPrice } from "@/lib/products";
+import { Bike, MapPin, Store, UserRound } from "lucide-react";
+import { ShippingFeeCard } from "./shipping-fee-card";
 import styles from "../payment/payment-shared.module.css";
 
+// MVP only creates CREATED records. Assignment and tracking are Phase 2.
 export type ShipmentStatus =
   "CREATED" | "ASSIGNED" | "PICKED_UP" | "SHIPPING" | "DELIVERED" | "FAILED";
 
@@ -10,91 +10,122 @@ export interface ShipmentInfoProps {
   receiverName: string;
   receiverPhone: string;
   address?: string;
-  fee?: number;
+  storeName?: string;
+  fee?: number | null;
+  /** Only pass an actual shipment status; never infer it from the order status. */
   status?: ShipmentStatus;
   orderType?: "DELIVERY" | "PICKUP";
   className?: string;
 }
 
-const SHIPMENT_LABEL: Record<ShipmentStatus, string> = {
-  CREATED: "Đã tạo phiếu giao",
-  ASSIGNED: "Đã gán shipper",
-  PICKED_UP: "Shipper đã lấy hàng",
-  SHIPPING: "Đang giao",
-  DELIVERED: "Đã giao",
-  FAILED: "Giao thất bại",
+const SHIPMENT_CONFIG: Record<
+  ShipmentStatus,
+  { label: string; styleClass: string }
+> = {
+  CREATED: { label: "Đã tạo phiếu giao", styleClass: styles.payPending },
+  ASSIGNED: { label: "Đã gán shipper", styleClass: styles.payRefundPending },
+  PICKED_UP: {
+    label: "Shipper đã lấy hàng",
+    styleClass: styles.payRefundPending,
+  },
+  SHIPPING: { label: "Đang giao", styleClass: styles.payRefundPending },
+  DELIVERED: { label: "Đã giao", styleClass: styles.payPaid },
+  FAILED: { label: "Giao thất bại", styleClass: styles.payMismatch },
 };
 
 export function ShipmentCard({
   receiverName,
   receiverPhone,
   address,
+  storeName,
   fee,
-  status = "CREATED",
+  status,
   orderType = "DELIVERY",
   className = "",
 }: ShipmentInfoProps) {
+  const pickup = orderType === "PICKUP";
+  const shipment = status ? SHIPMENT_CONFIG[status] : undefined;
+  const title = pickup ? "Nhận tại cửa hàng" : "Thông tin giao hàng";
+
   return (
-    <div
+    <section
       className={`${styles.shipmentCard} ${styles.paymentScope} ${className}`}
+      aria-label="Thông tin nhận món"
     >
       <div className={styles.shipmentHead}>
-        <h3 className={styles.shipmentTitle}>
-          {orderType === "PICKUP" ? "Nhận tại cửa hàng" : "Thông tin giao hàng"}
-        </h3>
-        {orderType === "DELIVERY" && (
-          <span className={`${styles.payChip} ${styles.payPending}`}>
-            <span className={styles.payDot} aria-hidden="true" />
-            {SHIPMENT_LABEL[status]}
-          </span>
-        )}
-      </div>
-
-      <div className={styles.shipmentItem}>
-        <span className={styles.shipmentLabel}>Người nhận</span>
-        <p className={styles.shipmentVal}>
-          {receiverName} (<a href={`tel:${receiverPhone}`}>{receiverPhone}</a>)
-        </p>
-      </div>
-
-      <div className={styles.shipmentItem}>
-        <span className={styles.shipmentLabel}>Hình thức</span>
-        <p className={styles.shipmentVal}>
-          {orderType === "DELIVERY" ? (
-            <>
-              <Bike size={16} aria-hidden="true" /> Giao tận nơi
-            </>
+        <span className={styles.cardIcon}>
+          {pickup ? (
+            <Store size={22} aria-hidden="true" />
           ) : (
-            <>
-              <Store size={16} aria-hidden="true" /> Nhận tại cửa hàng
-            </>
+            <Bike size={22} aria-hidden="true" />
           )}
-        </p>
-      </div>
-
-      {address && (
-        <div className={styles.shipmentItem}>
-          <span className={styles.shipmentLabel}>
-            {orderType === "PICKUP" ? "Chi nhánh" : "Địa chỉ giao"}
+        </span>
+        <div>
+          <span className={styles.eyebrow}>
+            {pickup ? "Tự đến lấy món" : "Giao tận nơi"}
           </span>
-          <p className={styles.shipmentVal}>{address}</p>
+          <h3 className={styles.shipmentTitle}>{title}</h3>
         </div>
-      )}
-      {orderType === "DELIVERY" && status === "CREATED" && (
-        <p className={styles.feeHint}>
-          MVP chỉ tạo phiếu giao hàng. Gán shipper và theo dõi giao hàng thuộc
-          Phase 2.
-        </p>
+      </div>
+      {!pickup && shipment && (
+        <span
+          className={`${styles.payChip} ${shipment.styleClass}`}
+          role="status"
+        >
+          <span className={styles.payDot} aria-hidden="true" />
+          {shipment.label}
+        </span>
       )}
 
-      {fee != null && (
+      <dl className={styles.shipmentDetails}>
         <div className={styles.shipmentItem}>
-          <span className={styles.shipmentLabel}>Phí giao hàng</span>
-          <p className={`${styles.shipmentVal} ${styles.shipmentFee}`}>
-            {fee === 0 ? "Miễn phí" : formatPrice(fee)}
-          </p>
+          <dt className={styles.shipmentLabel}>
+            <UserRound size={15} aria-hidden="true" /> Người nhận
+          </dt>
+          <dd className={styles.shipmentVal}>
+            {receiverName.trim() || "Chưa có tên người nhận"}
+          </dd>
+          <dd className={styles.shipmentVal}>
+            {receiverPhone.trim() ? (
+              <a href={`tel:${receiverPhone.replace(/[^+\d]/g, "")}`}>
+                {receiverPhone}
+              </a>
+            ) : (
+              "Chưa có số điện thoại"
+            )}
+          </dd>
         </div>
+        <div className={styles.shipmentItem}>
+          <dt className={styles.shipmentLabel}>
+            <MapPin size={15} aria-hidden="true" />{" "}
+            {pickup ? "Địa điểm nhận món" : "Địa chỉ giao"}
+          </dt>
+          <dd className={styles.shipmentVal}>
+            {pickup
+              ? storeName || address || "Chưa có thông tin cửa hàng"
+              : address?.trim() || "Chưa có địa chỉ giao"}
+          </dd>
+          {pickup && storeName && address && (
+            <dd className={styles.shipmentSecondary}>{address}</dd>
+          )}
+        </div>
+        {!pickup && storeName && (
+          <div className={styles.shipmentItem}>
+            <dt className={styles.shipmentLabel}>
+              <Store size={15} aria-hidden="true" /> Chuẩn bị tại
+            </dt>
+            <dd className={styles.shipmentVal}>{storeName}</dd>
+          </div>
+        )}
+      </dl>
+
+      {!pickup && status === "CREATED" && (
+        <p className={styles.shipmentNote}>
+          Đã ghi nhận thông tin giao hàng. Theo dõi vận chuyển trực tiếp hiện
+          chưa khả dụng.
+        </p>
       )}
-    </div>
+      {!pickup && fee !== undefined && <ShippingFeeCard fee={fee} />}
+    </section>
   );
 }
