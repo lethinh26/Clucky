@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Button,
   Space,
@@ -29,15 +29,35 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AdminModal } from '../../components/ui/AdminModal';
 import { useAuth } from '../../context/AuthContext';
 import { Store, mockStores, mockManagers } from '../../mocks/catalogData';
+import { storesApi, getErrorMessage } from '../../lib/api';
 
 export const StoresPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const [stores, setStores] = useState<Store[]>(mockStores);
+  const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [form] = Form.useForm();
+
+  const fetchStores = useCallback(async () => {
+    try {
+      setLoading(true);
+      const list = await storesApi.list(false);
+      if (list && list.length > 0) {
+        setStores(list);
+      }
+    } catch (err) {
+      console.warn('API error, using cached stores', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStores();
+  }, [fetchStores]);
 
   // Role-based store isolation: Store Manager only sees their assigned branch
   const scopedStores = useMemo(() => {
@@ -92,48 +112,50 @@ export const StoresPage: React.FC = () => {
     try {
       const values = await form.validateFields();
       const manager = mockManagers.find((m) => m.id === values.managerId);
-      const storePayload: Store = {
-        id: editingStore ? editingStore.id : Date.now(),
+      const storePayload: Partial<Store> = {
         name: values.name,
         address: values.address,
-        district: values.district,
-        city: values.city,
         phone: values.phone,
         openTime: values.openTime ? values.openTime.format('HH:mm') : '09:00',
         closeTime: values.closeTime ? values.closeTime.format('HH:mm') : '22:00',
         deliveryArea: values.deliveryArea,
         status: values.status,
-        managerId: values.managerId,
-        managerName: manager?.fullName || values.managerName,
       };
 
       if (editingStore) {
+        const updated = await storesApi.update(editingStore.id, storePayload);
         setStores((prev) =>
-          prev.map((s) => (s.id === editingStore.id ? storePayload : s))
+          prev.map((s) => (s.id === editingStore.id ? { ...updated, managerId: values.managerId, managerName: manager?.fullName } : s))
         );
-        message.success(`Đã cập nhật thông tin chi nhánh "${storePayload.name}".`);
+        message.success(`Đã cập nhật thông tin chi nhánh "${updated.name}".`);
       } else {
-        setStores((prev) => [storePayload, ...prev]);
-        message.success(`Đã tạo mới chi nhánh "${storePayload.name}" thành công.`);
+        const created = await storesApi.create(storePayload);
+        setStores((prev) => [{ ...created, managerId: values.managerId, managerName: manager?.fullName }, ...prev]);
+        message.success(`Đã tạo mới chi nhánh "${created.name}" thành công.`);
       }
 
       setModalOpen(false);
-    } catch {
-      message.error('Vui lòng kiểm tra lại các trường thông tin chi nhánh.');
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Vui lòng kiểm tra lại các trường thông tin chi nhánh.'));
     }
   };
 
-  const handleQuickStatusChange = (store: Store, newStatus: Store['status']) => {
-    setStores((prev) =>
-      prev.map((s) => (s.id === store.id ? { ...s, status: newStatus } : s))
-    );
-    const label =
-      newStatus === 'OPEN'
-        ? 'Đang mở cửa'
-        : newStatus === 'CLOSED_TEMP'
-        ? 'Tạm đóng cửa'
-        : 'Ngừng hoạt động';
-    message.success(`Đã chuyển trạng thái chi nhánh "${store.name}" sang ${label}.`);
+  const handleQuickStatusChange = async (store: Store, newStatus: Store['status']) => {
+    try {
+      await storesApi.updateOperation(store.id, { status: newStatus });
+      setStores((prev) =>
+        prev.map((s) => (s.id === store.id ? { ...s, status: newStatus } : s))
+      );
+      const label =
+        newStatus === 'OPEN'
+          ? 'Đang mở cửa'
+          : newStatus === 'CLOSED_TEMP'
+          ? 'Tạm đóng cửa'
+          : 'Ngừng hoạt động';
+      message.success(`Đã chuyển trạng thái chi nhánh "${store.name}" sang ${label}.`);
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái chi nhánh!'));
+    }
   };
 
   const columns: TableColumnsType<Store> = [

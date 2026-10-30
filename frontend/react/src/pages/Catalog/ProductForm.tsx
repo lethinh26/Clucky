@@ -15,6 +15,8 @@ import {
   message,
   Switch,
   DatePicker,
+  Progress,
+  Alert,
 } from 'antd';
 import type { UploadProps, UploadFile } from 'antd';
 import {
@@ -24,10 +26,12 @@ import {
   FireOutlined,
   PictureOutlined,
   SaveOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import { AdminDrawer } from '../../components/ui/AdminDrawer';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { Product, Combo, ProductOptionGroup, ProductTopping, mockProducts } from '../../mocks/catalogData';
+import { catalogApi, getErrorMessage } from '../../lib/api';
 
 interface ProductFormProps {
   open: boolean;
@@ -51,6 +55,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>([]);
   const [toppings, setToppings] = useState<ProductTopping[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (initialProduct) {
@@ -114,25 +122,55 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   // Image Upload Validator according to SRS / task guidelines (< 5MB, MIME png/jpeg/webp)
-  const beforeUpload = (file: File) => {
+  const beforeUpload = async (file: File) => {
+    setUploadError(null);
+    setUploadProgress(0);
     const isAcceptedFormat = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
     if (!isAcceptedFormat) {
-      message.error('Chỉ chấp nhận file ảnh định dạng PNG, JPG hoặc WEBP!');
+      const err = 'Chỉ chấp nhận file ảnh định dạng PNG, JPG hoặc WEBP!';
+      setUploadError(err);
+      message.error(err);
       return Upload.LIST_IGNORE;
     }
     const isLt5M = file.size / 1024 / 1024 < 5;
     if (!isLt5M) {
-      message.error('Dung lượng ảnh tối đa là 5MB!');
+      const err = 'Dung lượng ảnh tối đa là 5MB!';
+      setUploadError(err);
+      message.error(err);
       return Upload.LIST_IGNORE;
     }
 
-    // Create local preview URL
+    setSelectedFile(file);
+
+    // Instant local preview (INT-72)
     const reader = new FileReader();
     reader.onload = (e) => {
       const url = e.target?.result as string;
       setImageUrl(url);
     };
     reader.readAsDataURL(file);
+
+    // If editing an existing product, upload to Cloudinary immediately with live progress
+    if (initialProduct?.id) {
+      try {
+        setUploading(true);
+        setUploadProgress(10);
+        const updated = await catalogApi.uploadProductImage(
+          initialProduct.id,
+          file,
+          (percent) => setUploadProgress(percent)
+        );
+        setImageUrl(updated.imageUrl);
+        setUploadProgress(100);
+        message.success('Đã tải ảnh lên Cloudinary thành công!');
+      } catch (err) {
+        const errMsg = getErrorMessage(err, 'Lỗi tải ảnh lên Cloudinary!');
+        setUploadError(errMsg);
+        message.error(errMsg);
+      } finally {
+        setUploading(false);
+      }
+    }
 
     return false; // Prevent automatic HTTP post
   };
@@ -454,6 +492,26 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 Hỗ trợ PNG, JPG, WEBP (tối đa 5MB). Tự động nén và tải lên Cloudinary.
               </p>
             </Upload.Dragger>
+
+            {uploading && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6B6259', marginBottom: 4 }}>
+                  <span><LoadingOutlined spin /> Đang tải ảnh lên Cloudinary...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <Progress percent={uploadProgress} status="active" strokeColor="#8F1216" />
+              </div>
+            )}
+
+            {uploadError && (
+              <Alert
+                type="error"
+                showIcon
+                message="Tải ảnh thất bại"
+                description={uploadError}
+                style={{ marginTop: 12, borderRadius: 10 }}
+              />
+            )}
 
             {imageUrl && (
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 16 }}>

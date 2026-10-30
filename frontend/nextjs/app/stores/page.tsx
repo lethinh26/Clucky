@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from '@/components/ui-loader/navigation-link';
-import { stores, type Store } from '@/lib/products';
+import { stores as fallbackStores, type Store } from '@/lib/products';
+import { catalogApi } from '@/lib/api';
 import {
   MapPin,
   Clock,
@@ -16,24 +17,39 @@ import {
 } from 'lucide-react';
 
 export default function StoresPage() {
+  const [storeList, setStoreList] = useState<Store[]>(fallbackStores);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('ALL');
 
-  const districts = useMemo(() => {
-    return ['ALL', ...Array.from(new Set(stores.map((s) => s.district)))];
+  useEffect(() => {
+    let active = true;
+    catalogApi.getStores(false)
+      .then((data) => {
+        if (active && data && data.length > 0) {
+          setStoreList(data as unknown as Store[]);
+        }
+      })
+      .catch((err) => {
+        console.warn('Stores API offline, using fallback stores', err);
+      });
+    return () => { active = false; };
   }, []);
 
+  const districts = useMemo(() => {
+    return ['ALL', ...Array.from(new Set(storeList.map((s) => s.district || 'Khác')))];
+  }, [storeList]);
+
   const filteredStores = useMemo(() => {
-    return stores.filter((s) => {
+    return storeList.filter((s) => {
       const matchDistrict = selectedDistrict === 'ALL' || s.district === selectedDistrict;
       const matchSearch =
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.district.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.district && s.district.toLowerCase().includes(searchTerm.toLowerCase())) ||
         s.phone.includes(searchTerm);
       return matchDistrict && matchSearch;
     });
-  }, [searchTerm, selectedDistrict]);
+  }, [storeList, searchTerm, selectedDistrict]);
 
   return (
     <>

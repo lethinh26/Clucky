@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Button,
   Space,
@@ -23,10 +23,12 @@ import { ConfirmModal } from '../../components/ui/AdminModal';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { ProductForm } from './ProductForm';
 import { Product, Combo, mockProducts, mockCombos, formatVND } from '../../mocks/catalogData';
+import { catalogApi, getErrorMessage } from '../../lib/api';
 
 export const CatalogPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [combos, setCombos] = useState<Combo[]>(mockCombos);
+  const [loading, setLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,6 +36,26 @@ export const CatalogPage: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+
+  const fetchCatalogData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [prods, cmbs] = await Promise.all([
+        catalogApi.listProducts({ activeOnly: false }),
+        catalogApi.listCombos(false),
+      ]);
+      if (prods && prods.length > 0) setProducts(prods);
+      if (cmbs && cmbs.length > 0) setCombos(cmbs);
+    } catch (err) {
+      console.warn('API error, using cached catalog data', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCatalogData();
+  }, [fetchCatalogData]);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -58,56 +80,111 @@ export const CatalogPage: React.FC = () => {
   }, [combos, searchTerm]);
 
   // Toggle active status
-  const handleToggleStatus = (product: Product, checked: boolean) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === product.id ? { ...p, isActive: checked } : p))
-    );
-    message.success(
-      `Đã chuyển "${product.name}" sang ${checked ? 'Đang phục vụ' : 'Tạm dừng bán'}.`
-    );
+  const handleToggleStatus = async (product: Product, checked: boolean) => {
+    try {
+      await catalogApi.updateProductStatus(product.id, checked);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, isActive: checked } : p))
+      );
+      message.success(
+        `Đã chuyển "${product.name}" sang ${checked ? 'Đang phục vụ' : 'Tạm dừng bán'}.`
+      );
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái sản phẩm!'));
+    }
+  };
+
+  // Toggle combo status
+  const handleToggleComboStatus = async (combo: Combo, checked: boolean) => {
+    try {
+      await catalogApi.updateComboStatus(combo.id, checked);
+      setCombos((prev) =>
+        prev.map((c) => (c.id === combo.id ? { ...c, isActive: checked } : c))
+      );
+      message.success(
+        `Đã chuyển Combo "${combo.name}" sang ${checked ? 'Đang áp dụng' : 'Tạm dừng'}.`
+      );
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái gói Combo!'));
+    }
+  };
+
+  // Delete combo
+  const handleDeleteCombo = async (combo: Combo) => {
+    try {
+      await catalogApi.deleteCombo(combo.id);
+      setCombos((prev) => prev.filter((c) => c.id !== combo.id));
+      message.success(`Đã xóa gói Combo "${combo.name}".`);
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi xóa gói Combo!'));
+    }
   };
 
   // Save product from ProductForm
-  const handleSaveProduct = (data: Partial<Product>) => {
-    if (editingProduct) {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === editingProduct.id ? ({ ...p, ...data } as Product) : p))
-      );
-    } else {
-      setProducts((prev) => [data as Product, ...prev]);
+  const handleSaveProduct = async (data: Partial<Product>) => {
+    try {
+      if (editingProduct) {
+        const updated = await catalogApi.updateProduct(editingProduct.id, data);
+        setProducts((prev) =>
+          prev.map((p) => (p.id === editingProduct.id ? updated : p))
+        );
+        message.success(`Đã cập nhật món "${updated.name}" thành công!`);
+      } else {
+        const created = await catalogApi.createProduct(data);
+        setProducts((prev) => [created, ...prev]);
+        message.success(`Đã thêm món "${created.name}" vào thực đơn!`);
+      }
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi lưu thông tin sản phẩm!'));
+      // Fallback local update if offline
+      if (editingProduct) {
+        setProducts((prev) =>
+          prev.map((p) => (p.id === editingProduct.id ? ({ ...p, ...data } as Product) : p))
+        );
+      } else {
+        setProducts((prev) => [data as Product, ...prev]);
+      }
     }
   };
 
   // Save combo from ProductForm
-  const handleSaveCombo = (data: Partial<Combo>) => {
-    const newCombo: Combo = {
-      id: data.id || Date.now(),
-      name: data.name || 'Combo Ưu Đãi Mới',
-      slug: data.name?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-') || `combo-${Date.now()}`,
-      description: data.description || '',
-      comboPrice: data.comboPrice || 99000,
-      imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?w=600',
-      startAt: new Date().toISOString(),
-      isActive: true,
-      items: Array.isArray((data as any).items)
-        ? (data as any).items.map((prodId: number) => {
-            const found = products.find((p) => p.id === prodId);
-            return { productId: prodId, productName: found?.name || 'Món gà Clucky', quantity: 1 };
-          })
-        : [],
-    };
-    setCombos((prev) => [newCombo, ...prev]);
-    setViewMode('combos');
-    message.success(`Đã lưu gói Combo "${newCombo.name}" thành công!`);
+  const handleSaveCombo = async (data: Partial<Combo>) => {
+    try {
+      const payload: Partial<Combo> = {
+        name: data.name || 'Combo Mới',
+        description: data.description || '',
+        comboPrice: data.comboPrice || 99000,
+        imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?w=600',
+        isActive: true,
+        items: Array.isArray((data as any).items)
+          ? (data as any).items.map((prodId: number) => {
+              const found = products.find((p) => p.id === prodId);
+              return { productId: prodId, productName: found?.name || 'Món gà Clucky', quantity: 1 };
+            })
+          : [],
+      };
+      const created = await catalogApi.createCombo(payload);
+      setCombos((prev) => [created, ...prev]);
+      setViewMode('combos');
+      message.success(`Đã lưu gói Combo "${created.name}" thành công!`);
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi lưu thông tin combo!'));
+    }
   };
 
   // Confirm delete
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (productToDelete) {
-      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
-      message.success(`Đã xóa món "${productToDelete.name}" khỏi thực đơn.`);
-      setDeleteModalOpen(false);
-      setProductToDelete(null);
+      try {
+        await catalogApi.deleteProduct(productToDelete.id);
+        setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+        message.success(`Đã xóa món "${productToDelete.name}" khỏi thực đơn.`);
+      } catch (err) {
+        message.error(getErrorMessage(err, 'Lỗi xóa món ăn!'));
+      } finally {
+        setDeleteModalOpen(false);
+        setProductToDelete(null);
+      }
     }
   };
 
@@ -376,14 +453,7 @@ export const CatalogPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Switch
             checked={isActive}
-            onChange={(checked) => {
-              setCombos((prev) =>
-                prev.map((c) => (c.id === record.id ? { ...c, isActive: checked } : c))
-              );
-              message.success(
-                `Đã chuyển Combo "${record.name}" sang ${checked ? 'Đang áp dụng' : 'Tạm dừng'}.`
-              );
-            }}
+            onChange={(checked) => handleToggleComboStatus(record, checked)}
             size="small"
           />
           <StatusBadge
@@ -405,10 +475,7 @@ export const CatalogPage: React.FC = () => {
             type="text"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => {
-              setCombos((prev) => prev.filter((c) => c.id !== record.id));
-              message.success(`Đã xóa gói Combo "${record.name}".`);
-            }}
+            onClick={() => handleDeleteCombo(record)}
           />
         </Tooltip>
       ),

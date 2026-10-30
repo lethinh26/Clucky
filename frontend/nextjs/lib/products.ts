@@ -495,7 +495,23 @@ export const formatPrice = (price: number): string => {
 };
 
 export const getProduct = (slug: string): Product | undefined => {
-  return products.find((product) => product.slug === slug);
+  const exact = products.find((product) => product.slug === slug);
+  if (exact) return exact;
+  if (slug.startsWith('combo-')) {
+    const comboId = Number(slug.replace('combo-', ''));
+    if (!isNaN(comboId)) {
+      const foundCombo = products.find((p) => p.categoryId === 3 && (p.id === comboId || p.slug === slug));
+      if (foundCombo) return foundCombo;
+    }
+    return undefined;
+  }
+  const match = slug.match(/-(\d+)$/);
+  if (match) {
+    const id = Number(match[1]);
+    const foundById = products.find((p) => p.id === id);
+    if (foundById) return foundById;
+  }
+  return undefined;
 };
 
 export const getProductById = (id: number): Product | undefined => {

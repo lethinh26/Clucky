@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from '@/components/ui-loader/navigation-link';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
 import { StyledSelect } from '@/components/styled-select';
-import { products, categories, type Product } from '@/lib/products';
+import { products as fallbackProducts, categories as fallbackCategories, type Product } from '@/lib/products';
+import { catalogApi } from '@/lib/api';
 import {
   Search,
   X,
@@ -21,10 +22,39 @@ function MenuContent() {
   const initialCategory = Number(searchParams.get('cat')) || 0;
   const storeIdParam = searchParams.get('storeId');
 
+  const [products, setProducts] = useState<Product[]>(fallbackProducts);
+  const [categories, setCategories] = useState(fallbackCategories);
   const [selectedCategory, setSelectedCategory] = useState<number>(initialCategory);
   const [searchTerm, setSearchTerm] = useState('');
   const [spicyFilter, setSpicyFilter] = useState<'ALL' | '0' | '1' | '2'>('ALL');
   const [sortOption, setSortOption] = useState<'POPULAR' | 'PRICE_ASC' | 'PRICE_DESC'>('POPULAR');
+
+  useEffect(() => {
+    let active = true;
+    const fetchCatalog = async () => {
+      try {
+        const [liveProds, liveCats] = await Promise.all([
+          catalogApi.getProducts({ storeId: storeIdParam ? Number(storeIdParam) : undefined, activeOnly: true }),
+          catalogApi.getCategories(true),
+        ]);
+        if (active) {
+          if (liveProds && liveProds.length > 0) {
+            setProducts(liveProds as unknown as Product[]);
+          }
+          if (liveCats && liveCats.length > 0) {
+            setCategories([
+              { id: 0, name: 'Tất cả' },
+              ...liveCats.map((c) => ({ id: Number(c.id), name: c.name })),
+            ]);
+          }
+        }
+      } catch (err) {
+        console.warn('Catalog API offline, using fallback catalog', err);
+      }
+    };
+    fetchCatalog();
+    return () => { active = false; };
+  }, [storeIdParam]);
 
   // Filter & Sort Logic
   const filteredProducts = useMemo(() => {

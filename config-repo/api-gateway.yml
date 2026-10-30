@@ -23,7 +23,7 @@ spring:
         - id: catalog
           uri: lb://CATALOG-STORE-SERVICE
           predicates:
-            - Path=/api/stores/**,/api/catalog/**
+            - Path=/api/stores/**,/api/catalog/**,/api/media/**
         - id: orders
           uri: lb://CART-ORDER-SERVICE
           predicates:
