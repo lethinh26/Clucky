@@ -12,6 +12,7 @@ import styles from "./checkout.module.css";
 import { useOrder } from "@/components/order/order-provider";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
+import { ShippingFeeCard } from "@/components/shipping";
 import {
   ShoppingBag,
   MapPin,
@@ -481,12 +482,9 @@ export default function CheckoutPage() {
                 <strong>{formatPrice(subtotal)}</strong>
               </div>
 
-              <div className={styles.costRow}>
-                <span>Phí vận chuyển</span>
-                <strong>
-                  {shippingFee > 0 ? formatPrice(shippingFee) : "Miễn phí"}
-                </strong>
-              </div>
+              {orderType === "DELIVERY" && (
+                <ShippingFeeCard fee={shippingFee} />
+              )}
 
               {voucherDiscount > 0 && (
                 <div className={styles.costRow}>
