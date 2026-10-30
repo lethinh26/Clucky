@@ -3,10 +3,6 @@ name: Frontend CI/CD
 on:
   push:
     branches: [main]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend-ci.yml"
-      - "deploy/frontend/**"
   pull_request:
     paths:
       - "frontend/**"
@@ -124,8 +120,7 @@ jobs:
     needs: [frontend, ui]
     if: >-
       github.ref == 'refs/heads/main' &&
-      github.event_name != 'pull_request' &&
-      vars.FRONTEND_CD_ENABLED == 'true'
+      github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     outputs:
@@ -214,7 +209,7 @@ jobs:
   deploy:
     name: Deploy frontend to VPS
     needs: images
-    if: github.ref == 'refs/heads/main' && vars.FRONTEND_CD_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: frontend-production

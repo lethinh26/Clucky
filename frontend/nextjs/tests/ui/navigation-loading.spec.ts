@@ -438,13 +438,22 @@ for (const app of [customer, admin]) {
       route.fulfill({ json: {} }),
     );
     await page.goto(app + "/forgot-password");
-    await page.getByLabel("Email", { exact: true }).fill("test@clucky.local");
+    // Next.js can retain a hidden streamed copy of this form during hydration.
+    // Role locators target the accessible form instead of its hidden copy.
+    const form = page.getByRole("region", {
+      name: "Quên mật khẩu",
+      exact: true,
+    });
+    const email = form.getByRole("textbox", { name: "Email", exact: true });
+    await expect(email).toHaveCount(1);
+    await email.fill("test@clucky.local");
+    await expect(email).toHaveValue("test@clucky.local");
     await page.clock.install();
-    await page
+    await form
       .getByRole("button", { name: "Gửi mã đặt lại", exact: true })
       .click();
-    await expect(page.getByText(/Nếu email tồn tại/)).toBeVisible();
-    await page.getByRole("link", { name: /Quay lại đăng nhập/ }).click();
+    await expect(form.getByText(/Nếu email tồn tại/)).toBeVisible();
+    await form.getByRole("link", { name: /Quay lại đăng nhập/ }).click();
     await expect(page).toHaveURL(app + "/login");
     await page.clock.runFor(1500);
     await expect(page).toHaveURL(app + "/login");
