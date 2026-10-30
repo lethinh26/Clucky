@@ -50,8 +50,22 @@ public class ProductController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ProductDto.Response> updateProduct(@PathVariable Long id,
-                                                             @Valid @RequestBody ProductDto.Request request) {
+                                                             @RequestBody ProductDto.Request request) {
         return ResponseEntity.ok(productService.updateProduct(id, request));
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<ProductDto.Response> updateStatus(
+            @PathVariable Long id,
+            @RequestParam(name = "active", required = false) Boolean activeParam,
+            @RequestBody(required = false) java.util.Map<String, Object> body) {
+        boolean active = true;
+        if (activeParam != null) {
+            active = activeParam;
+        } else if (body != null && body.containsKey("isActive")) {
+            active = Boolean.parseBoolean(String.valueOf(body.get("isActive")));
+        }
+        return ResponseEntity.ok(productService.updateProductStatus(id, active));
     }
 
     @DeleteMapping("/{id}")

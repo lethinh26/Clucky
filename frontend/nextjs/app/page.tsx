@@ -6,6 +6,8 @@ import { products as fallbackProducts, categories as fallbackCategories } from "
 import { catalogApi } from "@/lib/api";
 import { Flame, Award, Truck } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   let displayProducts = fallbackProducts;
   let displayCategories = fallbackCategories;
@@ -29,8 +31,8 @@ export default async function Home() {
   }
 
   const featuredProducts = displayProducts
-    .filter((p) => p.isBestSeller || p.id <= 6)
-    .slice(0, 6);
+    .filter((p) => p.isActive !== false)
+    .slice(0, 8);
 
   return (
     <>

@@ -78,17 +78,28 @@ public class ComboService {
         Combo combo = comboRepository.findByIdWithItems(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy combo với mã: " + id));
 
-        combo.setName(request.getName());
-        combo.setDescription(request.getDescription());
-        combo.setComboPrice(request.getComboPrice());
+        if (request.getName() != null && !request.getName().isBlank()) combo.setName(request.getName());
+        if (request.getDescription() != null) combo.setDescription(request.getDescription());
+        if (request.getComboPrice() != null) combo.setComboPrice(request.getComboPrice());
         if (request.getImageUrl() != null) combo.setImageUrl(request.getImageUrl());
         if (request.getImagePublicId() != null) combo.setImagePublicId(request.getImagePublicId());
         if (request.getStartAt() != null) combo.setStartAt(request.getStartAt());
         if (request.getEndAt() != null) combo.setEndAt(request.getEndAt());
         if (request.getIsActive() != null) combo.setIsActive(request.getIsActive());
 
-        applyItems(combo, request.getItems());
+        if (request.getItems() != null && !request.getItems().isEmpty()) {
+            applyItems(combo, request.getItems());
+        }
 
+        Combo saved = comboRepository.save(combo);
+        cacheService.evictAllStoreMenuCaches();
+        return toResponse(saved);
+    }
+
+    public ComboDto.Response updateComboStatus(Long id, boolean isActive) {
+        Combo combo = comboRepository.findByIdWithItems(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy combo với mã: " + id));
+        combo.setIsActive(isActive);
         Combo saved = comboRepository.save(combo);
         cacheService.evictAllStoreMenuCaches();
         return toResponse(saved);

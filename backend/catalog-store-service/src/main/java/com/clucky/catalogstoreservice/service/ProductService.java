@@ -20,6 +20,8 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final ProductOptionRepository optionRepository;
+    private final ProductToppingRepository toppingRepository;
     private final StoreRepository storeRepository;
     private final StoreProductRepository storeProductRepository;
     private final StoreInventoryRepository storeInventoryRepository;
@@ -28,6 +30,8 @@ public class ProductService {
 
     public ProductService(ProductRepository productRepository,
                           CategoryRepository categoryRepository,
+                          ProductOptionRepository optionRepository,
+                          ProductToppingRepository toppingRepository,
                           StoreRepository storeRepository,
                           StoreProductRepository storeProductRepository,
                           StoreInventoryRepository storeInventoryRepository,
@@ -35,6 +39,8 @@ public class ProductService {
                           CatalogCacheService cacheService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
+        this.optionRepository = optionRepository;
+        this.toppingRepository = toppingRepository;
         this.storeRepository = storeRepository;
         this.storeProductRepository = storeProductRepository;
         this.storeInventoryRepository = storeInventoryRepository;
@@ -44,7 +50,13 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductDto.Response> getProducts(Long storeId, Long categoryId, String keyword, Integer spicyLevel, boolean activeOnly) {
-        List<Product> products = productRepository.searchProducts(categoryId, keyword, spicyLevel, activeOnly);
+        List<Product> products;
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String pattern = "%" + keyword.trim().toLowerCase() + "%";
+            products = productRepository.searchWithKeyword(categoryId, pattern, spicyLevel, activeOnly);
+        } else {
+            products = productRepository.searchWithoutKeyword(categoryId, spicyLevel, activeOnly);
+        }
 
         Map<Long, StoreProduct> storeProductMap = new HashMap<>();
         Map<Long, StoreInventory> storeInventoryMap = new HashMap<>();
@@ -83,7 +95,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductDto.Response getProductById(Long id, Long storeId) {
-        Product p = productRepository.findByIdWithDetails(id)
+        Product p = productRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn với mã: " + id));
 
         ProductDto.Response resp = toResponse(p);
@@ -139,26 +151,37 @@ public class ProductService {
     }
 
     public ProductDto.Response updateProduct(Long id, ProductDto.Request request) {
-        Product product = productRepository.findByIdWithDetails(id)
+        Product product = productRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn với mã: " + id));
 
-        if (!product.getCategory().getId().equals(request.getCategoryId())) {
+        if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với mã: " + request.getCategoryId()));
             product.setCategory(category);
         }
 
-        product.setName(request.getName());
-        product.setDescription(request.getDescription());
-        product.setBasePrice(request.getBasePrice());
+        if (request.getName() != null && !request.getName().isBlank()) product.setName(request.getName());
+        if (request.getDescription() != null) product.setDescription(request.getDescription());
+        if (request.getBasePrice() != null) product.setBasePrice(request.getBasePrice());
         if (request.getImageUrl() != null) product.setImageUrl(request.getImageUrl());
         if (request.getImagePublicId() != null) product.setImagePublicId(request.getImagePublicId());
         if (request.getKcal() != null) product.setKcal(request.getKcal());
         if (request.getSpicyLevel() != null) product.setSpicyLevel(request.getSpicyLevel());
         if (request.getIsActive() != null) product.setIsActive(request.getIsActive());
 
-        applyOptionsAndToppings(product, request.getOptions(), request.getToppings());
+        if (request.getOptions() != null && !request.getOptions().isEmpty()) {
+            applyOptionsAndToppings(product, request.getOptions(), request.getToppings());
+        }
 
+        Product saved = productRepository.save(product);
+        cacheService.evictAllStoreMenuCaches();
+        return toResponse(saved);
+    }
+
+    public ProductDto.Response updateProductStatus(Long id, boolean isActive) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn với mã: " + id));
+        product.setIsActive(isActive);
         Product saved = productRepository.save(product);
         cacheService.evictAllStoreMenuCaches();
         return toResponse(saved);
@@ -245,15 +268,14 @@ public class ProductService {
 
         // Group options by groupName
         Map<String, List<ProductDto.OptionChoiceDto>> groupMap = new LinkedHashMap<>();
-        if (p.getOptions() != null) {
-            for (ProductOption opt : p.getOptions()) {
-                groupMap.computeIfAbsent(opt.getGroupName(), k -> new ArrayList<>())
-                        .add(new ProductDto.OptionChoiceDto(
-                                "opt-" + opt.getId(),
-                                opt.getName(),
-                                opt.getExtraPrice()
-                        ));
-            }
+        List<ProductOption> options = optionRepository.findByProductId(p.getId());
+        for (ProductOption opt : options) {
+            groupMap.computeIfAbsent(opt.getGroupName(), k -> new ArrayList<>())
+                    .add(new ProductDto.OptionChoiceDto(
+                            "opt-" + opt.getId(),
+                            opt.getName(),
+                            opt.getExtraPrice()
+                    ));
         }
         List<ProductDto.OptionGroupDto> optionGroups = new ArrayList<>();
         int gIndex = 1;
@@ -269,14 +291,13 @@ public class ProductService {
 
         // Toppings
         List<ProductDto.ToppingDto> toppings = new ArrayList<>();
-        if (p.getToppings() != null) {
-            for (ProductTopping top : p.getToppings()) {
-                toppings.add(new ProductDto.ToppingDto(
-                        "top-" + top.getId(),
-                        top.getToppingName(),
-                        top.getExtraPrice()
-                ));
-            }
+        List<ProductTopping> toppingsList = toppingRepository.findByProductId(p.getId());
+        for (ProductTopping top : toppingsList) {
+            toppings.add(new ProductDto.ToppingDto(
+                    "top-" + top.getId(),
+                    top.getToppingName(),
+                    top.getExtraPrice()
+            ));
         }
         r.setToppings(toppings);
 

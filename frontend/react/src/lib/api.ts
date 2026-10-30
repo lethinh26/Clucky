@@ -6,7 +6,7 @@ import type { Product, Combo, Store, InventoryItem } from '../mocks/catalogData'
  * All requests go through the API Gateway (`VITE_API_URL`, default http://localhost:8080).
  */
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });
@@ -79,6 +79,8 @@ export const catalogApi = {
     api.post<Product>('/api/catalog/products', data).then((r) => r.data),
   updateProduct: (id: number, data: Partial<Product>) =>
     api.put<Product>(`/api/catalog/products/${id}`, data).then((r) => r.data),
+  updateProductStatus: (id: number, isActive: boolean) =>
+    api.put<Product>(`/api/catalog/products/${id}/status?active=${isActive}`).then((r) => r.data),
   deleteProduct: (id: number) =>
     api.delete(`/api/catalog/products/${id}`).then((r) => r.data),
   uploadProductImage: (id: number, file: File, onProgress?: (percent: number) => void) => {
@@ -102,6 +104,8 @@ export const catalogApi = {
     api.post<Combo>('/api/catalog/combos', data).then((r) => r.data),
   updateCombo: (id: number, data: Partial<Combo>) =>
     api.put<Combo>(`/api/catalog/combos/${id}`, data).then((r) => r.data),
+  updateComboStatus: (id: number, isActive: boolean) =>
+    api.put<Combo>(`/api/catalog/combos/${id}/status?active=${isActive}`).then((r) => r.data),
   deleteCombo: (id: number) =>
     api.delete(`/api/catalog/combos/${id}`).then((r) => r.data),
   uploadComboImage: (id: number, file: File, onProgress?: (percent: number) => void) => {

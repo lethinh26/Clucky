@@ -82,7 +82,7 @@ export const CatalogPage: React.FC = () => {
   // Toggle active status
   const handleToggleStatus = async (product: Product, checked: boolean) => {
     try {
-      await catalogApi.updateProduct(product.id, { ...product, isActive: checked });
+      await catalogApi.updateProductStatus(product.id, checked);
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? { ...p, isActive: checked } : p))
       );
@@ -91,6 +91,32 @@ export const CatalogPage: React.FC = () => {
       );
     } catch (err) {
       message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái sản phẩm!'));
+    }
+  };
+
+  // Toggle combo status
+  const handleToggleComboStatus = async (combo: Combo, checked: boolean) => {
+    try {
+      await catalogApi.updateComboStatus(combo.id, checked);
+      setCombos((prev) =>
+        prev.map((c) => (c.id === combo.id ? { ...c, isActive: checked } : c))
+      );
+      message.success(
+        `Đã chuyển Combo "${combo.name}" sang ${checked ? 'Đang áp dụng' : 'Tạm dừng'}.`
+      );
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái gói Combo!'));
+    }
+  };
+
+  // Delete combo
+  const handleDeleteCombo = async (combo: Combo) => {
+    try {
+      await catalogApi.deleteCombo(combo.id);
+      setCombos((prev) => prev.filter((c) => c.id !== combo.id));
+      message.success(`Đã xóa gói Combo "${combo.name}".`);
+    } catch (err) {
+      message.error(getErrorMessage(err, 'Lỗi xóa gói Combo!'));
     }
   };
 
@@ -427,14 +453,7 @@ export const CatalogPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Switch
             checked={isActive}
-            onChange={(checked) => {
-              setCombos((prev) =>
-                prev.map((c) => (c.id === record.id ? { ...c, isActive: checked } : c))
-              );
-              message.success(
-                `Đã chuyển Combo "${record.name}" sang ${checked ? 'Đang áp dụng' : 'Tạm dừng'}.`
-              );
-            }}
+            onChange={(checked) => handleToggleComboStatus(record, checked)}
             size="small"
           />
           <StatusBadge
@@ -456,10 +475,7 @@ export const CatalogPage: React.FC = () => {
             type="text"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => {
-              setCombos((prev) => prev.filter((c) => c.id !== record.id));
-              message.success(`Đã xóa gói Combo "${record.name}".`);
-            }}
+            onClick={() => handleDeleteCombo(record)}
           />
         </Tooltip>
       ),
