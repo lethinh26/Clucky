@@ -1,40 +1,18 @@
-# syntax=docker/dockerfile:1
-
-# Stage 1: Build the static application
-FROM node:22-alpine AS build
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
-
 COPY package.json package-lock.json ./
-RUN npm ci
-
+RUN npm ci --no-audit --no-fund
 COPY . .
-
-ARG VITE_API_URL=http://localhost:8080
+ARG VITE_API_URL=""
 ENV VITE_API_URL=$VITE_API_URL
-
 RUN npm run build
 
-# Stage 2: Serve application with Nginx
-FROM nginx:1.27-alpine AS runner
-
+FROM nginx:1.30.6-alpine AS runtime
+COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=build /app/dist /usr/share/nginx/html
-
-RUN printf 'server {\n\
-    listen 80;\n\
-    server_name _;\n\
-    root /usr/share/nginx/html;\n\
-    index index.html;\n\
-\n\
-    location / {\n\
-        try_files $uri $uri/ /index.html;\n\
-    }\n\
-\n\
-    error_page 500 502 503 504 /50x.html;\n\
-    location = /50x.html {\n\
-        root /usr/share/nginx/html;\n\
-    }\n\
-}\n' > /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+USER nginx
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=6 \
+  CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
+ENTRYPOINT ["nginx"]
+CMD ["-g", "daemon off;"]
