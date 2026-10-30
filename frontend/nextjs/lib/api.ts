@@ -4,7 +4,7 @@
  * All requests go through the API Gateway (`NEXT_PUBLIC_API_URL`,
  * default http://localhost:8080) — never directly to a business service.
  */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export interface ApiError {
   status: number;
