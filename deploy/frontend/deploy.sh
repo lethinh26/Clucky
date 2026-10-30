@@ -20,13 +20,12 @@ docker compose version >/dev/null
 mkdir -p "$RELEASES"
 exec 9>"$ROOT/deploy.lock"
 flock -w 300 9 || fail 'Another frontend deployment is still running.'
-[[ -f "$ROOT/runtime.env" ]] || fail "Missing $ROOT/runtime.env."
 
 compose() {
   local release=$1
   shift
   docker compose --project-name "$PROJECT" --project-directory "$RELEASES/$release" \
-    --env-file "$ROOT/runtime.env" --env-file "$RELEASES/$release/release.env" \
+    --env-file "$RELEASES/$release/release.env" \
     -f "$RELEASES/$release/compose.yml" "$@"
 }
 
