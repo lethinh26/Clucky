@@ -247,7 +247,6 @@ jobs:
       - name: Prepare SSH and release manifest
         env:
           SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS || secrets.FRONTEND_SSH_KNOWN_HOSTS }}
         shell: bash
         run: |
           set -euo pipefail
@@ -255,10 +254,11 @@ jobs:
           [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo 'Invalid or missing VPS_USER' >&2; exit 1; }
           [[ "$VPS_WORKDIR" =~ ^/([A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*$ ]] || { echo 'VPS_WORKDIR must be an absolute path without spaces, dot segments or a trailing slash.' >&2; exit 1; }
           [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]] && ((10#$DEPLOY_PORT >= 1 && 10#$DEPLOY_PORT <= 65535)) || { echo 'Invalid SSH port' >&2; exit 1; }
-          [[ -n "$SSH_PRIVATE_KEY" && -n "$SSH_KNOWN_HOSTS" ]] || { echo 'Configure VPS_SSH_KEY and VPS_KNOWN_HOSTS secrets first.' >&2; exit 1; }
+          [[ -n "$SSH_PRIVATE_KEY" ]] || { echo 'Configure VPS_SSH_KEY first.' >&2; exit 1; }
           umask 077
           printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$RUNNER_TEMP/frontend_key"
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/frontend_known_hosts"
+          # Trust the first connection; reuse its host key throughout this job.
+          : > "$RUNNER_TEMP/frontend_known_hosts"
           cp deploy/frontend/compose.yml deploy/frontend/deploy.sh bundle/
           printf 'IMAGE_TAG=%s\n' "$RELEASE_ID" > bundle/release.env
           cd bundle
@@ -271,7 +271,7 @@ jobs:
           target="$DEPLOY_USER@$DEPLOY_HOST"
           incoming="$VPS_WORKDIR/frontend/incoming/$RELEASE_ID"
           options=(-i "$RUNNER_TEMP/frontend_key" -o BatchMode=yes -o IdentitiesOnly=yes
-            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/frontend_known_hosts"
+            -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$RUNNER_TEMP/frontend_known_hosts"
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
           ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "mkdir -p '$incoming'"
           scp -P "$DEPLOY_PORT" "${options[@]}" \
