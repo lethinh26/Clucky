@@ -235,6 +235,31 @@ test("QR failure, expiry, loading fee and pickup states", async ({ page }) => {
   await expect(page.getByText("Đã tạo phiếu giao")).toHaveCount(0);
 });
 
+test("order history opens a specific order and returns to the history route", async ({
+  page,
+}) => {
+  await page.goto(customer + "/orders");
+  await expect(
+    page.getByRole("heading", { name: "Đơn hàng của tôi", level: 1 }),
+  ).toBeVisible();
+  await page.getByRole("textbox", { name: "Tìm kiếm đơn hàng" }).fill("CLU-240826");
+  const order = page.getByRole("article").filter({ hasText: "CLU-240826" });
+  await expect(order).toHaveCount(1);
+  const detail = order.getByRole("link", { name: /Xem chi tiết/ });
+  await expect(detail).toHaveAttribute("href", "/orders/demo-clucky");
+  await detail.click();
+  await expect(page).toHaveURL(customer + "/orders/demo-clucky");
+  await expect(
+    page.getByRole("heading", { name: "Chi tiết đơn hàng", level: 1 }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Đơn hàng của tôi", exact: true }).click();
+  await expect(page).toHaveURL(customer + "/orders");
+  await expect(
+    page.getByRole("heading", { name: "Đơn hàng của tôi", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Tìm kiếm đơn hàng" })).toBeVisible();
+});
+
 test("order detail keeps main order flow and integrates payment/shipment widgets", async ({
   page,
 }, testInfo) => {
