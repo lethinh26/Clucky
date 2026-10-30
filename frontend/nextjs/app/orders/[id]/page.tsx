@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   Clock3,
   PackageCheck,
-  MapPin,
   RotateCcw,
   ShoppingBag,
   Wallet,
@@ -27,6 +26,7 @@ import { OrderProgress } from "@/components/order/order-progress";
 import { OrderDialog } from "@/components/order/order-dialog";
 import { DemoOrderControls } from "@/components/order/demo-order-controls";
 import { PaymentWidget, PaymentStatusBadge } from "@/components/payment";
+import { ShipmentCard } from "@/components/shipping";
 import { MOCK_PAYMENT_BANK } from "@/lib/mock/payment-mock-data";
 import {
   OrderStatusChip,
@@ -257,8 +257,10 @@ export default function OrderTrackingPage({
               </div>
               {awaitingPayment && (
                 <PaymentWidget
+                  key={order.id}
                   orderCode={order.orderCode}
                   amount={order.totalAmount}
+                  status={order.paymentStatus}
                   bankInfo={MOCK_PAYMENT_BANK}
                   storeName={order.storeName}
                   embedded
@@ -272,42 +274,13 @@ export default function OrderTrackingPage({
                 </p>
               )}
             </section>
-            <section
-              className={styles.detailCard}
-              aria-label="Thông tin nhận món"
-            >
-              <h2>
-                <MapPin size={19} />
-                {order.type === "PICKUP"
-                  ? "Nhận tại cửa hàng"
-                  : "Thông tin giao hàng"}
-              </h2>
-              <dl className={styles.infoList}>
-                <div>
-                  <dt>Người nhận</dt>
-                  <dd>
-                    {order.receiverName} ·{" "}
-                    <a href={`tel:${order.receiverPhone}`}>
-                      {order.receiverPhone}
-                    </a>
-                  </dd>
-                </div>
-                {order.type === "DELIVERY" && (
-                  <div>
-                    <dt>Địa chỉ giao</dt>
-                    <dd>{order.deliveryAddress || "Chưa có địa chỉ giao"}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt>
-                    {order.type === "PICKUP"
-                      ? "Địa điểm nhận món"
-                      : "Chuẩn bị tại"}
-                  </dt>
-                  <dd>{order.storeName}</dd>
-                </div>
-              </dl>
-            </section>
+            <ShipmentCard
+              receiverName={order.receiverName}
+              receiverPhone={order.receiverPhone}
+              address={order.deliveryAddress}
+              storeName={order.storeName}
+              orderType={order.type}
+            />
           </aside>
         </div>
         {demoEnabled && (

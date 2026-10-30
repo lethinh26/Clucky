@@ -10,7 +10,7 @@ export type PaymentStatus =
   | "REFUND_PENDING"
   | "REFUNDED";
 
-interface PaymentStatusBadgeProps {
+export interface PaymentStatusBadgeProps {
   status: PaymentStatus;
   className?: string;
 }
@@ -24,7 +24,7 @@ const STATUS_CONFIG: Record<
   PENDING: { label: "Chờ thanh toán", styleClass: styles.payPending },
   PAID: { label: "Đã thanh toán", styleClass: styles.payPaid },
   EXPIRED: { label: "Hết hạn", styleClass: styles.payExpired },
-  MISMATCH: { label: "Sai lệch", styleClass: styles.payMismatch },
+  MISMATCH: { label: "Số tiền không khớp", styleClass: styles.payMismatch },
   COLLECTED: { label: "Đã thu COD", styleClass: styles.payCollected },
   REFUND_PENDING: {
     label: "Chờ hoàn tiền",
@@ -38,12 +38,16 @@ export function PaymentStatusBadge({
   className = "",
 }: PaymentStatusBadgeProps) {
   const config = STATUS_CONFIG[status] ?? {
-    label: status,
-    styleClass: styles.payPending,
+    label: "Chưa rõ trạng thái",
+    styleClass: styles.payExpired,
   };
 
   return (
-    <span className={`${styles.payChip} ${config.styleClass} ${className}`}>
+    <span
+      className={`${styles.paymentScope} ${styles.payChip} ${config.styleClass} ${className}`}
+      role="status"
+      aria-label={`Thanh toán: ${config.label}`}
+    >
       <span className={styles.payDot} aria-hidden="true" />
       {config.label}
     </span>
