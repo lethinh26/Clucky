@@ -1,42 +1,85 @@
-# [INT-53] Identity → Gateway security integration: JWT claims, role, storeId propagation 
+# [INT-53] Identity → Gateway security integration: JWT claims, role, storeId propagation
 
-**Loại:** INT
-**Sprint:** Sprint 2 — Integration
-**Story Point (SP):** 5
-**PIC:** M1+M3 
-**Deliverable:** `Security integration `
+**PIC:** Trần Nguyễn Hữu Khánh
+**Trạng thái trên Lark:** TO DO
+**Sprint:** SPRINT 2
+**Khoảng sprint:** 02/11/2026–08/11/2026 (khung lưu lịch sử; hoàn tất 05/11, Sprint Review 06/11)
+**Bắt đầu:** 03/11/2026 08:00
+**Deadline:** 03/11/2026 23:59
+**Múi giờ:** Asia/Ho_Chi_Minh (UTC+7)
+**Loại:** Sub Task
+**Mã Lark:** Mail-4625 / reczz28Rqzs2LaoP
+**Record:** https://msgmclt9kdj2.sg.larksuite.com/base/ByTkbHQcYaPOMAsoU4jl41pdgSd?table=tblXgna1HdN3POFK&record=reczz28Rqzs2LaoP
+**Cập nhật:** 30/10/2026 — kế hoạch hai sprint đã được duyệt
 
-## Mô tả
+**Story Point:** 8 SP
+**Time Estimated:** 8 giờ công
+**Remaining Estimate:** 8 giờ công — tạm bằng estimate vì chưa có tiến độ mới; không phải số giờ còn lại đã xác minh.
+**Cơ sở ước lượng:** Sơ bộ theo snapshot 30/10; PIC cần xác nhận, không suy ra tiến độ hiện tại.
+**Cập nhật ước lượng/lịch:** 01/11/2026 — đã đồng bộ ước lượng/lịch lên Lark; giữ trạng thái, PIC và nhóm sprint hiện tại.
 
-Thực hiện **Identity → Gateway security integration: JWT claims, role, storeId propagation ** xuyên suốt phần được giao, đúng domain và contract của Clucky.
+## Ước lượng và lịch thực hiện
 
-## Phạm vi
+Tính phần nối contract, xử lý lỗi liên service/UI, fixture và evidence tích hợp; không triển khai lại API đã tính ở BE hoặc chạy lại bộ regression TEST.
 
-- Đối chiếu SRS/API/database docs.
-- Giữ Config Server, Eureka, Gateway, database/schema riêng, RBAC/storeId.
-- Mail Sender nằm trong Notification Service, Gmail SMTP App Password từ env/Config Server.
-- Cloudinary là external media provider; không lưu binary trong PostgreSQL, không lộ `CLOUDINARY_API_SECRET`.
+Không quy đổi SP ra giờ; giờ công không gồm chờ dependency. Ước lượng gồm tự kiểm chứng/sửa lỗi trong phạm vi, không cộng thêm buffer phần trăm hoặc phần việc BE/INT/TEST đã tính riêng. Xem [quy ước và tải tổng hợp](../../docs/backlog.md#quy-ước-ước-lượng).
 
-## Subtask checklist
+Lịch cũ (30/10): 04/11/2026 08:00 → 04/11/2026 23:59. Lịch mới: 03/11/2026 08:00 → 03/11/2026 23:59. Giữ khung Sprint 2 02–08/11 để truy vết; hạn hoàn thành thực tế 05/11, Sprint Review 06/11, không xếp việc triển khai/nghiệm thu vào 06–08/11.
 
-- [ ] Đọc SRS/API/dependency của task.
-- [ ] Hoàn thành deliverable đúng domain.
-- [ ] Thêm validation, error/loading/empty state hoặc RBAC.
-- [ ] Thêm migration/test và cập nhật contract nếu cần.
-- [ ] Chạy formatter, typecheck/compile/test và lưu evidence.
-- [ ] Review chéo rồi merge.
+Bắt đầu có thể là chuẩn bị fixture/UI theo contract; phần cần API/event thật bị chặn cho đến khi dependency bàn giao. Nếu cùng ngày đến hạn, phải bàn giao prerequisite trước khi nghiệm thu task này; không coi deadline trùng ngày là bằng chứng đã sẵn sàng.
 
-## Acceptance Criteria
+## Mục tiêu và phạm vi
 
-1. Deliverable tồn tại đúng vị trí và build không lỗi.
-2. Luồng chính hoạt động với input hợp lệ.
-3. Input lỗi/unauthorized/dependency lỗi trả error rõ ràng.
-4. Không cross-service DB join, secret hard-code hoặc frontend gọi thẳng service.
-5. Có evidence kiểm tra thực tế.
-6. Nếu media: validate MIME/size, lưu `secure_url` + `public_id`, cleanup sau commit và không lộ secret.
-7. Nếu mail: Gmail SMTP STARTTLS, retry hữu hạn, email_logs, không rollback nghiệp vụ khi gửi lỗi.
+- JWT role/storeId đi qua Gateway và được từng service kiểm tra; chặn token thiếu/sai/hết hạn.
+- Gộp phần route/discovery smoke của DEP-15; collection tổng hợp nằm DEP-09.
+- Nhóm tự kiểm chứng/sửa lỗi cuốn chiếu, hoàn tất chậm nhất 05/11 trước Sprint Review 06/11; task chưa đạt tiêu chí không đánh DONE.
 
-## Ghi chú kỹ thuật
+## Đầu ra
 
-- Cloudinary config: `CLOUDINARY_ENABLED`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`.
-- Gmail config: `MAIL_SENDER_ENABLED`, `MAIL_SENDER_USERNAME`, `MAIL_SENDER_APP_PASSWORD`.
+- Security integration
+- Mã nguồn/tài liệu/evidence của đúng domain; không commit secret.
+
+## Dependency và phối hợp
+
+- [BE-09](BE-09.md) — Security/JWT template: filter, RBAC, storeId — PIC: Trần Nguyễn Hữu Khánh
+- [BE-17](BE-17.md) — Auth: login + JWT + refresh + logout + forgot/reset — PIC: Trần Nguyễn Hữu Khánh
+- [UI-05](UI-05.md) — API Gateway app + route khung lb:// — PIC: Trần Đức Anh
+
+PIC là người chịu trách nhiệm kết nối và bàn giao task. Producer/consumer hoặc API của domain khác vẫn do owner task dependency triển khai; danh sách phối hợp không phải đồng PIC.
+
+## Checklist thực hiện
+
+- [ ] Đối chiếu SRS/API/database/RBAC và dependency trước khi triển khai.
+- [ ] Hoàn thành phạm vi và đầu ra nêu trên, gồm phần đã gộp.
+- [ ] Xử lý validation, trạng thái lỗi, quyền và idempotency khi áp dụng.
+- [ ] Người phụ trách tự kiểm chứng luồng chính/lỗi và ghi evidence.
+- [ ] Cập nhật trạng thái thực tế; lỗi phát sinh gán một PIC theo domain.
+
+## Tiêu chí nghiệm thu
+
+1. Đầu ra được bàn giao đúng phạm vi: Identity → Gateway security integration: JWT claims, role, storeId propagation.
+2. Hoàn tất từng mục phạm vi ở trên; input hợp lệ, input lỗi và dependency lỗi được xử lý rõ theo API/docs.
+3. Một PIC chịu trách nhiệm; phối hợp thông qua dependency, không thêm đồng PIC.
+4. Khi có API/nghiệp vụ: DTO/validation/error shape, ownership/storeId và idempotency theo contract; frontend chỉ gọi Gateway.
+5. Nhóm/người phụ trách tự kiểm chứng và ghi evidence; không coi file tồn tại hoặc UI mock là nghiệm thu chức năng.
+6. Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
+
+## Truy vết gộp task
+
+DEP-15: Gateway route/discovery smoke và API collection (đã gộp)
+
+Nội dung trùng đã nhập vào phạm vi/tiêu chí ở trên. Các ID nguồn không còn là task độc lập để giao lại. Phần avatar/banner, proposal và Phase 2 được giữ trong backlog theo kế hoạch, không tính là đã hoàn thành.
+
+## Tài liệu nguồn
+
+- `architechture/docs/SRS.md`
+- `architechture/docs/Đặc tả API.md`
+- `architechture/docs/Kiến trúc hệ thống.md`
+- `architechture/docs/Ma trận phân quyền.md`
+- `architechture/docs/Thiết kế cơ sở dữ liệu.md`
+- `architechture/database/schema.sql`
+- `architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md`
+
+## Quy ước kiểm chứng
+
+Việc cập nhật backlog/task detail không thực thi test, lint, typecheck, build, Docker hoặc kiểm thử frontend. Nhóm tự thực hiện kiểm chứng khi triển khai; không ghi kết quả PASS trước khi có bằng chứng.
