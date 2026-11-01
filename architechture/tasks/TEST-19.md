@@ -1,42 +1,9 @@
-# [TEST-19] Gmail SMTP success with valid App Password 
+# [TEST-19] ĐÃ GỘP — không còn task độc lập
 
-**Loại:** TEST
-**Sprint:** Sprint 3 — Test
-**Story Point (SP):** 7
-**PIC:** M5+M6 
-**Deliverable:** `SMTP test `
+Cập nhật 30/10/2026 theo kế hoạch đã duyệt.
 
-## Mô tả
+Nội dung đã được chuyển vào task đích dưới đây; không tạo/giao lại record này.
 
-Thực hiện **Gmail SMTP success with valid App Password ** xuyên suốt phần được giao, đúng domain và contract của Clucky.
+- [BE-60](BE-60.md) — Gmail SMTP connection with STARTTLS and timeout; PIC: Cao Tất Thành.
 
-## Phạm vi
-
-- Đối chiếu SRS/API/database docs.
-- Giữ Config Server, Eureka, Gateway, database/schema riêng, RBAC/storeId.
-- Mail Sender nằm trong Notification Service, Gmail SMTP App Password từ env/Config Server.
-- Cloudinary là external media provider; không lưu binary trong PostgreSQL, không lộ `CLOUDINARY_API_SECRET`.
-
-## Subtask checklist
-
-- [ ] Đọc SRS/API/dependency của task.
-- [ ] Hoàn thành deliverable đúng domain.
-- [ ] Thêm validation, error/loading/empty state hoặc RBAC.
-- [ ] Thêm migration/test và cập nhật contract nếu cần.
-- [ ] Chạy formatter, typecheck/compile/test và lưu evidence.
-- [ ] Review chéo rồi merge.
-
-## Acceptance Criteria
-
-1. Deliverable tồn tại đúng vị trí và build không lỗi.
-2. Luồng chính hoạt động với input hợp lệ.
-3. Input lỗi/unauthorized/dependency lỗi trả error rõ ràng.
-4. Không cross-service DB join, secret hard-code hoặc frontend gọi thẳng service.
-5. Có evidence kiểm tra thực tế.
-6. Nếu media: validate MIME/size, lưu `secure_url` + `public_id`, cleanup sau commit và không lộ secret.
-7. Nếu mail: Gmail SMTP STARTTLS, retry hữu hạn, email_logs, không rollback nghiệp vụ khi gửi lỗi.
-
-## Ghi chú kỹ thuật
-
-- Cloudinary config: `CLOUDINARY_ENABLED`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`.
-- Gmail config: `MAIL_SENDER_ENABLED`, `MAIL_SENDER_USERNAME`, `MAIL_SENDER_APP_PASSWORD`.
+Lịch cũ và file đính kèm gốc được lưu trong `architechture/verification/backlog-before-replan-2026-10-29.zip`. Xem [danh sách task hiện hành](README.md).

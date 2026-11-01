@@ -1,44 +1,84 @@
-# [INT-74] Google login E2E: popup → ID token → JWT; link tài khoản email đã tồn tại; complete-password flow 
+# [INT-74] Google login E2E: tài khoản cũ/mới, complete-password, token lỗi và email trùng
 
-**Loại:** Task
-**Sprint:** Sprint 3 — Tích hợp FE↔BE
-**Story Point (SP):** 3
-**PIC:** M4 + M1 
-**Deliverable:** `Google auth E2E `
+**PIC:** Lê Phú Thịnh
+**Trạng thái trên Lark:** TO DO
+**Sprint:** SPRINT 2
+**Khoảng sprint:** 02/11/2026–08/11/2026 (khung lưu lịch sử; hoàn tất 05/11, Sprint Review 06/11)
+**Bắt đầu:** 03/11/2026 08:00
+**Deadline:** 04/11/2026 23:59
+**Múi giờ:** Asia/Ho_Chi_Minh (UTC+7)
+**Loại:** Sub Task
+**Mã Lark:** Mail-4654 / reczz28SgdBIGAvC
+**Record:** https://msgmclt9kdj2.sg.larksuite.com/base/ByTkbHQcYaPOMAsoU4jl41pdgSd?table=tblXgna1HdN3POFK&record=reczz28SgdBIGAvC
+**Cập nhật:** 30/10/2026 — kế hoạch hai sprint đã được duyệt
 
-## Mô tả
+**Story Point:** 8 SP
+**Time Estimated:** 10 giờ công
+**Remaining Estimate:** 10 giờ công — tạm bằng estimate vì chưa có tiến độ mới; không phải số giờ còn lại đã xác minh.
+**Cơ sở ước lượng:** Sơ bộ theo snapshot 30/10; PIC cần xác nhận, không suy ra tiến độ hiện tại.
+**Cập nhật ước lượng/lịch:** 01/11/2026 — đã đồng bộ ước lượng/lịch lên Lark; giữ trạng thái, PIC và nhóm sprint hiện tại.
 
-Thực hiện **Google login E2E: popup → ID token → JWT; link tài khoản email đã tồn tại; complete-password flow ** xuyên suốt phần được giao, đúng domain và contract của Clucky.
+## Ước lượng và lịch thực hiện
 
-## Phạm vi
+Đã gồm TEST-29: account cũ/mới, uid/email trùng, pendingToken hết hạn và login bằng password sau complete.
 
-- Đối chiếu SRS/API/database docs.
-- Giữ Config Server, Eureka, Gateway, database/schema riêng, RBAC/storeId.
-- Mail Sender nằm trong Notification Service, Gmail SMTP App Password từ env/Config Server.
-- Cloudinary là external media provider; không lưu binary trong PostgreSQL, không lộ `CLOUDINARY_API_SECRET`.
+Không quy đổi SP ra giờ; giờ công không gồm chờ dependency. Ước lượng gồm tự kiểm chứng/sửa lỗi trong phạm vi, không cộng thêm buffer phần trăm hoặc phần việc BE/INT/TEST đã tính riêng. Xem [quy ước và tải tổng hợp](../../docs/backlog.md#quy-ước-ước-lượng).
 
-## Subtask checklist
+Lịch cũ (30/10): 04/11/2026 08:00 → 06/11/2026 23:59. Lịch mới: 03/11/2026 08:00 → 04/11/2026 23:59. Giữ khung Sprint 2 02–08/11 để truy vết; hạn hoàn thành thực tế 05/11, Sprint Review 06/11, không xếp việc triển khai/nghiệm thu vào 06–08/11.
 
-- [ ] Đọc SRS/API/dependency của task.
-- [ ] Hoàn thành deliverable đúng domain.
-- [ ] Thêm validation, error/loading/empty state hoặc RBAC.
-- [ ] Thêm migration/test và cập nhật contract nếu cần.
-- [ ] Chạy formatter, typecheck/compile/test và lưu evidence.
-- [ ] Review chéo rồi merge.
+Bắt đầu có thể là chuẩn bị fixture/UI theo contract; phần cần API/event thật bị chặn cho đến khi dependency bàn giao. Nếu cùng ngày đến hạn, phải bàn giao prerequisite trước khi nghiệm thu task này; không coi deadline trùng ngày là bằng chứng đã sẵn sàng.
 
-## Acceptance Criteria
+## Mục tiêu và phạm vi
 
-1. Deliverable tồn tại đúng vị trí và build không lỗi.
-2. E2E user mới: popup Google → `REQUIRES_PASSWORD` → nhập password → JWT + user ACTIVE.
-3. E2E user cũ (đã link) → popup → JWT thẳng không hỏi password.
-4. E2E email đã đăng ký thường + login Google lần đầu → link `firebase_uid`, JWT.
-5. Sau complete: login lại bằng email+password vẫn được (song song Google).
-6. Input lỗi/unauthorized/dependency lỗi trả error rõ ràng.
-7. Không cross-service DB join, secret hard-code hoặc frontend gọi thẳng service.
-8. Có evidence kiểm tra thực tế.
+- Google popup → ID token → backend JWT; user mới complete password, user cũ link an toàn.
+- Gộp TEST-29: email trùng 409, uid unique, pendingToken hết hạn, đăng nhập email/password sau complete.
+- Nhóm tự kiểm chứng/sửa lỗi cuốn chiếu, hoàn tất chậm nhất 05/11 trước Sprint Review 06/11; task chưa đạt tiêu chí không đánh DONE.
 
-## Ghi chú kỹ thuật
+## Đầu ra
 
-- Cloudinary config: `CLOUDINARY_ENABLED`, `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `CLOUDINARY_FOLDER`.
-- Gmail config: `MAIL_SENDER_ENABLED`, `MAIL_SENDER_USERNAME`, `MAIL_SENDER_APP_PASSWORD`.
-- Firebase config: `FIREBASE_ENABLED`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_PROJECT_ID`.
+- Google login E2E: tài khoản cũ/mới, complete-password, token lỗi và email trùng
+- Mã nguồn/tài liệu/evidence của đúng domain; không commit secret.
+
+## Dependency và phối hợp
+
+- [BE-76](BE-76.md) — Google OAuth qua Firebase: verify ID token, complete-password, JWT và migration bổ sung — PIC: Lê Phú Thịnh
+- [UI-49](UI-49.md) — Nút "Đăng nhập bằng Google" + màn nhập mật khẩu sau khi Google xác thực (customer app only) — PIC: Lê Phú Thịnh
+
+PIC là người chịu trách nhiệm kết nối và bàn giao task. Producer/consumer hoặc API của domain khác vẫn do owner task dependency triển khai; danh sách phối hợp không phải đồng PIC.
+
+## Checklist thực hiện
+
+- [ ] Đối chiếu SRS/API/database/RBAC và dependency trước khi triển khai.
+- [ ] Hoàn thành phạm vi và đầu ra nêu trên, gồm phần đã gộp.
+- [ ] Xử lý validation, trạng thái lỗi, quyền và idempotency khi áp dụng.
+- [ ] Người phụ trách tự kiểm chứng luồng chính/lỗi và ghi evidence.
+- [ ] Cập nhật trạng thái thực tế; lỗi phát sinh gán một PIC theo domain.
+
+## Tiêu chí nghiệm thu
+
+1. Đầu ra được bàn giao đúng phạm vi: Google login E2E: tài khoản cũ/mới, complete-password, token lỗi và email trùng.
+2. Hoàn tất từng mục phạm vi ở trên; input hợp lệ, input lỗi và dependency lỗi được xử lý rõ theo API/docs.
+3. Một PIC chịu trách nhiệm; phối hợp thông qua dependency, không thêm đồng PIC.
+4. Khi có API/nghiệp vụ: DTO/validation/error shape, ownership/storeId và idempotency theo contract; frontend chỉ gọi Gateway.
+5. Nhóm/người phụ trách tự kiểm chứng và ghi evidence; không coi file tồn tại hoặc UI mock là nghiệm thu chức năng.
+6. Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
+
+## Truy vết gộp task
+
+TEST-29: Google auth: register email trùng tài khoản Google → 409; `firebase_uid` unique; `pendingToken` hết hạn; login bằng cả email+password sau complete
+
+Nội dung trùng đã nhập vào phạm vi/tiêu chí ở trên. Các ID nguồn không còn là task độc lập để giao lại. Phần avatar/banner, proposal và Phase 2 được giữ trong backlog theo kế hoạch, không tính là đã hoàn thành.
+
+## Tài liệu nguồn
+
+- `architechture/docs/SRS.md`
+- `architechture/docs/Đặc tả API.md`
+- `architechture/docs/Kiến trúc hệ thống.md`
+- `architechture/docs/Ma trận phân quyền.md`
+- `architechture/docs/Thiết kế cơ sở dữ liệu.md`
+- `architechture/database/schema.sql`
+- `architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md`
+
+## Quy ước kiểm chứng
+
+Việc cập nhật backlog/task detail không thực thi test, lint, typecheck, build, Docker hoặc kiểm thử frontend. Nhóm tự thực hiện kiểm chứng khi triển khai; không ghi kết quả PASS trước khi có bằng chứng.
