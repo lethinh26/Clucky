@@ -1,6 +1,6 @@
 # Kế hoạch Clucky — hoàn tất 05/11, Sprint Review 06/11
 
-**Điều chỉnh đã được duyệt và đồng bộ Lark ngày 01/11/2026.** Đã đọc lại 184 record và tải lại 184 detail mới; trạng thái/PIC/nhóm sprint trên Lark được giữ nguyên. Bảng phân bổ kế hoạch dùng snapshot 30/10, còn 28 thay đổi nhóm hiện tại nằm trong [báo cáo đồng bộ](plans/LARK-SYNC-2026-11-01.json).
+**Điều chỉnh đã được duyệt và đồng bộ Lark ngày 01/11/2026.** Đã đọc lại 184 record và tải lại 184 detail mới; trạng thái/PIC/nhóm sprint trên Lark được giữ nguyên. Bảng phân bổ kế hoạch dùng snapshot 30/10, còn 28 thay đổi nhóm hiện tại nằm trong [báo cáo đồng bộ](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/LARK-SYNC-2026-11-01.json).
 
 Sprint 1 giữ **26/10–01/11**. Sprint 2 giữ khung **02–08/11** để truy vết nhưng **hoàn thành triển khai, tích hợp, kiểm chứng, sửa lỗi và demo trước 23:59 thứ Năm 05/11/2026**; **Sprint Review thứ Sáu 06/11/2026**. Không xếp việc thực hiện sang 06–08/11, không lập Sprint 3, backlog/Phase 2 không bị kéo vào hạn này.
 
@@ -37,8 +37,8 @@ Không tự chạy test/lint/typecheck/build/Docker hoặc kiểm thử frontend
 
 ## Danh sách task
 
-Xem [README task](tasks/README.md) và [manifest ước lượng/lịch mới](plans/BACKLOG-ESTIMATES-2026-11-01.json). Mỗi file task có PIC, trạng thái snapshot, sprint, SP, giờ ước lượng/còn lại, ngày giờ, cơ sở sizing, phạm vi, dependency, checklist, tiêu chí nghiệm thu và truy vết gộp. Manifest mới bổ sung vào snapshot 30/10; không sửa lịch sử cũ.
+Xem [README task](tasks/README.md) và [manifest ước lượng/lịch mới](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-ESTIMATES-2026-11-01.json). Mỗi file task có PIC, trạng thái snapshot, sprint, SP, giờ ước lượng/còn lại, ngày giờ, cơ sở sizing, phạm vi, dependency, checklist, tiêu chí nghiệm thu và truy vết gộp. Manifest mới bổ sung vào snapshot 30/10; không sửa lịch sử cũ.
 
 ## Truy vết
 
-[Kế hoạch lịch sử 29/10](plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md) và [snapshot 30/10](plans/BACKLOG-REPLAN-2026-10-30.json). Bản sao trước chỉnh: `verification/backlog-before-replan-2026-10-29.zip`. Giữ record ID và mã Mail-* của các task còn lại; không tạo lại task DONE.
+[Kế hoạch lịch sử 29/10](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md) và [snapshot 30/10](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-2026-10-30.json). Hai thư mục plans/verification đã được bỏ khỏi Git; các liên kết lịch sử ở đây trỏ tới commit trước khi dọn. ZIP dự phòng cục bộ không thuộc repository. Giữ record ID và mã Mail-* của các task còn lại; không tạo lại task DONE.

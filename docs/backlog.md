@@ -138,7 +138,7 @@ Bắt đầu trong bảng có thể là chuẩn bị theo contract/fixture, khô
 | Sprint Review | Chưa ghi riêng | 06/11, chưa ấn định giờ họp |
 | 25 task backlog | Chưa xếp | Giữ chưa xếp; chỉ thêm sizing |
 
-Lịch cũ/mới từng task Sprint 2 nằm trong task detail và [manifest điều chỉnh 01/11](../architechture/plans/BACKLOG-ESTIMATES-2026-11-01.json). [Manifest 30/10](../architechture/plans/BACKLOG-REPLAN-2026-10-30.json) giữ nguyên làm snapshot lịch sử, không phải lịch hiện hành.
+Lịch cũ/mới từng task Sprint 2 nằm trong task detail và [manifest điều chỉnh 01/11](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-ESTIMATES-2026-11-01.json). [Manifest 30/10](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-2026-10-30.json) giữ nguyên làm snapshot lịch sử, không phải lịch hiện hành.
 
 ## Phần chuyển làm sau
 
@@ -424,7 +424,7 @@ Các ID dưới đây không còn là task độc lập trên Lark. File detail 
 - **94 task Sprint 2 theo kế hoạch** nhận lịch mới chậm nhất 05/11; ngày của task còn lại giữ nguyên. Sprint Review 06/11; tên view đã làm rõ hai mốc, filter không đổi.
 - Giữ nguyên 37 DONE, 147 TO DO, PIC, record ID, dependency và nhóm sprint. Theo yêu cầu bổ sung, đã **gỡ 184 attachment cũ khỏi các task**, chỉ giữ **184 file `ID-estimate-2026-11-01.md`**, mỗi task một file mới nhất. Nội dung 184 file mới đã được tải lại đối chiếu; sau dọn đã đọc lại đủ 184 record và xác nhận không đổi dữ liệu ngoài phạm vi.
 - **Phân nhóm trực tiếp trên Lark khác bảng kế hoạch lịch sử:** 37 SPRINT 1, 96 SPRINT 2, 26 CustomerAdmin, 25 chưa gán sprint. Có 28 thay đổi nhóm được giữ, gồm UI-22/UI-45 đã vào SPRINT 2. Vì vậy view được chỉ định có **96 record**, không phải 94; hai task này giữ ngày lịch sử theo yêu cầu không reset tiến độ. Các tổng theo sprint trong tài liệu vẫn phản ánh nhóm kế hoạch 30/10, không ghi đè phân nhóm người dùng.
-- [Báo cáo đồng bộ](../architechture/plans/LARK-SYNC-2026-11-01.json) ghi kết quả và 28 nhóm khác snapshot; [bản sao trước đồng bộ](../architechture/plans/LARK-BEFORE-ESTIMATES-2026-11-01.json) giữ dữ liệu đối chiếu. App Secret/access token không được lưu vào file.
+- [Báo cáo đồng bộ](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/LARK-SYNC-2026-11-01.json) ghi kết quả và 28 nhóm khác snapshot; [bản sao trước đồng bộ](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/LARK-BEFORE-ESTIMATES-2026-11-01.json) giữ dữ liệu đối chiếu. App Secret/access token không được lưu vào file.
 - Ước lượng vẫn sơ bộ, cảnh báo 738 giờ Sprint 2 theo phạm vi kế hoạch vẫn giữ; đồng bộ dữ liệu không chứng nhận deadline khả thi hoặc chức năng đã được kiểm thử. Không chạy test/lint/typecheck/build, Docker/backend hay kiểm thử trình duyệt.
 
 ## Lịch sử đối chiếu Lark ngày 30/10/2026
@@ -440,4 +440,4 @@ Các kết quả dưới đây được giữ từ lần đồng bộ cũ, **kh�
 
 ## Lưu ý khi dọn thư mục
 
-Có thể xóa thư mục `architechture/verification` mà vẫn giữ được backlog tổng hợp trong file này và task detail trong `architechture/tasks/`. File này không chứa bản sao nhị phân của attachment cũ hoặc lịch sử Lark; xóa bản ZIP trong thư mục đó sẽ bỏ bản sao khôi phục cục bộ trước khi gộp.
+Đã bỏ `architechture/plans` và `architechture/verification` khỏi Git theo yêu cầu. Backlog tổng hợp, task detail trong `architechture/tasks/` và các báo cáo trong `docs/verification/` được giữ nguyên. Liên kết tới tài liệu đã xóa trỏ về commit lưu lịch sử. ZIP dự phòng cục bộ được ignore, không nằm trong PR; không cập nhật trạng thái Lark trong lần dọn này.

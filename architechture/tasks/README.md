@@ -9,9 +9,9 @@
 - Lark là nơi cập nhật trạng thái làm việc; metadata trạng thái trong file là snapshot lúc đồng bộ.
 - Người phụ trách tự kiểm chứng; việc sửa tài liệu không đồng nghĩa đã test ứng dụng.
 
-[Kế hoạch chi tiết](../TASK-PLAN.md) · [Ước lượng/lịch mới 01/11](../plans/BACKLOG-ESTIMATES-2026-11-01.json) · [Snapshot lịch sử 30/10](../plans/BACKLOG-REPLAN-2026-10-30.json)
+[Kế hoạch chi tiết](../TASK-PLAN.md) · [Ước lượng/lịch mới 01/11](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-ESTIMATES-2026-11-01.json) · [Snapshot lịch sử 30/10](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-2026-10-30.json)
 
-Bản 01/11 đã đồng bộ ước lượng/lịch trên 184 record và giữ 184 file detail mới nhất (đã gỡ file cũ khỏi task theo yêu cầu bổ sung); đã đọc lại trường và tải lại nội dung để đối chiếu. Bảng bên dưới giữ nhóm kế hoạch 30/10; 28 thay đổi nhóm trên Lark không bị ghi đè, xem [báo cáo đồng bộ](../plans/LARK-SYNC-2026-11-01.json). Trên Lark đã xóa cột Remaining Estimate và Estimate Notes theo yêu cầu, không tự tạo lại; các giá trị trong bảng cục bộ chỉ để tham chiếu. SP không quy đổi ra giờ; estimate DONE là hồi cứu, không phải actual. Remaining (*) của TO DO tạm bằng estimate vì chưa có tiến độ mới; PIC cần xác nhận. Không thu thập giờ khả dụng. [Quy ước và tổng tải](../../docs/backlog.md#quy-ước-ước-lượng).
+Bản 01/11 đã đồng bộ ước lượng/lịch trên 184 record và giữ 184 file detail mới nhất (đã gỡ file cũ khỏi task theo yêu cầu bổ sung); đã đọc lại trường và tải lại nội dung để đối chiếu. Bảng bên dưới giữ nhóm kế hoạch 30/10; 28 thay đổi nhóm trên Lark không bị ghi đè, xem [báo cáo đồng bộ](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/LARK-SYNC-2026-11-01.json). Trên Lark đã xóa cột Remaining Estimate và Estimate Notes theo yêu cầu, không tự tạo lại; các giá trị trong bảng cục bộ chỉ để tham chiếu. SP không quy đổi ra giờ; estimate DONE là hồi cứu, không phải actual. Remaining (*) của TO DO tạm bằng estimate vì chưa có tiến độ mới; PIC cần xác nhận. Không thu thập giờ khả dụng. [Quy ước và tổng tải](../../docs/backlog.md#quy-ước-ước-lượng).
 
 ## SPRINT 1
 
@@ -264,3 +264,5 @@ Bản 01/11 đã đồng bộ ước lượng/lịch trên 184 record và giữ 
 | [DEP-19](DEP-19.md) | [BE-57](BE-57.md) |
 | [DEP-21](DEP-21.md) | [BE-68](BE-68.md) |
 | [DEP-23](DEP-23.md) | [BE-76](BE-76.md) |
+
+Các đường dẫn `architechture/plans/` trong phần nguồn lịch sử của task thuộc commit `2cc31a0`, trước khi hai thư mục plans/verification được bỏ khỏi Git. Dùng các liên kết lịch sử ở trên để tra cứu; task detail và backlog hiện hành vẫn được giữ.

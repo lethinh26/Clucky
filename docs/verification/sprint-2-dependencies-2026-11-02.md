@@ -14,7 +14,7 @@ Phạm vi rà soát: mã nguồn local trên `main`, HEAD `865a561`, bao gồm t
 - Sau giả định trên, **32 task có dependency trực tiếp khác PIC**; tính cả đường phụ thuộc gián tiếp là **51 task**. Không nên kết luận “không phụ thuộc người khác” chỉ vì dependency trực tiếp cùng PIC.
 - Không có ancestor thuộc nhóm BACKLOG trong đồ thị khai báo của Sprint 2. Các điểm thiếu được nêu ở mục 5 không phải lý do tự kéo toàn bộ Phase 2 vào sprint.
 
-Nguồn: [backlog](../backlog.md), [snapshot kế hoạch](../../architechture/plans/BACKLOG-REPLAN-2026-10-30.json), [lần đồng bộ Lark đã lưu](../../architechture/plans/LARK-SYNC-2026-11-01.json), [task detail](../../architechture/tasks/README.md). **Chưa đọc lại trạng thái trực tiếp trên Lark trong lần rà soát này; không suy diễn ai đã hoặc chưa làm trên nhánh riêng.**
+Nguồn: [backlog](../backlog.md), [snapshot kế hoạch](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-2026-10-30.json), [lần đồng bộ Lark đã lưu](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/LARK-SYNC-2026-11-01.json), [task detail](../../architechture/tasks/README.md). **Chưa đọc lại trạng thái trực tiếp trên Lark trong lần rà soát này; không suy diễn ai đã hoặc chưa làm trên nhánh riêng.**
 
 ## 2. Base hiện có giải quyết đến đâu?
 
