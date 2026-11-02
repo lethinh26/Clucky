@@ -1,3 +1,5 @@
+import { getBrowserLocale, type Locale } from "./i18n/locale.ts";
+import { getTranslator } from "./i18n/translator.ts";
 import type { Order, OrderStatus } from "./types/order";
 
 export const DEMO_CONTROLS_ENABLED =
@@ -10,15 +12,16 @@ export function ensureDemoShipment(order: Order): Order {
     : order;
 }
 
-export const orderStatusLabels: Record<OrderStatus, string> = {
-  PENDING_PAYMENT: "Chờ thanh toán",
-  CONFIRMED: "Đã xác nhận",
-  PREPARING: "Đang chế biến",
-  READY: "Món đã sẵn sàng",
-  SHIPPING: "Đang giao",
-  COMPLETED: "Hoàn thành",
-  CANCELLED: "Đã hủy",
-};
+export const orderStatusKeys = {
+  PENDING_PAYMENT: "business.checkout.awaitingPayment",
+  CONFIRMED: "business.orderstatuschip.confirmed",
+  PREPARING: "business.orderprogress.preparing",
+  READY: "business.orderdetaildrawer.mealReady",
+  SHIPPING: "business.orderprogress.delivering",
+  COMPLETED: "business.orders.completed",
+  CANCELLED: "business.orders.cancelled",
+} as const satisfies Record<OrderStatus, string>;
+export const orderStatusLabels = Object.fromEntries(Object.entries(orderStatusKeys).map(([status, key]) => [status, getTranslator("vi")(key)])) as Record<OrderStatus, string>;
 
 export function nextDemoStatus(status: OrderStatus): OrderStatus | undefined {
   return (
@@ -42,14 +45,15 @@ export function applyDemoAction(
   enabled: boolean,
   now = new Date().toISOString(),
 ): DemoResult {
+  const t = getTranslator(getBrowserLocale());
   const reject = (message: string): DemoResult => ({
     ok: false,
     order,
     message,
   });
-  if (!enabled) return reject("Chức năng mô phỏng chưa được bật.");
+  if (!enabled) return reject(t("business.orderdemo.theSimulatorIsNotEnabled"));
   if (["COMPLETED", "CANCELLED"].includes(order.status))
-    return reject("Đơn đã kết thúc, không thể thực hiện thao tác.");
+    return reject(t("business.orderdemo.thisOrderHasEndedNoFurtherActionsAreAvailable"));
   let status = order.status;
   let paymentStatus = order.paymentStatus;
   let description = "";
@@ -60,28 +64,28 @@ export function applyDemoAction(
       order.paymentStatus !== "PENDING"
     ) {
       return reject(
-        "Đơn này không còn chờ thanh toán. Không thể thanh toán lặp lại.",
+        t("business.orderdemo.thisOrderIsNoLongerAwaitingPaymentDuplicatePaymentIsNotAllowed"),
       );
     }
     paymentStatus = action === "PAY_SUCCESS" ? "PAID" : "FAILED";
     status = action === "PAY_SUCCESS" ? "CONFIRMED" : "CANCELLED";
     description =
       action === "PAY_SUCCESS"
-        ? "Đã xác nhận thanh toán thành công qua chuyển khoản."
-        : "Thanh toán thất bại, đơn hàng đã hủy. Bạn có thể đặt lại món.";
+        ? t("business.orderdemo.bankTransferPaymentConfirmedSuccessfully")
+        : t("business.orderdemo.paymentFailedAndTheOrderWasCancelledYouCanReorderYourMeal");
   } else if (action === "COLLECT_COD") {
     if (order.paymentMethod !== "COD" || order.paymentStatus !== "PENDING")
-      return reject("Đơn này không có khoản COD cần xác nhận.");
+      return reject(t("business.orderdemo.thisOrderHasNoCodPaymentToConfirm"));
     paymentStatus = "PAID";
-    description = "Đã thu tiền mặt (COD).";
+    description = t("business.orderdemo.cashOnDeliveryPaymentCollected");
   } else {
     const next = nextDemoStatus(order.status);
     if (!next)
-      return reject("Chưa thể chuyển bước. Hoàn tất thanh toán trước.");
+      return reject(t("business.orderdemo.cannotAdvanceYetCompletePaymentFirst"));
     if (next === "COMPLETED" && order.paymentStatus !== "PAID")
-      return reject("Cần xác nhận đã thu tiền trước khi hoàn thành.");
+      return reject(t("business.orderdetaildrawer.confirmPaymentCollectionBeforeCompletingTheOrder"));
     status = next;
-    description = `Cửa hàng ${orderStatusLabels[next].toLocaleLowerCase("vi-VN")}.`;
+    description = t("business.orderdemo.store", { value1: t(orderStatusKeys[next]) });
   }
   return {
     ok: true,
@@ -97,8 +101,8 @@ export function applyDemoAction(
           status,
           title:
             action === "COLLECT_COD"
-              ? "Đã thu COD"
-              : orderStatusLabels[status],
+              ? t("business.paymentstatusbadge.codCollected")
+              : t(orderStatusKeys[status]),
           description,
           time: now,
           done: true,
@@ -109,8 +113,8 @@ export function applyDemoAction(
   };
 }
 
-export function displayOrderTime(value?: string) {
-  if (!value) return "Chưa có cập nhật";
+export function displayOrderTime(value?: string, locale: Locale = "vi") {
+  if (!value) return getTranslator(locale)("orders.noUpdates");
   // Preserve older browser snapshots whose dates were already formatted.
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(value))
     value = value.replace(" ", "T") + ":00+07:00";
@@ -118,7 +122,7 @@ export function displayOrderTime(value?: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat("vi-VN", {
+    : new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
         day: "2-digit",
         month: "2-digit",
         hour: "2-digit",

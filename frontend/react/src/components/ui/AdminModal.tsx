@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React from 'react';
 import { Modal, Button, Space } from 'antd';
 import type { ModalProps } from 'antd';
@@ -11,13 +12,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   title,
   subtitle,
   children,
-  okText = 'Lưu thay đổi',
-  cancelText = 'Hủy bỏ',
+  okText: okTextProp,
+  cancelText: cancelTextProp,
   okButtonProps,
   cancelButtonProps,
   confirmLoading = false,
   ...restProps
 }) => {
+  const { t } = useTranslation();
+  const okText = okTextProp ?? t("business:account.saveChanges");
+  const cancelText = cancelTextProp ?? t("business:account.cancel");
+
   return (
     <Modal
       title={
@@ -121,11 +126,15 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   content,
   onConfirm,
   onCancel,
-  confirmText = 'Xác nhận thực hiện',
-  cancelText = 'Hủy bỏ',
+  confirmText: confirmTextProp,
+  cancelText: cancelTextProp,
   danger = true,
   loading = false,
 }) => {
+  const { t } = useTranslation();
+  const confirmText = confirmTextProp ?? t("business:adminmodal.confirmAction");
+  const cancelText = cancelTextProp ?? t("business:account.cancel");
+
   return (
     <Modal
       open={open}

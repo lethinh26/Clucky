@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import * as React from "react";
 import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
@@ -6,11 +9,13 @@ import { useSearchParams } from "next/navigation";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
-import { authApi, ApiError } from "@/lib/api";
+import { authApi } from "@/lib/api";
 
 const OTP_LENGTH = 6;
 
 function VerifyOtpForm() {
+  const t = useTranslations();
+  const { errorMessage } = useLocaleTools();
   const router = useRouter();
   const startDeferred = useDeferredAction();
   const params = useSearchParams();
@@ -18,7 +23,7 @@ function VerifyOtpForm() {
   const [digits, setDigits] = React.useState<string[]>(
     Array(OTP_LENGTH).fill(""),
   );
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [resending, setResending] = React.useState(false);
@@ -55,7 +60,7 @@ function VerifyOtpForm() {
     setError(null);
     setSuccess(null);
     if (otp.length !== OTP_LENGTH) {
-      setError(`Vui lòng nhập đủ ${OTP_LENGTH} số của mã OTP.`);
+      setError("auth.validation.sixDigits");
       return;
     }
     setLoading(true);
@@ -66,12 +71,12 @@ function VerifyOtpForm() {
         localStorage.setItem("clucky_access_token", tokens.accessToken);
         localStorage.setItem("clucky_refresh_token", tokens.refreshToken);
       }
-      setSuccess("Xác thực thành công! Đang chuyển hướng…");
+      setSuccess("auth.otp.verified");
       task.schedule(() => router.push("/account"), 800);
     } catch (err) {
       if (!task.isCurrent()) return;
-      const apiErr = err as ApiError;
-      setError(apiErr.message || "Mã OTP không đúng hoặc đã hết hạn.");
+
+      setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }
@@ -86,10 +91,10 @@ function VerifyOtpForm() {
       await authApi.register({ fullName: "", email, password: "" });
       if (!task.isCurrent()) return;
       setCooldown(60);
-      setSuccess("Đã gửi lại mã OTP. Kiểm tra hộp thư của bạn.");
+      setSuccess("auth.otp.resent");
     } catch (err) {
       if (!task.isCurrent()) return;
-      setError((err as ApiError).message || "Không thể gửi lại mã.");
+      setError(err);
     } finally {
       if (task.isCurrent()) setResending(false);
     }
@@ -97,21 +102,21 @@ function VerifyOtpForm() {
 
   return (
     <AuthShell
-      title="Xác thực OTP"
-      subtitle={`Nhập mã ${OTP_LENGTH} số đã gửi đến ${email || "email của bạn"}.`}
+      title={t("auth.otp.title")}
+      subtitle={t("auth.otp.description", { count: OTP_LENGTH, email: email || t("auth.fields.yourEmail") })}
     >
       <form className="auth-form" onSubmit={onSubmit} noValidate>
-        {error && (
+        {Boolean(error) && (
           <div className="form-error" role="alert">
-            {error}
+            {typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)}
           </div>
         )}
         {success && (
           <div className="form-success" role="status">
-            {success}
+            {t(success)}
           </div>
         )}
-        <div className="otp-input" role="group" aria-label="Mã OTP">
+        <div className="otp-input" role="group" aria-label={t("auth.otp.label")}>
           {digits.map((d, i) => (
             <input
               key={i}
@@ -141,7 +146,7 @@ function VerifyOtpForm() {
               value={d}
               onChange={(e) => setDigit(i, e.target.value)}
               onKeyDown={(e) => onKeyDown(i, e)}
-              aria-label={`Chữ số ${i + 1}`}
+              aria-label={t("business.verifyotp.digit", { value1: i + 1 })}
             />
           ))}
         </div>
@@ -150,10 +155,10 @@ function VerifyOtpForm() {
           className="btn-primary btn-block"
           disabled={loading}
         >
-          {loading ? "Đang xác thực…" : "Xác nhận"}
+          {loading ? t("auth.otp.verifying") : t("common.confirm")}
         </button>
         <span className="auth-footer-link">
-          Chưa nhận được mã?{" "}
+          {t("auth.otp.notReceived")}{" "}
           <button
             type="button"
             onClick={resend}
@@ -168,14 +173,14 @@ function VerifyOtpForm() {
             }}
           >
             {cooldown > 0
-              ? `Gửi lại sau ${cooldown}s`
+              ? t("auth.otp.resendCountdown", { seconds: cooldown })
               : resending
-                ? "Đang gửi…"
-                : "Gửi lại mã"}
+                ? t("auth.otp.sending")
+                : t("auth.otp.resend")}
           </button>
         </span>
         <span className="auth-footer-link">
-          <Link href="/login">← Quay lại đăng nhập</Link>
+          <Link href="/login">{t("auth.backToLogin")}</Link>
         </span>
       </form>
     </AuthShell>
@@ -183,10 +188,11 @@ function VerifyOtpForm() {
 }
 
 export default function VerifyOtpPage() {
+  const t = useTranslations();
   return (
     <React.Suspense
       fallback={
-        <AuthShell title="Xác thực OTP">
+        <AuthShell title={t("auth.otp.title")}>
           <div />
         </AuthShell>
       }

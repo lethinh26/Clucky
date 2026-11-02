@@ -1,4 +1,4 @@
-# [INT-48] Audit log consumer cho thao tác quản trị
+# [INT-48] Audit Service: producer/consumer cho mọi thay đổi quản trị
 
 **PIC:** Mai Sơn Việt
 **Trạng thái trên Lark:** TO DO
@@ -30,18 +30,23 @@ Bắt đầu có thể là chuẩn bị fixture/UI theo contract; phần cần A
 
 ## Mục tiêu và phạm vi
 
-- Audit consumer lưu hành động quản trị với role/store/actor và eventId/correlationId.
+- Consumer tại Audit Service nhận sự kiện audit từ các service và lưu duy nhất vào `audit_service.audit_logs`, dùng entity/repository BE-43; không lưu audit tại Review & Report.
+- Service phát sinh thao tác chịu trách nhiệm phát sự kiện có eventId/correlationId/sourceService/actor/role/storeId/action/target/occurredAt và detail trước–sau. Lấy actor/role từ xác thực backend, store từ đối tượng bị tác động; không tin frontend và không ghi trực tiếp vào schema Audit Service. Loại password/hash, OTP, token và secret trước khi phát.
+- Lập checklist mọi thao tác thay đổi trên trang quản trị theo Staff/Manager/Admin và domain: tài khoản/quyền, cửa hàng/menu/giá/kho, đơn hàng, thanh toán/hoàn tiền, khuyến mãi/điểm, cấu hình, đánh giá. Mỗi owner domain triển khai producer của mình; PIC INT-48 chịu kết nối và coverage, không coi consumer đơn lẻ là hoàn tất.
+- Chỉ ghi thay đổi đã commit; rollback không được ghi thành thay đổi thành công. Producer cần cơ chế phát tin bền vững/retry khi Kafka lỗi để thay đổi đã commit không bị mất audit; retry giữ nguyên eventId. Không dùng fire-and-forget hoặc log request thay cho audit nghiệp vụ.
+- SP/giờ và lịch đang giữ snapshot cũ; cần ước lượng lại coverage producer và bàn giao base BE-43 trước khi nối consumer.
+- Consumer xử lý idempotent theo eventId: phát lại cùng sự kiện không tạo thêm bản ghi audit. BE-43 tra cứu cùng bảng đã lưu.
 - Nhóm tự kiểm chứng/sửa lỗi cuốn chiếu, hoàn tất chậm nhất 05/11 trước Sprint Review 06/11; task chưa đạt tiêu chí không đánh DONE.
 
 ## Đầu ra
 
-- audit_logs
+- Producer theo checklist mọi thay đổi quản trị và consumer tại Audit Service ghi vào `audit_service.audit_logs`.
 - Mã nguồn/tài liệu/evidence của đúng domain; không commit secret.
 
 ## Dependency và phối hợp
 
 - [BE-11](BE-11.md) — Kafka config: topics, producer/consumer factory — PIC: Mai Sơn Việt
-- [BE-08](BE-08.md) — Ánh xạ entity/repository vào schema hiện có — Review & Report — PIC: Mai Sơn Việt
+- [BE-43](BE-43.md) — Audit Service: base, schema và API nhật ký quản trị — PIC: Mai Sơn Việt
 
 PIC là người chịu trách nhiệm kết nối và bàn giao task. Producer/consumer hoặc API của domain khác vẫn do owner task dependency triển khai; danh sách phối hợp không phải đồng PIC.
 
@@ -55,7 +60,7 @@ PIC là người chịu trách nhiệm kết nối và bàn giao task. Producer/
 
 ## Tiêu chí nghiệm thu
 
-1. Đầu ra được bàn giao đúng phạm vi: Audit log consumer cho thao tác quản trị.
+1. Checklist mọi thao tác thay đổi quản trị của Staff/Manager/Admin có evidence producer → Audit Service → API đọc, gồm commit/rollback, Kafka lỗi và replay. Cùng eventId không tạo bản ghi trùng; không lưu secret hoặc tạo bảng audit riêng theo domain.
 2. Hoàn tất từng mục phạm vi ở trên; input hợp lệ, input lỗi và dependency lỗi được xử lý rõ theo API/docs.
 3. Một PIC chịu trách nhiệm; phối hợp thông qua dependency, không thêm đồng PIC.
 4. Khi có API/nghiệp vụ: DTO/validation/error shape, ownership/storeId và idempotency theo contract; frontend chỉ gọi Gateway.

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React from 'react';
 
 export type CategoryKey = 'all' | 'chicken' | 'burger' | 'combo' | 'sides' | 'drinks';
@@ -45,6 +46,7 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({
   alt,
   ...restProps
 }) => {
+  const { t } = useTranslation("menu");
   let resolvedKey: CategoryKey = 'all';
   const numId = typeof id === 'number' ? id : typeof categoryId === 'number' ? categoryId : Number(id);
   if (!isNaN(numId) && categoryIconMap[numId]) {
@@ -80,7 +82,7 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({
   return (
     <img
       src={`/icons/categories/${resolvedKey}.svg`}
-      alt={alt || `Biểu tượng ${resolvedKey}`}
+      alt={alt ?? t("categoryIcon", { name: t(`categories.${resolvedKey}`) })}
       width={size}
       height={size}
       className={className}

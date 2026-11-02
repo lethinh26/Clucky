@@ -3,3 +3,17 @@ server:
 spring:
   application:
     name: review-report-service
+  datasource:
+    hikari:
+      schema: review_report_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: review_report_service
+  flyway:
+    default-schema: review_report_service
+    schemas: review_report_service
+    create-schemas: true
+    baseline-on-migrate: false

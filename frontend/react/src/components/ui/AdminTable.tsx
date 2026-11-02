@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React from 'react';
 import { Table, Input, Space, Empty, Skeleton, Card } from 'antd';
 import type { TableProps } from 'antd';
@@ -20,17 +21,22 @@ export function AdminTable<T extends object>({
   columns,
   dataSource,
   loading = false,
-  searchPlaceholder = 'Tìm kiếm dữ liệu...',
+  searchPlaceholder: searchPlaceholderProp,
   searchValue,
   onSearchChange,
   toolbarExtra,
   filterNodes,
-  emptyTitle = 'Không tìm thấy dữ liệu',
-  emptyDescription = 'Thử điều chỉnh từ khóa tìm kiếm hoặc bộ lọc để xem kết quả khác.',
+  emptyTitle: emptyTitleProp,
+  emptyDescription: emptyDescriptionProp,
   emptyAction,
   pagination,
   ...restProps
 }: AdminTableProps<T>) {
+  const { t } = useTranslation();
+  const searchPlaceholder = searchPlaceholderProp ?? t("business:admintable.searchData");
+  const emptyTitle = emptyTitleProp ?? t("business:admintable.noDataFound");
+  const emptyDescription = emptyDescriptionProp ?? t("business:admintable.adjustYourSearchTermOrFiltersToSeeOtherResults");
+
   const hasToolbar = onSearchChange || toolbarExtra || filterNodes;
   const pagePending = usePagePending();
   const pending = typeof loading === 'object' ? loading.spinning !== false : !!loading;
@@ -83,7 +89,7 @@ export function AdminTable<T extends object>({
 
       {pending ? (
         <div style={{ padding: '24px 0', minHeight: 220 }} className="admin-skeleton-wrap" aria-busy="true">
-          <div role={visible && !pagePending ? 'status' : undefined} aria-label={visible && !pagePending ? 'Đang tải dữ liệu' : undefined}>
+          <div role={visible && !pagePending ? 'status' : undefined} aria-label={visible && !pagePending ? t("business:admintable.loadingData") : undefined}>
             <Skeleton active={visible && !pagePending} paragraph={{ rows: 6 }} />
           </div>
         </div>
@@ -125,7 +131,7 @@ export function AdminTable<T extends object>({
                   showSizeChanger: true,
                   pageSizeOptions: ['5', '10', '20', '50'],
                   showTotal: (total, range) =>
-                    `Hiển thị ${range[0]} - ${range[1]} trên tổng số ${total} mục`,
+                    t("business:admintable.showingOfItems", { value1: range[0], value2: range[1], value3: total }),
                   style: { fontFamily: 'Quicksand, sans-serif', fontWeight: 600 },
                   ...pagination,
                 }

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { useLocaleTools } from "../../i18n/hooks";
 import React, { useState, useMemo } from 'react';
 import {
   Button,
@@ -22,9 +24,12 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ConfirmModal } from '../../components/ui/AdminModal';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { ProductForm } from './ProductForm';
-import { Product, Combo, mockProducts, mockCombos, formatVND } from '../../mocks/catalogData';
+import { Product, Combo, mockProducts, mockCombos, } from '../../mocks/catalogData';
 
 export const CatalogPage: React.FC = () => {
+  const { t } = useTranslation();
+
+  const { money: formatVND } = useLocaleTools();
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [combos, setCombos] = useState<Combo[]>(mockCombos);
   const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
@@ -63,7 +68,7 @@ export const CatalogPage: React.FC = () => {
       prev.map((p) => (p.id === product.id ? { ...p, isActive: checked } : p))
     );
     message.success(
-      `Đã chuyển "${product.name}" sang ${checked ? 'Đang phục vụ' : 'Tạm dừng bán'}.`
+      t("business:catalog.changedTo", { value1: product.name, value2: checked ? t("business:catalog.available") : t("business:catalog.salesPaused") })
     );
   };
 
@@ -98,37 +103,35 @@ export const CatalogPage: React.FC = () => {
     };
     setCombos((prev) => [newCombo, ...prev]);
     setViewMode('combos');
-    message.success(`Đã lưu gói Combo "${newCombo.name}" thành công!`);
+    message.success(t("business:catalog.comboSavedSuccessfully", { value1: newCombo.name }));
   };
 
   // Confirm delete
   const handleDeleteConfirm = () => {
     if (productToDelete) {
       setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
-      message.success(`Đã xóa món "${productToDelete.name}" khỏi thực đơn.`);
+      message.success(t("business:catalog.removedFromTheMenu", { value1: productToDelete.name }));
       setDeleteModalOpen(false);
       setProductToDelete(null);
     }
   };
 
   const spicyBadges = (level: number) => {
-    if (level === 0) return <Tag style={{ borderRadius: 6 }}>Không cay</Tag>;
+    if (level === 0) return <Tag style={{ borderRadius: 6 }}>{t("business:catalog.notSpicy")}</Tag>;
     if (level === 1)
       return (
         <Tag color="orange" style={{ borderRadius: 6 }}>
-          <FireOutlined /> Cay vừa
-        </Tag>
+          <FireOutlined /> {t("business:catalog.medium")} </Tag>
       );
     return (
       <Tag color="red" style={{ borderRadius: 6 }}>
-        <FireOutlined /> Siêu cay
-      </Tag>
+        <FireOutlined /> {t("business:catalog.extraSpicy")} </Tag>
     );
   };
 
   const columns: TableColumnsType<Product> = [
     {
-      title: 'Món ăn',
+      title: t("business:catalog.dish"),
       dataIndex: 'name',
       key: 'name',
       render: (_, record) => (
@@ -165,7 +168,7 @@ export const CatalogPage: React.FC = () => {
       ),
     },
     {
-      title: 'Danh mục',
+      title: t("business:catalog.category"),
       dataIndex: 'categoryName',
       key: 'categoryName',
       width: 130,
@@ -185,7 +188,7 @@ export const CatalogPage: React.FC = () => {
       ),
     },
     {
-      title: 'Giá niêm yết',
+      title: t("business:catalog.listPrice"),
       dataIndex: 'basePrice',
       key: 'basePrice',
       width: 140,
@@ -203,7 +206,7 @@ export const CatalogPage: React.FC = () => {
       ),
     },
     {
-      title: 'Mức cay & Kcal',
+      title: t("business:catalog.spiceLevelCalories"),
       key: 'meta',
       width: 180,
       render: (_, record) => (
@@ -216,18 +219,18 @@ export const CatalogPage: React.FC = () => {
       ),
     },
     {
-      title: 'Tùy chọn',
+      title: t("business:party.custom"),
       key: 'options',
       width: 150,
       render: (_, record) => (
         <div style={{ fontSize: 12, color: '#6B6259' }}>
-          <div>{record.options?.length || 0} nhóm options</div>
+          <div>{record.options?.length || 0} {t("business:catalog.optionGroups")}</div>
           <div>{record.toppings?.length || 0} toppings</div>
         </div>
       ),
     },
     {
-      title: 'Trạng thái',
+      title: t("business:catalog.status"),
       dataIndex: 'isActive',
       key: 'isActive',
       width: 170,
@@ -240,20 +243,20 @@ export const CatalogPage: React.FC = () => {
           />
           <StatusBadge
             status={isActive ? 'success' : 'error'}
-            text={isActive ? 'Đang bán' : 'Tạm ngưng'}
+            text={isActive ? t("business:catalog.onSale") : t("business:catalog.suspended")}
             size="small"
           />
         </div>
       ),
     },
     {
-      title: 'Thao tác',
+      title: t("business:catalog.actions"),
       key: 'action',
       width: 110,
       align: 'right',
       render: (_, record) => (
         <Space size={6}>
-          <Tooltip title="Chỉnh sửa món">
+          <Tooltip title={t("business:catalog.editDish")}>
             <Button
               type="text"
               icon={<EditOutlined style={{ color: '#22577A' }} />}
@@ -263,7 +266,7 @@ export const CatalogPage: React.FC = () => {
               }}
             />
           </Tooltip>
-          <Tooltip title="Xóa món">
+          <Tooltip title={t("business:cart.removeItem")}>
             <Button
               type="text"
               danger
@@ -281,7 +284,7 @@ export const CatalogPage: React.FC = () => {
 
   const comboColumns: TableColumnsType<Combo> = [
     {
-      title: 'Gói Combo',
+      title: t("business:catalog.comboPackage"),
       key: 'name',
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -324,7 +327,7 @@ export const CatalogPage: React.FC = () => {
       ),
     },
     {
-      title: 'Món cấu thành',
+      title: t("business:catalog.includedDishes"),
       key: 'items',
       render: (_, record) => (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -350,7 +353,7 @@ export const CatalogPage: React.FC = () => {
       ),
     },
     {
-      title: 'Giá Combo',
+      title: t("business:catalog.comboPrice"),
       dataIndex: 'comboPrice',
       key: 'comboPrice',
       width: 140,
@@ -368,7 +371,7 @@ export const CatalogPage: React.FC = () => {
       ),
     },
     {
-      title: 'Trạng thái',
+      title: t("business:catalog.status"),
       dataIndex: 'isActive',
       key: 'isActive',
       width: 170,
@@ -381,33 +384,33 @@ export const CatalogPage: React.FC = () => {
                 prev.map((c) => (c.id === record.id ? { ...c, isActive: checked } : c))
               );
               message.success(
-                `Đã chuyển Combo "${record.name}" sang ${checked ? 'Đang áp dụng' : 'Tạm dừng'}.`
+                t("business:catalog.changedComboTo", { value1: record.name, value2: checked ? t("business:catalog.active") : t("business:catalog.paused") })
               );
             }}
             size="small"
           />
           <StatusBadge
             status={isActive ? 'success' : 'error'}
-            text={isActive ? 'Đang bán' : 'Tạm ngưng'}
+            text={isActive ? t("business:catalog.onSale") : t("business:catalog.suspended")}
             size="small"
           />
         </div>
       ),
     },
     {
-      title: 'Thao tác',
+      title: t("business:catalog.actions"),
       key: 'action',
       width: 90,
       align: 'right',
       render: (_, record) => (
-        <Tooltip title="Xóa combo">
+        <Tooltip title={t("business:catalog.deleteCombo")}>
           <Button
             type="text"
             danger
             icon={<DeleteOutlined />}
             onClick={() => {
               setCombos((prev) => prev.filter((c) => c.id !== record.id));
-              message.success(`Đã xóa gói Combo "${record.name}".`);
+              message.success(t("business:catalog.deletedCombo", { value1: record.name }));
             }}
           />
         </Tooltip>
@@ -437,9 +440,7 @@ export const CatalogPage: React.FC = () => {
               color: '#16100D',
               margin: 0,
             }}
-          >
-            Quản lý Thực đơn & Sản phẩm
-          </h1>
+          > {t("business:catalog.menuProductManagement")} </h1>
           <p
             style={{
               fontFamily: 'Quicksand, sans-serif',
@@ -447,9 +448,7 @@ export const CatalogPage: React.FC = () => {
               fontSize: 14,
               margin: '6px 0 0',
             }}
-          >
-            Quản lý toàn bộ danh mục gà giòn, burger, toppings và các gói combo khuyến mãi toàn chuỗi.
-          </p>
+          > {t("business:catalog.manageChickenBurgersToppingsAndPromotionalCombosAcrossAllStores")} </p>
         </div>
 
         <Space size={12}>
@@ -469,9 +468,7 @@ export const CatalogPage: React.FC = () => {
               fontWeight: 700,
               fontFamily: 'Quicksand, sans-serif',
             }}
-          >
-            Thêm món ăn mới
-          </Button>
+          > {t("business:catalog.addANewDish")} </Button>
         </Space>
       </div>
 
@@ -482,16 +479,14 @@ export const CatalogPage: React.FC = () => {
         options={[
           {
             label: (
-              <span style={{ fontWeight: 700, padding: '4px 8px' }}>
-                🍗 Món lẻ thông thường ({products.length})
+              <span style={{ fontWeight: 700, padding: '4px 8px' }}> {t("business:catalog.individualDishes")}{products.length})
               </span>
             ),
             value: 'products',
           },
           {
             label: (
-              <span style={{ fontWeight: 700, padding: '4px 8px' }}>
-                🎁 Gói Combo ưu đãi ({combos.length})
+              <span style={{ fontWeight: 700, padding: '4px 8px' }}> {t("business:catalog.promotionalCombos")}{combos.length})
               </span>
             ),
             value: 'combos',
@@ -513,7 +508,7 @@ export const CatalogPage: React.FC = () => {
           columns={columns}
           dataSource={filteredProducts}
           rowKey="id"
-          searchPlaceholder="Tìm kiếm tên món, slug, danh mục..."
+          searchPlaceholder={t("business:catalog.searchDishNamesSlugsCategories")}
           searchValue={searchTerm}
           onSearchChange={setSearchTerm}
           filterNodes={
@@ -533,8 +528,7 @@ export const CatalogPage: React.FC = () => {
                         transition: 'all 0.2s ease',
                       }}
                     >
-                      <CategoryIcon id={0} size={15} active={categoryFilter === 'ALL'} activeTheme="on-light" /> Tất cả (6)
-                    </span>
+                      <CategoryIcon id={0} size={15} active={categoryFilter === 'ALL'} activeTheme="on-light" /> {t("business:catalog.all")} </span>
                   ),
                   value: 'ALL',
                 },
@@ -550,8 +544,7 @@ export const CatalogPage: React.FC = () => {
                         transition: 'all 0.2s ease',
                       }}
                     >
-                      <CategoryIcon id={1} size={15} active={categoryFilter === '1'} activeTheme="on-light" /> Gà rán
-                    </span>
+                      <CategoryIcon id={1} size={15} active={categoryFilter === '1'} activeTheme="on-light" /> {t("business:catalog.friedChicken")} </span>
                   ),
                   value: '1',
                 },
@@ -584,8 +577,7 @@ export const CatalogPage: React.FC = () => {
                         transition: 'all 0.2s ease',
                       }}
                     >
-                      <CategoryIcon id={4} size={15} active={categoryFilter === '4'} activeTheme="on-light" /> Món phụ
-                    </span>
+                      <CategoryIcon id={4} size={15} active={categoryFilter === '4'} activeTheme="on-light" /> {t("business:catalog.sides")} </span>
                   ),
                   value: '4',
                 },
@@ -601,8 +593,7 @@ export const CatalogPage: React.FC = () => {
                         transition: 'all 0.2s ease',
                       }}
                     >
-                      <CategoryIcon id={5} size={15} active={categoryFilter === '5'} activeTheme="on-light" /> Đồ uống
-                    </span>
+                      <CategoryIcon id={5} size={15} active={categoryFilter === '5'} activeTheme="on-light" /> {t("business:catalog.drinks")} </span>
                   ),
                   value: '5',
                 },
@@ -616,19 +607,19 @@ export const CatalogPage: React.FC = () => {
               }}
             />
           }
-          emptyTitle="Không có món ăn nào trong danh mục"
-          emptyDescription="Thử chuyển sang danh mục khác hoặc tìm kiếm với từ khóa mới."
+          emptyTitle={t("business:catalog.noDishesInThisCategory")}
+          emptyDescription={t("business:catalog.tryAnotherCategoryOrADifferentSearchTerm")}
         />
       ) : (
         <AdminTable<Combo>
           columns={comboColumns}
           dataSource={filteredCombos}
           rowKey="id"
-          searchPlaceholder="Tìm kiếm tên gói Combo ưu đãi..."
+          searchPlaceholder={t("business:catalog.searchPromotionalComboNames")}
           searchValue={searchTerm}
           onSearchChange={setSearchTerm}
-          emptyTitle="Không có gói Combo nào"
-          emptyDescription="Thử tìm kiếm với từ khóa khác hoặc tạo mới gói Combo bằng nút phía trên."
+          emptyTitle={t("business:catalog.noCombosFound")}
+          emptyDescription={t("business:catalog.tryAnotherSearchTermOrCreateAComboUsingTheButtonAbove")}
         />
       )}
 
@@ -647,20 +638,17 @@ export const CatalogPage: React.FC = () => {
       {/* Confirm Delete Modal */}
       <ConfirmModal
         open={deleteModalOpen}
-        title="Xóa món ăn khỏi thực đơn?"
+        title={t("business:catalog.removeThisDishFromTheMenu")}
         content={
-          <span>
-            Bạn có chắc chắn muốn xóa món{' '}
-            <strong>"{productToDelete?.name}"</strong>? Thao tác này sẽ gỡ món ăn khỏi ứng dụng
-            khách hàng và danh mục chi nhánh.
-          </span>
+          <span> {t("business:catalog.areYouSureYouWantToDelete")}{' '}
+            <strong>"{productToDelete?.name}"</strong>{t("business:catalog.thisWillRemoveTheDishFromTheCustomerAppAndStoreCatalog")} </span>
         }
         onConfirm={handleDeleteConfirm}
         onCancel={() => {
           setDeleteModalOpen(false);
           setProductToDelete(null);
         }}
-        confirmText="Xóa vĩnh viễn"
+        confirmText={t("business:catalog.deletePermanently")}
         danger
       />
     </div>

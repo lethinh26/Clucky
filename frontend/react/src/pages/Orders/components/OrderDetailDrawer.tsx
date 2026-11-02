@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { useLocaleTools } from "../../../i18n/hooks";
 import { useState } from "react";
 import { App as AntApp, Drawer, Button, Modal, Input, Popconfirm } from "antd";
 import {
@@ -35,8 +37,7 @@ interface Props {
   ) => boolean;
   onOpenRefundModal?: (order: AdminOrder) => void;
 }
-const money = (amount: number) =>
-  new Intl.NumberFormat("vi-VN").format(amount) + "đ";
+
 export function OrderDetailDrawer({
   order,
   open,
@@ -44,6 +45,10 @@ export function OrderDetailDrawer({
   onStatusChange,
   onOpenRefundModal,
 }: Props) {
+  const { t } = useTranslation();
+
+
+  const { locale, money: money } = useLocaleTools();
   const { confirmCOD, actionError } = useOrders();
   const { isStaff } = useAuth();
   const { message } = AntApp.useApp();
@@ -52,15 +57,15 @@ export function OrderDetailDrawer({
   if (!order) return null;
   const collect = () => {
     if (confirmCOD(order.id))
-      message.success("Đã xác nhận thu COD trong bản demo.");
-    else message.warning("Đơn không còn khoản COD cần xác nhận.");
+      message.success(t("business:orderdetaildrawer.codCollectionConfirmedInTheDemo"));
+    else message.warning(t("business:orderdetaildrawer.thisOrderNoLongerHasACodPaymentToConfirm"));
   };
   return (
     <>
       <Drawer
         title={
           <div className={styles.drawerTitle}>
-            <span>Chi tiết {order.orderCode}</span>
+            <span>{t("business:orderdetaildrawer.details")} {order.orderCode}</span>
             <OrderStatusBadge status={order.status} />
           </div>
         }
@@ -70,11 +75,9 @@ export function OrderDetailDrawer({
       >
         <div className={styles.drawerMeta}>
           <span>
-            <Clock3 size={14} />
-            Đặt: {displayOrderTime(order.createdAt)}
+            <Clock3 size={14} /> {t("business:orderdetaildrawer.placed")} {displayOrderTime(order.createdAt, locale)}
           </span>
-          <span>
-            Cập nhật: {displayOrderTime(order.updatedAt ?? order.createdAt)}
+          <span> {t("business:orderdetaildrawer.updated")} {displayOrderTime(order.updatedAt ?? order.createdAt, locale)}
           </span>
         </div>
         <OrderProgress order={order} surface="detail" />
@@ -87,48 +90,41 @@ export function OrderDetailDrawer({
         {order.hasRefundRequest && (
           <div className={styles.refundAlert}>
             <strong>
-              <CircleAlert size={17} />
-              Yêu cầu hoàn tiền đang chờ duyệt
-            </strong>
+              <CircleAlert size={17} /> {t("business:orderdetaildrawer.refundRequestAwaitingReview")} </strong>
             <p>
               {money(order.refundAmount ?? order.total)} · {order.refundReason}
             </p>
             {!isStaff && onOpenRefundModal && (
-              <Button danger onClick={() => onOpenRefundModal(order)}>
-                Xử lý yêu cầu hoàn tiền
-              </Button>
+              <Button danger onClick={() => onOpenRefundModal(order)}> {t("business:orderdetaildrawer.reviewRefundRequest")} </Button>
             )}
           </div>
         )}
         {order.refundStatus && !order.hasRefundRequest && (
-          <p className={styles.drawerNotice}>
-            Quyết định hoàn tiền:{" "}
+          <p className={styles.drawerNotice}> {t("business:orderdetaildrawer.refundDecision")}{" "}
             {order.refundStatus === "APPROVED"
-              ? "Đã duyệt"
+              ? t("business:orderdetaildrawer.approved")
               : order.refundStatus === "REJECTED"
-                ? "Đã từ chối"
+                ? t("business:orderdetaildrawer.rejected")
                 : order.refundStatus}
             .
           </p>
         )}
         <section className={styles.drawerSection}>
           <h2 className={styles.drawerHeading}>
-            <UserRound size={18} />
-            Khách hàng & nhận món
-          </h2>
+            <UserRound size={18} /> {t("business:orderdetaildrawer.customerFulfilment")} </h2>
           <dl className={styles.drawerInfoGrid}>
             <div>
-              <dt>Khách hàng</dt>
+              <dt>{t("business:dashboard.customer")}</dt>
               <dd>{order.customerName}</dd>
             </div>
             <div>
-              <dt>Điện thoại</dt>
+              <dt>{t("business:orderdetaildrawer.phone")}</dt>
               <dd>
                 <a href={`tel:${order.customerPhone}`}>{order.customerPhone}</a>
               </dd>
             </div>
             <div>
-              <dt>Hình thức</dt>
+              <dt>{t("business:orderdetaildrawer.fulfilmentMethod")}</dt>
               <dd className={styles.inlineValue}>
                 {order.orderType === "PICKUP" ? (
                   <Store size={15} />
@@ -136,19 +132,18 @@ export function OrderDetailDrawer({
                   <Truck size={15} />
                 )}
                 {order.orderType === "PICKUP"
-                  ? "Nhận tại quầy"
-                  : "Giao tận nơi"}
+                  ? t("business:orderdetaildrawer.counterPickup")
+                  : t("business:checkout.homeDelivery")}
               </dd>
             </div>
             <div>
-              <dt>Chi nhánh</dt>
+              <dt>{t("business:party.store")}</dt>
               <dd>{order.storeName}</dd>
             </div>
             {order.deliveryAddress && (
               <div className={styles.wideField}>
                 <dt>
-                  <MapPin size={13} /> Địa chỉ nhận
-                </dt>
+                  <MapPin size={13} /> {t("business:shipmentcard.deliveryAddress")} </dt>
                 <dd>{order.deliveryAddress}</dd>
               </div>
             )}
@@ -156,11 +151,9 @@ export function OrderDetailDrawer({
         </section>
         <section className={styles.drawerSection}>
           <h2 className={styles.drawerHeading}>
-            <ShoppingBag size={18} />
-            Món đã đặt{" "}
+            <ShoppingBag size={18} /> {t("business:id.orderedItems")}{" "}
             <span>
-              {order.items.reduce((sum, item) => sum + item.quantity, 0)} phần
-            </span>
+              {order.items.reduce((sum, item) => sum + item.quantity, 0)} {t("business:cart.servings")} </span>
           </h2>
           <div className={styles.drawerItems}>
             {order.items.map((item) => (
@@ -174,10 +167,10 @@ export function OrderDetailDrawer({
                 <div>
                   <strong>{item.itemName}</strong>
                   <p>
-                    {item.quantity} phần × {money(item.unitPrice)}
+                    {item.quantity} {t("business:orderdetaildrawer.servings")} {money(item.unitPrice)}
                   </p>
                   {item.options && <small>{item.options}</small>}
-                  {item.note && <small>Ghi chú: {item.note}</small>}
+                  {item.note && <small>{t("business:orderitemcard.note")} {item.note}</small>}
                 </div>
                 <b>{money(item.lineTotal)}</b>
               </article>
@@ -187,7 +180,7 @@ export function OrderDetailDrawer({
             <div className={styles.drawerNote}>
               <MessageSquare size={17} />
               <div>
-                <strong>Ghi chú của khách</strong>
+                <strong>{t("business:orderdetaildrawer.customerNotes")}</strong>
                 <p>{order.note}</p>
               </div>
             </div>
@@ -195,83 +188,75 @@ export function OrderDetailDrawer({
         </section>
         <section className={styles.drawerSection}>
           <h2 className={styles.drawerHeading}>
-            <Wallet size={18} />
-            Thanh toán & hóa đơn
-          </h2>
+            <Wallet size={18} /> {t("business:orderdetaildrawer.paymentReceipt")} </h2>
           <dl className={styles.receiptRows}>
             <div>
-              <dt>Phương thức</dt>
+              <dt>{t("business:orderdetaildrawer.method")}</dt>
               <dd>
                 {order.paymentMethod === "COD"
-                  ? "Tiền mặt (COD)"
-                  : "Chuyển khoản"}
+                  ? t("business:orderdetaildrawer.cashCod")
+                  : t("business:id.bankTransfer")}
               </dd>
             </div>
             <div>
-              <dt>Trạng thái</dt>
+              <dt>{t("business:catalog.status")}</dt>
               <dd data-paid={order.paymentStatus === "PAID"}>
                 {order.paymentStatus === "PAID"
-                  ? "Đã thanh toán"
+                  ? t("business:demoordercontrols.paid")
                   : order.paymentStatus === "FAILED"
-                    ? "Thất bại"
-                    : "Chưa thanh toán"}
+                    ? t("business:orderdetaildrawer.failed")
+                    : t("business:paymentstatusbadge.unpaid")}
               </dd>
             </div>
             <div>
-              <dt>Tạm tính</dt>
+              <dt>{t("business:cart.subtotal")}</dt>
               <dd>{money(order.subtotal)}</dd>
             </div>
             {order.discount > 0 && (
               <div>
-                <dt>Giảm giá</dt>
+                <dt>{t("business:ordersummarycard.discount")}</dt>
                 <dd>-{money(order.discount)}</dd>
               </div>
             )}
             <div>
-              <dt>Phí giao hàng</dt>
+              <dt>{t("business:ordersummarycard.deliveryFee")}</dt>
               <dd>{money(order.shippingFee)}</dd>
             </div>
             <div className={styles.receiptTotal}>
-              <dt>Tổng thanh toán</dt>
+              <dt>{t("business:checkout.totalDue")}</dt>
               <dd>{money(order.total)}</dd>
             </div>
           </dl>
         </section>
         <section className={styles.drawerSection}>
-          <h2 className={styles.drawerHeading}>Thao tác đơn hàng</h2>
-          <p className={styles.actionHint}>
-            Thao tác theo trạng thái hiện tại và vai trò demo của bạn.
-          </p>
+          <h2 className={styles.drawerHeading}>{t("business:orderdetaildrawer.orderActions")}</h2>
+          <p className={styles.actionHint}> {t("business:orderdetaildrawer.actionsDependOnTheCurrentStatusAndYourDemoRole")} </p>
           <div className={styles.drawerActions}>
             {order.status === "CONFIRMED" && (
               <Button
                 type="primary"
                 icon={<ChefHat size={16} />}
                 onClick={() => onStatusChange(order.id, "PREPARING")}
-              >
-                Bắt đầu chế biến
-              </Button>
+              > {t("business:orderdetaildrawer.startPreparation")} </Button>
             )}
             {order.status === "PREPARING" && (
               <Button
                 type="primary"
                 icon={<PackageCheck size={16} />}
                 onClick={() => onStatusChange(order.id, "READY")}
-              >
-                Món sẵn sàng
-              </Button>
+              > {t("business:orderdetaildrawer.mealReady")} </Button>
             )}
             {order.paymentMethod === "COD" &&
               order.paymentStatus === "PENDING" &&
               !["CANCELLED", "COMPLETED"].includes(order.status) && (
                 <Popconfirm
-                  title="Xác nhận đã thu COD?"
+                  title={t("business:orderdetaildrawer.confirmCodCollected")}
                   description={`${money(order.total)} · ${order.orderCode}`}
-                  okText="Đã thu"
-                  cancelText="Đóng"
+                  okText={t("business:orderdetaildrawer.collected")}
+                  cancelText={t("business:orderdetaildrawer.close")}
                   onConfirm={collect}
                 >
-                  <Button icon={<Wallet size={16} />}>Xác nhận thu COD</Button>
+                  <Button icon={<Wallet size={16} />}>{t("business:orderdetaildrawer.confirmCodCollection")}</Button>
                 </Popconfirm>
               )}
             {["READY", "SHIPPING"].includes(order.status) && (
@@ -280,9 +265,7 @@ export function OrderDetailDrawer({
                 disabled={order.paymentStatus !== "PAID"}
                 icon={<CheckCircle2 size={16} />}
                 onClick={() => onStatusChange(order.id, "COMPLETED")}
-              >
-                Hoàn thành đơn hàng
-              </Button>
+              > {t("business:orderdetaildrawer.completeOrder")} </Button>
             )}
             {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
               <Button
@@ -292,41 +275,32 @@ export function OrderDetailDrawer({
                   setReason("");
                   setCancelOpen(true);
                 }}
-              >
-                Từ chối / hủy đơn
-              </Button>
+              > {t("business:orderdetaildrawer.rejectCancelOrder")} </Button>
             )}
             {["COMPLETED", "CANCELLED"].includes(order.status) && (
-              <p className={styles.drawerNotice}>
-                Đơn đã kết thúc. Không còn thao tác chuyển trạng thái.
-              </p>
+              <p className={styles.drawerNotice}> {t("business:orderdetaildrawer.thisOrderHasEndedNoFurtherStatusChangesAreAvailable")} </p>
             )}
           </div>
           {["READY", "SHIPPING"].includes(order.status) &&
             order.paymentStatus !== "PAID" && (
-              <p className={styles.actionHint}>
-                Xác nhận thu tiền trước khi hoàn thành đơn.
-              </p>
+              <p className={styles.actionHint}> {t("business:orderdetaildrawer.confirmPaymentCollectionBeforeCompletingTheOrder")} </p>
             )}
         </section>
       </Drawer>
       <Modal
-        title={`Hủy đơn ${order.orderCode}`}
+        title={t("business:orderdetaildrawer.cancelOrder", { value1: order.orderCode })}
         open={cancelOpen}
         onCancel={() => setCancelOpen(false)}
-        okText="Xác nhận hủy"
-        cancelText="Giữ đơn"
+        okText={t("business:id.confirmCancellation")}
+        cancelText={t("business:id.keepOrder")}
         okButtonProps={{ danger: true, disabled: !reason.trim() }}
         onOk={() => {
           if (onStatusChange(order.id, "CANCELLED", reason.trim()))
             setCancelOpen(false);
         }}
       >
-        <p>
-          Nhập lý do hủy. Đơn đã thanh toán sẽ tạo yêu cầu hoàn tiền trong bản
-          demo.
-        </p>
-        <label htmlFor="staff-cancel-reason">Lý do hủy *</label>
+        <p> {t("business:orderdetaildrawer.enterACancellationReasonPaidOrdersWillCreateARefundRequestIn")} </p>
+        <label htmlFor="staff-cancel-reason">{t("business:id.cancellationReason")}</label>
         <Input.TextArea
           id="staff-cancel-reason"
           value={reason}

@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import * as React from "react";
 import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
@@ -6,13 +9,15 @@ import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-nav
 import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Input } from "@/components/ui/input";
-import { authApi, ApiError } from "@/lib/api";
+import { authApi } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations();
+  const { errorMessage } = useLocaleTools();
   const router = useRouter();
   const startDeferred = useDeferredAction();
   const [email, setEmail] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -23,21 +28,21 @@ export default function ForgotPasswordPage() {
     setError(null);
     setSuccess(null);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("Vui lòng nhập đúng email đã đăng ký.");
+      setError("auth.validation.registeredEmail");
       return;
     }
     setLoading(true);
     try {
       await authApi.forgotPassword({ email: email.trim() });
       if (!task.isCurrent()) return;
-      setSuccess("Nếu email tồn tại, mã đặt lại mật khẩu đã được gửi.");
+      setSuccess("auth.forgot.sent");
       task.schedule(
         () => router.push(`/reset-password?email=${encodeURIComponent(email)}`),
         1200,
       );
     } catch (err) {
       if (!task.isCurrent()) return;
-      setError((err as ApiError).message || "Không thể gửi yêu cầu.");
+      setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }
@@ -45,18 +50,18 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      title="Quên mật khẩu"
-      subtitle="Nhập email của bạn, chúng tôi sẽ gửi mã để đặt lại mật khẩu."
+      title={t("auth.forgot.title")}
+      subtitle={t("auth.forgot.description")}
     >
       <form className="auth-form" onSubmit={onSubmit} noValidate>
-        {error && (
+        {Boolean(error) && (
           <div className="form-error" role="alert">
-            {error}
+            {typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)}
           </div>
         )}
         {success && (
           <div className="form-success" role="status">
-            {success}
+            {t(success)}
           </div>
         )}
         <Input
@@ -73,10 +78,10 @@ export default function ForgotPasswordPage() {
           className="btn-primary btn-block"
           disabled={loading}
         >
-          {loading ? "Đang gửi…" : "Gửi mã đặt lại"}
+          {loading ? t("auth.otp.sending") : t("auth.forgot.send")}
         </button>
         <span className="auth-footer-link">
-          <Link href="/login">← Quay lại đăng nhập</Link>
+          <Link href="/login">{t("auth.backToLogin")}</Link>
         </span>
       </form>
     </AuthShell>

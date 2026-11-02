@@ -3,3 +3,17 @@ server:
 spring:
   application:
     name: shipping-service
+  datasource:
+    hikari:
+      schema: shipping_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: shipping_service
+  flyway:
+    default-schema: shipping_service
+    schemas: shipping_service
+    create-schemas: true
+    baseline-on-migrate: false

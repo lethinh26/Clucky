@@ -22,7 +22,33 @@ Tài liệu tổng hợp lịch, phân công, dependency, ước lượng và tr
 
 **Phạm vi cập nhật:** bổ sung đối chiếu Git vào tài liệu backlog trong repository. Chưa đồng bộ phần bổ sung này lên Lark; kết quả đồng bộ Lark ở cuối tài liệu thuộc lần trước. Không chạy test, lint, typecheck, build, Docker/backend hoặc kiểm thử trình duyệt; nhóm tự kiểm chứng và bổ sung evidence trước khi đổi trạng thái nghiệm thu.
 
+## Audit Service riêng cho trang quản trị — cập nhật 02/11/2026
+
+- Tách Audit Service khỏi Review & Report, nâng thiết kế lên 9 service nghiệp vụ. Bảng duy nhất là `audit_service.audit_logs`; BE-08 không còn phụ trách audit. Đây là thay đổi thiết kế/backlog, chưa triển khai service hoặc chuyển dữ liệu DB đang chạy.
+- Ghi mọi thay đổi thành công trên trang quản trị của Staff/Manager/Admin: tài khoản/phân quyền, cửa hàng/menu/giá/kho, đơn hàng, thanh toán/hoàn tiền, khuyến mãi/điểm, cấu hình và đánh giá. Backend domain phát sự kiện với actor/role đáng tin cậy, store, action, target, dữ liệu trước–sau đã lọc secret, thời gian, source service, eventId/correlationId; không lấy audit trực tiếp từ frontend.
+- BE-43 xây base Audit Service, migration/entity/repository và API đọc `/api/audit-logs` qua Gateway; cấu hình qua Config Server, discovery qua Eureka. INT-48 tích hợp producer ở các domain và consumer tại Audit Service, chống trùng bằng eventId. Không ghi SQL xuyên service, không có API sửa/xóa audit.
+- Admin tra cứu toàn hệ thống; Manager chỉ xem thao tác của Staff thuộc quán mình theo RBAC. Backend kiểm tra quyền và `storeId`; không lưu secret trong audit.
+- Giữ ID, PIC, lịch và trạng thái task; đổi dependency để BE-43 xây base trước INT-48. SP/giờ đang giữ số kế hoạch cũ, cần ước lượng lại BE-43/INT-48 vì thêm service và mở rộng coverage producer. Cập nhật này chỉ ở repository, chưa đồng bộ lên Lark.
+
 ## Quy ước và lịch sprint
+
+**Danh mục lỗi và i18n:** nguồn chuẩn tại `contracts/errors.json`, sinh enum Java cho Gateway/8 service và bảng dịch lỗi cho hai frontend. Error response thêm `code`; frontend không hiện exception thô. Đã chuyển vi/en sang next-intl (Next.js) và i18next/react-i18next (React), quản lý trong `locales/vi` và `locales/en` với key ngữ nghĩa; lỗi sinh vào `errors.generated.json` từ danh mục chung. Cookie giữ lựa chọn ngôn ngữ, áp dụng cho điều hướng/xác thực và các màn chính; phạm vi dịch UI và cách bổ sung nằm tại [contracts/README.md](../contracts/README.md). Đã chuyển UI nghiệp vụ chi tiết của hai frontend vào JSON, giữ nguyên dữ liệu sản phẩm/cửa hàng/người dùng. Đã bổ sung kiểm tra key/placeholder vi–en, chuỗi UI và kiểm thử trình duyệt; xem [biên bản kiểm thử i18n](verification/i18n-2026-11-02.md). Không đổi trạng thái các task backend.
+
+**Bàn giao mã nền local 02/11/2026:** đã bổ sung mã cho bộ 20 task BE-01…13, BE-15, BE-50/51/52, BE-57/59/68 theo package Spring Boot độc lập từng service. Controller/service nghiệp vụ chỉ là file mẫu, Audit Service chưa triển khai. Chưa chạy test/build/migration hoặc kiểm thử runtime; giữ nguyên trạng thái và PIC, chưa đồng bộ Lark. Không dùng ghi nhận local này để thay snapshot main ở phần trên.
+
+| Nhóm task nền | Mã hiện có và phần hoàn thiện | Còn cần xác nhận trước khi DONE |
+|---|---|---|
+| BE-01…08 | 39 entity/repository, DTO/mapper; schema riêng cho từng service, không có audit entity trong Review & Report | Database thực tế, Flyway history và JPA mapping; không tự xóa/reset/baseline DB cũ |
+| BE-09/10 | JWT ở Gateway và service, owner/store guard, 401/403 cùng error shape và Bearer challenge; exception handler, pagination mặc định 20/tối đa 200 | Token thật, quyền và phạm vi dữ liệu trên endpoint nghiệp vụ; controller mẫu chưa được bật |
+| BE-11 | Topics, factory/template do Spring Boot cấu hình từ Config Server, EventMapper kiểm tra envelope/topic/payload; recoverer không bỏ qua message lỗi | Broker và replay thực tế; producer/consumer domain, deduplication và DLQ thuộc INT tương ứng |
+| BE-12 | StringRedisTemplate và policy TTL, chặn key cart đụng namespace guest, từ chối QR expiry không hợp lệ | TTL/atomic consume thực tế trong task sử dụng; không mặc định đã có cart/cache/Google login |
+| BE-13/15 | OpenAPI có schema DTO ngay cả khi chưa mở controller; health/info, correlation filter và RestClient customizer | Swagger bật ở dev/demo; header request → Gateway → service → REST giữ đúng ID |
+| BE-50/51/52 | Payment/QR/status enums, Voucher/Loyalty input-output/error contract, Notification pagination/read-state | Owner nghiệp vụ xác nhận contract và kiểm thử validation; không thay bằng API giả |
+| BE-57/59/68 | Mail/Cloudinary config qua env, EmailMessage có giới hạn/validation/redaction | Bind enabled/disabled, secret không lộ; SMTP và upload thật thuộc task sau |
+
+**Cách dùng phần bổ sung:** listener gọi `EventMapper.fromJson(json, expectedEventType)` rồi validate payload nghiệp vụ; producer gọi `toJson(event)` và giữ nguyên eventId khi retry. Kafka base không ack recovery thất bại nên partition có thể dừng tại message lỗi; INT-46 phải bàn giao DLQ bền vững trước khi đổi cơ chế này. `HttpClientConfig` truyền correlation từ MDC qua `RestClient.Builder` do Boot cung cấp, không tự forward Bearer token; worker Kafka cần quản lý correlation context riêng. Không dùng correlation ID thay event ID chống trùng.
+
+**Tự kiểm chứng (chưa chạy):** từ `backend`, người dùng có thể chạy `.\gradlew.bat :identity-service:baseSelfCheck` cho claims/ownership/store, DTO không lộ password, event envelope/topic/correlation/JSON dư, Redis key/expiry; sau đó build và kiểm chứng môi trường thật. File check không phải bằng chứng các task đã đạt. Thiếu `JWT_SECRET` hợp lệ sẽ chặn khởi động; `.env.example` không được Spring Boot tự nạp. Swagger bật bằng `API_DOCS_ENABLED=true` trong dev/demo. Webhook/internal vẫn bị chặn đến khi có cơ chế xác thực tương ứng.
 
 - Mỗi task đúng **một PIC**; giữ ID, trạng thái, dependency, truy vết gộp và 37 task DONE. Không đổi PIC hoặc reset tiến độ.
 - **Sprint 1: 26/10–01/11/2026**: giữ lịch đã ghi nhận; 28 task chưa DONE trong snapshot là rủi ro prerequisite, không tự coi đã hoàn tất.
@@ -231,7 +257,7 @@ Bấm mã task để mở file detail trong `architechture/tasks/`. Các file de
 | [BE-40](../architechture/tasks/BE-40.md) | Review: create/edit/delete own + product reviews | Mai Sơn Việt | TO DO | 03/11/2026 08:00 | 03/11/2026 23:59 | BE-08, BE-09, BE-25 | 5 | 8 | 8 |
 | [BE-41](../architechture/tasks/BE-41.md) | Review: replies + hide | Mai Sơn Việt | TO DO | 03/11/2026 08:00 | 03/11/2026 23:59 | BE-40 | 3 | 4 | 4 |
 | [BE-42](../architechture/tasks/BE-42.md) | Report: dashboard per role + revenue + export Excel/PDF | Mai Sơn Việt | TO DO | 03/11/2026 08:00 | 04/11/2026 23:59 | BE-08, BE-09, INT-45 | 13 | 20 | 20 |
-| [BE-43](../architechture/tasks/BE-43.md) | Audit log: record + query | Mai Sơn Việt | TO DO | 04/11/2026 08:00 | 04/11/2026 23:59 | BE-08, BE-09, INT-48 | 5 | 8 | 8 |
+| [BE-43](../architechture/tasks/BE-43.md) | Audit Service: base, schema và API nhật ký quản trị | Mai Sơn Việt | TO DO | 04/11/2026 08:00 | 04/11/2026 23:59 | UI-03, UI-06, BE-09, BE-10 | 5 | 8 | 8 |
 | [BE-44](../architechture/tasks/BE-44.md) | Payment status query + ownership: customer chỉ xem payment của order mình | Lê Phú Thịnh | TO DO | 02/11/2026 08:00 | 03/11/2026 23:59 | BE-29, BE-09 | 5 | 6 | 6 |
 | [BE-45](../architechture/tasks/BE-45.md) | Bank transaction reconciliation detail + mismatch workflow | Lê Phú Thịnh | TO DO | 03/11/2026 08:00 | 04/11/2026 23:59 | BE-30 | 5 | 8 | 8 |
 | [BE-46](../architechture/tasks/BE-46.md) | Refund state machine: PENDING → APPROVED/REJECTED → REFUNDED | Lê Phú Thịnh | TO DO | 04/11/2026 08:00 | 04/11/2026 23:59 | BE-32, BE-26 | 8 | 10 | 10 |
@@ -271,7 +297,7 @@ Bấm mã task để mở file detail trong `architechture/tasks/`. Các file de
 | [INT-45](../architechture/tasks/INT-45.md) | Consumer: report cập nhật daily_store_stats | Mai Sơn Việt | TO DO | 03/11/2026 08:00 | 04/11/2026 23:59 | INT-39, INT-40, BE-08 | 8 | 8 | 8 |
 | [INT-46](../architechture/tasks/INT-46.md) | DLQ + retry + idempotent consumer | Mai Sơn Việt | TO DO | 03/11/2026 08:00 | 04/11/2026 23:59 | BE-11 | 8 | 10 | 10 |
 | [INT-47](../architechture/tasks/INT-47.md) | Saga: payment.failed → cancel order → release voucher/điểm | Trần Đức Anh | TO DO | 04/11/2026 08:00 | 04/11/2026 23:59 | INT-40, BE-26, BE-34, BE-37 | 8 | 12 | 12 |
-| [INT-48](../architechture/tasks/INT-48.md) | Audit log consumer cho thao tác quản trị | Mai Sơn Việt | TO DO | 03/11/2026 08:00 | 04/11/2026 23:59 | BE-11, BE-08 | 5 | 6 | 6 |
+| [INT-48](../architechture/tasks/INT-48.md) | Audit Service: producer/consumer cho mọi thay đổi quản trị | Mai Sơn Việt | TO DO | 03/11/2026 08:00 | 04/11/2026 23:59 | BE-11, BE-43 | 5 | 6 | 6 |
 | [INT-49](../architechture/tasks/INT-49.md) | SePay webhook test: mock → verify → match → confirm | Lê Phú Thịnh | TO DO | 04/11/2026 08:00 | 04/11/2026 23:59 | BE-30, BE-45 | 5 | 8 | 8 |
 | [INT-50](../architechture/tasks/INT-50.md) | Payment timeout: QR expires → order/payment expired → notify customer | Lê Phú Thịnh | TO DO | 04/11/2026 08:00 | 04/11/2026 23:59 | BE-29, INT-40, BE-39, BE-26 | 8 | 8 | 8 |
 | [INT-51](../architechture/tasks/INT-51.md) | COD lifecycle: confirm at branch → collected → completed | Lê Phú Thịnh | TO DO | 03/11/2026 08:00 | 04/11/2026 23:59 | BE-32, BE-25 | 5 | 6 | 6 |

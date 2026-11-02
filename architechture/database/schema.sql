@@ -10,6 +10,7 @@ CREATE SCHEMA IF NOT EXISTS promotion_service;
 CREATE SCHEMA IF NOT EXISTS shipping_service;
 CREATE SCHEMA IF NOT EXISTS notification_service;
 CREATE SCHEMA IF NOT EXISTS review_report_service;
+CREATE SCHEMA IF NOT EXISTS audit_service;
 
 CREATE TABLE IF NOT EXISTS identity_service.users (
   id BIGSERIAL PRIMARY KEY,
@@ -201,12 +202,15 @@ CREATE TABLE IF NOT EXISTS review_report_service.daily_store_stats (
   revenue NUMERIC(12,0) NOT NULL DEFAULT 0, cod_amount NUMERIC(12,0) NOT NULL DEFAULT 0, transfer_amount NUMERIC(12,0) NOT NULL DEFAULT 0,
   UNIQUE(store_id, stat_date)
 );
-CREATE TABLE IF NOT EXISTS review_report_service.audit_logs (
-  id BIGSERIAL PRIMARY KEY, actor_id BIGINT, actor_role VARCHAR(30), store_id BIGINT, action VARCHAR(100) NOT NULL,
-  target_type VARCHAR(100), target_id BIGINT, detail JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS audit_service.audit_logs (
+  id BIGSERIAL PRIMARY KEY, event_id VARCHAR(160) NOT NULL UNIQUE, correlation_id VARCHAR(160),
+  source_service VARCHAR(100) NOT NULL, actor_id BIGINT NOT NULL, actor_role VARCHAR(30) NOT NULL,
+  store_id BIGINT, action VARCHAR(100) NOT NULL, target_type VARCHAR(100) NOT NULL, target_id BIGINT,
+  detail JSONB, occurred_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON order_service.orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_store_status ON order_service.orders(store_id,status);
 CREATE INDEX IF NOT EXISTS idx_payments_order_code ON payment_service.payments(order_code);
 CREATE INDEX IF NOT EXISTS idx_email_logs_status ON notification_service.email_logs(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_store_time ON audit_service.audit_logs(store_id, occurred_at);

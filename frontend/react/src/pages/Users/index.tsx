@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, {
   useCallback,
   useEffect,
@@ -26,18 +27,22 @@ import { mockStores } from "../../mocks/catalogData";
 import { useAuth } from "../../context/AuthContext";
 import styles from "./users.module.css";
 
-const roleLabelMap: Record<
+
+
+export const UsersPage: React.FC = () => {
+  const { t } = useTranslation();
+
+  const roleLabelMap: Record<
   AdminUser["role"],
   { label: string; status: "error" | "gold" | "success" | "info" | "default" }
 > = {
-  ADMIN: { label: "Quản trị viên HQ", status: "error" },
-  STORE_MANAGER: { label: "Quản lý chi nhánh", status: "gold" },
-  STAFF: { label: "Nhân viên ca", status: "success" },
+  ADMIN: { label: t("business:users.hqAdministrator"), status: "error" },
+  STORE_MANAGER: { label: t("business:reviews.storeManager"), status: "gold" },
+  STAFF: { label: t("business:users.shiftStaff"), status: "success" },
   SHIPPER: { label: "Shipper", status: "info" },
-  CUSTOMER: { label: "Khách hàng", status: "default" },
+  CUSTOMER: { label: t("business:dashboard.customer"), status: "default" },
 };
 
-export const UsersPage: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,11 +221,11 @@ export const UsersPage: React.FC = () => {
         ),
       );
       message.success(
-        `${willLock ? "Đã khóa" : "Đã mở khóa"} tài khoản ${target.fullName}.`,
+        t("business:users.account", { value1: willLock ? t("business:users.locked") : t("business:users.unlocked"), value2: target.fullName }),
       );
     } catch (err) {
       if (!controller.signal.aborted)
-        message.error(getErrorMessage(err, "Thao tác thất bại."));
+        message.error(getErrorMessage(err, t("business:users.theActionFailed")));
     } finally {
       if (!controller.signal.aborted) {
         actionRequest.current = null;
@@ -253,11 +258,11 @@ export const UsersPage: React.FC = () => {
         ),
       );
       message.success(
-        `Đã gán ${assignTarget.fullName} cho ${store?.name ?? "chi nhánh mới"}.`,
+        t("business:users.assignedTo", { value1: assignTarget.fullName, value2: store?.name ?? t("business:users.newStore") }),
       );
     } catch (err) {
       if (!controller.signal.aborted)
-        message.error(getErrorMessage(err, "Gán chi nhánh thất bại."));
+        message.error(getErrorMessage(err, t("business:users.storeAssignmentFailed")));
     } finally {
       if (!controller.signal.aborted) {
         actionRequest.current = null;
@@ -270,7 +275,7 @@ export const UsersPage: React.FC = () => {
 
   const columns: TableColumnsType<AdminUser> = [
     {
-      title: "Tài khoản",
+      title: t("business:users.account"),
       key: "account",
       render: (_, u) => (
         <div className={styles.account}>
@@ -290,7 +295,7 @@ export const UsersPage: React.FC = () => {
       ),
     },
     {
-      title: "Vai trò",
+      title: t("business:users.role"),
       dataIndex: "role",
       key: "role",
       width: 180,
@@ -302,7 +307,7 @@ export const UsersPage: React.FC = () => {
       ),
     },
     {
-      title: "Chi nhánh",
+      title: t("business:party.store"),
       dataIndex: "storeName",
       key: "store",
       render: (_, u) =>
@@ -312,23 +317,23 @@ export const UsersPage: React.FC = () => {
             {u.storeName}
           </span>
         ) : (
-          <span className={styles.noStore}>Chưa gán chi nhánh</span>
+          <span className={styles.noStore}>{t("business:users.noStoreAssigned")}</span>
         ),
     },
     {
-      title: "Trạng thái",
+      title: t("business:catalog.status"),
       dataIndex: "status",
       key: "status",
       width: 140,
       render: (status: AdminUser["status"]) => (
         <StatusBadge
           status={status === "LOCKED" ? "error" : "success"}
-          text={status === "LOCKED" ? "Đã khóa" : "Hoạt động"}
+          text={status === "LOCKED" ? t("business:users.locked") : t("business:catalog.active")}
         />
       ),
     },
     {
-      title: "Hành động",
+      title: t("business:catalog.actions"),
       key: "actions",
       width: 200,
       render: (_, u) => (
@@ -337,9 +342,9 @@ export const UsersPage: React.FC = () => {
             title={
               canLockTarget(u)
                 ? u.status === "LOCKED"
-                  ? "Mở khóa"
-                  : "Khóa tài khoản"
-                : "Không có quyền"
+                  ? t("business:users.unlock")
+                  : t("business:users.lockAccount")
+                : t("business:users.notPermitted")
             }
           >
             <Button
@@ -350,12 +355,12 @@ export const UsersPage: React.FC = () => {
               }
               disabled={!canLockTarget(u)}
               onClick={() => setLockTarget(u)}
-              aria-label={u.status === "LOCKED" ? "Mở khóa" : "Khóa"}
+              aria-label={u.status === "LOCKED" ? t("business:users.unlock") : t("business:users.lock")}
             />
           </Tooltip>
           <Tooltip
             title={
-              canAssignStore(u) ? "Gán chi nhánh" : "Chỉ Admin gán cho nhân sự"
+              canAssignStore(u) ? t("business:users.assignStore") : t("business:users.onlyAdminCanAssignStaff")
             }
           >
             <Button
@@ -366,7 +371,7 @@ export const UsersPage: React.FC = () => {
                 setAssignTarget(u);
                 setAssignStoreId(u.storeId);
               }}
-              aria-label="Gán chi nhánh"
+              aria-label={t("business:users.assignStore")}
             />
           </Tooltip>
         </Space>
@@ -378,53 +383,50 @@ export const UsersPage: React.FC = () => {
     <div className={styles.root}>
       <div className={styles.intro}>
         <div>
-          <span className={styles.eyebrow}>CON NGƯỜI LÀM NÊN CLUCKY</span>
-          <h1>
-            Quản lý người dùng<span>.</span>
+          <span className={styles.eyebrow}>{t("business:users.peopleMakeClucky")}</span>
+          <h1> {t("business:users.userManagement")}<span>.</span>
           </h1>
-          <p>Kết nối đội ngũ, quản lý tài khoản và phân công chi nhánh.</p>
+          <p>{t("business:users.connectYourTeamManageAccountsAndAssignStores")}</p>
         </div>
         <div className={styles.introActions}>
           {!apiAvailable && (
-            <span className={styles.demoBadge}>Dữ liệu mẫu</span>
+            <span className={styles.demoBadge}>{t("business:users.sampleData")}</span>
           )}
           <Button
             icon={<ReloadOutlined />}
             onClick={fetchUsers}
             loading={loading}
-          >
-            Làm mới danh sách
-          </Button>
+          > {t("business:users.refreshList")} </Button>
         </div>
       </div>
 
-      <section className={styles.metrics} aria-label="Tổng quan người dùng">
+      <section className={styles.metrics} aria-label={t("business:users.userOverview")}>
         {[
           {
-            label: "Tổng tài khoản",
+            label: t("business:users.totalAccounts"),
             value: users.length,
-            note: "Trong danh sách hiện tại",
+            note: t("business:users.inTheCurrentList"),
             icon: <TeamOutlined />,
             tone: "wine",
           },
           {
-            label: "Đang hoạt động",
+            label: t("business:catalog.active"),
             value: activeCount,
-            note: "Tài khoản được mở khóa",
+            note: t("business:users.unlockedAccounts"),
             icon: <CheckCircleOutlined />,
             tone: "green",
           },
           {
-            label: "Đã khóa",
+            label: t("business:users.locked"),
             value: lockedCount,
-            note: "Tạm ngừng quyền truy cập",
+            note: t("business:users.accessTemporarilySuspended"),
             icon: <LockOutlined />,
             tone: "gold",
           },
           {
-            label: "Chi nhánh có nhân sự",
+            label: t("business:users.storesWithStaff"),
             value: storeCount,
-            note: "Đã được gán tài khoản",
+            note: t("business:users.accountsAssigned"),
             icon: <ShopOutlined />,
             tone: "blue",
           },
@@ -446,29 +448,29 @@ export const UsersPage: React.FC = () => {
         ))}
       </section>
 
-      <section className={styles.directory} aria-label="Danh sách người dùng">
+      <section className={styles.directory} aria-label={t("business:users.userList")}>
         <div className={styles.directoryHeading}>
           <div>
             <span className={styles.directoryIcon}>
               <UserOutlined />
             </span>
-            <h2>Danh sách tài khoản</h2>
+            <h2>{t("business:users.accountList")}</h2>
             <span className={styles.resultCount}>
               {loading ? "…" : filtered.length}
             </span>
           </div>
-          <span>Quản lý vai trò và chi nhánh ở cùng một nơi</span>
+          <span>{t("business:users.manageRolesAndStoresInOnePlace")}</span>
         </div>
         <div
           className={styles.statusFilters}
           role="group"
-          aria-label="Lọc trạng thái tài khoản"
+          aria-label={t("business:users.filterAccountStatus")}
         >
           {(
             [
-              { key: "ALL", label: "Tất cả", count: users.length },
-              { key: "ACTIVE", label: "Hoạt động", count: activeCount },
-              { key: "LOCKED", label: "Đã khóa", count: lockedCount },
+              { key: "ALL", label: t("business:stafforderspage.all"), count: users.length },
+              { key: "ACTIVE", label: t("business:catalog.active"), count: activeCount },
+              { key: "LOCKED", label: t("business:users.locked"), count: lockedCount },
             ] as const
           ).map((status) => (
             <button
@@ -487,46 +489,44 @@ export const UsersPage: React.FC = () => {
           dataSource={filtered}
           rowKey="id"
           loading={loading}
-          searchPlaceholder="Tìm theo tên hoặc email…"
+          searchPlaceholder={t("business:users.searchByNameOrEmail")}
           searchValue={keyword}
           onSearchChange={setKeyword}
-          emptyTitle="Không tìm thấy người dùng"
-          emptyDescription="Thử điều chỉnh từ khóa hoặc bộ lọc."
+          emptyTitle={t("business:users.noUsersFound")}
+          emptyDescription={t("business:users.tryAdjustingTheSearchTermOrFilters")}
           emptyAction={
             hasFilters ? (
-              <Button onClick={resetFilters}>Xóa bộ lọc</Button>
+              <Button onClick={resetFilters}>{t("business:orderspage.clearFilters")}</Button>
             ) : undefined
           }
           toolbarExtra={
             hasFilters ? (
-              <Button type="text" onClick={resetFilters}>
-                Xóa bộ lọc
-              </Button>
+              <Button type="text" onClick={resetFilters}> {t("business:orderspage.clearFilters")} </Button>
             ) : undefined
           }
           filterNodes={
             <>
               <Select
-                aria-label="Lọc theo vai trò"
+                aria-label={t("business:users.filterByRole")}
                 value={roleFilter}
                 onChange={setRoleFilter}
                 style={{ width: 180, borderRadius: 999 }}
                 options={[
-                  { value: "ALL", label: "Tất cả vai trò" },
-                  { value: "ADMIN", label: "Quản trị viên HQ" },
-                  { value: "STORE_MANAGER", label: "Quản lý chi nhánh" },
-                  { value: "STAFF", label: "Nhân viên ca" },
+                  { value: "ALL", label: t("business:users.allRoles") },
+                  { value: "ADMIN", label: t("business:users.hqAdministrator") },
+                  { value: "STORE_MANAGER", label: t("business:reviews.storeManager") },
+                  { value: "STAFF", label: t("business:users.shiftStaff") },
                   { value: "SHIPPER", label: "Shipper" },
-                  { value: "CUSTOMER", label: "Khách hàng" },
+                  { value: "CUSTOMER", label: t("business:dashboard.customer") },
                 ]}
               />
               <Select
-                aria-label="Lọc theo chi nhánh"
+                aria-label={t("business:users.filterByStore")}
                 value={storeFilter}
                 onChange={setStoreFilter}
                 style={{ width: 220, borderRadius: 999 }}
                 options={[
-                  { value: "ALL", label: "Tất cả chi nhánh" },
+                  { value: "ALL", label: t("business:stores.allStores") },
                   ...mockStores.map((s) => ({
                     value: String(s.id),
                     label: s.name,
@@ -544,25 +544,22 @@ export const UsersPage: React.FC = () => {
         open={!!lockTarget}
         title={
           lockTarget?.status === "LOCKED"
-            ? "Mở khóa tài khoản"
-            : "Khóa tài khoản"
+            ? t("business:users.unlockAccount")
+            : t("business:users.lockAccount")
         }
         danger={lockTarget?.status !== "LOCKED"}
         loading={actionLoading}
         content={
-          <>
-            Bạn có chắc muốn{" "}
-            {lockTarget?.status === "LOCKED" ? "mở khóa" : "khóa"} tài khoản{" "}
+          <> {t("business:users.areYouSureYouWantTo")}{" "}
+            {lockTarget?.status === "LOCKED" ? t("business:users.unlockLabel") : t("business:users.lockLabel")} {t("business:users.accountNoun")}{" "}
             <strong>{lockTarget?.fullName}</strong> ({lockTarget?.email})?
             {lockTarget?.status !== "LOCKED" && (
-              <div style={{ marginTop: 8 }}>
-                Người dùng này sẽ không thể đăng nhập cho đến khi được mở lại.
-              </div>
+              <div style={{ marginTop: 8 }}> {t("business:users.thisUserWillNotBeAbleToSignInUntilTheAccount")} </div>
             )}
           </>
         }
         confirmText={
-          lockTarget?.status === "LOCKED" ? "Mở khóa" : "Khóa tài khoản"
+          lockTarget?.status === "LOCKED" ? t("business:users.unlock") : t("business:users.lockAccount")
         }
         onConfirm={confirmLockToggle}
         onCancel={() => setLockTarget(null)}
@@ -571,9 +568,9 @@ export const UsersPage: React.FC = () => {
       {/* Assign store */}
       <AdminModal
         open={!!assignTarget}
-        title="Gán chi nhánh"
-        subtitle={`Gán ${assignTarget?.fullName} vào một chi nhánh`}
-        okText="Lưu gán chi nhánh"
+        title={t("business:users.assignStore")}
+        subtitle={t("business:users.assignToAStore", { value1: assignTarget?.fullName })}
+        okText={t("business:users.saveStoreAssignment")}
         confirmLoading={actionLoading}
         okButtonProps={{ disabled: assignStoreId === undefined }}
         onOk={confirmAssign}
@@ -590,15 +587,13 @@ export const UsersPage: React.FC = () => {
               fontSize: 14,
               color: "#16100D",
             }}
-          >
-            Chi nhánh
-          </label>
+          > {t("business:party.store")} </label>
           <Select
             id="assign-store-select"
             value={assignStoreId}
             onChange={(v) => setAssignStoreId(v)}
             style={{ width: "100%" }}
-            placeholder="Chọn chi nhánh"
+            placeholder={t("business:users.selectStore")}
             options={mockStores.map((s) => ({
               value: s.id,
               label: `${s.name} — ${s.district}`,

@@ -1,0 +1,155 @@
+{
+  "attempt_date": "2026-11-01",
+  "target_base": "ByTkbHQcYaPOMAsoU4jl41pdgSd",
+  "target_table": "tblXgna1HdN3POFK",
+  "target_view": "vewC0rB72n",
+  "view_name": "SPRINT 2 · xong 05/11 · review 06/11",
+  "result": "synced_and_verified",
+  "previous_attempt": "403 / 91403 before permission grant; no record changes in that attempt",
+  "records_read": 184,
+  "records_matched": 184,
+  "remote_records_updated": 184,
+  "schedule_records_updated": 94,
+  "remote_fields_created": 3,
+  "field_mapping": {
+    "story_points": "Story Point",
+    "time_estimated_hours": "Time Estimate"
+  },
+  "time_unit": "person-hours, not elapsed days",
+  "status_counts": {
+    "TO DO": 147,
+    "DONE": 37
+  },
+  "live_sprint_counts": {
+    "SPRINT 2": 96,
+    "CustomerAdmin": 26,
+    "BACKLOG": 25,
+    "SPRINT 1": 37
+  },
+  "requested_view_records": 96,
+  "live_sprint_overrides_preserved": {
+    "UI-45": [
+      "SPRINT 2"
+    ],
+    "UI-22": [
+      "SPRINT 2"
+    ],
+    "UI-28": [
+      "CustomerAdmin"
+    ],
+    "UI-32": [
+      "CustomerAdmin"
+    ],
+    "UI-48": [
+      "CustomerAdmin"
+    ],
+    "BE-05": [
+      "CustomerAdmin"
+    ],
+    "BE-07": [
+      "CustomerAdmin"
+    ],
+    "BE-51": [
+      "CustomerAdmin"
+    ],
+    "BE-57": [
+      "CustomerAdmin"
+    ],
+    "BE-59": [
+      "CustomerAdmin"
+    ],
+    "BE-04": [
+      "CustomerAdmin"
+    ],
+    "BE-06": [
+      "CustomerAdmin"
+    ],
+    "BE-10": [
+      "CustomerAdmin"
+    ],
+    "BE-13": [
+      "CustomerAdmin"
+    ],
+    "BE-15": [
+      "CustomerAdmin"
+    ],
+    "BE-50": [
+      "CustomerAdmin"
+    ],
+    "BE-08": [
+      "CustomerAdmin"
+    ],
+    "BE-11": [
+      "CustomerAdmin"
+    ],
+    "BE-12": [
+      "CustomerAdmin"
+    ],
+    "BE-52": [
+      "CustomerAdmin"
+    ],
+    "BE-02": [
+      "CustomerAdmin"
+    ],
+    "BE-20": [
+      "CustomerAdmin"
+    ],
+    "BE-68": [
+      "CustomerAdmin"
+    ],
+    "BE-01": [
+      "CustomerAdmin"
+    ],
+    "BE-09": [
+      "CustomerAdmin"
+    ],
+    "UI-34": [
+      "CustomerAdmin"
+    ],
+    "BE-03": [
+      "CustomerAdmin"
+    ],
+    "BE-23": [
+      "CustomerAdmin"
+    ]
+  },
+  "live_state_preserved": [
+    "record IDs",
+    "status",
+    "PIC",
+    "sprint",
+    "dependencies",
+    "view filters",
+    "latest task detail attachments"
+  ],
+  "original_attachments_preserved": 0,
+  "new_detail_attachments_added": 184,
+  "attachment_filename_pattern": "{task_id}-estimate-2026-11-01.md",
+  "attachment_contents_downloaded_and_verified": 184,
+  "attachment_set_sha256": "07efe89c715383430faf3794a814ecaaa0d6c7b32d086ba5822d7d6ab032ff4c",
+  "field_discrepancies": [],
+  "attachment_download_errors": {},
+  "backup": "LARK-BEFORE-ESTIMATES-2026-11-01.json",
+  "credentials_persisted": false,
+  "application_tests_run": false,
+  "remaining_estimates_are_provisional": true,
+  "completion_target": "2026-11-05 23:59 UTC+7",
+  "sprint_review_date": "2026-11-06",
+  "schedule_feasibility_warning_preserved": true,
+  "initial_sync_preserved_original_attachments": 184,
+  "original_attachments_removed_from_records": 184,
+  "cleanup": {
+    "date": "2026-11-01",
+    "requested_by_user": true,
+    "deleted_columns": [
+      "Remaining Estimate",
+      "Estimate Notes"
+    ],
+    "old_attachments_removed_from_records": 184,
+    "records_verified": 184,
+    "remaining_attachments_per_record": 1,
+    "discrepancies": [],
+    "do_not_recreate_deleted_columns": true,
+    "local_estimation_history_retained": true
+  }
+}

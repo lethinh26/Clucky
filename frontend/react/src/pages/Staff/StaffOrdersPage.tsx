@@ -1,3 +1,5 @@
+import { useLocaleTools } from "../../i18n/hooks";
+import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import {
   App as AntApp,
@@ -33,19 +35,24 @@ import { OrderDetailDrawer } from "../Orders/components/OrderDetailDrawer";
 import styles from "./staff-orders.module.css";
 import { usePageLoading } from "../../components/ui-loader/page-loading";
 
-const formatMoney = (amount: number) =>
-  new Intl.NumberFormat("vi-VN").format(amount) + "đ";
-const filters = [
-  ["ACTIVE", "Đang xử lý"],
-  ["PENDING_PAYMENT", "Chờ thanh toán"],
-  ["CONFIRMED", "Đơn mới"],
-  ["PREPARING", "Chế biến"],
-  ["READY", "Sẵn sàng"],
-  ["COMPLETED", "Hoàn thành"],
-  ["ALL", "Tất cả"],
-];
+
+
 
 export function StaffOrdersPage() {
+  const { t } = useTranslation();
+  const { money: formatMoney } = useLocaleTools();
+
+
+  const filters = [
+  ["ACTIVE", t("business:orders.inProgress")],
+  ["PENDING_PAYMENT", t("business:checkout.awaitingPayment")],
+  ["CONFIRMED", t("business:stafforderspage.newOrders")],
+  ["PREPARING", t("business:orderprogress.preparing")],
+  ["READY", t("business:orderprogress.ready")],
+  ["COMPLETED", t("business:orders.completed")],
+  ["ALL", t("business:stafforderspage.all")],
+];
+
   const { message } = AntApp.useApp();
   const {
     orders,
@@ -66,25 +73,25 @@ export function StaffOrdersPage() {
   const metrics = useMemo(
     () => [
       {
-        label: "Chờ tiếp nhận",
+        label: t("business:stafforderspage.awaitingAcceptance"),
         count: orders.filter((order) => order.status === "CONFIRMED").length,
         icon: Clock3,
         filter: "CONFIRMED",
       },
       {
-        label: "Đang chế biến",
+        label: t("business:orderprogress.preparing"),
         count: orders.filter((order) => order.status === "PREPARING").length,
         icon: ChefHat,
         filter: "PREPARING",
       },
       {
-        label: "Món sẵn sàng",
+        label: t("business:orderdetaildrawer.mealReady"),
         count: orders.filter((order) => order.status === "READY").length,
         icon: PackageCheck,
         filter: "READY",
       },
       {
-        label: "COD chưa thu",
+        label: t("business:stafforderspage.codNotCollected"),
         count: orders.filter(
           (order) =>
             order.paymentMethod === "COD" &&
@@ -95,7 +102,7 @@ export function StaffOrdersPage() {
         filter: "COD",
       },
     ],
-    [orders],
+    [orders, t],
   );
   const visible = useMemo(
     () =>
@@ -134,33 +141,30 @@ export function StaffOrdersPage() {
     reason?: string,
   ) => {
     const result = updateStatus(id, status, reason);
-    if (result) message.success("Đã cập nhật tiến trình đơn demo.");
+    if (result) message.success(t("business:stafforderspage.demoOrderProgressUpdated"));
     else
       message.warning(
-        "Không thể thực hiện thao tác. Kiểm tra trạng thái, chi nhánh và thanh toán.",
+        t("business:stafforderspage.unableToPerformThisActionCheckTheStatusStoreAndPayment"),
       );
     return result;
   };
   const collect = (id: string) => {
-    if (confirmCOD(id)) message.success("Đã xác nhận thu COD trong bản demo.");
-    else message.warning("Đơn không còn khoản COD cần xác nhận.");
+    if (confirmCOD(id)) message.success(t("business:orderdetaildrawer.codCollectionConfirmedInTheDemo"));
+    else message.warning(t("business:orderdetaildrawer.thisOrderNoLongerHasACodPaymentToConfirm"));
   };
   return (
     <div className={`${styles.staffContainer} m3-admin-page`}>
       <header className={styles.pageHeader}>
         <div>
-          <span className={styles.eyebrow}>KHÔNG GIAN NHÂN VIÊN</span>
-          <h1>Đơn hàng của chi nhánh</h1>
-          <p>
-            Tiếp nhận món, theo dõi tiến trình và xác nhận thu tiền trong một
-            nơi.
-          </p>
+          <span className={styles.eyebrow}>{t("business:stafforderspage.staffWorkspace")}</span>
+          <h1>{t("business:stafforderspage.storeOrders")}</h1>
+          <p> {t("business:stafforderspage.acceptOrdersTrackProgressAndConfirmCashCollectionInOnePlace")} </p>
         </div>
         <div className={styles.branchChip}>
           <Store size={18} />
           <div>
             <strong>{orders[0]?.storeName ?? user.storeName}</strong>
-            <span>Chi nhánh hoạt động</span>
+            <span>{t("business:stafforderspage.activeStore")}</span>
           </div>
         </div>
       </header>
@@ -185,11 +189,11 @@ export function StaffOrdersPage() {
           </button>
         ))}
       </div>
-      <section className={styles.toolbar} aria-label="Tìm và lọc đơn ca trực">
+      <section className={styles.toolbar} aria-label={t("business:stafforderspage.searchAndFilterShiftOrders")}>
         <Input
-          aria-label="Tìm đơn ca trực"
+          aria-label={t("business:stafforderspage.searchShiftOrders")}
           prefix={<Search size={16} />}
-          placeholder="Mã đơn, tên hoặc số điện thoại…"
+          placeholder={t("business:stafforderspage.orderCodeNameOrPhoneNumber")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           allowClear
@@ -197,19 +201,19 @@ export function StaffOrdersPage() {
         <label className={styles.dateFilter}>
           <CalendarDays size={16} />
           <input
-            aria-label="Lọc ngày đặt đơn"
+            aria-label={t("business:stafforderspage.filterOrderDate")}
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
           />
         </label>
         <Select
-          aria-label="Sắp xếp thời gian"
+          aria-label={t("business:stafforderspage.sortByTime")}
           value={sort}
           onChange={setSort}
           options={[
-            { value: "DESC", label: "Mới nhất trước" },
-            { value: "ASC", label: "Cũ nhất trước" },
+            { value: "DESC", label: t("business:stafforderspage.newestFirst") },
+            { value: "ASC", label: t("business:stafforderspage.oldestFirst") },
           ]}
         />
         <Button
@@ -220,13 +224,11 @@ export function StaffOrdersPage() {
             setSort("DESC");
           }}
           icon={<SlidersHorizontal size={15} />}
-        >
-          Đặt lại bộ lọc
-        </Button>
+        > {t("business:paymentspage.resetFilters")} </Button>
       </section>
       <div
         className={styles.filterPills}
-        aria-label="Lọc trạng thái đơn ca trực"
+        aria-label={t("business:stafforderspage.filterShiftOrderStatus")}
       >
         {filters.map(([key, label]) => (
           <button
@@ -240,10 +242,8 @@ export function StaffOrdersPage() {
         ))}
       </div>
       <div className={styles.resultCount}>
-        <span>{visible.length} đơn phù hợp</span>
-        <small>
-          Chỉ hiển thị đơn của chi nhánh được gán trong vai trò demo.
-        </small>
+        <span>{visible.length} {t("business:stafforderspage.matchingOrders")}</span>
+        <small> {t("business:stafforderspage.onlyOrdersFromTheStoreAssignedToYourDemoRoleAreShown")} </small>
       </div>
       {loading ? (
         <div className={styles.cardsGrid} aria-hidden="true">
@@ -256,17 +256,15 @@ export function StaffOrdersPage() {
       ) : !visible.length ? (
         <div className={styles.emptyState}>
           <CheckCircle2 size={40} />
-          <h2>Không có đơn trong mục này</h2>
-          <p>Đổi trạng thái, ngày hoặc từ khóa để tiếp tục kiểm tra.</p>
+          <h2>{t("business:stafforderspage.noOrdersInThisSection")}</h2>
+          <p>{t("business:stafforderspage.changeTheStatusDateOrSearchTermToContinue")}</p>
           <Button
             onClick={() => {
               setFilter("ALL");
               setQuery("");
               setDate("");
             }}
-          >
-            Xem tất cả đơn
-          </Button>
+          > {t("business:stafforderspage.viewAllOrders")} </Button>
         </div>
       ) : (
         <div className={styles.cardsGrid}>
@@ -283,9 +281,7 @@ export function StaffOrdersPage() {
                   </strong>
                   <span className={styles.orderTime}>
                     {order.time} ·{" "}
-                    {order.items.reduce((sum, item) => sum + item.quantity, 0)}{" "}
-                    phần
-                  </span>
+                    {order.items.reduce((sum, item) => sum + item.quantity, 0)}{" "} {t("business:cart.servings")} </span>
                 </div>
                 <OrderStatusBadge status={order.status} />
               </div>
@@ -303,8 +299,8 @@ export function StaffOrdersPage() {
                     <Truck size={14} />
                   )}
                   {order.orderType === "PICKUP"
-                    ? "Nhận tại quầy"
-                    : "Giao tận nơi"}
+                    ? t("business:orderdetaildrawer.counterPickup")
+                    : t("business:checkout.homeDelivery")}
                 </span>
               </div>
               <div className={styles.itemList}>
@@ -319,7 +315,7 @@ export function StaffOrdersPage() {
                     <div>
                       <strong>{item.itemName}</strong>
                       <p>
-                        {item.quantity} phần · {item.options || "Tiêu chuẩn"}
+                        {item.quantity} {t("business:stafforderspage.servings")} {item.options || t("business:stafforderspage.standard")}
                       </p>
                     </div>
                     <span>{formatMoney(item.lineTotal)}</span>
@@ -330,9 +326,7 @@ export function StaffOrdersPage() {
                     type="button"
                     className={styles.moreItems}
                     onClick={() => setSelectedId(order.id)}
-                  >
-                    Xem thêm {order.items.length - 2} món
-                  </button>
+                  > {t("business:reviews.showMore")} {order.items.length - 2} {t("business:orderspage.items")} </button>
                 )}
               </div>
               {order.note && (
@@ -345,13 +339,13 @@ export function StaffOrdersPage() {
               <div className={styles.paymentRow}>
                 <span>
                   <Wallet size={15} />
-                  {order.paymentMethod === "COD" ? "COD" : "Chuyển khoản"}
+                  {order.paymentMethod === "COD" ? "COD" : t("business:id.bankTransfer")}
                   <b data-paid={order.paymentStatus === "PAID"}>
                     {order.paymentStatus === "PAID"
-                      ? "Đã thu"
+                      ? t("business:orderdetaildrawer.collected")
                       : order.paymentStatus === "FAILED"
-                        ? "Thất bại"
-                        : "Chưa thu"}
+                        ? t("business:orderdetaildrawer.failed")
+                        : t("business:orderspage.notCollected")}
                   </b>
                 </span>
                 <strong>{formatMoney(order.total)}</strong>
@@ -360,16 +354,14 @@ export function StaffOrdersPage() {
                 order.paymentStatus === "PENDING" &&
                 !["CANCELLED", "COMPLETED"].includes(order.status) && (
                   <Popconfirm
-                    title="Xác nhận đã thu tiền COD?"
-                    description={`Ghi nhận ${formatMoney(order.total)} cho đơn ${order.orderCode} trong bản demo.`}
-                    okText="Đã thu tiền"
-                    cancelText="Đóng"
+                    title={t("business:stafforderspage.confirmCashOnDeliveryPaymentCollected")}
+                    description={t("business:stafforderspage.recordForOrderInTheDemo", { value1: formatMoney(order.total), value2: order.orderCode })}
+                    okText={t("business:stafforderspage.paymentCollected")}
+                    cancelText={t("business:orderdetaildrawer.close")}
                     onConfirm={() => collect(order.id)}
                   >
                     <button type="button" className={styles.codButton}>
-                      <Wallet size={16} />
-                      Xác nhận thu COD
-                    </button>
+                      <Wallet size={16} /> {t("business:orderdetaildrawer.confirmCodCollection")} </button>
                   </Popconfirm>
                 )}
               <div className={styles.cardActions}>
@@ -378,18 +370,14 @@ export function StaffOrdersPage() {
                   className={styles.detailButton}
                   onClick={() => setSelectedId(order.id)}
                 >
-                  <Eye size={16} />
-                  Xem chi tiết
-                </button>
+                  <Eye size={16} /> {t("business:orderspage.viewDetails")} </button>
                 {order.status === "CONFIRMED" && (
                   <button
                     type="button"
                     className={styles.statusButton}
                     onClick={() => changeStatus(order.id, "PREPARING")}
                   >
-                    <ChefHat size={16} />
-                    Bắt đầu chế biến
-                  </button>
+                    <ChefHat size={16} /> {t("business:orderdetaildrawer.startPreparation")} </button>
                 )}
                 {order.status === "PREPARING" && (
                   <button
@@ -397,9 +385,7 @@ export function StaffOrdersPage() {
                     className={styles.statusButton}
                     onClick={() => changeStatus(order.id, "READY")}
                   >
-                    <PackageCheck size={16} />
-                    Món sẵn sàng
-                  </button>
+                    <PackageCheck size={16} /> {t("business:orderdetaildrawer.mealReady")} </button>
                 )}
                 {["READY", "SHIPPING"].includes(order.status) && (
                   <button
@@ -407,15 +393,13 @@ export function StaffOrdersPage() {
                     disabled={order.paymentStatus !== "PAID"}
                     title={
                       order.paymentStatus !== "PAID"
-                        ? "Xác nhận thu tiền trước khi hoàn thành"
+                        ? t("business:stafforderspage.confirmCashCollectionBeforeCompletion")
                         : undefined
                     }
                     className={styles.statusButton}
                     onClick={() => changeStatus(order.id, "COMPLETED")}
                   >
-                    <CheckCircle2 size={16} />
-                    Hoàn thành
-                  </button>
+                    <CheckCircle2 size={16} /> {t("business:orders.completed")} </button>
                 )}
               </div>
             </article>

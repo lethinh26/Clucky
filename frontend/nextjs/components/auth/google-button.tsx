@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import React from "react";
 import styles from "./auth-shared.module.css";
@@ -38,9 +40,11 @@ export function GoogleButton({
   onClick,
   loading = false,
   disabled = false,
-  label = "Đăng nhập bằng Google",
+  label: suppliedLabel,
   className = "",
 }: GoogleButtonProps) {
+  const t = useTranslations();
+  const label = suppliedLabel ?? t("auth.google.signIn");
   return (
     <button
       type="button"
@@ -50,7 +54,7 @@ export function GoogleButton({
       aria-busy={loading}
     >
       <GoogleIcon />
-      {loading ? "Đang mở Google…" : label}
+      {loading ? t("auth.google.opening") : label}
     </button>
   );
 }

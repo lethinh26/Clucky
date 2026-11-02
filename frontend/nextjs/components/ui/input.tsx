@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import * as React from "react";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     { className, label, helperText, error, id, type = "text", ...props },
     ref,
   ) => {
+  const t = useTranslations();
+
     const [showPassword, setShowPassword] = React.useState(false);
     const isPassword = type === "password";
     const Icon = isPassword ? LockKeyhole : type === "email" ? Mail : null;
@@ -67,7 +70,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {isPassword && (
             <button
               type="button"
-              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              aria-label={showPassword ? t("business.input.hidePassword") : t("business.input.showPassword")}
               aria-pressed={showPassword}
               disabled={props.disabled}
               onClick={() => setShowPassword(!showPassword)}
