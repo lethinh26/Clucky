@@ -54,7 +54,9 @@ export function DemoOrderControls({ order }: { order: Order }) {
                 ? "Trạng thái đơn hàng"
                 : "Tiến trình đơn hàng"}
           </strong>
-          <p>Cập nhật trạng thái đơn hàng</p>
+          <p>
+            Chỉ mô phỏng trên trình duyệt; không xác nhận thanh toán hay giao hàng thật.
+          </p>
         </div>
       </div>
       {order.paymentStatus === "PAID" && (

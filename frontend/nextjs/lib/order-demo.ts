@@ -4,6 +4,12 @@ export const DEMO_CONTROLS_ENABLED =
   process.env.NODE_ENV === "development" ||
   process.env.NEXT_PUBLIC_M3_DEMO_ENABLED === "true";
 
+export function ensureDemoShipment(order: Order): Order {
+  return order.type === "DELIVERY" && !order.shipmentStatus
+    ? { ...order, shipmentStatus: "CREATED" }
+    : order;
+}
+
 export const orderStatusLabels: Record<OrderStatus, string> = {
   PENDING_PAYMENT: "Chờ thanh toán",
   CONFIRMED: "Đã xác nhận",

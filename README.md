@@ -15,6 +15,8 @@ Config Server đọc native config từ `config-repo/`; các service import cấ
 
 ## Frontend CI/CD
 
+Customer demo trên VPS được bật lúc build image qua `NEXT_PUBLIC_M3_DEMO_ENABLED` (GitHub Actions repository variable, mặc định `true` trong pipeline). Đặt variable thành `false` rồi build/deploy lại để tắt; đổi environment của container đang chạy không thay đổi cờ đã đóng gói trong Next.js. Docker build trực tiếp mặc định tắt, bật bằng `--build-arg NEXT_PUBLIC_M3_DEMO_ENABLED=true`. Các nút mô phỏng chỉ cập nhật dữ liệu trình duyệt, không xác nhận thanh toán thật. Đơn demo DELIVERY mới và đã lưu có shipment `CREATED`; không tự chuyển sang tracking Phase 2 theo trạng thái đơn.
+
 Workflow [Frontend CI/CD](.github/workflows/frontend-ci.yml) chạy CI trên mọi pull request vào `main`; mỗi push/merge vào `main` chỉ đóng gói và deploy. Có thể chạy lại đóng gói/deploy bằng **Actions → Frontend CI/CD → Run workflow → main**.
 
 - Trên PR, hai job độc lập cho `frontend/nextjs` và `frontend/react`: Node.js 22 → `npm ci` → `npm run lint` → `npm test` → `npm run build`. Build Next.js có kiểm tra TypeScript; build React chạy `tsc -b` trước Vite.

@@ -142,6 +142,12 @@ export default function OrderTrackingPage({
             {feedback}
           </p>
         )}
+        {demoEnabled && (
+          <details className={styles.demoDisclosure} open>
+            <summary>Mô phỏng trạng thái đơn hàng</summary>
+            <DemoOrderControls order={order} />
+          </details>
+        )}
         <div
           className={`${styles.detailGrid} ${awaitingPayment ? styles.awaitingPayment : ""}`}
         >
@@ -280,15 +286,10 @@ export default function OrderTrackingPage({
               address={order.deliveryAddress}
               storeName={order.storeName}
               orderType={order.type}
+              status={order.shipmentStatus}
             />
           </aside>
         </div>
-        {demoEnabled && (
-          <details className={styles.demoDisclosure}>
-            <summary>Mô phỏng trạng thái đơn hàng</summary>
-            <DemoOrderControls order={order} />
-          </details>
-        )}
         <OrderDialog
           open={cancelOpen}
           onClose={() => setCancelOpen(false)}
