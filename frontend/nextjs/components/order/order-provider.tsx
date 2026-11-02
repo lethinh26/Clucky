@@ -13,6 +13,7 @@ import { z } from "zod";
 import { addCartItem, cartTotals } from "@/lib/cart";
 import {
   applyDemoAction,
+  ensureDemoShipment,
   DEMO_CONTROLS_ENABLED,
   type DemoAction,
 } from "@/lib/order-demo";
@@ -68,6 +69,9 @@ const savedOrdersSchema = z.array(
     pointsUsed: z.number().nonnegative(),
     pointsAmount: z.number().nonnegative(),
     shippingFee: z.number().nonnegative(),
+    shipmentStatus: z
+      .enum(["CREATED", "ASSIGNED", "PICKED_UP", "SHIPPING", "DELIVERED", "FAILED"])
+      .optional(),
     totalAmount: z.number().nonnegative(),
     paymentMethod: z.enum(["COD", "BANK_TRANSFER"]),
     paymentStatus: z.enum(["PENDING", "PAID", "FAILED", "EXPIRED"]),
@@ -160,7 +164,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         // Demo orders are local UI data; never treated as confirmed server orders.
         const parsedOrders = savedOrdersSchema.safeParse(saved.orders);
         const orders = parsedOrders.success
-          ? (parsedOrders.data as Order[])
+          ? (parsedOrders.data as Order[]).map(ensureDemoShipment)
           : MOCK_ORDERS;
         setWorkspace({ items, orders });
       } catch {
@@ -242,7 +246,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       setWorkspace((prev) =>
         prev.orders.some((entry) => entry.id === order.id)
           ? prev
-          : { items: [], orders: [order, ...prev.orders] },
+          : { items: [], orders: [ensureDemoShipment(order), ...prev.orders] },
       );
     },
     [setWorkspace],

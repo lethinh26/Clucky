@@ -1,5 +1,6 @@
 import { stores } from "../products";
 import { CartItem, Order } from "../types/order";
+import { ensureDemoShipment } from "../order-demo";
 
 export const INITIAL_CART_ITEMS: CartItem[] = [
   {
@@ -234,7 +235,7 @@ const ORDER_FIXTURES: Order[] = [
 ];
 
 export const MOCK_ORDERS: Order[] = ORDER_FIXTURES.map((order) => ({
-  ...order,
+  ...ensureDemoShipment(order),
   storeName:
     stores.find((store) => String(store.id) === order.storeId)?.name ??
     order.storeName,

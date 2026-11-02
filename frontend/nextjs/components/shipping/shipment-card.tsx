@@ -1,10 +1,10 @@
 import { Bike, MapPin, Store, UserRound } from "lucide-react";
 import { ShippingFeeCard } from "./shipping-fee-card";
+import type { ShipmentStatus } from "@/lib/types/order";
 import styles from "../payment/payment-shared.module.css";
 
 // MVP only creates CREATED records. Assignment and tracking are Phase 2.
-export type ShipmentStatus =
-  "CREATED" | "ASSIGNED" | "PICKED_UP" | "SHIPPING" | "DELIVERED" | "FAILED";
+export type { ShipmentStatus } from "@/lib/types/order";
 
 export interface ShipmentInfoProps {
   receiverName: string;

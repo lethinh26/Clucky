@@ -129,6 +129,7 @@ jobs:
       FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
       FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
       FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+      CUSTOMER_DEMO_ENABLED: ${{ vars.NEXT_PUBLIC_M3_DEMO_ENABLED || 'true' }}
     steps:
       - name: Checkout checked revision
         uses: actions/checkout@v4
@@ -151,6 +152,7 @@ jobs:
               args+=(--build-arg "NEXT_PUBLIC_FIREBASE_API_KEY=$FIREBASE_API_KEY")
               args+=(--build-arg "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN")
               args+=(--build-arg "NEXT_PUBLIC_FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID")
+              args+=(--build-arg "NEXT_PUBLIC_M3_DEMO_ENABLED=$CUSTOMER_DEMO_ENABLED")
             else
               image=admin
               args+=(--build-arg "VITE_API_URL=$PUBLIC_API_URL")
