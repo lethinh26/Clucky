@@ -55,7 +55,8 @@ export interface Combo {
   items: ComboItem[];
 }
 
-export type { Store, StoreStatus, StoreStatusMeta } from '../types/store';
+import type { Store, StoreStatus, StoreStatusMeta } from '../types/store';
+export type { Store, StoreStatus, StoreStatusMeta };
 export {
   STORE_STATUSES,
   STORE_STATUS_META,
