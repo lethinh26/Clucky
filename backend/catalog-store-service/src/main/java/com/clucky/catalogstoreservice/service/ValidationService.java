@@ -61,10 +61,13 @@ public class ValidationService {
         }
 
         Store store = storeOpt.get();
-        if ("CLOSED_TEMP".equalsIgnoreCase(store.getStatus()) || "INACTIVE".equalsIgnoreCase(store.getStatus())) {
+        if (store.getStatus() == StoreStatus.CLOSED_TEMP || store.getStatus() == StoreStatus.INACTIVE) {
             response.setStoreOpen(false);
             response.setValid(false);
-            response.setMessage("Chi nhánh '" + store.getName() + "' hiện đang tạm đóng cửa.");
+            String message = store.getStatus() == StoreStatus.INACTIVE
+                    ? "Chi nhánh '" + store.getName() + "' hiện đã ngừng kinh doanh."
+                    : "Chi nhánh '" + store.getName() + "' hiện đang tạm đóng cửa.";
+            response.setMessage(message);
         }
 
         if (request.getItems() == null || request.getItems().isEmpty()) {

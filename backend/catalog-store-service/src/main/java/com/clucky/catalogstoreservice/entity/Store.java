@@ -28,7 +28,7 @@ public class Store {
     private LocalTime closeTime;
 
     @Column(nullable = false, length = 20)
-    private String status = "ACTIVE";
+    private StoreStatus status = StoreStatus.OPEN;
 
     @Column(name = "delivery_area", columnDefinition = "TEXT")
     private String deliveryArea;
@@ -38,16 +38,20 @@ public class Store {
 
     public Store() {}
 
-    public Store(Long id, String name, String address, String phone, LocalTime openTime, LocalTime closeTime, String status, String deliveryArea) {
+    public Store(Long id, String name, String address, String phone, LocalTime openTime, LocalTime closeTime, StoreStatus status, String deliveryArea) {
         this.id = id;
         this.name = name;
         this.address = address;
         this.phone = phone;
         this.openTime = openTime;
         this.closeTime = closeTime;
-        this.status = status != null ? status : "ACTIVE";
+        this.status = status != null ? status : StoreStatus.OPEN;
         this.deliveryArea = deliveryArea;
         this.createdAt = OffsetDateTime.now();
+    }
+
+    public Store(Long id, String name, String address, String phone, LocalTime openTime, LocalTime closeTime, String status, String deliveryArea) {
+        this(id, name, address, phone, openTime, closeTime, StoreStatus.fromString(status), deliveryArea);
     }
 
     public Long getId() { return id; }
@@ -68,8 +72,9 @@ public class Store {
     public LocalTime getCloseTime() { return closeTime; }
     public void setCloseTime(LocalTime closeTime) { this.closeTime = closeTime; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public StoreStatus getStatus() { return status; }
+    public void setStatus(StoreStatus status) { this.status = status != null ? status : StoreStatus.OPEN; }
+    public void setStatus(String status) { this.status = StoreStatus.fromString(status); }
 
     public String getDeliveryArea() { return deliveryArea; }
     public void setDeliveryArea(String deliveryArea) { this.deliveryArea = deliveryArea; }

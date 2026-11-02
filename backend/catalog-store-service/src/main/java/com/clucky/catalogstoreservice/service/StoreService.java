@@ -5,6 +5,7 @@ import com.clucky.catalogstoreservice.entity.Product;
 import com.clucky.catalogstoreservice.entity.Store;
 import com.clucky.catalogstoreservice.entity.StoreInventory;
 import com.clucky.catalogstoreservice.entity.StoreProduct;
+import com.clucky.catalogstoreservice.entity.StoreStatus;
 import com.clucky.catalogstoreservice.exception.ResourceNotFoundException;
 import com.clucky.catalogstoreservice.repository.ProductRepository;
 import com.clucky.catalogstoreservice.repository.StoreInventoryRepository;
@@ -45,7 +46,7 @@ public class StoreService {
     @Transactional(readOnly = true)
     public List<StoreDto.Response> getAllStores(boolean activeOnly) {
         List<Store> stores = activeOnly
-                ? storeRepository.findByStatus("ACTIVE")
+                ? storeRepository.findByStatus(StoreStatus.OPEN)
                 : storeRepository.findAll();
         return stores.stream().map(this::toResponse).collect(Collectors.toList());
     }
@@ -64,7 +65,7 @@ public class StoreService {
         store.setPhone(request.getPhone());
         store.setOpenTime(parseTime(request.getOpenTime(), "09:00"));
         store.setCloseTime(parseTime(request.getCloseTime(), "22:00"));
-        store.setStatus(request.getStatus() != null ? request.getStatus() : "ACTIVE");
+        store.setStatus(request.getStatus() != null ? StoreStatus.fromString(request.getStatus()) : StoreStatus.OPEN);
         store.setDeliveryArea(request.getDeliveryArea());
 
         Store saved = storeRepository.save(store);
@@ -91,7 +92,7 @@ public class StoreService {
         store.setPhone(request.getPhone());
         if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime(), "09:00"));
         if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime(), "22:00"));
-        if (request.getStatus() != null) store.setStatus(request.getStatus());
+        if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
         if (request.getDeliveryArea() != null) store.setDeliveryArea(request.getDeliveryArea());
 
         Store saved = storeRepository.save(store);
@@ -105,7 +106,7 @@ public class StoreService {
 
         if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime(), "09:00"));
         if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime(), "22:00"));
-        if (request.getStatus() != null) store.setStatus(request.getStatus());
+        if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
 
         Store saved = storeRepository.save(store);
         cacheService.evictStoreMenuCache(id);

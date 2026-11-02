@@ -99,6 +99,8 @@ export const authApi = {
 };
 
 /* ---------- Catalog & Stores ---------- */
+import type { StoreStatus } from "./types/store";
+
 export interface StoreItem {
   id: number;
   name: string;
@@ -108,7 +110,7 @@ export interface StoreItem {
   phone: string;
   openTime: string;
   closeTime: string;
-  status: 'OPEN' | 'ACTIVE' | 'CLOSED_TEMP' | 'INACTIVE';
+  status: StoreStatus;
   deliveryArea: string;
   managerName?: string;
 }

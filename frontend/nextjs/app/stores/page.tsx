@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from '@/components/ui-loader/navigation-link';
-import { stores as fallbackStores, type Store } from '@/lib/products';
+import { stores as fallbackStores, type Store, getStoreStatusMeta } from '@/lib/products';
 import { catalogApi } from '@/lib/api';
 import {
   MapPin,
@@ -169,7 +169,7 @@ export default function StoresPage() {
         {filteredStores.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 24 }}>
             {filteredStores.map((store) => {
-              const isOpen = store.status === 'OPEN';
+              const meta = getStoreStatusMeta(store.status);
               return (
                 <article
                   key={store.id}
@@ -224,13 +224,13 @@ export default function StoresPage() {
                         borderRadius: 999,
                         fontSize: 12,
                         fontWeight: 700,
-                        backgroundColor: isOpen ? '#EAF6EE' : '#FEF3C7',
-                        color: isOpen ? '#1E7A46' : '#D97706',
-                        border: `1px solid ${isOpen ? '#A7F3D0' : '#FDE68A'}`,
+                        backgroundColor: meta.bgColor,
+                        color: meta.color,
+                        border: `1px solid ${meta.borderColor}`,
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {isOpen ? '● Đang mở cửa' : '○ Tạm đóng cửa'}
+                      {meta.badgeLabel}
                     </span>
                   </div>
 
@@ -268,7 +268,7 @@ export default function StoresPage() {
                       gap: 12,
                     }}
                   >
-                    {isOpen ? (
+                    {meta.canOrder ? (
                       <Link
                         href={`/menu?storeId=${store.id}`}
                         className="btn-primary"
@@ -296,9 +296,9 @@ export default function StoresPage() {
                           cursor: 'not-allowed',
                           border: 'none',
                         }}
-                        title="Chi nhánh đang tạm đóng cửa"
+                        title={meta.description}
                       >
-                        <span>Tạm ngưng phục vụ</span>
+                        <span>{meta.actionText}</span>
                       </button>
                     )}
 

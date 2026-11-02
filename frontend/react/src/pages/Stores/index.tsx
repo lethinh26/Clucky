@@ -28,7 +28,14 @@ import { AdminTable } from '../../components/ui/AdminTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AdminModal } from '../../components/ui/AdminModal';
 import { useAuth } from '../../context/AuthContext';
-import { Store, mockStores, mockManagers } from '../../mocks/catalogData';
+import {
+  Store,
+  StoreStatus,
+  getStoreStatusMeta,
+  normalizeStoreStatus,
+  mockStores,
+  mockManagers,
+} from '../../mocks/catalogData';
 import { storesApi, getErrorMessage } from '../../lib/api';
 
 export const StoresPage: React.FC = () => {
@@ -69,7 +76,8 @@ export const StoresPage: React.FC = () => {
 
   const filteredStores = useMemo(() => {
     return scopedStores.filter((s) => {
-      const matchStatus = statusFilter === 'ALL' ? true : s.status === statusFilter;
+      const currentStatus = normalizeStoreStatus(s.status);
+      const matchStatus = statusFilter === 'ALL' ? true : currentStatus === statusFilter;
       const matchSearch =
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -140,19 +148,14 @@ export const StoresPage: React.FC = () => {
     }
   };
 
-  const handleQuickStatusChange = async (store: Store, newStatus: Store['status']) => {
+  const handleQuickStatusChange = async (store: Store, newStatus: StoreStatus) => {
     try {
       await storesApi.updateOperation(store.id, { status: newStatus });
       setStores((prev) =>
         prev.map((s) => (s.id === store.id ? { ...s, status: newStatus } : s))
       );
-      const label =
-        newStatus === 'OPEN'
-          ? 'Đang mở cửa'
-          : newStatus === 'CLOSED_TEMP'
-          ? 'Tạm đóng cửa'
-          : 'Ngừng hoạt động';
-      message.success(`Đã chuyển trạng thái chi nhánh "${store.name}" sang ${label}.`);
+      const meta = getStoreStatusMeta(newStatus);
+      message.success(`Đã chuyển trạng thái chi nhánh "${store.name}" sang ${meta.label}.`);
     } catch (err) {
       message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái chi nhánh!'));
     }
@@ -232,9 +235,8 @@ export const StoresPage: React.FC = () => {
       key: 'status',
       width: 160,
       render: (status: Store['status']) => {
-        if (status === 'OPEN') return <StatusBadge status="success" text="Đang mở cửa" />;
-        if (status === 'CLOSED_TEMP') return <StatusBadge status="warning" text="Tạm đóng" />;
-        return <StatusBadge status="error" text="Ngừng hoạt động" />;
+        const meta = getStoreStatusMeta(status);
+        return <StatusBadge status={meta.badgeStatus} text={meta.label} />;
       },
     },
     {
@@ -347,9 +349,9 @@ export const StoresPage: React.FC = () => {
             style={{ width: 180, fontFamily: 'Quicksand, sans-serif' }}
             options={[
               { value: 'ALL', label: 'Tất cả trạng thái' },
-              { value: 'OPEN', label: '🟢 Đang mở cửa' },
+              { value: 'OPEN', label: '🟢 Mở cửa' },
               { value: 'CLOSED_TEMP', label: '🟡 Tạm đóng' },
-              { value: 'INACTIVE', label: '🔴 Ngừng hoạt động' },
+              { value: 'INACTIVE', label: '🔴 Ngừng bán' },
             ]}
           />
         }

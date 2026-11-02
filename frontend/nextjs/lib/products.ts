@@ -42,19 +42,14 @@ export interface Product {
   toppings: ProductTopping[];
 }
 
-export interface Store {
-  id: number;
-  name: string;
-  address: string;
-  district: string;
-  city: string;
-  phone: string;
-  openTime: string;
-  closeTime: string;
-  status: 'OPEN' | 'CLOSED_TEMP' | 'INACTIVE';
-  deliveryArea: string;
-  managerName?: string;
-}
+export type { Store, StoreStatus, StoreStatusMeta } from './types/store';
+export {
+  STORE_STATUSES,
+  STORE_STATUS_META,
+  isStoreStatus,
+  normalizeStoreStatus,
+  getStoreStatusMeta,
+} from './types/store';
 
 export interface InventoryItem {
   storeId: number;

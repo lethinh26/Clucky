@@ -1,5 +1,6 @@
 package com.clucky.catalogstoreservice.dto;
 
+import com.clucky.catalogstoreservice.entity.StoreStatus;
 import jakarta.validation.constraints.NotBlank;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -22,6 +23,10 @@ public class StoreDto {
 
         public Response() {}
 
+        public Response(Long id, String name, String address, String phone, LocalTime openTime, LocalTime closeTime, StoreStatus status, String deliveryArea) {
+            this(id, name, address, phone, openTime, closeTime, status != null ? status.name() : StoreStatus.OPEN.name(), deliveryArea);
+        }
+
         public Response(Long id, String name, String address, String phone, LocalTime openTime, LocalTime closeTime, String status, String deliveryArea) {
             this.id = id;
             this.name = name;
@@ -29,7 +34,7 @@ public class StoreDto {
             this.phone = phone;
             this.openTime = openTime != null ? openTime.format(TIME_FORMAT) : "09:00";
             this.closeTime = closeTime != null ? closeTime.format(TIME_FORMAT) : "22:00";
-            this.status = status;
+            this.status = status != null ? StoreStatus.fromString(status).name() : StoreStatus.OPEN.name();
             this.deliveryArea = deliveryArea;
             extractDistrictAndCity(address);
         }
@@ -94,7 +99,7 @@ public class StoreDto {
 
         private String openTime; // "09:00"
         private String closeTime; // "22:00"
-        private String status = "ACTIVE";
+        private String status = StoreStatus.OPEN.name();
         private String deliveryArea;
         private String district;
         private String city;
@@ -115,7 +120,9 @@ public class StoreDto {
         public void setCloseTime(String closeTime) { this.closeTime = closeTime; }
 
         public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
+        public void setStatus(String status) {
+            this.status = status != null ? StoreStatus.fromString(status).name() : StoreStatus.OPEN.name();
+        }
 
         public String getDeliveryArea() { return deliveryArea; }
         public void setDeliveryArea(String deliveryArea) { this.deliveryArea = deliveryArea; }
@@ -130,7 +137,7 @@ public class StoreDto {
     public static class OperationRequest {
         private String openTime;
         private String closeTime;
-        private String status; // 'OPEN' or 'ACTIVE' or 'CLOSED_TEMP'
+        private String status; // 'OPEN', 'CLOSED_TEMP', 'INACTIVE'
 
         public String getOpenTime() { return openTime; }
         public void setOpenTime(String openTime) { this.openTime = openTime; }
@@ -139,6 +146,8 @@ public class StoreDto {
         public void setCloseTime(String closeTime) { this.closeTime = closeTime; }
 
         public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
+        public void setStatus(String status) {
+            this.status = status != null ? StoreStatus.fromString(status).name() : null;
+        }
     }
 }
