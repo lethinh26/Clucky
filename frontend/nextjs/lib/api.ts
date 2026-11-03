@@ -97,4 +97,34 @@ export const authApi = {
     }),
 };
 
+/* ---------- Promotions & Loyalty ---------- */
+export const promotionApi = {
+  getAvailableVouchers: () =>
+    request<import("./types/promotion").Voucher[]>("/api/promotions/vouchers/available"),
+  validateVoucher: (body: {
+    code: string;
+    orderAmount: number;
+    storeId?: string | number | null;
+  }) =>
+    request<import("./promotion").VoucherValidationResult>(
+      "/api/promotions/vouchers/validate",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      }
+    ),
+  getMyLoyalty: () => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("clucky_access_token")
+        : null;
+    return request<{
+      points: import("./types/promotion").MemberPoints;
+      transactions: import("./types/promotion").PointTransaction[];
+    }>("/api/loyalty/me", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
+};
+
 export default request;

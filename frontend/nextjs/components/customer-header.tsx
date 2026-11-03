@@ -13,6 +13,8 @@ const links = [
   ["/", "Trang chủ"],
   ["/menu", "Thực đơn"],
   ["/stores", "Cửa hàng"],
+  ["/vouchers", "Ưu đãi"],
+  ["/loyalty", "Clucky Club"],
   ["/party", "Đặt tiệc"],
   ["/orders", "Đơn hàng"],
   ["/account", "Tài khoản"],

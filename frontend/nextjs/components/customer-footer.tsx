@@ -19,6 +19,8 @@ export function CustomerFooter() {
         <nav className="footer-links" aria-label="Liên kết cuối trang">
           <Link href="/menu">Thực đơn</Link>
           <Link href="/stores">Cửa hàng</Link>
+          <Link href="/vouchers">Ưu đãi</Link>
+          <Link href="/loyalty">Clucky Club</Link>
           <Link href="/orders">Tra cứu đơn</Link>
           <Link href="/account">Tài khoản</Link>
         </nav>
