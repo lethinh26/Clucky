@@ -211,13 +211,13 @@ interface OrderWorkspace {
     id: string,
     status: AdminOrderStatus,
     reason?: string,
-  ) => Promise<boolean>;
-  confirmCOD: (id: string) => Promise<boolean>;
+  ) => boolean;
+  confirmCOD: (id: string) => boolean;
   reviewRefund: (
     id: string,
     action: "APPROVED" | "REJECTED",
     note: string,
-  ) => Promise<boolean>;
+  ) => boolean;
   refreshOrders: () => Promise<void>;
 }
 
@@ -303,7 +303,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   );
 
   const perform = useCallback(
-    async (id: string, action: AdminDemoAction): Promise<boolean> => {
+    (id: string, action: AdminDemoAction): boolean => {
       const order = latest.current.find((entry) => entry.id === id);
       if (!order) {
         setActionError(
@@ -324,55 +324,57 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      // Backend sync with optimistic lock / conflict handling (INT-14)
-      try {
-        if (action.type === "STATUS") {
-          await ordersApi.updateStatus(id, action.status, action.reason);
-        } else if (action.type === "COD") {
-          await ordersApi.updateStatus(id, "COMPLETED", "COD confirmed");
-        } else if (action.type === "REFUND") {
-          const refundAction = action.decision === "APPROVED" ? "APPROVE" : "REJECT";
-          await refundsApi.review(id, refundAction, action.note);
-        }
-      } catch (err: any) {
-        const errorMsg =
-          err?.response?.data?.message ||
-          err?.message ||
-          "Order operation failed due to conflict.";
-        console.warn("Backend order update warning, applying fallback:", errorMsg);
-        // If 409 or conflict:
-        if (err?.response?.status === 409 || err?.response?.status === 400) {
-          setActionError(`[Conflict] ${errorMsg}`);
-          // Reload latest state from backend
-          refreshOrders();
-          return false;
-        }
-      }
-
       setActionError("");
       const updated = latest.current.map((entry) =>
         entry.id === id ? result.order : entry,
       );
       latest.current = updated;
       setOrders(updated);
+
+      // Backend sync with optimistic lock / conflict handling (INT-14)
+      (async () => {
+        try {
+          if (action.type === "STATUS") {
+            await ordersApi.updateStatus(id, action.status, action.reason);
+          } else if (action.type === "COD") {
+            await ordersApi.updateStatus(id, "COMPLETED", "COD confirmed");
+          } else if (action.type === "REFUND") {
+            const refundAction = action.decision === "APPROVED" ? "APPROVE" : "REJECT";
+            await refundsApi.review(id, refundAction, action.note);
+          }
+        } catch (err: any) {
+          const errorMsg =
+            err?.response?.data?.message ||
+            err?.message ||
+            "Order operation failed due to conflict.";
+          console.warn("Backend order update warning, applying fallback:", errorMsg);
+          // If 409 or conflict:
+          if (err?.response?.status === 409 || err?.response?.status === 400) {
+            setActionError(`[Conflict] ${errorMsg}`);
+            // Reload latest state from backend
+            refreshOrders();
+          }
+        }
+      })();
+
       return true;
     },
     [user, refreshOrders],
   );
 
   const updateStatus = useCallback(
-    async (id: string, status: AdminOrderStatus, reason?: string) =>
+    (id: string, status: AdminOrderStatus, reason?: string) =>
       perform(id, { type: "STATUS", status, reason }),
     [perform],
   );
 
   const confirmCOD = useCallback(
-    async (id: string) => perform(id, { type: "COD" }),
+    (id: string) => perform(id, { type: "COD" }),
     [perform],
   );
 
   const reviewRefund = useCallback(
-    async (id: string, decision: "APPROVED" | "REJECTED", note: string) =>
+    (id: string, decision: "APPROVED" | "REJECTED", note: string) =>
       perform(id, { type: "REFUND", decision, note }),
     [perform],
   );

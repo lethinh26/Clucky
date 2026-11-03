@@ -64,15 +64,19 @@ export default function PartyOrderPage() {
       ? `${notes.trim()} (Pkg: ${selectedPackage})`
       : `Pkg: ${selectedPackage}`;
 
+    const content = `Time: ${expectedTime}. Email: ${customerEmail.trim()}. Notes: ${notes.trim() || "None"}. Pkg: ${selectedPackage}`;
+
     try {
       const result = await partyOrderApi.create({
         storeId: Number(selectedStore) || 1,
         contactName: customerName.trim(),
+        phone: customerPhone.trim(),
         contactPhone: customerPhone.trim(),
         contactEmail: customerEmail.trim(),
         expectedDate,
         expectedTime,
         guestCount,
+        content,
         notes: combinedNotes,
       });
       setCreatedPartyOrder(result);

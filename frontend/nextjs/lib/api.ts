@@ -311,9 +311,13 @@ export interface CreatePartyOrderPayload {
   storeId: number;
   contactName: string;
   phone: string;
+  contactPhone?: string;
+  contactEmail?: string;
   expectedDate: string;
+  expectedTime?: string;
   guestCount: number;
   content: string;
+  notes?: string;
 }
 
 export interface PartyOrderResult {
