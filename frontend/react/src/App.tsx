@@ -1,7 +1,9 @@
+import { useLocaleTools } from "./i18n/hooks";
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ConfigProvider, App as AntApp } from "antd";
 import viVN from "antd/locale/vi_VN";
+import enUS from "antd/locale/en_US";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AdminLayout } from "./layouts/AdminLayout";
@@ -27,9 +29,10 @@ function OrdersRoute() {
 }
 
 export const App: React.FC = () => {
+  const { locale } = useLocaleTools();
   return (
     <ConfigProvider
-      locale={viVN}
+      locale={locale === "vi" ? viVN : enUS}
       theme={{
         token: {
           colorPrimary: "#8F1216",

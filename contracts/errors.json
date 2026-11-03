@@ -1,0 +1,177 @@
+{
+  "VALIDATION_ERROR": {
+    "httpStatus": 400,
+    "messages": {
+      "vi": "Thông tin nhập chưa hợp lệ.",
+      "en": "The submitted information is invalid."
+    },
+    "defaultForStatus": true
+  },
+  "UNAUTHENTICATED": {
+    "httpStatus": 401,
+    "messages": {
+      "vi": "Vui lòng đăng nhập để tiếp tục.",
+      "en": "Please sign in to continue."
+    },
+    "defaultForStatus": true
+  },
+  "FORBIDDEN": {
+    "httpStatus": 403,
+    "messages": {
+      "vi": "Bạn không có quyền thực hiện thao tác này.",
+      "en": "You do not have permission to perform this action."
+    },
+    "defaultForStatus": true
+  },
+  "RESOURCE_NOT_FOUND": {
+    "httpStatus": 404,
+    "messages": {
+      "vi": "Không tìm thấy dữ liệu yêu cầu.",
+      "en": "The requested resource was not found."
+    },
+    "defaultForStatus": true
+  },
+  "METHOD_NOT_ALLOWED": {
+    "httpStatus": 405,
+    "messages": {
+      "vi": "Thao tác này không được hỗ trợ.",
+      "en": "This operation is not supported."
+    },
+    "defaultForStatus": true
+  },
+  "RESOURCE_CONFLICT": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Dữ liệu đã thay đổi hoặc bị trùng. Vui lòng kiểm tra lại.",
+      "en": "The data has changed or already exists. Please check and try again."
+    },
+    "defaultForStatus": true
+  },
+  "REQUEST_TOO_LARGE": {
+    "httpStatus": 413,
+    "messages": {
+      "vi": "Dữ liệu gửi lên vượt quá dung lượng cho phép.",
+      "en": "The submitted data exceeds the size limit."
+    },
+    "defaultForStatus": true
+  },
+  "UNSUPPORTED_MEDIA_TYPE": {
+    "httpStatus": 415,
+    "messages": {
+      "vi": "Định dạng dữ liệu không được hỗ trợ.",
+      "en": "This data format is not supported."
+    },
+    "defaultForStatus": true
+  },
+  "TOO_MANY_REQUESTS": {
+    "httpStatus": 429,
+    "messages": {
+      "vi": "Bạn thao tác quá nhanh. Vui lòng thử lại sau.",
+      "en": "Too many requests. Please try again later."
+    },
+    "defaultForStatus": true
+  },
+  "INTERNAL_ERROR": {
+    "httpStatus": 500,
+    "messages": {
+      "vi": "Có lỗi xảy ra. Vui lòng thử lại sau.",
+      "en": "Something went wrong. Please try again later."
+    },
+    "defaultForStatus": true
+  },
+  "NOT_IMPLEMENTED": {
+    "httpStatus": 501,
+    "messages": {
+      "vi": "Chức năng này chưa sẵn sàng.",
+      "en": "This feature is not available yet."
+    },
+    "defaultForStatus": true
+  },
+  "UPSTREAM_ERROR": {
+    "httpStatus": 502,
+    "messages": {
+      "vi": "Không nhận được phản hồi hợp lệ từ dịch vụ. Vui lòng thử lại.",
+      "en": "The service returned an invalid response. Please try again."
+    },
+    "defaultForStatus": true
+  },
+  "DEPENDENCY_UNAVAILABLE": {
+    "httpStatus": 503,
+    "messages": {
+      "vi": "Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.",
+      "en": "The service is temporarily unavailable. Please try again later."
+    },
+    "defaultForStatus": true
+  },
+  "GATEWAY_TIMEOUT": {
+    "httpStatus": 504,
+    "messages": {
+      "vi": "Dịch vụ phản hồi quá lâu. Vui lòng thử lại.",
+      "en": "The service took too long to respond. Please try again."
+    },
+    "defaultForStatus": true
+  },
+  "VOUCHER_NOT_FOUND": {
+    "httpStatus": 404,
+    "messages": {
+      "vi": "Không tìm thấy mã giảm giá.",
+      "en": "This voucher was not found."
+    }
+  },
+  "VOUCHER_EXPIRED": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Mã giảm giá đã hết hạn.",
+      "en": "This voucher has expired."
+    }
+  },
+  "VOUCHER_NOT_STARTED": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Mã giảm giá chưa đến thời gian sử dụng.",
+      "en": "This voucher is not valid yet."
+    }
+  },
+  "VOUCHER_INACTIVE": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Mã giảm giá hiện không khả dụng.",
+      "en": "This voucher is currently unavailable."
+    }
+  },
+  "VOUCHER_EXHAUSTED": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Mã giảm giá đã hết lượt sử dụng.",
+      "en": "This voucher has reached its usage limit."
+    }
+  },
+  "VOUCHER_SCOPE_MISMATCH": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Mã giảm giá không áp dụng tại cửa hàng này.",
+      "en": "This voucher cannot be used at this store."
+    }
+  },
+  "MIN_ORDER_NOT_MET": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Đơn hàng chưa đạt giá trị tối thiểu để dùng mã giảm giá.",
+      "en": "Your order does not meet the minimum voucher value."
+    }
+  },
+  "INSUFFICIENT_POINTS": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Bạn không đủ điểm để thực hiện thao tác này.",
+      "en": "You do not have enough points for this operation."
+    }
+  },
+  "EMAIL_EXISTS": {
+    "httpStatus": 409,
+    "messages": {
+      "vi": "Email này đã được đăng ký.",
+      "en": "This email is already registered."
+    }
+  }
+}

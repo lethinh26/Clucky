@@ -418,7 +418,7 @@ test("admin modal action keeps loading local and cannot be dismissed mid-request
       .getByRole("button", { name: "Khóa tài khoản", exact: true })
       .click();
     await expect(
-      dialog.getByRole("button", { name: "Hủy bỏ", exact: true }),
+      dialog.getByRole("button", { name: "Hủy", exact: true }),
     ).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();

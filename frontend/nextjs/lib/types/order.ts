@@ -13,6 +13,9 @@ export type PaymentMethod = "COD" | "BANK_TRANSFER";
 
 export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED";
 
+export type ShipmentStatus =
+  "CREATED" | "ASSIGNED" | "PICKED_UP" | "SHIPPING" | "DELIVERED" | "FAILED";
+
 export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED";
 
 export type PartyOrderStatus =
@@ -70,6 +73,7 @@ export interface Order {
   pointsUsed: number;
   pointsAmount: number;
   shippingFee: number;
+  shipmentStatus?: ShipmentStatus;
   totalAmount: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;

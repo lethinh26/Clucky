@@ -1,3 +1,5 @@
+import { useLocaleTools } from "../../i18n/hooks";
+import { useTranslation } from "react-i18next";
 import { useState } from 'react';
 import {
   Button,
@@ -34,17 +36,17 @@ export type OrderSummary = {
   code: string;
   customer: string;
   items: number;
-  status: 'Đang chuẩn bị' | 'Hoàn thành' | 'Đang giao' | 'Chờ xác nhận';
-  total: string;
+  status: 'PREPARING' | 'COMPLETED' | 'SHIPPING' | 'PENDING';
+  total: number;
   time: string;
   storeName?: string;
 };
 
 export const mockOrders: OrderSummary[] = [
-  { key: '1', code: '#CLU-240826', customer: 'Nguyễn Minh Anh', items: 3, status: 'Đang chuẩn bị', total: '257.000đ', time: '10:42', storeName: 'Nguyễn Trãi' },
-  { key: '2', code: '#CLU-240825', customer: 'Trần Gia Huy', items: 2, status: 'Hoàn thành', total: '158.000đ', time: '10:36', storeName: 'Phan Văn Trị' },
-  { key: '3', code: '#CLU-240824', customer: 'Lê Hoàng Nam', items: 5, status: 'Đang giao', total: '429.000đ', time: '10:21', storeName: 'Nguyễn Trãi' },
-  { key: '4', code: '#CLU-240823', customer: 'Phạm Thuỳ Linh', items: 1, status: 'Chờ xác nhận', total: '89.000đ', time: '10:05', storeName: 'Lê Văn Việt' },
+  { key: '1', code: '#CLU-240826', customer: 'Nguyễn Minh Anh', items: 3, status: 'PREPARING', total: 257000, time: '10:42', storeName: 'Nguyễn Trãi' },
+  { key: '2', code: '#CLU-240825', customer: 'Trần Gia Huy', items: 2, status: 'COMPLETED', total: 158000, time: '10:36', storeName: 'Phan Văn Trị' },
+  { key: '3', code: '#CLU-240824', customer: 'Lê Hoàng Nam', items: 5, status: 'SHIPPING', total: 429000, time: '10:21', storeName: 'Nguyễn Trãi' },
+  { key: '4', code: '#CLU-240823', customer: 'Phạm Thuỳ Linh', items: 1, status: 'PENDING', total: 89000, time: '10:05', storeName: 'Lê Văn Việt' },
 ];
 
 /**
@@ -54,13 +56,20 @@ export const mockOrders: OrderSummary[] = [
  * - Đang giao (Thông tin): #22577A
  */
 const statusTagStyleMap: Record<OrderSummary['status'], { color: string; bg: string; border: string }> = {
-  'Đang chuẩn bị': { color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
-  'Chờ xác nhận': { color: '#B45309', bg: '#FFFBEB', border: '#FCD34D' },
-  'Hoàn thành': { color: '#1E7A46', bg: '#D1FAE5', border: '#A7F3D0' },
-  'Đang giao': { color: '#22577A', bg: '#E0F2FE', border: '#BAE6FD' },
+  'PREPARING': { color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
+  'PENDING': { color: '#B45309', bg: '#FFFBEB', border: '#FCD34D' },
+  'COMPLETED': { color: '#1E7A46', bg: '#D1FAE5', border: '#A7F3D0' },
+  'SHIPPING': { color: '#22577A', bg: '#E0F2FE', border: '#BAE6FD' },
 };
 
 export function StatusTag({ status }: { status: OrderSummary['status'] | string }) {
+  const { t } = useTranslation();
+  const labels: Record<string, string> = {
+    PREPARING: t("business:orderprogress.preparing"),
+    COMPLETED: t("business:orders.completed"),
+    SHIPPING: t("business:orderprogress.delivering"),
+    PENDING: t("business:dashboard.awaitingConfirmation"),
+  };
   const custom = statusTagStyleMap[status as OrderSummary['status']];
   if (custom) {
     return (
@@ -76,17 +85,20 @@ export function StatusTag({ status }: { status: OrderSummary['status'] | string 
           padding: '2px 8px',
         }}
       >
-        {status}
+        {labels[status] ?? status}
       </Tag>
     );
   }
-  return <Tag>{status}</Tag>;
+  return <Tag>{labels[status] ?? status}</Tag>;
 }
 
 export function OrdersTable({ compact = false, orders = mockOrders }: { compact?: boolean; orders?: OrderSummary[] }) {
+  const { money } = useLocaleTools();
+  const { t } = useTranslation();
+
   const columns: TableColumnsType<OrderSummary> = [
     {
-      title: 'Mã đơn',
+      title: t("business:dashboard.orderCode"),
       dataIndex: 'code',
       key: 'code',
       render: (value: string) => (
@@ -96,7 +108,7 @@ export function OrdersTable({ compact = false, orders = mockOrders }: { compact?
       ),
     },
     {
-      title: 'Khách hàng',
+      title: t("business:dashboard.customer"),
       dataIndex: 'customer',
       key: 'customer',
       render: (value: string, row: OrderSummary) => (
@@ -105,25 +117,25 @@ export function OrdersTable({ compact = false, orders = mockOrders }: { compact?
             {value}
           </Typography.Text>
           <Typography.Text type="secondary" className="table-subtext">
-            {row.items} món · {row.time} {row.storeName ? `· ${row.storeName}` : ''}
+            {row.items} {t("business:dashboard.items")} {row.time} {row.storeName ? `· ${row.storeName}` : ''}
           </Typography.Text>
         </div>
       ),
     },
     {
-      title: 'Trạng thái',
+      title: t("business:catalog.status"),
       dataIndex: 'status',
       key: 'status',
       render: (value: string) => <StatusTag status={value} />,
     },
     {
-      title: 'Tổng tiền',
+      title: t("business:id.total"),
       dataIndex: 'total',
       key: 'total',
       align: 'right',
-      render: (value: string) => (
+      render: (value: number) => (
         <Typography.Text strong className="money" style={{ color: '#8F1216', fontSize: 15 }}>
-          {value}
+          {money(value)}
         </Typography.Text>
       ),
     },
@@ -131,7 +143,7 @@ export function OrdersTable({ compact = false, orders = mockOrders }: { compact?
       title: '',
       key: 'actions',
       width: 48,
-      render: () => <Button type="text" icon={<MoreOutlined style={{ color: '#6B6259' }} />} aria-label="Thao tác" />,
+      render: () => <Button type="text" icon={<MoreOutlined style={{ color: '#6B6259' }} />} aria-label={t("business:catalog.actions")} />,
     },
   ];
 
@@ -194,31 +206,39 @@ export function MetricCard({
 }
 
 const weeklyData = [
-  { day: 'T2', height: 54, amount: '12,4 tr' },
-  { day: 'T3', height: 68, amount: '15,6 tr' },
-  { day: 'T4', height: 44, amount: '10,1 tr' },
-  { day: 'T5', height: 78, amount: '18,2 tr' },
-  { day: 'T6', height: 62, amount: '14,3 tr' },
-  { day: 'T7', height: 88, amount: '22,5 tr' },
-  { day: 'CN', height: 74, amount: '18,65 tr' },
+  { day: 'T2', height: 54, amount: 12400000 },
+  { day: 'T3', height: 68, amount: 15600000 },
+  { day: 'T4', height: 44, amount: 10100000 },
+  { day: 'T5', height: 78, amount: 18200000 },
+  { day: 'T6', height: 62, amount: 14300000 },
+  { day: 'T7', height: 88, amount: 22500000 },
+  { day: 'CN', height: 74, amount: 18650000 },
 ];
 
-const monthlyData = [
-  { day: 'Tuần 1', height: 65, amount: '92 tr' },
-  { day: 'Tuần 2', height: 82, amount: '118 tr' },
-  { day: 'Tuần 3', height: 74, amount: '105 tr' },
-  { day: 'Tuần 4', height: 90, amount: '128 tr' },
+
+
+export function RevenueChart({ range = '7d' }: { range?: string }) {
+  const { money, date } = useLocaleTools();
+  const { t } = useTranslation();
+
+  const monthlyData = [
+  { day: t("business:dashboard.week"), height: 65, amount: 92000000 },
+  { day: t("business:dashboard.week2"), height: 82, amount: 118000000 },
+  { day: t("business:dashboard.week3"), height: 74, amount: 105000000 },
+  { day: t("business:dashboard.week4"), height: 90, amount: 128000000 },
 ];
 
-export function RevenueChart({ range = '7 ngày' }: { range?: string }) {
-  const chartPoints = range === '30 ngày' ? monthlyData : weeklyData;
-  const totalAmount = range === '30 ngày' ? '443,0 triệu' : '18,65 triệu';
+  const chartPoints = range === '30d' ? monthlyData : weeklyData.map((item, index) => ({
+    ...item,
+    day: date(new Date(Date.UTC(2026, 9, 26 + index)), { weekday: "short", year: undefined, month: undefined, day: undefined }),
+  }));
+  const totalAmount = range === '30d' ? t("business:dashboard.million") : t("business:dashboard.value1865Million");
 
   return (
     <div className="revenue-chart">
       <div className="chart-bars">
         {chartPoints.map((item, index) => (
-          <Tooltip key={index} title={`${item.day}: ${item.amount}`}>
+          <Tooltip key={index} title={`${item.day}: ${money(item.amount)}`}>
             <div className="bar-group">
               <div className="chart-bar" style={{ height: `${item.height}%` }} />
               <span>{item.day}</span>
@@ -228,7 +248,7 @@ export function RevenueChart({ range = '7 ngày' }: { range?: string }) {
       </div>
       <Flex justify="space-between" className="chart-caption" align="center">
         <Typography.Text type="secondary" style={{ color: '#6B6259' }}>
-          {range === '30 ngày' ? 'Tổng doanh thu tháng' : 'Tổng doanh thu (hôm nay)'}
+          {range === '30d' ? t("business:dashboard.totalMonthlyRevenue") : t("business:dashboard.totalRevenueToday")}
         </Typography.Text>
         <Typography.Text strong style={{ color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 18 }}>
           {totalAmount}
@@ -337,7 +357,9 @@ export interface DashboardProps {
 }
 
 export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', onStoreChange }: DashboardProps) {
-  const [range, setRange] = useState('7 ngày');
+  const { t } = useTranslation();
+
+  const [range, setRange] = useState('7d');
   const [selectedStore, setSelectedStore] = useState(storeFilter);
 
   const handleStoreChange = (val: string) => {
@@ -351,8 +373,8 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
     <div className="dashboard-page">
       <PageIntro
         eyebrow="Overview"
-        title="Chào buổi sáng, Clucky."
-        description="Theo dõi vận hành, hiệu suất kinh doanh và các đơn hàng cần xử lý hôm nay."
+        title={t("business:dashboard.goodMorningClucky")}
+        description={t("business:dashboard.monitorOperationsBusinessPerformanceAndOrdersThatNeedAttentionToday")}
         action={
           <Flex gap={8} align="center">
             <Select
@@ -360,7 +382,7 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
               onChange={handleStoreChange}
               style={{ width: 170 }}
               options={[
-                { value: 'all', label: 'Tất cả chi nhánh' },
+                { value: 'all', label: t("business:stores.allStores") },
                 { value: 'store-1', label: 'Nguyễn Trãi' },
                 { value: 'store-2', label: 'Phan Văn Trị' },
                 { value: 'store-3', label: 'Lê Văn Việt' },
@@ -369,10 +391,8 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => message.success('Đã mở luồng tạo khuyến mãi.')}
-            >
-              Tạo khuyến mãi
-            </Button>
+              onClick={() => message.success(t("business:dashboard.promotionCreationOpened"))}
+            > {t("business:dashboard.createPromotion")} </Button>
           </Flex>
         }
       />
@@ -381,46 +401,46 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
       <Row gutter={[16, 16]} className="stats-row">
         <Col xs={24} sm={12} xl={6}>
           <MetricCard
-            title="Đơn hôm nay"
+            title={t("business:dashboard.todaySOrders")}
             value="128"
-            suffix="đơn"
-            trend="+12,5% so với hôm qua"
+            suffix={t("business:dashboard.orders")}
+            trend={t("business:dashboard.fromYesterday")}
             icon={<FileTextOutlined />}
             trendUp={true}
-            tooltip="Tổng đơn hàng phát sinh trong ngày tại chi nhánh được chọn"
+            tooltip={t("business:dashboard.totalOrdersPlacedTodayAtTheSelectedStore")}
           />
         </Col>
         <Col xs={24} sm={12} xl={6}>
           <MetricCard
             title="Doanh thu"
             value="18,65"
-            suffix="triệu"
-            trend="+8,2% so với hôm qua"
+            suffix={t("business:dashboard.million")}
+            trend={t("business:dashboard.fromYesterdayLabel")}
             icon={<DollarOutlined />}
             trendUp={true}
-            tooltip="Doanh thu tạm tính từ các đơn đặt hàng thành công"
+            tooltip={t("business:dashboard.estimatedRevenueFromSuccessfulOrders")}
           />
         </Col>
         <Col xs={24} sm={12} xl={6}>
           <MetricCard
-            title="Đang chuẩn bị"
+            title={t("business:orderprogress.preparing")}
             value="16"
-            suffix="đơn"
-            trend="Cần bếp xử lý ngay"
+            suffix={t("business:dashboard.orders")}
+            trend={t("business:dashboard.needsKitchenAttention")}
             icon={<CoffeeOutlined />}
             warning
-            tooltip="Số đơn hàng đã thanh toán/xác nhận đang được chuẩn bị"
+            tooltip={t("business:dashboard.paidOrConfirmedOrdersBeingPrepared")}
           />
         </Col>
         <Col xs={24} sm={12} xl={6}>
           <MetricCard
-            title="Khách mới"
+            title={t("business:dashboard.newCustomers")}
             value="42"
-            suffix="người"
-            trend="+18,4% tuần này"
+            suffix={t("business:party.people")}
+            trend={t("business:dashboard.thisWeek")}
             icon={<TeamOutlined />}
             trendUp={true}
-            tooltip="Tài khoản khách hàng đăng ký mới"
+            tooltip={t("business:dashboard.newCustomerRegistrations")}
           />
         </Col>
       </Row>
@@ -429,11 +449,9 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
       <Row gutter={[16, 16]} className="dashboard-grid">
         <Col xs={24} xl={16}>
           <Card
-            title="Đơn hàng gần đây"
+            title={t("business:dashboard.recentOrders")}
             extra={
-              <Button type="link" onClick={() => onNavigate('orders')} style={{ color: '#8F1216', fontWeight: 600 }}>
-                Xem tất cả →
-              </Button>
+              <Button type="link" onClick={() => onNavigate('orders')} style={{ color: '#8F1216', fontWeight: 600 }}> {t("business:dashboard.viewAll")} </Button>
             }
           >
             <OrdersTable compact />
@@ -441,11 +459,11 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
         </Col>
         <Col xs={24} xl={8}>
           <Card
-            title="Doanh thu theo thời gian"
+            title={t("business:dashboard.revenueOverTime")}
             extra={
               <Segmented
                 size="small"
-                options={['7 ngày', '30 ngày']}
+                options={[{value: '7d', label: t("business:dashboard.days")}, {value: '30d', label: t("business:dashboard.daysLabel")}]}
                 value={range}
                 onChange={(value) => setRange(String(value))}
               />
@@ -460,34 +478,30 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12}>
           <Card
-            title="Món bán chạy hôm nay"
+            title={t("business:dashboard.todaySBestSellers")}
             extra={
-              <Button type="link" onClick={() => onNavigate('catalog')} style={{ color: '#8F1216', fontWeight: 600 }}>
-                Thực đơn →
-              </Button>
+              <Button type="link" onClick={() => onNavigate('catalog')} style={{ color: '#8F1216', fontWeight: 600 }}> {t("business:dashboard.menu")} </Button>
             }
           >
-            <BestSeller name="Gà rán sốt cay truyền thống" value="86 phần" percent={82} color="#8F1216" />
-            <BestSeller name="Burger gà giòn cay Clucky" value="64 phần" percent={64} color="#C9A227" />
-            <BestSeller name="Combo Clucky Tiết kiệm (2 người)" value="51 phần" percent={51} color="#22577A" />
-            <BestSeller name="Khoai tây chiên lắc phô mai" value="38 phần" percent={38} color="#D97706" />
+            <BestSeller name="Gà rán sốt cay truyền thống" value={t("business:dashboard.servings")} percent={82} color="#8F1216" />
+            <BestSeller name="Burger gà giòn cay Clucky" value={t("business:dashboard.value64Servings")} percent={64} color="#C9A227" />
+            <BestSeller name="Combo Clucky Tiết kiệm (2 người)" value={t("business:dashboard.value51Servings")} percent={51} color="#22577A" />
+            <BestSeller name="Khoai tây chiên lắc phô mai" value={t("business:dashboard.value38Servings")} percent={38} color="#D97706" />
           </Card>
         </Col>
         <Col xs={24} md={12}>
           <Card
-            title="Tình trạng chi nhánh"
+            title={t("business:dashboard.storeStatus")}
             extra={
-              <Button type="link" onClick={() => onNavigate('stores')} style={{ color: '#8F1216', fontWeight: 600 }}>
-                Chi nhánh →
-              </Button>
+              <Button type="link" onClick={() => onNavigate('stores')} style={{ color: '#8F1216', fontWeight: 600 }}> {t("business:dashboard.stores")} </Button>
             }
           >
-            <StoreHealth name="Chi nhánh Nguyễn Trãi (Q.5)" status="Đang hoạt động" orders="48 đơn hôm nay" />
-            <StoreHealth name="Chi nhánh Phan Văn Trị (Gò Vấp)" status="Đang hoạt động" orders="41 đơn hôm nay" />
+            <StoreHealth name="Chi nhánh Nguyễn Trãi (Q.5)" status={t("business:catalog.active")} orders={t("business:dashboard.ordersToday")} />
+            <StoreHealth name="Chi nhánh Phan Văn Trị (Gò Vấp)" status={t("business:catalog.active")} orders={t("business:dashboard.ordersTodayLabel")} />
             <StoreHealth
               name="Chi nhánh Lê Văn Việt (TP. Thủ Đức)"
-              status="Cần chú ý"
-              orders="39 đơn · 2 phản hồi trễ"
+              status={t("business:dashboard.needsAttention")}
+              orders={t("business:dashboard.ordersLateResponses")}
               warning
             />
           </Card>

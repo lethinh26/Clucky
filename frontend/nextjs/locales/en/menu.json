@@ -1,0 +1,49 @@
+{
+  "categories": {
+    "label": "Food categories",
+    "all": "All",
+    "chicken": "Fried chicken",
+    "sides": "Sides",
+    "drinks": "Drinks",
+    "burger": "Burger",
+    "combo": "Combo"
+  },
+  "title": "Clucky menu",
+  "description": "Choose your favourites, from crispy pressure-fried chicken and brioche burgers to great-value combos.",
+  "storePrefix": "📍 Viewing the delivery menu from store #",
+  "search": {
+    "placeholder": "Search dishes, spice levels, ingredients...",
+    "clear": "Clear search"
+  },
+  "spice": {
+    "label": "Spice level:",
+    "filter": "Filter by spice level",
+    "all": "All spice levels",
+    "none": "Not spicy",
+    "standard": "Medium (standard)",
+    "hot": "Extra spicy",
+    "medium": "Medium"
+  },
+  "sort": {
+    "label": "Sort:",
+    "accessibleLabel": "Sort dishes",
+    "popular": "Best sellers",
+    "priceAscending": "Price: low to high",
+    "priceDescending": "Price: high to low"
+  },
+  "results": {
+    "prefix": "Showing",
+    "suffix": "matching dishes"
+  },
+  "empty": {
+    "title": "No matching dishes found",
+    "description": "Try another dish name or clear the filters to discover more Clucky favourites.",
+    "reset": "View all dishes"
+  },
+  "product": {
+    "soldOut": "Sold out today",
+    "view": "View {name}",
+    "customise": "View and customise {name}"
+  },
+  "categoryIcon": "{name} icon"
+}

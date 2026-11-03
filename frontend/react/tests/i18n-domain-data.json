@@ -1,0 +1,93 @@
+{
+  "reason": "Domain data and original sample content: names, addresses, product options, customer reviews and category identifiers. Do not add UI copy here to bypass translation.",
+  "files": {
+    "src/pages/Catalog/index.tsx": [
+      "Combo Ưu Đãi Mới",
+      "Món gà Clucky"
+    ],
+    "src/pages/Catalog/ProductForm.tsx": [
+      "Kích thước",
+      "Tiêu chuẩn (Vừa)",
+      "Lớn (+30% khẩu phần)",
+      "Sốt phô mai cay",
+      "Bột phô mai tuyết"
+    ],
+    "src/pages/Dashboard/index.tsx": [
+      "Nguyễn Minh Anh",
+      "Nguyễn Trãi",
+      "Trần Gia Huy",
+      "Phan Văn Trị",
+      "Lê Hoàng Nam",
+      "Phạm Thuỳ Linh",
+      "Lê Văn Việt",
+      "Gà rán sốt cay truyền thống",
+      "Burger gà giòn cay Clucky",
+      "Combo Clucky Tiết kiệm (2 người)",
+      "Khoai tây chiên lắc phô mai",
+      "Chi nhánh Nguyễn Trãi (Q.5)",
+      "Chi nhánh Phan Văn Trị (Gò Vấp)",
+      "Chi nhánh Lê Văn Việt (TP. Thủ Đức)"
+    ],
+    "src/pages/Payments/PaymentsPage.tsx": [
+      "Nguyễn Trãi (Q.5)",
+      "Phan Văn Trị (Gò Vấp)",
+      "Lê Văn Việt (TP. Thủ Đức)"
+    ],
+    "src/pages/Reports/index.tsx": [
+      "Nguyễn Trãi (Q.5)",
+      "Phan Văn Trị (Gò Vấp)",
+      "Lê Văn Việt (TP. Thủ Đức)"
+    ],
+    "src/pages/Reviews/index.tsx": [
+      "Nguyễn Minh Anh",
+      "Gà rán sốt cay truyền thống",
+      "Nguyễn Trãi (Q.5)",
+      "Gà siêu giòn, sốt cay ngọt vừa vị rất cuốn. Giao hàng nhanh còn nóng hổi!",
+      "Clucky Nguyễn Trãi",
+      "Cảm ơn bạn Minh Anh đã ủng hộ Clucky! Chúc bạn có bữa ăn thật ngon miệng ạ ❤️",
+      "Trần Gia Huy",
+      "Burger gà giòn cay Clucky",
+      "Phan Văn Trị (Gò Vấp)",
+      "Hôm nay bánh giao hơi nguội, rau xà lách bị héo. Hy vọng quán cải thiện khâu bảo quản khi ship xa.",
+      "Lê Hoàng Nam",
+      "Combo Clucky Tiết kiệm (2 người)",
+      "Combo nhiều món ăn no nê. Khoai tây chiên giòn rụm nhưng nước ngọt cho hơi ít đá.",
+      "Quản lý Chi nhánh",
+      "Chào bạn Nam, Clucky xin ghi nhận góp ý về lượng đá để hoàn thiện hơn trong các đơn tới nhé!",
+      "Lê Văn Việt (TP. Thủ Đức)",
+      "Nội dung chứa liên kết quảng cáo cờ bạc lừa đảo: http://spam-site-example.com/bet",
+      "Phạm Thuỳ Linh",
+      "Khoai tây chiên lắc phô mai",
+      "Bột phô mai thơm ngậy, khoai cắt dày ăn đã miệng lắm luôn.",
+      "Nguyễn Trãi",
+      "Phan Văn Trị",
+      "Lê Văn Việt"
+    ],
+    "src/pages/Staff/Inventory/index.tsx": [
+      "Chi nhánh Clucky Lê Lợi (Q.1)"
+    ],
+    "src/pages/Stores/index.tsx": [
+      "lê lợi",
+      "TP. Hồ Chí Minh",
+      "128 Lê Lợi, Phường Bến Nghé",
+      "Quận 1"
+    ],
+    "src/pages/Users/index.tsx": [
+      "Lê Phú Thịnh",
+      "Nguyễn Minh Anh",
+      "Clucky Lê Lợi (Q.1)",
+      "Trần Quốc Bảo",
+      "Trần Gia Huy",
+      "Clucky Phan Văn Trị",
+      "Phạm Thuỳ Linh",
+      "Clucky Thủ Đức",
+      "Vũ Quốc Khánh"
+    ],
+    "src/components/ui/CategoryIcon.tsx": [
+      "tất cả",
+      "gà rán",
+      "món phụ",
+      "đồ uống"
+    ]
+  }
+}

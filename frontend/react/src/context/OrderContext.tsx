@@ -1,3 +1,5 @@
+import { getBrowserLocale } from "../i18n/locale";
+import { getTranslator } from "../i18n/translator";
 import {
   createContext,
   useCallback,
@@ -118,7 +120,7 @@ function initialOrders(): AdminOrder[] {
         {
           status: order.status,
           title: orderStatusLabels[order.status],
-          description: "Trạng thái trong dữ liệu demo ban đầu.",
+          description: getTranslator(getBrowserLocale())("business:ordercontext.statusInTheInitialDemoData"),
           time: order.createdAt,
         },
       ],
@@ -160,7 +162,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         setOrders(saved);
       } catch {
         setStorageError(
-          "Không đọc được dữ liệu demo đã lưu. Đang dùng danh sách mẫu.",
+          getTranslator(getBrowserLocale())("business:ordercontext.unableToReadSavedDemoDataUsingTheSampleList"),
         );
       }
     };
@@ -168,7 +170,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       restore(localStorage.getItem(storageKey));
     } catch {
       setStorageError(
-        "Trình duyệt không cho phép lưu dữ liệu. Các thao tác vẫn dùng được trong phiên này.",
+        getTranslator(getBrowserLocale())("business:ordercontext.yourBrowserDoesNotAllowDataStorageActionsAreStillAvailableIn"),
       );
     }
     setLoading(false);
@@ -184,7 +186,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(storageKey, JSON.stringify(allOrders));
     } catch {
       setStorageError(
-        "Không lưu được dữ liệu demo. Vui lòng giữ trang này mở để tiếp tục phiên.",
+        getTranslator(getBrowserLocale())("business:ordercontext.unableToSaveDemoDataKeepThisPageOpenToContinueThe"),
       );
     }
   }, [allOrders, loading]);
@@ -200,7 +202,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     (id: string, action: AdminDemoAction) => {
       const order = latest.current.find((entry) => entry.id === id);
       if (!order) {
-        setActionError("Không tìm thấy đơn hàng.");
+        setActionError(getTranslator(getBrowserLocale())("business:orderprovider.orderNotFound"));
         return false;
       }
       const result = applyAdminDemoAction(

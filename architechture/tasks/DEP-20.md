@@ -1,5 +1,122 @@
 # [DEP-20] Production email smoke test and email_logs backup verification
 
+> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+
+## Thông tin quản lý
+
+| Thuộc tính | Giá trị giữ nguyên |
+|---|---|
+| PIC | Mai Sơn Việt |
+| Trạng thái snapshot — không xác nhận lại | TO DO |
+| Sprint kế hoạch | BACKLOG — chưa gán sprint |
+| Bắt đầu → deadline (UTC+7) | Chưa xếp lịch → Chưa xếp lịch |
+| SP / giờ công dự kiến | 5 SP / 4 giờ công |
+
+Nhóm sprint hiện tại trên Lark (nếu khác kế hoạch) và toàn bộ metadata được giữ trong mục cuối. Không tự đổi PIC, lịch, estimate hoặc trạng thái vì viết lại tiêu chí.
+
+## 1. Mục tiêu nghiệp vụ
+
+Email production được kiểm tra gửi thật an toàn và email_logs có trong backup/restore.
+
+## 2. Phạm vi
+
+### Bao gồm
+
+- Email smoke + email_logs backup verification thuộc backlog.
+- Bàn giao theo phạm vi gốc: Deployment evidence.
+
+### Không bao gồm
+
+Không đọc inbox khách hoặc restore đè DB production.
+
+## 3. Đầu vào, đầu ra và contract
+
+| Thành phần | Chi tiết cần bàn giao |
+|---|---|
+| Đầu vào / nguồn tin cậy | Production sender/recipient được phép, BE-60/62, backup procedure và release version. |
+| Đầu ra / contract | Email smoke + email_logs backup verification thuộc backlog. |
+| Điểm giao tiếp / deliverable đã cam kết | Deployment evidence |
+
+Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
+
+## 4. Luồng xử lý / cách thực hiện
+
+1. Gửi một message kiểm soát
+2. Theo messageId tới SMTP outcome/email_logs
+3. Backup và restore thử email_logs ở môi trường riêng
+
+## 5. Quy tắc và điểm cần chốt
+
+**Điểm cần PIC/owner xác nhận:** Chốt người nhận/lịch test và secret access, không gửi thử hàng loạt khách.
+
+**Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
+
+Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+## 6. Dependency và bàn giao
+
+### Tiên quyết đã có trong backlog
+
+| Task tiên quyết đã khai báo | PIC bàn giao | Cần nhận cụ thể | Mốc sử dụng |
+|---|---|---|---|
+| [DEP-06](DEP-06.md) | Mai Sơn Việt | Production-like smoke report với từng flow expected/actual và rollback blockers. | Trước chạy trong môi trường đích; cần cấu hình và quyền truy cập được cấp. |
+| [BE-60](BE-60.md) | Cao Tất Thành | SMTP adapter smtp.gmail.com:587, kết quả gửi/lỗi có thể xử lý bởi retry. | Chốt DTO/state/error trước; API/event thật phải sẵn sàng trước nghiệm thu tích hợp. |
+
+### Có thể bắt đầu đến đâu?
+
+- Chuẩn bị input/fixture, đối chiếu phạm vi và chốt contract ở mục 3–5 mà không chờ mọi API hoàn tất. Chỉ code theo fixture khi contract liên quan đã thống nhất.
+- Phần sử dụng đầu ra của dependency chỉ được nghiệm thu sau khi owner bàn giao bản thật và chạy được tình huống liên quan; deadline cùng ngày không chứng minh đầu ra đã sẵn sàng.
+- Phối hợp bổ sung nêu ở mục 5 là việc cần xác nhận, **không tự thêm dependency hoặc đổi lịch** trong snapshot này. Một PIC chịu trách nhiệm task; owner domain khác giữ trách nhiệm producer/consumer của mình.
+
+**Task nhận đầu ra theo dependency đã khai báo:** Chưa có task khai báo phụ thuộc trong snapshot.
+
+## 7. Tiêu chí nghiệm thu
+
+| AC | Điều kiện / thao tác | Kết quả mong đợi |
+|---|---|---|
+| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Email smoke + email_logs backup verification thuộc backlog. |
+| AC-02 | Mail config sai | Báo failure, không ghi sent giả |
+| AC-03 | Backup thiếu email_logs | Chưa đạt checklist |
+| AC-04 | Evidence | Không chứa App Password/OTP |
+
+Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+
+## 8. Checklist và bằng chứng bàn giao
+
+- [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
+- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
+- [ ] AC-02: Mail config sai — ghi kết quả và evidence.
+- [ ] AC-03: Backup thiếu email_logs — ghi kết quả và evidence.
+- [ ] AC-04: Evidence — ghi kết quả và evidence.
+- [ ] Bàn giao bằng chứng cụ thể: Masked email/log IDs, dump contents và isolated restore evidence.
+- [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
+
+- Chưa cam kết trong Sprint 1/2; chưa có Start Date/End Date. Chỉ xếp lịch khi được đưa vào sprint sau.
+
+## 9. Truy vết gộp task
+
+Không
+
+Không có ID gộp trực tiếp vào task này.
+
+## 10. Tài liệu nguồn
+
+- [SRS.md](../../architechture/docs/SRS.md)
+- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
+- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
+- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
+- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
+- [schema.sql](../../architechture/database/schema.sql)
+- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
+- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
+- [Danh mục error code](../../contracts/errors.json)
+- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+
+## 11. Metadata và lịch sử kế hoạch
+
+<details>
+<summary>Xem nguyên trạng metadata, ước lượng và lịch từ bản trước</summary>
+
 **PIC:** Mai Sơn Việt
 **Trạng thái trên Lark:** TO DO
 **Sprint:** BACKLOG — chưa gán sprint
@@ -26,56 +143,8 @@ Không quy đổi SP ra giờ; giờ công không gồm chờ dependency. Ước
 
 Chỉ sizing backlog; không cam kết ngày bắt đầu/deadline và không kéo vào phạm vi phải xong 05/11.
 
-## Mục tiêu và phạm vi
-
-- Hoàn thành đầu ra: Production email smoke test and email_logs backup verification.
-- Deliverable gốc cần bảo toàn: Deployment evidence.
-
-## Đầu ra
-
-- Deployment evidence
-- Mã nguồn/tài liệu/evidence của đúng domain; không commit secret.
-
-## Dependency và phối hợp
-
-- [DEP-06](DEP-06.md) — Smoke test VPS: login, menu, COD, transfer — PIC: Mai Sơn Việt
-- [BE-60](BE-60.md) — Gmail SMTP connection with STARTTLS and timeout — PIC: Cao Tất Thành
-
-PIC là người chịu trách nhiệm kết nối và bàn giao task. Producer/consumer hoặc API của domain khác vẫn do owner task dependency triển khai; danh sách phối hợp không phải đồng PIC.
-
-## Checklist thực hiện
-
-- [ ] Đối chiếu SRS/API/database/RBAC và dependency trước khi triển khai.
-- [ ] Hoàn thành phạm vi và đầu ra nêu trên, gồm phần đã gộp.
-- [ ] Xử lý validation, trạng thái lỗi, quyền và idempotency khi áp dụng.
-- [ ] Người phụ trách tự kiểm chứng luồng chính/lỗi và ghi evidence.
-- [ ] Cập nhật trạng thái thực tế; lỗi phát sinh gán một PIC theo domain.
-
-## Tiêu chí nghiệm thu
-
-1. Đầu ra được bàn giao đúng phạm vi: Production email smoke test and email_logs backup verification.
-2. Hoàn tất từng mục phạm vi ở trên; input hợp lệ, input lỗi và dependency lỗi được xử lý rõ theo API/docs.
-3. Một PIC chịu trách nhiệm; phối hợp thông qua dependency, không thêm đồng PIC.
-4. Khi có API/nghiệp vụ: DTO/validation/error shape, ownership/storeId và idempotency theo contract; frontend chỉ gọi Gateway.
-5. Nhóm/người phụ trách tự kiểm chứng và ghi evidence; không coi file tồn tại hoặc UI mock là nghiệm thu chức năng.
-6. Chưa cam kết trong Sprint 1/2; chưa có Start Date/End Date. Chỉ xếp lịch khi được đưa vào sprint sau.
-
-## Truy vết gộp task
-
-Không
-
-Nội dung trùng đã nhập vào phạm vi/tiêu chí ở trên. Các ID nguồn không còn là task độc lập để giao lại. Phần avatar/banner, proposal và Phase 2 được giữ trong backlog theo kế hoạch, không tính là đã hoàn thành.
-
-## Tài liệu nguồn
-
-- `architechture/docs/SRS.md`
-- `architechture/docs/Đặc tả API.md`
-- `architechture/docs/Kiến trúc hệ thống.md`
-- `architechture/docs/Ma trận phân quyền.md`
-- `architechture/docs/Thiết kế cơ sở dữ liệu.md`
-- `architechture/database/schema.sql`
-- `architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md`
+</details>
 
 ## Quy ước kiểm chứng
 
-Việc cập nhật backlog/task detail không thực thi test, lint, typecheck, build, Docker hoặc kiểm thử frontend. Nhóm tự thực hiện kiểm chứng khi triển khai; không ghi kết quả PASS trước khi có bằng chứng.
+Việc cập nhật detail không chạy test, lint, typecheck, build, Docker hoặc trình duyệt. Checklist là điều kiện nghiệm thu để người phụ trách thực hiện, không phải báo cáo PASS. Giữ trạng thái snapshot, kể cả DONE; chưa xác nhận lại trên Lark.

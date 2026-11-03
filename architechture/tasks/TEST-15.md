@@ -4,4 +4,4 @@ Cập nhật 30/10/2026 theo kế hoạch đã duyệt.
 
 Tiêu chí kiểm chứng critical path đã được đưa vào task BE/INT của từng owner. Không còn task kiểm thử giao cả nhóm.
 
-Lịch cũ và file đính kèm gốc được lưu trong `architechture/verification/backlog-before-replan-2026-10-29.zip`. Xem [danh sách task hiện hành](README.md).
+Bản lưu trữ cũ không còn được quản lý trong repository; xem lịch sử Git nếu cần bản cũ. Trang này chỉ giữ ánh xạ gộp, không tạo task mới. Xem [danh sách task hiện hành](README.md).

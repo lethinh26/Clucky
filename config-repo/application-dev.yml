@@ -3,7 +3,7 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
   data:
     redis:
@@ -15,7 +15,7 @@ spring:
 logging:
   level:
     root: info
-    com.clucky: debug
+    com.clucky: ${APP_LOG_LEVEL:DEBUG}
 
 # Feature flags for local development
 cloudinary:

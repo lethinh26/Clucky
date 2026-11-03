@@ -1,3 +1,5 @@
+"use client";
+import { useTranslations } from "next-intl";
 import React from "react";
 import styles from "./order-shared.module.css";
 
@@ -7,6 +9,8 @@ interface CartBadgeProps {
 }
 
 export function CartBadge({ count, children }: CartBadgeProps) {
+  const t = useTranslations();
+
   return (
     <div
       className={styles.cartBadgeWrapper}
@@ -17,7 +21,7 @@ export function CartBadge({ count, children }: CartBadgeProps) {
       {count > 0 && (
         <span
           className={styles.cartBadge}
-          aria-label={`${count} món trong giỏ hàng`}
+          aria-label={t("business.cartbadge.itemsInYourCart", { value1: count })}
         >
           {count > 99 ? "99+" : count}
         </span>

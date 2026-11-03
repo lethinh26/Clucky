@@ -7,11 +7,83 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${DB_NAME:clucky}
     username: ${POSTGRES_USER:clucky}
     password: ${POSTGRES_PASSWORD:change-me}
+  flyway:
+    enabled: true
   jpa:
     open-in-view: false
   data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 200
+        one-indexed-parameters: false
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: ${spring.application.name}
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        isolation.level: read_committed
+    listener:
+      ack-mode: manual_immediate
+      missing-topics-fatal: false
+
+clucky:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:}
+      issuer: ${JWT_ISSUER:clucky-identity}
+      audience: ${JWT_AUDIENCE:clucky-api}
+  kafka:
+    partitions: ${KAFKA_TOPIC_PARTITIONS:3}
+    replicas: ${KAFKA_TOPIC_REPLICAS:1}
+  redis:
+    ttl:
+      cart: ${REDIS_CART_TTL:7d}
+      guest-cart: ${REDIS_GUEST_CART_TTL:24h}
+      menu: ${REDIS_MENU_TTL:10m}
+      otp: ${REDIS_OTP_TTL:5m}
+      google-pending: ${REDIS_GOOGLE_PENDING_TTL:10m}
+      rate-limit: ${REDIS_RATE_LIMIT_TTL:1m}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+info:
+  app:
+    name: ${spring.application.name}
+    version: 0.1.0-SNAPSHOT
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:false}
+logging:
+  pattern:
+    level: '%5p [service=${spring.application.name:unknown},correlationId=%X{correlationId},eventId=%X{eventId}]'
+  level:
+    com.clucky: ${APP_LOG_LEVEL:INFO}
+    org.springframework.kafka.listener.DefaultErrorHandler: "OFF"
+    org.springframework.kafka.listener.KafkaMessageListenerContainer: "OFF"
+    org.apache.kafka.clients.producer.internals.ProducerBatch: "OFF"

@@ -3,4 +3,4 @@ plugins {
 }
 
 rootProject.name = 'clucky-backend'
-include 'api-gateway', 'cart-order-service', 'catalog-store-service', 'config-server', 'discovery-server', 'identity-service', 'notification-service', 'payment-service', 'promotion-loyalty-service', 'review-report-service', 'shipping-service'
+include 'api-gateway', 'cart-order-service', 'catalog-store-service', 'config-server', 'discovery-server', 'identity-service', 'notification-service', 'payment-service', 'promotion-loyalty-service', 'review-report-service', 'shipping-service', 'audit-service'

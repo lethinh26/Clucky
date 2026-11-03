@@ -20,7 +20,7 @@ spring:
 logging:
   level:
     root: warn
-    com.clucky: info
+    com.clucky: ${APP_LOG_LEVEL:INFO}
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}

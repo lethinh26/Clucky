@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
 import { useState } from "react";
 import { MOCK_STORES } from "@/lib/mock/order-mock-data";
 import styles from "./party.module.css";
@@ -12,28 +14,33 @@ import {
   Store,
 } from "lucide-react";
 
-const PARTY_PACKAGES = [
+
+
+export default function PartyOrderPage() {
+  const t = useTranslations();
+  const { money } = useLocaleTools();
+
+  const PARTY_PACKAGES = [
   {
     id: "pkg-birthday",
     title: "Tiệc Sinh Nhật Vui Vẻ",
     desc: "Phù hợp 10-15 người: 30 miếng gà giòn, 4 khoai lắc, nước ngọt thỏa thích.",
-    price: "1.290.000đ",
+    price: money(1290000),
   },
   {
     id: "pkg-office",
     title: "Tiệc Công Ty & Hội Nghị",
     desc: "Phù hợp 20-30 người: 60 miếng gà giòn + sốt cay mật ong, 10 burger mini.",
-    price: "2.590.000đ",
+    price: money(2590000),
   },
   {
     id: "pkg-custom",
-    title: "Tự Chọn Thực Đơn",
-    desc: "Đội ngũ tư vấn sẽ gọi điện thiết kế thực đơn phù hợp theo ngân sách.",
-    price: "Tùy chọn",
+    title: t("business.party.customMenu"),
+    desc: t("business.party.ourTeamWillCallToDesignAMenuThatFitsYourBudget"),
+    price: t("business.party.custom"),
   },
 ];
 
-export default function PartyOrderPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -75,20 +82,16 @@ export default function PartyOrderPage() {
     <>
             <main className={`${styles.partyContainer} m3-page`}>
         <div className={styles.heading}>
-          <span className={styles.eyebrow}>Sự kiện & Đặt tiệc</span>
-          <h1 className={styles.title}>Đặt tiệc & Đơn số lượng lớn</h1>
-          <p className={styles.sub}>
-            Clucky hân hạnh đồng hành cùng sinh nhật, tiệc công ty, liên hoan
-            lớp học với những phần gà vàng giòn nóng hổi, phục vụ đúng giờ và ưu
-            đãi chiết khấu hấp dẫn!
-          </p>
+          <span className={styles.eyebrow}>{t("business.party.eventsPartyBookings")}</span>
+          <h1 className={styles.title}>{t("business.party.partyBookingsBulkOrders")}</h1>
+          <p className={styles.sub}> {t("business.party.cluckyBringsGoldenCrispyChickenToBirthdaysCompanyPartiesAndClassCelebrations")} </p>
         </div>
 
         <section className="order-hero">
           <div>
-            <small>CÀNG ĐÔNG, CÀNG VUI</small>
-            <h2>Góp món giòn. Gói niềm vui.</h2>
-            <p>Chọn gói tiệc, để lại thông tin và cùng Clucky lên thực đơn.</p>
+            <small>{t("business.party.morePeopleMoreJoy")}</small>
+            <h2>{t("business.party.bringTheCrunchShareTheJoy")}</h2>
+            <p>{t("business.party.chooseAPackageLeaveYourDetailsAndPlanYourMenuWithClucky")}</p>
           </div>
           <PartyPopper size={48} strokeWidth={1.2} />
         </section>
@@ -96,7 +99,7 @@ export default function PartyOrderPage() {
           <form onSubmit={handleSubmit}>
             {/* Packages */}
             <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Chọn gói tiệc gợi ý</label>
+              <label className={styles.fieldLabel}>{t("business.party.chooseASuggestedPartyPackage")}</label>
               <div className={styles.packageGrid}>
                 {PARTY_PACKAGES.map((pkg) => (
                   <button
@@ -122,14 +125,12 @@ export default function PartyOrderPage() {
             {/* Contact Info */}
             <div className={styles.fieldGrid}>
               <div className={styles.fieldGroup}>
-                <label htmlFor="partyName" className={styles.fieldLabel}>
-                  Họ và tên người đặt *
-                </label>
+                <label htmlFor="partyName" className={styles.fieldLabel}> {t("business.party.contactFullName")} </label>
                 <input
                   id="partyName"
                   type="text"
                   required
-                  placeholder="Ví dụ: Trần Đức Anh"
+                  placeholder={t("business.party.forExampleTrNCAnh")}
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   className={styles.input}
@@ -137,12 +138,10 @@ export default function PartyOrderPage() {
               </div>
 
               <div className={styles.fieldGroup}>
-                <label htmlFor="partyPhone" className={styles.fieldLabel}>
-                  Số điện thoại liên hệ *
-                </label>
+                <label htmlFor="partyPhone" className={styles.fieldLabel}> {t("business.checkout.contactPhoneNumber")} </label>
                 <input
                   pattern="0[0-9]{9}"
-                  title="Số điện thoại gồm 10 chữ số, bắt đầu bằng 0"
+                  title={t("business.party.aDigitPhoneNumberStartingWith")}
                   id="partyPhone"
                   type="tel"
                   required
@@ -156,9 +155,7 @@ export default function PartyOrderPage() {
 
             <div className={styles.fieldGrid}>
               <div className={styles.fieldGroup}>
-                <label htmlFor="partyEmail" className={styles.fieldLabel}>
-                  Email nhận báo giá *
-                </label>
+                <label htmlFor="partyEmail" className={styles.fieldLabel}> {t("business.party.emailForQuotation")} </label>
                 <input
                   id="partyEmail"
                   type="email"
@@ -171,9 +168,7 @@ export default function PartyOrderPage() {
               </div>
 
               <div className={styles.fieldGroup}>
-                <label htmlFor="guestCount" className={styles.fieldLabel}>
-                  Số lượng khách dự kiến (người) *
-                </label>
+                <label htmlFor="guestCount" className={styles.fieldLabel}> {t("business.party.estimatedNumberOfGuests")} </label>
                 <input
                   id="guestCount"
                   type="number"
@@ -190,9 +185,7 @@ export default function PartyOrderPage() {
             {/* Date, Time & Branch */}
             <div className={styles.fieldGrid}>
               <div className={styles.fieldGroup}>
-                <label htmlFor="partyDate" className={styles.fieldLabel}>
-                  Ngày tổ chức mong muốn *
-                </label>
+                <label htmlFor="partyDate" className={styles.fieldLabel}> {t("business.party.preferredEventDate")} </label>
                 <input
                   id="partyDate"
                   type="date"
@@ -210,9 +203,7 @@ export default function PartyOrderPage() {
               </div>
 
               <div className={styles.fieldGroup}>
-                <label htmlFor="partyTime" className={styles.fieldLabel}>
-                  Giờ giao món / Khai tiệc *
-                </label>
+                <label htmlFor="partyTime" className={styles.fieldLabel}> {t("business.party.deliveryPartyStartTime")} </label>
                 <input
                   id="partyTime"
                   type="time"
@@ -225,9 +216,7 @@ export default function PartyOrderPage() {
             </div>
 
             <div className={styles.fieldGroup}>
-              <label htmlFor="storeSelect" className={styles.fieldLabel}>
-                Chọn chi nhánh Clucky phụ trách *
-              </label>
+              <label htmlFor="storeSelect" className={styles.fieldLabel}> {t("business.party.selectTheResponsibleCluckyStore")} </label>
               <select
                 id="storeSelect"
                 value={selectedStore}
@@ -243,21 +232,17 @@ export default function PartyOrderPage() {
             </div>
 
             <div className={styles.fieldGroup}>
-              <label htmlFor="partyNotes" className={styles.fieldLabel}>
-                Yêu cầu đặc biệt & Ghi chú thêm
-              </label>
+              <label htmlFor="partyNotes" className={styles.fieldLabel}> {t("business.party.specialRequestsAdditionalNotes")} </label>
               <textarea
                 id="partyNotes"
-                placeholder="Yêu cầu về đóng gói riêng từng phần, thiệp mừng, xuất hóa đơn VAT, giao tận nơi..."
+                placeholder={t("business.party.individualPackagingGreetingCardsVatInvoiceHomeDelivery")}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className={styles.textarea}
               />
             </div>
 
-            <button type="submit" className={styles.submitBtn}>
-              Gửi yêu cầu đặt tiệc →
-            </button>
+            <button type="submit" className={styles.submitBtn}> {t("business.party.sendPartyBookingRequest")} </button>
           </form>
         </div>
 
@@ -271,36 +256,24 @@ export default function PartyOrderPage() {
             <div className={styles.modalEmoji} aria-hidden="true">
               <CheckCircle2 size={48} />
             </div>
-            <h2 id="party-success-title" className={styles.modalTitle}>
-              Yêu cầu đặt tiệc demo đã sẵn sàng!
-            </h2>
-            <p className={styles.modalDesc}>
-              Bạn đã hoàn tất biểu mẫu cho {guestCount} khách. Đây là bản xem
-              thử giao diện, chưa gửi yêu cầu đến chi nhánh. Bạn có thể quay lại
-              để điều chỉnh thông tin.
-            </p>
+            <h2 id="party-success-title" className={styles.modalTitle}> {t("business.party.yourDemoPartyRequestIsReady")} </h2>
+            <p className={styles.modalDesc}> {t("business.party.youHaveCompletedTheFormFor")} {guestCount} {t("business.party.guestsThisIsAUiPreviewNoRequestHasBeenSentTo")} </p>
             <dl className={styles.partyReceipt}>
               <div>
                 <dt>
-                  <Users size={15} />
-                  Số khách
-                </dt>
-                <dd>{guestCount} người</dd>
+                  <Users size={15} /> {t("business.party.guestCount")} </dt>
+                <dd>{guestCount} {t("business.party.people")}</dd>
               </div>
               <div>
                 <dt>
-                  <CalendarDays size={15} />
-                  Thời gian
-                </dt>
+                  <CalendarDays size={15} /> {t("business.party.time")} </dt>
                 <dd>
                   {expectedTime} · {expectedDate}
                 </dd>
               </div>
               <div>
                 <dt>
-                  <Store size={15} />
-                  Chi nhánh
-                </dt>
+                  <Store size={15} /> {t("business.party.store")} </dt>
                 <dd>
                   {
                     MOCK_STORES.find((store) => store.id === selectedStore)
@@ -309,7 +282,7 @@ export default function PartyOrderPage() {
                 </dd>
               </div>
               <div>
-                <dt>Gói tiệc</dt>
+                <dt>{t("business.party.partyPackage")}</dt>
                 <dd>
                   {
                     PARTY_PACKAGES.find((pkg) => pkg.id === selectedPackage)
@@ -320,16 +293,14 @@ export default function PartyOrderPage() {
             </dl>
             <p className={styles.saveHint}>
               {savedLocally
-                ? "Biểu mẫu demo đã lưu trên trình duyệt này."
-                : "Chưa lưu được vào trình duyệt; thông tin vẫn được giữ trong phiên hiện tại."}
+                ? t("business.party.theDemoFormHasBeenSavedInThisBrowser")
+                : t("business.party.couldNotSaveInThisBrowserYourDetailsRemainAvailableInThis")}
             </p>
             <button
               type="button"
               onClick={() => setIsSuccessModalOpen(false)}
               className={styles.modalBtn}
-            >
-              Quay lại biểu mẫu
-            </button>
+            > {t("business.party.backToForm")} </button>
           </div>
         </OrderDialog>
       </main>

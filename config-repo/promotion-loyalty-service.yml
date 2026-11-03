@@ -3,6 +3,20 @@ server:
 spring:
   application:
     name: promotion-loyalty-service
+  datasource:
+    hikari:
+      schema: promotion_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: promotion_service
+  flyway:
+    default-schema: promotion_service
+    schemas: promotion_service
+    create-schemas: true
+    baseline-on-migrate: false
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}

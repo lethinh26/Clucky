@@ -15,9 +15,7 @@ export async function getGoogleIdentity() {
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   };
   if (!config.apiKey || !config.authDomain || !config.projectId) {
-    throw new Error(
-      "Đăng nhập Google chưa được cấu hình. Vui lòng dùng email và mật khẩu.",
-    );
+    throw { code: "GOOGLE_NOT_CONFIGURED" };
   }
   const auth = getAuth(getApps().length ? getApp() : initializeApp(config));
   await setPersistence(auth, inMemoryPersistence);

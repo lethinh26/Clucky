@@ -16,7 +16,6 @@ Kiểu dữ liệu quy ước: khóa chính `id` kiểu BIGINT (identity) hoặc
 | otp_codes | id, identifier (email/phone), code_hash, purpose (REGISTER/RESET), expires_at, used | Hoặc lưu Redis thay cho bảng này |
 | shifts | id, store_id, name, start_time, end_time | Ca làm việc do Manager định nghĩa |
 | staff_schedules | id, staff_id, store_id, shift_id, work_date, status | Lịch phân ca cho Staff |
-| audit_logs | id, actor_id, actor_role, action, target_type, target_id, store_id, detail (JSONB), created_at | Nhật ký thao tác quản trị (service khác gửi sự kiện ghi vào đây qua Report/Identity tùy triển khai — mặc định: Review & Report Service lưu trữ, bảng tương tự) |
 
 # 2. CATALOG & STORE SERVICE — catalog_db
 | Bảng | Cột chính | Mô tả |
@@ -84,14 +83,23 @@ Quy tắc đối chiếu: một bank_transactions.bank_tx_id chỉ được xử
 | reviews | id, customer_id, product_id, order_id, rating (1-5), comment, status (VISIBLE/HIDDEN), created_at | Đánh giá món gắn với đơn đã hoàn thành |
 | review_replies | id, review_id, responder_id, responder_role, content, created_at | Phản hồi của Staff/Manager/Admin |
 | daily_store_stats | id, store_id, stat_date, order_count, revenue, cod_amount, transfer_amount | Số liệu tổng hợp ngày theo quán (consumer Kafka cập nhật) — phục vụ dashboard/báo cáo nhanh |
-| audit_logs | id, actor_id, actor_role, store_id, action, target_type, target_id, detail (JSONB), created_at | Nhật ký thao tác quản trị toàn hệ thống (nếu không lưu ở Identity Service) |
 
-# 9. QUY ƯỚC CHUNG
+# 9. AUDIT SERVICE — audit_db
+| Bảng | Cột chính | Mô tả |
+|---|---|---|
+| audit_logs | id, event_id (unique), correlation_id, source_service, actor_id, actor_role, store_id, action, target_type, target_id, detail (JSONB), occurred_at, created_at | Bảng duy nhất tại audit_service.audit_logs; ghi mọi thay đổi thành công trên trang quản trị của Staff/Manager/Admin, tách khỏi Review & Report |
+
+- Backend nghiệp vụ phát sự kiện với actor/role từ ngữ cảnh xác thực, store của đối tượng bị tác động và dữ liệu thay đổi thực tế; không tin thông tin audit do frontend gửi.
+- `detail.before` / `detail.after` chỉ chứa trường thay đổi được phép lưu; `detail.reason` lưu lý do nếu nghiệp vụ yêu cầu. Loại mật khẩu/hash, OTP, token và secret trước khi phát sự kiện. `occurred_at` là thời điểm thay đổi; `created_at` là thời điểm lưu audit.
+- Audit Service ghi thêm bản ghi, chống trùng bằng `event_id`; không có API sửa/xóa audit. Admin đọc toàn hệ thống; Manager chỉ đọc thao tác Staff thuộc quán mình theo RBAC hiện có.
+- Đây là schema đích cho cài mới. Không tự xóa bảng audit cũ trong DB đang chạy; cần kế hoạch chuyển dữ liệu đã đối chiếu và migration mới trước khi ngừng bảng cũ.
+
+# 10. QUY ƯỚC CHUNG
 - Mọi bảng có created_at, updated_at; xóa mềm (is_deleted / status) với dữ liệu nghiệp vụ quan trọng (món, chi nhánh, tài khoản) — không xóa cứng đơn hàng và giao dịch.
 - Chỉ mục (index) tối thiểu: orders(customer_id), orders(store_id, status), order_items(order_id), payments(order_code), bank_transactions(bank_tx_id unique), vouchers(code unique), store_products(store_id, product_id unique), reviews(product_id).
 - Dữ liệu xuyên service (ví dụ Report cần tên món) lấy qua snapshot trong order_items hoặc gọi API nội bộ, không joinข้าม schema.
 
 
-## 10. CLOUDINARY METADATA
+## 11. CLOUDINARY METADATA
 
 Không lưu binary trong PostgreSQL. Các service chỉ lưu `secure_url` và `public_id` cùng metadata cần thiết. `public_id` là khóa dùng để thay/xóa asset trên Cloudinary; cleanup asset cũ chỉ chạy sau khi metadata mới đã commit.

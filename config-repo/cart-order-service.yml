@@ -3,3 +3,17 @@ server:
 spring:
   application:
     name: cart-order-service
+  datasource:
+    hikari:
+      schema: order_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: order_service
+  flyway:
+    default-schema: order_service
+    schemas: order_service
+    create-schemas: true
+    baseline-on-migrate: false

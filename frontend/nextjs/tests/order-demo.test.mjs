@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { applyDemoAction, isFloatingCartRoute } from "../lib/order-demo.ts";
+import {
+  applyDemoAction,
+  ensureDemoShipment,
+  isFloatingCartRoute,
+} from "../lib/order-demo.ts";
 
 const order = {
   id: "local-test",
@@ -13,6 +17,28 @@ const order = {
   timeline: [],
 };
 const now = "2026-10-28T12:00:00.000Z";
+
+test("new and restored delivery demos get an idempotent MVP shipment without changing payment", () => {
+  const delivery = { ...order, type: "DELIVERY" };
+  const restored = ensureDemoShipment(delivery);
+  assert.equal(restored.shipmentStatus, "CREATED");
+  assert.equal(restored.paymentStatus, "PENDING");
+  assert.equal(delivery.shipmentStatus, undefined);
+  assert.equal(ensureDemoShipment(restored), restored);
+  let current = applyDemoAction(restored, "PAY_SUCCESS", true, now).order;
+  for (const action of ["ADVANCE", "ADVANCE", "ADVANCE"]) {
+    current = applyDemoAction(current, action, true, now).order;
+    assert.equal(current.shipmentStatus, "CREATED");
+  }
+  assert.equal(current.status, "COMPLETED");
+});
+
+test("demo shipment initialization skips pickup and preserves explicit shipment state", () => {
+  const pickup = { ...order, type: "PICKUP" };
+  assert.equal(ensureDemoShipment(pickup), pickup);
+  const shipped = { ...order, type: "DELIVERY", shipmentStatus: "DELIVERED" };
+  assert.equal(ensureDemoShipment(shipped), shipped);
+});
 
 test("bank payment changes both local statuses, preserves totals and records history", () => {
   const result = applyDemoAction(order, "PAY_SUCCESS", true, now);

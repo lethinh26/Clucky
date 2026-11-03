@@ -1,3 +1,5 @@
+import { useLocaleTools } from "../../i18n/hooks";
+import { useTranslation } from "react-i18next";
 import { mockStores } from "../../mocks/catalogData";
 import React, { useState } from "react";
 import {
@@ -20,7 +22,7 @@ import { OrderStatusBadge } from "../../components/ui/OrderStatusBadge";
 import { useAuth } from "../../context/AuthContext";
 import {
   OrderProgress,
-  orderStatusLabels as statusLabels,
+  orderStatusKeys as statusLabels,
 } from "../../components/ui/OrderProgress";
 import {
   ShoppingBag,
@@ -40,6 +42,9 @@ import styles from "./orders.module.css";
 import { usePageLoading } from "../../components/ui-loader/page-loading";
 
 export const OrdersPage: React.FC = () => {
+  const { t } = useTranslation();
+  const { locale } = useLocaleTools();
+
   const { message } = AntApp.useApp();
   const {
     orders,
@@ -75,11 +80,11 @@ export const OrdersPage: React.FC = () => {
   ) => {
     if (!updateStatus(orderId, newStatus, reason)) {
       message.warning(
-        "Chưa thể chuyển trạng thái. Kiểm tra tiến trình và xác nhận thu tiền trước khi hoàn thành.",
+        t("business:orderspage.cannotChangeStatusYetCheckTheProgressAndConfirmPaymentCollectionBefore"),
       );
       return false;
     }
-    message.success(`Đã cập nhật đơn: ${statusLabels[newStatus]}`);
+    message.success(t("business:orderspage.orderUpdated", { value1: t(statusLabels[newStatus]) }));
     return true;
   };
 
@@ -120,7 +125,7 @@ export const OrdersPage: React.FC = () => {
 
   const columns: TableColumnsType<AdminOrder> = [
     {
-      title: "Mã đơn",
+      title: t("business:dashboard.orderCode"),
       dataIndex: "orderCode",
       key: "orderCode",
       render: (code, record) => (
@@ -135,7 +140,7 @@ export const OrdersPage: React.FC = () => {
       ),
     },
     {
-      title: "Khách hàng",
+      title: t("business:dashboard.customer"),
       dataIndex: "customerName",
       key: "customerName",
       render: (name, record) => (
@@ -143,19 +148,18 @@ export const OrdersPage: React.FC = () => {
           <Typography.Text strong>{name}</Typography.Text>
           <div style={{ fontSize: 12, color: "#6b6259" }}>
             {record.customerPhone} ·{" "}
-            {record.items.reduce((s, i) => s + i.quantity, 0)} món
-          </div>
+            {record.items.reduce((s, i) => s + i.quantity, 0)} {t("business:orderspage.items")} </div>
         </div>
       ),
     },
     {
-      title: "Chi nhánh",
+      title: t("business:party.store"),
       dataIndex: "storeName",
       key: "storeName",
       render: (store) => <Typography.Text>{store}</Typography.Text>,
     },
     {
-      title: "Hình thức",
+      title: t("business:orderdetaildrawer.fulfilmentMethod"),
       dataIndex: "orderType",
       key: "orderType",
       render: (type) => (
@@ -165,62 +169,59 @@ export const OrdersPage: React.FC = () => {
         >
           {type === "DELIVERY" ? (
             <>
-              <Truck size={13} /> Giao hàng
-            </>
+              <Truck size={13} /> {t("business:orderspage.delivery")} </>
           ) : (
             <>
-              <Store size={13} /> Nhận tại quầy
-            </>
+              <Store size={13} /> {t("business:orderdetaildrawer.counterPickup")} </>
           )}
         </Tag>
       ),
     },
     {
-      title: "Trạng thái",
+      title: t("business:catalog.status"),
       dataIndex: "status",
       key: "status",
       render: (status: AdminOrderStatus, record) => (
         <Space orientation="vertical" size={2}>
           <OrderStatusBadge status={status} />
           {record.hasRefundRequest && (
-            <Badge status="error" text="Yêu cầu hoàn tiền" />
+            <Badge status="error" text={t("business:orderspage.refundRequest")} />
           )}
         </Space>
       ),
     },
     {
-      title: "Thanh toán",
+      title: t("business:cart.checkout"),
       dataIndex: "paymentMethod",
       key: "paymentMethod",
       render: (method, record) => (
         <div>
           <span style={{ fontSize: 13 }}>
-            {method === "BANK_TRANSFER" ? "VietQR" : "Tiền mặt (COD)"}
+            {method === "BANK_TRANSFER" ? "VietQR" : t("business:orderdetaildrawer.cashCod")}
           </span>
           <div>
             <Tag
               color={record.paymentStatus === "PAID" ? "green" : "gold"}
               style={{ fontSize: 11 }}
             >
-              {record.paymentStatus === "PAID" ? "Đã thu" : "Chưa thu"}
+              {record.paymentStatus === "PAID" ? t("business:orderdetaildrawer.collected") : t("business:orderspage.notCollected")}
             </Tag>
           </div>
         </div>
       ),
     },
     {
-      title: "Tổng tiền",
+      title: t("business:id.total"),
       dataIndex: "total",
       key: "total",
       align: "right",
       render: (total) => (
         <Typography.Text strong className={styles.moneyText}>
-          {new Intl.NumberFormat("vi-VN").format(total)}đ
-        </Typography.Text>
+          {new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN").format(total)}{t("business:orderdetaildrawer.currency")} </Typography.Text>
       ),
     },
     {
-      title: "Thao tác",
+      title: t("business:catalog.actions"),
       key: "actions",
       align: "center",
       render: (_, record) => (
@@ -228,41 +229,36 @@ export const OrdersPage: React.FC = () => {
           type="text"
           icon={<Eye />}
           onClick={() => handleOpenDetail(record)}
-          aria-label="Xem chi tiết đơn"
-        >
-          Chi tiết
-        </Button>
+          aria-label={t("business:orderspage.viewOrderDetails")}
+        > {t("business:orderdetaildrawer.details")} </Button>
       ),
     },
   ];
 
   const tabItems = [
-    { key: "ALL", label: `Tất cả đơn (${orders.length})` },
+    { key: "ALL", label: t("business:orderspage.allOrders", { value1: orders.length }) },
     {
       key: "PROCESSING",
-      label: `Đang xử lý (${
-        orders.filter((o) =>
+      label: t("business:orderspage.inProgress", { value1: orders.filter((o) =>
           ["CONFIRMED", "PREPARING", "READY"].includes(o.status),
-        ).length
-      })`,
+        ).length }),
     },
     {
       key: "SHIPPING",
-      label: `Đang giao (${orders.filter((o) => o.status === "SHIPPING").length})`,
+      label: t("business:orderspage.delivering", { value1: orders.filter((o) => o.status === "SHIPPING").length }),
     },
     {
       key: "COMPLETED",
-      label: `Đã hoàn thành (${orders.filter((o) => o.status === "COMPLETED").length})`,
+      label: t("business:orderspage.completed", { value1: orders.filter((o) => o.status === "COMPLETED").length }),
     },
     {
       key: "CANCELLED",
-      label: `Đã hủy (${orders.filter((o) => o.status === "CANCELLED").length})`,
+      label: t("business:orderspage.cancelled", { value1: orders.filter((o) => o.status === "CANCELLED").length }),
     },
     {
       key: "REFUND",
       label: (
-        <span>
-          Hoàn tiền{" "}
+        <span> {t("business:orderspage.refund")}{" "}
           {orders.filter((o) => o.hasRefundRequest).length > 0 && (
             <Badge
               count={orders.filter((o) => o.hasRefundRequest).length}
@@ -284,33 +280,33 @@ export const OrdersPage: React.FC = () => {
       )}
       <div className={styles.pageHeading}>
         <div>
-          <span className={styles.eyebrow}>VẬN HÀNH CLUCKY</span>
-          <h1>Đơn hàng, trong tầm tay.</h1>
-          <p>Theo dõi bếp, thanh toán và yêu cầu hoàn tiền tại một nơi.</p>
+          <span className={styles.eyebrow}>{t("business:orderspage.cluckyOperations")}</span>
+          <h1>{t("business:orderspage.ordersAtYourFingertips")}</h1>
+          <p>{t("business:orderspage.trackPreparationPaymentsAndRefundRequestsInOnePlace")}</p>
         </div>
       </div>
       <div className={styles.metricsGrid}>
         {[
           {
-            label: "Tất cả đơn",
+            label: t("business:orderspage.allOrdersLabel"),
             value: orders.length,
             icon: ShoppingBag,
             tab: "ALL",
           },
           {
-            label: "Đang chế biến",
+            label: t("business:orderprogress.preparing"),
             value: orders.filter((o) => o.status === "PREPARING").length,
             icon: ChefHat,
             tab: "PROCESSING",
           },
           {
-            label: "Đã hoàn thành",
+            label: t("business:orders.completed"),
             value: orders.filter((o) => o.status === "COMPLETED").length,
             icon: CircleCheck,
             tab: "COMPLETED",
           },
           {
-            label: "Chờ duyệt hoàn",
+            label: t("business:orderspage.refundAwaitingReview"),
             value: orders.filter((o) => o.hasRefundRequest).length,
             icon: Undo2,
             tab: "REFUND",
@@ -333,8 +329,8 @@ export const OrdersPage: React.FC = () => {
         <div className={styles.leftControls}>
           <Input
             prefix={<Search style={{ color: "#6b6259" }} />}
-            aria-label="Tìm kiếm đơn hàng"
-            placeholder="Tìm theo mã đơn, khách hàng, SĐT..."
+            aria-label={t("business:orders.searchOrders")}
+            placeholder={t("business:orderspage.searchByOrderCodeCustomerPhone")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={styles.searchInput}
@@ -343,12 +339,12 @@ export const OrdersPage: React.FC = () => {
 
           {isAdmin && (
             <Select
-              aria-label="Lọc chi nhánh"
+              aria-label={t("business:orderspage.filterStores")}
               value={selectedStore}
               onChange={setSelectedStore}
               style={{ width: 220 }}
               options={[
-                { value: "ALL", label: "Tất cả chi nhánh" },
+                { value: "ALL", label: t("business:stores.allStores") },
                 ...mockStores.map((store) => ({
                   value: String(store.id),
                   label: store.name,
@@ -365,19 +361,17 @@ export const OrdersPage: React.FC = () => {
             setSelectedStore("ALL");
             setActiveTab("ALL");
             message.info(
-              "Đã xóa bộ lọc. Các thay đổi đơn hàng được giữ nguyên.",
+              t("business:orderspage.filtersClearedOrderChangesHaveBeenPreserved"),
             );
           }}
-        >
-          Xóa bộ lọc
-        </Button>
+        > {t("business:orderspage.clearFilters")} </Button>
       </div>
 
       <Tabs items={tabItems} activeKey={activeTab} onChange={setActiveTab} />
 
       <div className={styles.mobileCards}>
         {filteredOrders.length === 0 ? (
-          <p className={styles.emptyState}>Không có đơn phù hợp bộ lọc.</p>
+          <p className={styles.emptyState}>{t("business:orderspage.noOrdersMatchTheFilters")}</p>
         ) : (
           filteredOrders.map((order) => (
             <article className={styles.mobileCard} key={order.id}>
@@ -388,17 +382,12 @@ export const OrdersPage: React.FC = () => {
               <h3>{order.customerName}</h3>
               <p>
                 {order.storeName} ·{" "}
-                {order.items.reduce((sum, item) => sum + item.quantity, 0)} phần
-                ăn
-              </p>
+                {order.items.reduce((sum, item) => sum + item.quantity, 0)} {t("business:cart.servings")} </p>
               <OrderProgress order={order} />
               <div className={styles.mobileCardTop}>
                 <strong className={styles.moneyText}>
-                  {new Intl.NumberFormat("vi-VN").format(order.total)}đ
-                </strong>
-                <Button onClick={() => handleOpenDetail(order)}>
-                  Xem chi tiết
-                </Button>
+                  {new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN").format(order.total)}{t("business:orderdetaildrawer.currency")} </strong>
+                <Button onClick={() => handleOpenDetail(order)}> {t("business:orderspage.viewDetails")} </Button>
               </div>
             </article>
           ))
@@ -412,7 +401,7 @@ export const OrdersPage: React.FC = () => {
           rowKey="id"
           pagination={{
             pageSize: 8,
-            showTotal: (total) => `Tổng cộng ${total} đơn hàng`,
+            showTotal: (total) => t("business:orderspage.ordersInTotal", { value1: total }),
           }}
           scroll={{ x: 1000 }}
         />

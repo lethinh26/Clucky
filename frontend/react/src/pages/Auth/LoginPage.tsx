@@ -1,17 +1,21 @@
+import { useTranslation } from "react-i18next";
+import { useLocaleTools } from "../../i18n/hooks";
 import React from "react";
 import { useDeferredAction } from "../../components/ui-loader/use-deferred-action";
 import { Link } from "react-router-dom";
 import { useScopedNavigate as useNavigate } from "../../components/ui-loader/use-scoped-navigate";
 import { Form, Input, Button, Alert } from "antd";
 import { AuthLayout } from "./AuthLayout";
-import { authApi, getErrorMessage } from "../../lib/api";
+import { authApi } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 
 export const LoginPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const { errorMessage } = useLocaleTools();
   const navigate = useNavigate();
   const startAction = useDeferredAction();
   const { switchRole } = useAuth();
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
   const [loading, setLoading] = React.useState(false);
 
   const onFinish = async (values: { email: string; password: string }) => {
@@ -35,9 +39,7 @@ export const LoginPage: React.FC = () => {
       navigate("/admin/dashboard");
     } catch (err) {
       if (!task.isCurrent()) return;
-      setError(
-        getErrorMessage(err, "Đăng nhập thất bại. Kiểm tra lại thông tin."),
-      );
+      setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }
@@ -45,8 +47,8 @@ export const LoginPage: React.FC = () => {
 
   return (
     <AuthLayout
-      title="Đăng nhập quản trị"
-      subtitle="Khu vực dành cho Admin, Store Manager và Staff của Clucky."
+      title={t("admin:auth.loginTitle")}
+      subtitle={t("admin:auth.loginDescription")}
     >
       <Form
         layout="vertical"
@@ -54,10 +56,10 @@ export const LoginPage: React.FC = () => {
         requiredMark={false}
         style={{ display: "grid", gap: 0 }}
       >
-        {error && (
+        {Boolean(error) && (
           <Alert
             type="error"
-            message={error}
+            message={typeof error === "string" && i18n.exists(error) ? t(error) : errorMessage(error)}
             showIcon
             style={{ marginBottom: 18, borderRadius: 12 }}
           />
@@ -66,8 +68,8 @@ export const LoginPage: React.FC = () => {
           label="Email"
           name="email"
           rules={[
-            { required: true, message: "Vui lòng nhập email." },
-            { type: "email", message: "Email không hợp lệ." },
+            { required: true, message: t("auth:validation.emailRequired") },
+            { type: "email", message: t("auth:validation.emailInvalid") },
           ]}
         >
           <Input
@@ -77,9 +79,9 @@ export const LoginPage: React.FC = () => {
           />
         </Form.Item>
         <Form.Item
-          label="Mật khẩu"
+          label={t("auth:fields.password")}
           name="password"
-          rules={[{ required: true, message: "Vui lòng nhập mật khẩu." }]}
+          rules={[{ required: true, message: t("auth:validation.passwordRequired") }]}
         >
           <Input.Password
             size="large"
@@ -98,8 +100,7 @@ export const LoginPage: React.FC = () => {
           }}
         >
           <Link to="/forgot-password" style={{ color: "#8F1216" }}>
-            Quên mật khẩu?
-          </Link>
+            {t("auth:login.forgotPassword")}{" "}</Link>
         </div>
         <Button
           type="primary"
@@ -109,8 +110,7 @@ export const LoginPage: React.FC = () => {
           block
           style={{ borderRadius: 999, height: 48, fontWeight: 700 }}
         >
-          Đăng nhập
-        </Button>
+          {t("auth:login.action")}{" "}</Button>
         <div
           style={{
             marginTop: 20,
@@ -121,9 +121,7 @@ export const LoginPage: React.FC = () => {
             fontWeight: 600,
           }}
         >
-          Sử dụng tài khoản được cấp. Nếu chưa có tài khoản, vui lòng liên hệ
-          quản trị viên.
-        </div>
+          {t("admin:auth.assignedAccount")}{" "}</div>
       </Form>
     </AuthLayout>
   );

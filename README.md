@@ -1,6 +1,8 @@
 # Clucky scaffold
 
-Bộ khung gồm Next.js Customer, React Admin, Config Server, Eureka Discovery Server, API Gateway và 8 microservice.
+Bộ khung gồm Next.js Customer, React Admin, Config Server, Eureka Discovery Server, API Gateway, 8 business service và base Audit Service độc lập.
+
+Log kỹ thuật, cách chạy self-check và giới hạn của Audit base: [docs/observability.md](docs/observability.md). Audit hiện có API đọc/phân quyền; producer/consumer ghi thay đổi quản trị chưa được nối.
 
 ## Bắt đầu
 
@@ -14,6 +16,8 @@ Config Server đọc native config từ `config-repo/`; các service import cấ
 Đây là scaffold: migration bootstrap, dependency, health endpoint, config/discovery wiring và frontend shell đã có; nghiệp vụ đầy đủ sẽ triển khai theo từng service.
 
 ## Frontend CI/CD
+
+Customer demo trên VPS được bật lúc build image qua `NEXT_PUBLIC_M3_DEMO_ENABLED` (GitHub Actions repository variable, mặc định `true` trong pipeline). Đặt variable thành `false` rồi build/deploy lại để tắt; đổi environment của container đang chạy không thay đổi cờ đã đóng gói trong Next.js. Docker build trực tiếp mặc định tắt, bật bằng `--build-arg NEXT_PUBLIC_M3_DEMO_ENABLED=true`. Các nút mô phỏng chỉ cập nhật dữ liệu trình duyệt, không xác nhận thanh toán thật. Đơn demo DELIVERY mới và đã lưu có shipment `CREATED`; không tự chuyển sang tracking Phase 2 theo trạng thái đơn.
 
 Workflow [Frontend CI/CD](.github/workflows/frontend-ci.yml) chạy CI trên mọi pull request vào `main`; mỗi push/merge vào `main` chỉ đóng gói và deploy. Có thể chạy lại đóng gói/deploy bằng **Actions → Frontend CI/CD → Run workflow → main**.
 

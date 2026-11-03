@@ -1,7 +1,12 @@
+"use client";
+import { useTranslations } from "next-intl";
+
+
 import Image from "next/image";
 import Link from "@/components/ui-loader/navigation-link";
 
 export function CustomerFooter() {
+  const t = useTranslations();
   return (
     <footer className="site-footer" data-loading-shell="bottom">
       <div className="footer-inner">
@@ -16,11 +21,11 @@ export function CustomerFooter() {
           <span>Clucky</span>
         </Link>
 
-        <nav className="footer-links" aria-label="Liên kết cuối trang">
-          <Link href="/menu">Thực đơn</Link>
-          <Link href="/stores">Cửa hàng</Link>
-          <Link href="/orders">Tra cứu đơn</Link>
-          <Link href="/account">Tài khoản</Link>
+        <nav className="footer-links" aria-label={t("common.footer.links")}>
+          <Link href="/menu">{t("common.nav.menu")}</Link>
+          <Link href="/stores">{t("common.nav.stores")}</Link>
+          <Link href="/orders">{t("common.nav.trackOrders")}</Link>
+          <Link href="/account">{t("common.nav.account")}</Link>
         </nav>
 
         <div

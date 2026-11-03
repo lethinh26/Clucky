@@ -1,0 +1,73 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "catalog": "Menu & product management",
+    "stores": "Store management",
+    "inventory": "Store inventory",
+    "orders": "Order management",
+    "shiftOrders": "Shift orders",
+    "reviews": "Review management",
+    "users": "User management",
+    "reports": "Reports & statistics",
+    "payments": "Payments & reconciliation"
+  },
+  "breadcrumb": {
+    "catalog": "Menu & combos",
+    "stores": "Stores",
+    "reviews": "Reviews & replies",
+    "users": "Users"
+  },
+  "roles": {
+    "hqAdmin": "HQ administrator",
+    "shiftStaff": "Shift staff",
+    "admin": "Administrator",
+    "manager": "Store manager",
+    "staff": "Staff"
+  },
+  "demo": {
+    "switchAdmin": "Switch to: HQ administrator",
+    "switchedAdmin": "Switched role: HQ administrator",
+    "switchManager": "Switch to: Store manager",
+    "switchedManager": "Switched role: Lê Lợi store manager",
+    "switchStaff": "Switch to: Store staff",
+    "switchedStaff": "Switched role: Lê Lợi store staff",
+    "store": "Clucky Lê Lợi (District 1)",
+    "staffRole": "👨‍🍳 Role: Store staff"
+  },
+  "dashboard": "Management dashboard",
+  "workspace": "WORKSPACE",
+  "currentRole": "Current role:",
+  "navigation": "Clucky navigation",
+  "expandNav": "Expand navigation",
+  "collapseNav": "Collapse navigation",
+  "storeLabel": "Store:",
+  "notifications": {
+    "title": "System notifications",
+    "empty": "No new urgent notifications."
+  },
+  "myAccount": "My account",
+  "footer": "Clucky · Management system ·",
+  "auth": {
+    "eyebrow": "A workspace for the Clucky team",
+    "workspace": "Clucky workspace",
+    "title": "Together, we create",
+    "subtitle": "delicious meals.",
+    "description": "One workspace to connect the team, look after stores and prepare for every shift.",
+    "team": "THE CLUCKY TEAM",
+    "adminDescription": "Connecting the whole system",
+    "managerDescription": "Supporting the team",
+    "staffDescription": "Taking care of every order",
+    "teamMotto": "One team. One shared joy.",
+    "badge": "MANAGEMENT WORKSPACE",
+    "back": "Back to workspace",
+    "loginTitle": "Workspace sign-in",
+    "loginDescription": "For Clucky administrators, store managers and staff.",
+    "assignedAccount": "Use your assigned account. Contact your administrator if you do not have one."
+  },
+  "forbidden": {
+    "title": "403 — Access denied",
+    "accountPrefix": "Your account (",
+    "description": ") does not have permission to access this section.",
+    "back": "Back to dashboard"
+  }
+}

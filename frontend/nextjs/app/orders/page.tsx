@@ -1,8 +1,10 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import { useEffect, useRef, useState } from "react";
 import Link from "@/components/ui-loader/navigation-link";
-import { formatPrice } from "@/lib/products";
 import { useOrder } from "@/components/order/order-provider";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
@@ -22,6 +24,9 @@ import styles from "./orders.module.css";
 type FilterTab = "ALL" | "ACTIVE" | "COMPLETED" | "CANCELLED";
 
 export default function OrdersHistoryPage() {
+  const t = useTranslations();
+
+  const { locale, money: formatPrice } = useLocaleTools();
   const { orders, reorder, ready } = useOrder();
   useNavigationTask(!ready);
   const activeOrder = orders.find(
@@ -67,7 +72,7 @@ export default function OrdersHistoryPage() {
   const handleReorder = (order: Order) => {
     reorder(order);
     setToastMessage(
-      `Đã thêm lại các món từ đơn ${order.orderCode} vào giỏ hàng!`,
+      t("business.orders.itemsFromOrderHaveBeenAddedToYourCart", { value1: order.orderCode }),
     );
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => {
@@ -79,25 +84,21 @@ export default function OrdersHistoryPage() {
     <>
             <main className={`${styles.historyContainer} m3-page`}>
         <div className={styles.heading}>
-          <span className={styles.eyebrow}>Lịch sử mua hàng</span>
-          <h1 className={styles.title}>Đơn hàng của tôi</h1>
-          <p className={styles.sub}>
-            Theo dõi trạng thái giao món, xem lại hóa đơn hoặc đặt lại đơn hàng
-            yêu thích.
-          </p>
+          <span className={styles.eyebrow}>{t("business.orders.purchaseHistory")}</span>
+          <h1 className={styles.title}>{t("business.orders.myOrders")}</h1>
+          <p className={styles.sub}> {t("business.orders.trackYourDeliveryViewReceiptsOrReorderYourFavourites")} </p>
         </div>
 
         {activeOrder && (
           <div className={styles.activeBanner}>
             <Clock3 size={20} />
             <div>
-              <strong>Bạn có đơn đang xử lý</strong>
+              <strong>{t("business.orders.youHaveAnActiveOrder")}</strong>
               <span>
                 {activeOrder.orderCode} · {activeOrder.storeName}
               </span>
             </div>
-            <Link href={`/orders/${activeOrder.id}`}>
-              Theo dõi <ArrowRight size={15} />
+            <Link href={`/orders/${activeOrder.id}`}> {t("business.orders.trackOrder")} <ArrowRight size={15} />
             </Link>
           </div>
         )}
@@ -105,11 +106,11 @@ export default function OrdersHistoryPage() {
         <div className={styles.searchBar}>
           <input
             type="text"
-            placeholder="Tìm theo mã đơn (CLU-...) hoặc tên quán..."
+            placeholder={t("business.orders.searchByOrderCodeCluOrStoreName")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={styles.searchInput}
-            aria-label="Tìm kiếm đơn hàng"
+            aria-label={t("business.orders.searchOrders")}
           />
           {searchQuery && (
             <button
@@ -117,22 +118,19 @@ export default function OrdersHistoryPage() {
               onClick={() => setSearchQuery("")}
               className={styles.searchBtn}
               style={{ background: "#6b6259" }}
-            >
-              Xóa
-            </button>
+            > {t("business.account.delete")} </button>
           )}
         </div>
 
         {/* Status Tabs */}
-        <div className={styles.tabsList} aria-label="Lọc trạng thái đơn">
+        <div className={styles.tabsList} aria-label={t("business.orders.filterOrderStatus")}>
           <button
             type="button"
 
             aria-pressed={activeTab === "ALL"}
             className={`${styles.tabItem} ${activeTab === "ALL" ? styles.tabItemActive : ""}`}
             onClick={() => setActiveTab("ALL")}
-          >
-            Tất cả đơn ({orders.length})
+          > {t("business.orders.allOrders")}{orders.length})
           </button>
           <button
             type="button"
@@ -140,27 +138,21 @@ export default function OrdersHistoryPage() {
             aria-pressed={activeTab === "ACTIVE"}
             className={`${styles.tabItem} ${activeTab === "ACTIVE" ? styles.tabItemActive : ""}`}
             onClick={() => setActiveTab("ACTIVE")}
-          >
-            Đang xử lý
-          </button>
+          > {t("business.orders.inProgress")} </button>
           <button
             type="button"
 
             aria-pressed={activeTab === "COMPLETED"}
             className={`${styles.tabItem} ${activeTab === "COMPLETED" ? styles.tabItemActive : ""}`}
             onClick={() => setActiveTab("COMPLETED")}
-          >
-            Đã hoàn thành
-          </button>
+          > {t("business.orders.completed")} </button>
           <button
             type="button"
 
             aria-pressed={activeTab === "CANCELLED"}
             className={`${styles.tabItem} ${activeTab === "CANCELLED" ? styles.tabItemActive : ""}`}
             onClick={() => setActiveTab("CANCELLED")}
-          >
-            Đã hủy
-          </button>
+          > {t("business.orders.cancelled")} </button>
         </div>
 
         {/* Order Cards */}
@@ -168,11 +160,8 @@ export default function OrdersHistoryPage() {
           <div className="order-skeleton" aria-hidden="true" />
         ) : filteredOrders.length === 0 ? (
           <div className={styles.emptyState}>
-            <h3 className={styles.emptyTitle}>Không tìm thấy đơn hàng nào</h3>
-            <p className={styles.emptyDesc}>
-              Bạn chưa có đơn hàng nào trong mục này hoặc từ khóa tìm kiếm không
-              khớp.
-            </p>
+            <h3 className={styles.emptyTitle}>{t("business.orders.noOrdersFound")}</h3>
+            <p className={styles.emptyDesc}> {t("business.orders.thereAreNoOrdersInThisSectionOrYourSearchDidNot")} </p>
           </div>
         ) : (
           <div className={styles.ordersList}>
@@ -183,7 +172,7 @@ export default function OrdersHistoryPage() {
                     <span className={styles.orderCode}>{order.orderCode}</span>
                     <span className={styles.orderDate}>
                       {" "}
-                      · {displayOrderTime(order.createdAt)}
+                      · {displayOrderTime(order.createdAt, locale)}
                     </span>
                   </div>
                   <OrderStatusChip status={order.status} />
@@ -211,9 +200,7 @@ export default function OrdersHistoryPage() {
                   </div>
 
                   <div className={styles.cardPriceGroup}>
-                    <span className={styles.cardPriceLabel}>
-                      Tổng thanh toán
-                    </span>
+                    <span className={styles.cardPriceLabel}> {t("business.checkout.totalDue")} </span>
                     <span className={styles.cardPriceVal}>
                       {formatPrice(order.totalAmount)}
                     </span>
@@ -234,15 +221,12 @@ export default function OrdersHistoryPage() {
                     onClick={() => handleReorder(order)}
                     className={styles.reorderBtn}
                   >
-                    <RotateCcw size={15} /> Đặt lại đơn này
-                  </button>
+                    <RotateCcw size={15} /> {t("business.orders.reorderThisMeal")} </button>
 
                   <Link
                     href={`/orders/${order.id}`}
                     className={styles.detailBtn}
-                  >
-                    Xem chi tiết →
-                  </Link>
+                  > {t("business.orders.viewDetails")} </Link>
                 </div>
               </article>
             ))}
@@ -262,9 +246,7 @@ export default function OrdersHistoryPage() {
                 textDecoration: "underline",
                 marginLeft: 8,
               }}
-            >
-              Đến giỏ hàng →
-            </Link>
+            > {t("business.orders.goToCart")} </Link>
           </div>
         )}
       </main>

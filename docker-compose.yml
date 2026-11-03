@@ -1,8 +1,15 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "${DOCKER_LOG_MAX_SIZE:-10m}"
+    max-file: "${DOCKER_LOG_MAX_FILES:-3}"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: clucky-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-clucky}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
@@ -24,6 +31,7 @@ services:
     image: redis:7-alpine
     container_name: clucky-redis
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
@@ -41,6 +49,7 @@ services:
     image: apache/kafka:3.9.0
     container_name: clucky-kafka
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "${KAFKA_PORT:-9092}:9092"
     environment:
@@ -71,6 +80,7 @@ services:
     build: ./backend/config-server
     container_name: clucky-config-server
     restart: unless-stopped
+    logging: *default-logging
     environment:
       - CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS=file:/config-repo
     volumes:
@@ -95,6 +105,7 @@ services:
       dockerfile: discovery-server/Dockerfile
     container_name: clucky-discovery-server
     restart: unless-stopped
+    logging: *default-logging
     environment:
       - EUREKA_URL=http://discovery-server:8761/eureka/
     ports:
@@ -115,9 +126,14 @@ services:
     build: ./backend/api-gateway
     container_name: clucky-api-gateway
     restart: unless-stopped
+    logging: *default-logging
     environment:
       - CONFIG_SERVER_URL=http://config-server:8888
       - EUREKA_URL=http://discovery-server:8761/eureka/
+      - JWT_SECRET=${JWT_SECRET:-}
+      - JWT_ISSUER=${JWT_ISSUER:-clucky-identity}
+      - JWT_AUDIENCE=${JWT_AUDIENCE:-clucky-api}
+      - APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
     ports:
       - "8080:8080"
     depends_on:
@@ -129,6 +145,35 @@ services:
       timeout: 5s
       retries: 5
       start_period: 25s
+    networks:
+      - app-net
+
+
+  audit-service:
+    profiles: [audit]
+    build:
+      context: ./backend
+      dockerfile: audit-service/Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_URL: http://discovery-server:8761/eureka/
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER:-clucky}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      DB_NAME: ${POSTGRES_DB:-clucky}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_ISSUER: ${JWT_ISSUER:-clucky-identity}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-clucky-api}
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
     networks:
       - app-net
 

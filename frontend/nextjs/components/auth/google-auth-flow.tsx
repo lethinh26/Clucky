@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
 
 import { useState, type ReactNode } from "react";
 import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
@@ -9,21 +11,9 @@ import { GoogleButton } from "./google-button";
 import { GoogleCompletePassword } from "./google-complete-password";
 import styles from "./auth-shared.module.css";
 
-function errorMessage(error: unknown) {
-  const failure = error as { code?: string; message?: string };
-  if (
-    failure?.code === "auth/popup-closed-by-user" ||
-    failure?.code === "auth/cancelled-popup-request"
-  )
-    return "Bạn đã đóng đăng nhập Google. Có thể thử lại.";
-  if (failure?.code === "auth/popup-blocked")
-    return "Trình duyệt chặn cửa sổ Google. Hãy cho phép cửa sổ bật lên và thử lại.";
-  if (failure?.code === "auth/network-request-failed")
-    return "Không kết nối được Google. Kiểm tra mạng và thử lại.";
-  return failure?.message || "Đăng nhập Google thất bại. Vui lòng thử lại.";
-}
-
 export function GoogleAuthFlow({ children }: { children: ReactNode }) {
+  const t = useTranslations();
+  const { errorMessage } = useLocaleTools();
   const router = useRouter();
   const startAction = useDeferredAction();
   const [pending, setPending] = useState<{
@@ -31,11 +21,11 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
     email: string;
   } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>(null);
 
   function finish(tokens: AuthTokens) {
     if (!tokens.accessToken || !tokens.refreshToken)
-      throw new Error("Phản hồi đăng nhập không hợp lệ. Vui lòng thử lại.");
+      throw new Error(t("business.googleauthflow.invalidSignInResponsePleaseTryAgain"));
     localStorage.setItem("clucky_access_token", tokens.accessToken);
     localStorage.setItem("clucky_refresh_token", tokens.refreshToken);
     router.push("/account");
@@ -53,14 +43,14 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
       if (!task.isCurrent()) return;
       if ("status" in result && result.status === "REQUIRES_PASSWORD") {
         if (!result.pendingToken)
-          throw new Error("Thiếu phiên đăng ký Google. Vui lòng thử lại.");
+          throw new Error(t("business.googleauthflow.missingGoogleRegistrationSessionPleaseTryAgain"));
         setPending({ token: result.pendingToken, email: identity.email });
       } else {
         finish(result as AuthTokens);
       }
     } catch (err) {
       if (!task.isCurrent()) return;
-      setError(errorMessage(err));
+      setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }
@@ -80,10 +70,10 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
       if (status === 401 || status === 410) {
         setPending(null);
         setError(
-          "Phiên đăng ký Google đã hết hạn. Vui lòng đăng nhập Google lại.",
+          "auth.google.sessionExpired",
         );
       } else {
-        setError(errorMessage(err));
+        setError(err);
       }
     } finally {
       if (task.isCurrent()) setLoading(false);
@@ -92,9 +82,9 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
 
   return (
     <div aria-busy={loading}>
-      {error && (
+      {Boolean(error) && (
         <p className="form-error" role="alert">
-          {error}
+          {typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)}
         </p>
       )}
       {pending ? (
@@ -112,14 +102,12 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
               setPending(null);
               setError("");
             }}
-          >
-            Quay lại đăng nhập
-          </button>
+          > {t("business.googleauthflow.backToSignIn")} </button>
         </>
       ) : (
         <>
           {children}
-          <div className={styles.divider}>hoặc</div>
+          <div className={styles.divider}>{t("business.googleauthflow.or")}</div>
           <GoogleButton onClick={login} loading={loading} />
         </>
       )}

@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import * as React from "react";
 import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
@@ -7,16 +10,18 @@ import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
-import { authApi, ApiError } from "@/lib/api";
+import { authApi } from "@/lib/api";
 
 export default function RegisterPage() {
+  const t = useTranslations();
+  const { errorMessage } = useLocaleTools();
   const router = useRouter();
   const startAction = useDeferredAction();
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
   const [loading, setLoading] = React.useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -25,15 +30,15 @@ export default function RegisterPage() {
     const task = startAction();
     setError(null);
     if (!fullName.trim() || !email.trim() || !password) {
-      setError("Vui lòng điền đầy đủ họ tên, email và mật khẩu.");
+      setError("auth.validation.registrationRequired");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("Email chưa đúng định dạng. Bạn kiểm tra lại nhé.");
+      setError("auth.validation.checkEmail");
       return;
     }
     if (password.length < 8) {
-      setError("Mật khẩu cần có ít nhất 8 ký tự.");
+      setError("auth.validation.minimumPassword");
       return;
     }
     setLoading(true);
@@ -47,8 +52,8 @@ export default function RegisterPage() {
       if (task.isCurrent()) router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}`);
     } catch (err) {
       if (!task.isCurrent()) return;
-      const apiErr = err as ApiError;
-      setError(apiErr.message || "Đăng ký không thành công.");
+
+      setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }
@@ -56,18 +61,18 @@ export default function RegisterPage() {
 
   return (
     <AuthShell
-      title="Tạo tài khoản Clucky"
-      subtitle="Tham gia để tích điểm, lưu địa chỉ và đặt món trong vài chạm."
+      title={t("auth.register.title")}
+      subtitle={t("auth.register.description")}
     >
       <GoogleAuthFlow>
         <form className="auth-form" onSubmit={onSubmit} noValidate>
-          {error && (
+          {Boolean(error) && (
             <div className="form-error" role="alert">
-              {error}
+              {typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)}
             </div>
           )}
           <Input
-            label="Họ và tên"
+            label={t("auth.fields.fullName")}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             required
@@ -83,7 +88,7 @@ export default function RegisterPage() {
             placeholder="ban@clucky.vn"
           />
           <Input
-            label="Số điện thoại (tuỳ chọn)"
+            label={t("auth.fields.optionalPhone")}
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -91,23 +96,23 @@ export default function RegisterPage() {
             placeholder="0901 234 567"
           />
           <Input
-            label="Mật khẩu"
+            label={t("auth.fields.password")}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="new-password"
-            placeholder="Tối thiểu 8 ký tự"
+            placeholder={t("auth.fields.passwordHint")}
           />
           <button
             type="submit"
             className="btn-primary btn-block"
             disabled={loading}
           >
-            {loading ? "Đang tạo tài khoản…" : "Đăng ký"}
+            {loading ? t("auth.register.loading") : t("auth.register.action")}
           </button>
           <span className="auth-footer-link">
-            Đã có tài khoản? <Link href="/login">Đăng nhập</Link>
+            {t("auth.register.haveAccount")}{" "}<Link href="/login">{t("auth.login.action")}</Link>
           </span>
         </form>
       </GoogleAuthFlow>

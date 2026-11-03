@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import type { Product, Combo, Store, InventoryItem } from '../mocks/catalogData';
+import { getBrowserLocale, getErrorMessage as resolveError } from '../i18n/core';
 
 /**
  * Axios client for the Clucky staff/admin app.
@@ -14,26 +15,12 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('clucky_admin_access_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  const role = localStorage.getItem('clucky_admin_role') || 'ADMIN';
-  config.headers['X-User-Role'] = role;
-  if (role === 'STORE_MANAGER') {
-    config.headers['X-Store-Id'] = '1';
-    config.headers['X-User-Id'] = '2';
-    config.headers['X-User-Name'] = 'Nguyễn Minh Anh';
-  } else if (role === 'STAFF') {
-    config.headers['X-Store-Id'] = '1';
-    config.headers['X-User-Id'] = '3';
-    config.headers['X-User-Name'] = 'Trần Quốc Bảo';
-  } else {
-    config.headers['X-User-Id'] = '1';
-    config.headers['X-User-Name'] = 'Admin';
-  }
+  config.headers['Accept-Language'] = getBrowserLocale();
   return config;
 });
 
-export function getErrorMessage(err: unknown, fallback = 'Đã có lỗi xảy ra.'): string {
-  const e = err as AxiosError<{ message?: string }>;
-  return e?.response?.data?.message || e?.message || fallback;
+export function getErrorMessage(err: unknown, _fallback?: string): string {
+  return resolveError(err);
 }
 
 /* ---------- Auth ---------- */

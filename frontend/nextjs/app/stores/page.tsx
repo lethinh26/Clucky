@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useTranslations } from "next-intl";
 import Link from '@/components/ui-loader/navigation-link';
 import { stores as fallbackStores, type Store, getStoreStatusMeta } from '@/lib/products';
 import { catalogApi } from '@/lib/api';
@@ -18,6 +19,8 @@ import {
 
 export default function StoresPage() {
   const [storeList, setStoreList] = useState<Store[]>(fallbackStores);
+  const t = useTranslations();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('ALL');
 
@@ -69,9 +72,7 @@ export default function StoresPage() {
               margin: '6px 0 12px',
               letterSpacing: '-0.03em',
             }}
-          >
-            Hệ thống Cửa hàng Clucky
-          </h1>
+          > {t("business.stores.cluckyStores")} </h1>
           <p
             style={{
               fontFamily: 'Quicksand, sans-serif',
@@ -81,9 +82,7 @@ export default function StoresPage() {
               margin: '0 auto',
               lineHeight: 1.6,
             }}
-          >
-            Ghé lấy món nóng giòn trực tiếp tại cửa hàng hoặc chọn chi nhánh gần bạn nhất để nhận đơn giao siêu tốc.
-          </p>
+          > {t("business.stores.pickUpAHotCrispyMealAtAStoreOrChooseYour")} </p>
         </div>
 
         {/* Search & District Filter */}
@@ -113,7 +112,7 @@ export default function StoresPage() {
             />
             <input
               type="text"
-              placeholder="Tìm theo tên chi nhánh, đường, quận..."
+              placeholder={t("business.stores.searchByStoreNameStreetDistrict")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -158,7 +157,7 @@ export default function StoresPage() {
                     boxShadow: isActive ? '0 4px 14px rgba(143, 18, 22, 0.25)' : 'none',
                   }}
                 >
-                  {district === 'ALL' ? 'Tất cả chi nhánh' : district}
+                  {district === 'ALL' ? t("business.stores.allStores") : district}
                 </button>
               );
             })}
@@ -212,9 +211,7 @@ export default function StoresPage() {
                         >
                           {store.name}
                         </h2>
-                        <span style={{ fontSize: 12, color: '#C9A227', fontWeight: 700 }}>
-                          Chi nhánh Clucky TP.HCM
-                        </span>
+                        <span style={{ fontSize: 12, color: '#C9A227', fontWeight: 700 }}> {t("business.stores.cluckyStoresInHoChiMinhCity")} </span>
                       </div>
                     </div>
 
@@ -231,6 +228,7 @@ export default function StoresPage() {
                       }}
                     >
                       {meta.badgeLabel}
+                      {isOpen ? t("business.stores.openNow") : t("business.stores.temporarilyClosed")}
                     </span>
                   </div>
 
@@ -243,7 +241,7 @@ export default function StoresPage() {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6B6259' }}>
                       <Clock size={18} className="text-[#C9A227] flex-shrink-0" />
-                      <span>Giờ phục vụ: <strong>{store.openTime} – {store.closeTime}</strong></span>
+                      <span>{t("business.stores.openingHours")} <strong>{store.openTime} – {store.closeTime}</strong></span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6B6259' }}>
@@ -253,7 +251,7 @@ export default function StoresPage() {
 
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: '#6B6259', fontSize: 13 }}>
                       <Truck size={18} className="text-[#1E7A46] flex-shrink-0 mt-0.5" />
-                      <span>Giao hàng: {store.deliveryArea}</span>
+                      <span>{t("business.stores.delivery")} {store.deliveryArea}</span>
                     </div>
                   </div>
 
@@ -280,7 +278,7 @@ export default function StoresPage() {
                         }}
                       >
                         <ShoppingBag size={16} />
-                        <span>Đặt tại quán này</span>
+                        <span>{t("business.stores.orderFromThisStore")}</span>
                       </Link>
                     ) : (
                       <button
@@ -299,6 +297,9 @@ export default function StoresPage() {
                         title={meta.description}
                       >
                         <span>{meta.actionText}</span>
+                        title={t("business.stores.thisStoreIsTemporarilyClosed")}
+                      >
+                        <span>{t("business.stores.serviceUnavailable")}</span>
                       </button>
                     )}
 
@@ -316,7 +317,7 @@ export default function StoresPage() {
                       }}
                     >
                       <ExternalLink size={16} />
-                      <span>Chỉ đường</span>
+                      <span>{t("business.stores.directions")}</span>
                     </a>
                   </div>
                 </article>
@@ -356,9 +357,7 @@ export default function StoresPage() {
                 color: '#16100D',
                 margin: '0 0 8px',
               }}
-            >
-              Không tìm thấy chi nhánh phù hợp
-            </h3>
+            > {t("business.stores.noMatchingStoresFound")} </h3>
             <p
               style={{
                 fontFamily: 'Quicksand, sans-serif',
@@ -368,9 +367,7 @@ export default function StoresPage() {
                 margin: '0 auto 24px',
                 lineHeight: 1.6,
               }}
-            >
-              Thử tìm kiếm với tên đường, quận khác hoặc chọn xem tất cả chi nhánh để xem danh sách điểm bán Clucky.
-            </p>
+            > {t("business.stores.tryAnotherStreetOrDistrictOrViewAllCluckyStores")} </p>
             <button
               onClick={() => {
                 setSearchTerm('');
@@ -378,9 +375,7 @@ export default function StoresPage() {
               }}
               className="btn-primary"
               style={{ border: 'none', cursor: 'pointer' }}
-            >
-              Xem tất cả chi nhánh
-            </button>
+            > {t("business.stores.viewAllStores")} </button>
           </div>
         )}
       </main>

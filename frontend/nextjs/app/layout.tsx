@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
+import { resources } from "@/lib/i18n/resources";
 import "./globals.css";
 import "./order-theme.css";
 import {
@@ -14,20 +17,22 @@ import loaderStyles from "@/components/ui-loader/navigation-loader.module.css";
 export const metadata: Metadata = {
   title: "Clucky — Crispy Outside, Happy Inside",
   description:
-    "Nền tảng website bán hàng thức ăn nhanh chuỗi gà rán cao cấp Clucky. Giòn tan bên ngoài, vui vẻ bên trong.",
+    resources.vi.business.layout.cluckyPremiumFriedChickenAndFastFoodOrderingPlatformCrispyOutsideHappy,
   icons: {
     icon: "/favicon.png",
     apple: "/favicon.png",
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
-    <html lang="vi">
+    <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -41,6 +46,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Ho_Chi_Minh">
         <NavigationLoaderProvider>
           <OrderProvider>
             <div className={loaderStyles.siteLayout}>
@@ -51,6 +57,7 @@ export default function RootLayout({
             </div>
           </OrderProvider>
         </NavigationLoaderProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

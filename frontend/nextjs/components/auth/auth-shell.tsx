@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import Image from "next/image";
 import Link from "@/components/ui-loader/navigation-link";
@@ -22,6 +24,7 @@ export function AuthShell({
   subtitle?: string;
   children: React.ReactNode;
 }) {
+  const t = useTranslations();
   const pathname = usePathname();
   const showTabs = pathname === "/login" || pathname === "/register";
   return (
@@ -29,25 +32,23 @@ export function AuthShell({
       <main className={styles.shell}>
         <div className={styles.breadcrumb}>
           <Link href="/">
-            <ArrowLeft size={15} aria-hidden="true" /> Về trang chủ
-          </Link>
+            <ArrowLeft size={15} aria-hidden="true" /> {" "}{t("common.backHome")}{" "}</Link>
         </div>
         <div className={styles.layout}>
-          <section className={styles.story} aria-label="Trải nghiệm Clucky">
+          <section className={styles.story} aria-label={t("auth.shell.eyebrow")}>
             <span className={styles.eyebrow}>
               <Sparkles size={15} aria-hidden="true" /> A LITTLE CRISPY. A LOT
               OF HAPPY.
             </span>
             <h2>
-              Bữa ngon quen thuộc.
-              <br />
-              <em>Niềm vui của riêng bạn.</em>
+              {t("auth.shell.title")}{" "}<br />
+              <em>{t("auth.shell.subtitle")}</em>
             </h2>
-            <p>Đăng nhập một lần, để mỗi lần ghé Clucky đều gần gũi hơn.</p>
+            <p>{t("auth.shell.description")}</p>
             <div className={styles.photo}>
               <Image
                 src="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=1000&q=85"
-                alt="Gà rán vàng giòn, món ngon quen thuộc tại Clucky"
+                alt={t("auth.shell.imageAlt")}
                 fill
                 sizes="(max-width: 900px) 90vw, 480px"
                 priority
@@ -64,15 +65,15 @@ export function AuthShell({
             <ul className={styles.benefits}>
               <li>
                 <Heart size={17} aria-hidden="true" />
-                <span>Đặt lại món yêu thích</span>
+                <span>{t("auth.shell.reorder")}</span>
               </li>
               <li>
                 <MapPin size={17} aria-hidden="true" />
-                <span>Lưu địa chỉ thân quen</span>
+                <span>{t("auth.shell.addresses")}</span>
               </li>
               <li>
                 <Gift size={17} aria-hidden="true" />
-                <span>Tích điểm mỗi bữa ngon</span>
+                <span>{t("auth.shell.points")}</span>
               </li>
             </ul>
           </section>
@@ -83,28 +84,26 @@ export function AuthShell({
                 <span>YOUR CLUCKY</span>
               </div>
               {showTabs && (
-                <nav className={styles.tabs} aria-label="Lựa chọn xác thực">
+                <nav className={styles.tabs} aria-label={t("auth.shell.options")}>
                   <Link
                     href="/login"
                     aria-current={pathname === "/login" ? "page" : undefined}
                   >
-                    Đăng nhập
-                  </Link>
+                    {t("auth.login.action")}{" "}</Link>
                   <Link
                     href="/register"
                     aria-current={pathname === "/register" ? "page" : undefined}
                   >
-                    Đăng ký
-                  </Link>
+                    {t("auth.register.action")}{" "}</Link>
                 </nav>
               )}
               <h1>{title}</h1>
               {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
               {children}
               <div className={styles.bottomNote}>
-                <span>Món ngon đang chờ bạn.</span>
+                <span>{t("auth.shell.waiting")}</span>
                 <Link href="/menu">
-                  Khám phá thực đơn{" "}
+                  {t("common.exploreMenu")}{" "}
                   <ArrowUpRight size={14} aria-hidden="true" />
                 </Link>
               </div>

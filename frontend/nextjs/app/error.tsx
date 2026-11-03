@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { NavigationError } from "@/components/ui-loader";
 import Link from "@/components/ui-loader/navigation-link";
 
@@ -8,15 +10,15 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const t = useTranslations();
   return (
     <NavigationError>
       <main className="container" style={{ paddingBlock: 64 }}>
-        <h1>Chưa tải được trang</h1>
-        <p>Vui lòng thử lại hoặc chọn một trang khác.</p>
+        <h1>{t("common.pageError.title")}</h1>
+        <p>{t("common.pageError.description")}</p>
         <button type="button" className="btn-primary" onClick={reset}>
-          Thử lại
-        </button>{" "}
-        <Link href="/">Về trang chủ</Link>
+          {t("common.retry")}{" "}</button>{" "}
+        <Link href="/">{t("common.backHome")}</Link>
       </main>
     </NavigationError>
   );

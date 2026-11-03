@@ -6,13 +6,19 @@ spring:
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${DB_NAME:clucky}?currentSchema=catalog_service
   jpa:
+    hikari:
+      schema: catalog_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
     properties:
       hibernate:
         default_schema: catalog_service
   flyway:
-    schemas: catalog_service
     default-schema: catalog_service
+    schemas: catalog_service
     create-schemas: true
+    baseline-on-migrate: false
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}

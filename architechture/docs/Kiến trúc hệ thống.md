@@ -19,25 +19,27 @@ Nguyên tắc:
 - Phân quyền RBAC tại Gateway (kiểm tra JWT) và tại từng service (@PreAuthorize + kiểm tra storeId).
 - Mọi sự kiện nghiệp vụ quan trọng đều có correlation-id để truy vết xuyên service.
 
-# 2. DANH SÁCH 8 MICROSERVICE CHÍNH (+ API GATEWAY)
-Hệ thống có đúng **8 microservice nghiệp vụ chính** theo danh sách dưới đây. API Gateway là thành phần hạ tầng ở tầng truy cập (định tuyến, xác thực) và không tính vào 8 service. Chia nhỏ hơn nữa sẽ thành monolith phân mảnh; chia to hơn (13-15 service) vượt quá sức đồ án và nặng VPS.
+# 2. DANH SÁCH 9 MICROSERVICE CHÍNH (+ API GATEWAY)
+Cập nhật thiết kế 02/11/2026: tách Audit Service khỏi Review & Report để quản lý nhật ký mọi thay đổi trên trang quản trị. Thiết kế có **9 service nghiệp vụ**; Gateway, Config Server và Eureka không tính trong số này. Audit Service mới ở phạm vi thiết kế/backlog BE-43/INT-48, chưa có module runtime; không suy ra đã triển khai từ danh sách này.
 
 | # | Service | Trách nhiệm chính | Database | Port nội bộ (gợi ý) |
 |---|---|---|---|---|
 | — | **API Gateway** (hạ tầng) | Định tuyến, kiểm tra JWT, rate limit, CORS, log request | — | 8080 |
-| 1 | **Identity Service** | Tài khoản Customer/Staff/Manager/Admin/Shipper, RBAC, gán chi nhánh, hồ sơ, sổ địa chỉ, OTP, audit đăng nhập | identity_db | 8081 |
+| 1 | **Identity Service** | Tài khoản Customer/Staff/Manager/Admin/Shipper, RBAC, gán chi nhánh, hồ sơ, sổ địa chỉ, OTP; phát sự kiện thay đổi quản trị sang Audit | identity_db | 8081 |
 | 2 | **Catalog & Store Service** | Chi nhánh, danh mục, món, combo, topping, giá gốc, menu theo chi nhánh, tình trạng còn/hết, kho cơ bản | catalog_db | 8082 |
 | 3 | **Cart & Order Service** | Giỏ hàng (Redis), tạo đơn, trạng thái đơn, hủy đơn, lịch sử, đặt lại đơn | order_db (+ Redis) | 8083 |
 | 4 | **Payment Service** | VietQR, webhook SePay/Casso (idempotent, kiểm tra chữ ký), COD, đối chiếu, hoàn tiền | payment_db | 8084 |
 | 5 | **Promotion & Loyalty Service** | Voucher, khuyến mãi, banner, tích/đổi điểm, hạng thành viên | promotion_db | 8085 |
 | 6 | **Shipping Service** | MVP: tạo và lưu bản ghi giao hàng, tính phí ship dự kiến, trạng thái CREATED. Phase 2: gán shipper, tracking | shipping_db | 8086 |
 | 7 | **Notification Service** | Consumer Kafka: Mail Sender Gmail SMTP + thông báo in-app, lưu lịch sử thông báo | notification_db | 8087 |
-| 8 | **Review & Report Service** | Đánh giá/bình luận, ẩn/phản hồi đánh giá, dashboard, báo cáo doanh thu, xuất Excel/PDF, audit log nghiệp vụ | review_db | 8088 |
+| 8 | **Review & Report Service** | Đánh giá/bình luận, ẩn/phản hồi đánh giá, dashboard, báo cáo doanh thu, xuất Excel/PDF; không sở hữu audit_logs | review_db | 8088 |
+| 9 | **Audit Service** | Nhật ký mọi thay đổi quản trị của Staff/Manager/Admin: nhận sự kiện, lưu trước–sau đã lọc secret, chống trùng, API đọc theo RBAC | audit_db (schema audit_service) | 8089 |
 
 Service gộp có chủ đích:
 - Store gộp vào Catalog vì menu theo chi nhánh và tình trạng món theo chi nhánh luôn truy vấn cùng nhau.
 - Cart gộp vào Order vì giỏ là tiền thân trực tiếp của đơn và dùng chung logic tính giá.
 - Review gộp Report vì đều là dữ liệu đọc/tổng hợp, ngoài luồng giao dịch chính.
+- Audit tách riêng theo yêu cầu quản trị toàn hệ thống: chỉ Audit Service sở hữu `audit_service.audit_logs`; mỗi backend domain phát sự kiện từ thay đổi đã commit. Actor/role lấy từ xác thực backend, không tin frontend. Việc tách service tăng chi phí vận hành và cần bàn giao base/config/Gateway riêng tại BE-43.
 
 # 3. GIAO TIẾP GIỮA CÁC SERVICE
 ## 3.1. Đồng bộ (REST, qua Gateway hoặc nội bộ)
@@ -48,6 +50,7 @@ Service gộp có chủ đích:
 | Checkout: Order → Catalog | Kiểm tra giá và tình trạng bán tại chi nhánh |
 | Checkout: Order → Payment | Tạo yêu cầu thanh toán / QR VietQR |
 | Admin/Manager → Report | Truy vấn dashboard/báo cáo (đọc tổng hợp) |
+| Trang quản trị → Gateway → Audit | `GET /api/audit-logs`: Admin đọc mọi role; Manager chỉ đọc thao tác Staff trong quán mình theo RBAC. Không có API sửa/xóa audit |
 
 ## 3.3. Mail Sender trong Notification Service
 
@@ -63,6 +66,7 @@ Mail Sender là adapter nội bộ của Notification Service, không phải ser
 | order.completed | Cart & Order | Promotion, Review & Report | Cộng điểm tích lũy, tổng hợp doanh thu |
 | order.cancelled | Cart & Order | Promotion, Payment, Notification | Hoàn lượt voucher/điểm, tạo yêu cầu hoàn tiền nếu đã PAID |
 | promotion.approved | Promotion | Notification, Catalog & Store | Kích hoạt khuyến mãi của chi nhánh sau khi Admin duyệt |
+| audit.recorded | Các service xử lý thay đổi quản trị | Audit | Actor/role/store/action/target, sourceService, occurredAt, before/after đã lọc secret, eventId/correlationId; replay không ghi trùng |
 
 Xử lý lỗi Kafka: consumer idempotent theo event-id; dùng Dead Letter Topic cho sự kiện xử lý thất bại sau số lần retry cấu hình; trạng thái đơn là nguồn sự thật (source of truth), sự kiện chỉ là hệ quả.
 

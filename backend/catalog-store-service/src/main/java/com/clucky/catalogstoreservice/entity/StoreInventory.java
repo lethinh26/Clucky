@@ -65,4 +65,7 @@ public class StoreInventory {
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    @PreUpdate
+    protected void touch() { updatedAt = Instant.now(); }
 }

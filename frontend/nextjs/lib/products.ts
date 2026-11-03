@@ -515,10 +515,10 @@ export const getProductById = (id: number): Product | undefined => {
 };
 
 export const categories = [
-  { id: 0, name: 'Tất cả' },
-  { id: 1, name: 'Gà rán' },
-  { id: 2, name: 'Burger' },
-  { id: 3, name: 'Combo' },
-  { id: 4, name: 'Món phụ' },
-  { id: 5, name: 'Đồ uống' },
+  { id: 0, name: 'Tất cả', messageKey: 'menu.categories.all' },
+  { id: 1, name: 'Gà rán', messageKey: 'menu.categories.chicken' },
+  { id: 2, name: 'Burger', messageKey: 'menu.categories.burger' },
+  { id: 3, name: 'Combo', messageKey: 'menu.categories.combo' },
+  { id: 4, name: 'Món phụ', messageKey: 'menu.categories.sides' },
+  { id: 5, name: 'Đồ uống', messageKey: 'menu.categories.drinks' },
 ];

@@ -1,3 +1,6 @@
+import { useLocaleTools } from "../../i18n/hooks";
+import { LanguageSwitcher } from "../../i18n/language-switcher";
+import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from 'react';
 import {
   Form,
@@ -48,6 +51,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   onSaveProduct,
   onSaveCombo,
 }) => {
+  const { t } = useTranslation();
+  const { locale } = useLocaleTools();
+
   const [form] = Form.useForm();
   const [comboForm] = Form.useForm();
   const [activeTab, setActiveTab] = useState<'product' | 'combo'>('product');
@@ -127,16 +133,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     setUploadProgress(0);
     const isAcceptedFormat = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
     if (!isAcceptedFormat) {
-      const err = 'Chỉ chấp nhận file ảnh định dạng PNG, JPG hoặc WEBP!';
-      setUploadError(err);
-      message.error(err);
+      message.error(t("business:productform.onlyPngJpgAndWebpImagesAreAccepted"));
       return Upload.LIST_IGNORE;
     }
     const isLt5M = file.size / 1024 / 1024 < 5;
     if (!isLt5M) {
-      const err = 'Dung lượng ảnh tối đa là 5MB!';
-      setUploadError(err);
-      message.error(err);
+      message.error(t("business:productform.imagesMustNotExceedMb"));
       return Upload.LIST_IGNORE;
     }
 
@@ -201,9 +203,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       ...optionGroups,
       {
         id: `opt-${Date.now()}`,
-        name: 'Nhóm tùy chọn mới',
+        name: t("business:productform.newOptionGroup"),
         required: true,
-        choices: [{ id: `choice-${Date.now()}-1`, name: 'Mặc định', priceAdjustment: 0 }],
+        choices: [{ id: `choice-${Date.now()}-1`, name: t("business:account.default"), priceAdjustment: 0 }],
       },
     ]);
   };
@@ -241,10 +243,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         isSoldOut: false,
       };
       onSaveProduct(payload);
-      message.success(initialProduct ? 'Đã cập nhật món ăn thành công!' : 'Đã thêm món ăn mới vào thực đơn!');
+      message.success(initialProduct ? t("business:productform.dishUpdatedSuccessfully") : t("business:productform.newDishAddedToTheMenu"));
       onClose();
     } catch {
-      message.error('Vui lòng kiểm tra lại các trường thông tin bắt buộc.');
+      message.error(t("business:productform.pleaseCheckTheRequiredFields"));
     }
   };
 
@@ -259,10 +261,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           isActive: true,
         });
       }
-      message.success('Đã tạo gói Combo mới thành công!');
+      message.success(t("business:productform.newComboCreatedSuccessfully"));
       onClose();
     } catch {
-      message.error('Vui lòng điền đầy đủ thông tin combo.');
+      message.error(t("business:productform.pleaseCompleteTheComboDetails"));
     }
   };
 
@@ -270,14 +272,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     <AdminDrawer
       open={open}
       onClose={onClose}
-      title={initialProduct ? 'Chỉnh sửa món ăn' : 'Thêm mới vào Thực đơn'}
-      subtitle="Quản lý thông tin định lượng, tùy chọn options và toppings chuẩn Clucky"
+      title={initialProduct ? t("business:catalog.editDish") : t("business:productform.addToMenu")}
+      subtitle={t("business:productform.managePortionsOptionsAndToppingsToCluckyStandards")}
+      extra={<LanguageSwitcher />}
       width={720}
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <Button onClick={onClose} style={{ borderRadius: 999, height: 40, padding: '0 20px' }}>
-            Hủy bỏ
-          </Button>
+          <Button onClick={onClose} style={{ borderRadius: 999, height: 40, padding: '0 20px' }}> {t("business:account.cancel")} </Button>
           <Button
             type="primary"
             icon={<SaveOutlined />}
@@ -291,7 +292,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               fontWeight: 700,
             }}
           >
-            {initialProduct ? 'Cập nhật món' : 'Lưu vào thực đơn'}
+            {initialProduct ? t("business:productform.updateDish") : t("business:productform.saveToMenu")}
           </Button>
         </div>
       }
@@ -304,16 +305,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             key: 'product',
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <CategoryIcon name="chicken" size={16} /> Món ăn thông thường
-              </span>
+                <CategoryIcon name="chicken" size={16} /> {t("business:productform.individualDish")} </span>
             ),
           },
           {
             key: 'combo',
             label: (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <CategoryIcon name="combo" size={16} /> Thiết lập Combo ưu đãi
-              </span>
+                <CategoryIcon name="combo" size={16} /> {t("business:productform.configurePromotionalCombo")} </span>
             ),
           },
         ]}
@@ -334,17 +333,17 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         >
           {/* Main Info */}
           <Card
-            title="1. Thông tin chung món ăn"
+            title={t("business:productform.generalDishInformation")}
             style={{ marginBottom: 20, borderRadius: 16, background: '#FFFFFF', border: '1px solid #E8E2D9' }}
           >
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <Form.Item
                 name="name"
-                label="Tên món ăn"
-                rules={[{ required: true, message: 'Vui lòng nhập tên món' }]}
+                label={t("business:productform.dishName")}
+                rules={[{ required: true, message: t("business:productform.pleaseEnterADishName") }]}
               >
                 <Input
-                  placeholder="Ví dụ: Gà rán sốt mật ong cay"
+                  placeholder={t("business:productform.forExampleSpicyHoneyFriedChicken")}
                   onChange={handleNameChange}
                   style={{ borderRadius: 10, height: 40 }}
                 />
@@ -352,8 +351,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
               <Form.Item
                 name="slug"
-                label="Đường dẫn URL (Slug)"
-                rules={[{ required: true, message: 'Vui lòng nhập slug' }]}
+                label={t("business:productform.urlSlug")}
+                rules={[{ required: true, message: t("business:productform.pleaseEnterASlug") }]}
               >
                 <Input placeholder="ga-ran-sot-mat-ong-cay" style={{ borderRadius: 10, height: 40 }} />
               </Form.Item>
@@ -362,8 +361,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
               <Form.Item
                 name="categoryId"
-                label="Danh mục món"
-                rules={[{ required: true, message: 'Chọn danh mục' }]}
+                label={t("business:productform.dishCategory")}
+                rules={[{ required: true, message: t("business:productform.selectCategory") }]}
               >
                 <Select
                   style={{ height: 40 }}
@@ -372,8 +371,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                       value: 1,
                       label: (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <CategoryIcon id={1} size={16} /> Gà rán
-                        </span>
+                          <CategoryIcon id={1} size={16} /> {t("business:catalog.friedChicken")} </span>
                       ),
                     },
                     {
@@ -396,16 +394,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                       value: 4,
                       label: (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <CategoryIcon id={4} size={16} /> Món phụ
-                        </span>
+                          <CategoryIcon id={4} size={16} /> {t("business:catalog.sides")} </span>
                       ),
                     },
                     {
                       value: 5,
                       label: (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <CategoryIcon id={5} size={16} /> Đồ uống
-                        </span>
+                          <CategoryIcon id={5} size={16} /> {t("business:catalog.drinks")} </span>
                       ),
                     },
                   ]}
@@ -414,8 +410,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
               <Form.Item
                 name="basePrice"
-                label="Giá gốc (VNĐ)"
-                rules={[{ required: true, message: 'Nhập giá bán' }]}
+                label={t("business:productform.basePriceVnd")}
+                rules={[{ required: true, message: t("business:productform.enterSellingPrice") }]}
               >
                 <InputNumber<number>
                   style={{ width: '100%', height: 40, borderRadius: 10 }}
@@ -426,46 +422,43 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 />
               </Form.Item>
 
-              <Form.Item name="kcal" label="Năng lượng (Kcal)">
+              <Form.Item name="kcal" label={t("business:productform.energyKcal")}>
                 <InputNumber style={{ width: '100%', height: 40, borderRadius: 10 }} min={0} step={10} />
               </Form.Item>
             </div>
 
-            <Form.Item name="spicyLevel" label="Mức độ cay đặc trưng">
+            <Form.Item name="spicyLevel" label={t("business:productform.spiceLevel")}>
               <Radio.Group>
-                <Radio.Button value={0}>Không cay (0/3)</Radio.Button>
+                <Radio.Button value={0}>{t("business:productform.notSpicy")}</Radio.Button>
                 <Radio.Button value={1}>
-                  <FireOutlined style={{ color: '#D97706' }} /> Cay vừa (1/3)
-                </Radio.Button>
+                  <FireOutlined style={{ color: '#D97706' }} /> {t("business:productform.medium")} </Radio.Button>
                 <Radio.Button value={2}>
-                  <FireOutlined style={{ color: '#B42318' }} /> Cay nồng (2/3)
-                </Radio.Button>
+                  <FireOutlined style={{ color: '#B42318' }} /> {t("business:productform.hot")} </Radio.Button>
                 <Radio.Button value={3}>
-                  <FireOutlined style={{ color: '#8F1216' }} /> Siêu cay (3/3)
-                </Radio.Button>
+                  <FireOutlined style={{ color: '#8F1216' }} /> {t("business:productform.extraHot")} </Radio.Button>
               </Radio.Group>
             </Form.Item>
 
             <Form.Item
               name="description"
-              label="Mô tả hấp dẫn khách hàng"
-              rules={[{ required: true, message: 'Vui lòng nhập mô tả món ăn' }]}
+              label={t("business:productform.customerFacingDescription")}
+              rules={[{ required: true, message: t("business:productform.pleaseEnterADishDescription") }]}
             >
               <Input.TextArea
                 rows={3}
-                placeholder="Mô tả mùi vị, độ giòn và nguyên liệu đặc sắc của món ăn..."
+                placeholder={t("business:productform.describeTheFlavourCrispinessAndDistinctiveIngredients")}
                 style={{ borderRadius: 10 }}
               />
             </Form.Item>
 
-            <Form.Item name="isActive" label="Trạng thái kinh doanh" valuePropName="checked">
-              <Switch checkedChildren="Đang phục vụ" unCheckedChildren="Tạm dừng bán" />
+            <Form.Item name="isActive" label={t("business:productform.salesStatus")} valuePropName="checked">
+              <Switch checkedChildren={t("business:catalog.available")} unCheckedChildren={t("business:catalog.salesPaused")} />
             </Form.Item>
           </Card>
 
           {/* Image Upload */}
           <Card
-            title="2. Hình ảnh món ăn (Media & Cloudinary Preview)"
+            title={t("business:productform.dishImageMediaCloudinaryPreview")}
             style={{ marginBottom: 20, borderRadius: 16, background: '#FFFFFF', border: '1px solid #E8E2D9' }}
           >
             <Upload.Dragger
@@ -485,12 +478,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               <p className="ant-upload-drag-icon">
                 <InboxOutlined style={{ color: '#8F1216', fontSize: 36 }} />
               </p>
-              <p style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 16, color: '#16100D', margin: 0 }}>
-                Kéo thả ảnh món ăn vào đây hoặc nhấp để chọn tệp
-              </p>
-              <p style={{ fontFamily: 'Quicksand, sans-serif', fontSize: 12, color: '#6B6259', margin: '4px 0 0' }}>
-                Hỗ trợ PNG, JPG, WEBP (tối đa 5MB). Tự động nén và tải lên Cloudinary.
-              </p>
+              <p style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 16, color: '#16100D', margin: 0 }}> {t("business:productform.dragAnImageHereOrClickToChooseAFile")} </p>
+              <p style={{ fontFamily: 'Quicksand, sans-serif', fontSize: 12, color: '#6B6259', margin: '4px 0 0' }}> {t("business:productform.pngJpgAndWebpSupportedUpToMbAutomaticallyCompressedAndUploaded")} </p>
             </Upload.Dragger>
 
             {uploading && (
@@ -517,7 +506,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
                 <img
                   src={imageUrl}
-                  alt="Xem trước ảnh món"
+                  alt={t("business:productform.dishImagePreview")}
                   style={{
                     width: 110,
                     height: 110,
@@ -528,12 +517,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   }}
                 />
                 <div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1E7A46' }}>
-                    ✓ Ảnh đã sẵn sàng hiển thị
-                  </span>
-                  <div style={{ fontSize: 12, color: '#6B6259', marginTop: 4 }}>
-                    Được tối ưu cho độ sắc nét cao trên nền Kem Clucky
-                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1E7A46' }}> {t("business:productform.imageReadyToDisplay")} </span>
+                  <div style={{ fontSize: 12, color: '#6B6259', marginTop: 4 }}> {t("business:productform.optimisedForClarityOnTheCluckyCreamBackground")} </div>
                 </div>
               </div>
             )}
@@ -543,15 +528,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <Card
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>3. Quản lý Options (Kích cỡ, Bánh...)</span>
+                <span>{t("business:productform.optionsSizeBread")}</span>
                 <Button
                   size="small"
                   icon={<PlusOutlined />}
                   onClick={addOptionGroup}
                   style={{ borderRadius: 999 }}
-                >
-                  Thêm nhóm Option
-                </Button>
+                > {t("business:productform.addOptionGroup")} </Button>
               </div>
             }
             style={{ marginBottom: 20, borderRadius: 16, background: '#FFFFFF', border: '1px solid #E8E2D9' }}
@@ -569,7 +552,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               >
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
                   <Input
-                    placeholder="Tên nhóm (VD: Kích thước)"
+                    placeholder={t("business:productform.groupNameEGSize")}
                     value={group.name}
                     onChange={(e) => {
                       const updated = [...optionGroups];
@@ -579,8 +562,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     style={{ fontWeight: 700, width: 220 }}
                   />
                   <Switch
-                    checkedChildren="Bắt buộc"
-                    unCheckedChildren="Tùy chọn"
+                    checkedChildren={t("business:productform.required")}
+                    unCheckedChildren={t("business:party.custom")}
                     checked={group.required}
                     onChange={(val) => {
                       const updated = [...optionGroups];
@@ -608,7 +591,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     }}
                   >
                     <Input
-                      placeholder="Tên lựa chọn (VD: Cỡ lớn)"
+                      placeholder={t("business:productform.optionNameEGLarge")}
                       value={choice.name}
                       onChange={(e) => {
                         const updated = [...optionGroups];
@@ -618,7 +601,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                       style={{ width: 220 }}
                     />
                     <InputNumber
-                      placeholder="Giá chênh lệch (+VNĐ)"
+                      placeholder={t("business:productform.priceAdjustmentVnd")}
                       value={choice.priceAdjustment}
                       min={0}
                       step={5000}
@@ -644,9 +627,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   icon={<PlusOutlined />}
                   onClick={() => addOptionChoice(groupIdx)}
                   style={{ marginTop: 6, marginLeft: 12 }}
-                >
-                  Thêm lựa chọn trong nhóm
-                </Button>
+                > {t("business:productform.addOptionToGroup")} </Button>
               </div>
             ))}
           </Card>
@@ -655,10 +636,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <Card
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>4. Quản lý Topping thêm</span>
-                <Button size="small" icon={<PlusOutlined />} onClick={addTopping} style={{ borderRadius: 999 }}>
-                  Thêm Topping
-                </Button>
+                <span>{t("business:productform.extraToppings")}</span>
+                <Button size="small" icon={<PlusOutlined />} onClick={addTopping} style={{ borderRadius: 999 }}> {t("business:productform.addTopping")} </Button>
               </div>
             }
             style={{ borderRadius: 16, background: '#FFFFFF', border: '1px solid #E8E2D9' }}
@@ -666,7 +645,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             {toppings.map((top, idx) => (
               <div key={top.id} style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
                 <Input
-                  placeholder="Tên topping (VD: Sốt phô mai cay)"
+                  placeholder={t("business:productform.toppingNameEGSpicyCheeseSauce")}
                   value={top.name}
                   onChange={(e) => {
                     const updated = [...toppings];
@@ -676,7 +655,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   style={{ flex: 1 }}
                 />
                 <InputNumber
-                  placeholder="Giá thêm (VNĐ)"
+                  placeholder={t("business:productform.additionalPriceVnd")}
                   value={top.price}
                   min={0}
                   step={5000}
@@ -698,17 +677,17 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <Card style={{ borderRadius: 16, background: '#FFFFFF', border: '1px solid #E8E2D9' }}>
             <Form.Item
               name="name"
-              label="Tên Combo ưu đãi"
-              rules={[{ required: true, message: 'Nhập tên combo' }]}
+              label={t("business:productform.promotionalComboName")}
+              rules={[{ required: true, message: t("business:productform.enterComboName") }]}
             >
-              <Input placeholder="Ví dụ: Combo Siêu Tiết Kiệm Clucky" style={{ height: 40 }} />
+              <Input placeholder={t("business:productform.forExampleCluckySuperSaverCombo")} style={{ height: 40 }} />
             </Form.Item>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <Form.Item
                 name="comboPrice"
-                label="Giá bán trọn gói (VNĐ)"
-                rules={[{ required: true, message: 'Nhập giá bán combo' }]}
+                label={t("business:productform.packagePriceVnd")}
+                rules={[{ required: true, message: t("business:productform.enterComboPrice") }]}
               >
                 <InputNumber
                   style={{ width: '100%', height: 40 }}
@@ -717,21 +696,21 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 />
               </Form.Item>
 
-              <Form.Item name="items" label="Các món cấu thành combo">
+              <Form.Item name="items" label={t("business:productform.dishesIncludedInCombo")}>
                 <Select
                   mode="multiple"
-                  placeholder="Chọn các món trong combo"
-                  options={mockProducts.map((p) => ({ value: p.id, label: `${p.name} (${p.basePrice.toLocaleString()}đ)` }))}
+                  placeholder={t("business:productform.selectComboDishes")}
+                  options={mockProducts.map((p) => ({ value: p.id, label: t("business:productform.vnd", { value1: p.name, value2: p.basePrice.toLocaleString(locale === "en" ? "en-US" : "vi-VN") }) }))}
                 />
               </Form.Item>
             </div>
 
             <Form.Item
               name="description"
-              label="Mô tả quyền lợi combo"
-              rules={[{ required: true, message: 'Nhập mô tả combo' }]}
+              label={t("business:productform.comboBenefitsDescription")}
+              rules={[{ required: true, message: t("business:productform.enterComboDescription") }]}
             >
-              <Input.TextArea rows={3} placeholder="Bao gồm: 1 Gà rán + 1 Khoai tây + 1 Nước ngọt..." />
+              <Input.TextArea rows={3} placeholder={t("business:productform.includesFriedChickenFriesSoftDrink")} />
             </Form.Item>
           </Card>
         </Form>

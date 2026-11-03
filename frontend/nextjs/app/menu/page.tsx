@@ -1,4 +1,6 @@
 'use client';
+import { useTranslations } from "next-intl";
+
 
 import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 
 function MenuContent() {
+  const t = useTranslations();
   const searchParams = useSearchParams();
   const initialCategory = Number(searchParams.get('cat')) || 0;
   const storeIdParam = searchParams.get('storeId');
@@ -106,8 +109,7 @@ function MenuContent() {
             letterSpacing: '-0.03em',
           }}
         >
-          Thực đơn Clucky
-        </h1>
+          {t("menu.title")}{" "}</h1>
         <p
           style={{
             fontFamily: 'Quicksand, sans-serif',
@@ -118,8 +120,7 @@ function MenuContent() {
             lineHeight: 1.6,
           }}
         >
-          Chọn món yêu thích của bạn — từ gà rán giòn rụm áp suất, burger brioche thơm lừng, cho tới các combo tiết kiệm trọn gói.
-        </p>
+          {t("menu.description")}{" "}</p>
 
         {storeIdParam && (
           <div
@@ -137,7 +138,7 @@ function MenuContent() {
               color: '#946C00',
             }}
           >
-            <span>📍 Đang xem thực đơn giao hàng từ Chi nhánh #{storeIdParam}</span>
+            <span>{t("menu.storePrefix")}{storeIdParam}</span>
           </div>
         )}
       </div>
@@ -186,7 +187,7 @@ function MenuContent() {
             />
             <input
               type="text"
-              placeholder="Tìm kiếm món ăn, vị cay, thành phần..."
+              placeholder={t("menu.search.placeholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -215,7 +216,7 @@ function MenuContent() {
                   color: '#6B6259',
                   padding: 4,
                 }}
-                aria-label="Xóa từ khóa"
+                aria-label={t("menu.search.clear")}
               >
                 <X size={16} />
               </button>
@@ -226,31 +227,31 @@ function MenuContent() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#6B6259' }}>
               <Flame size={16} className="text-[#8F1216]" />
-              <span>Độ cay:</span>
+              <span>{t("menu.spice.label")}</span>
               <StyledSelect
                 value={spicyFilter}
                 onChange={(v) => setSpicyFilter(v as any)}
-                ariaLabel="Lọc theo độ cay"
+                ariaLabel={t("menu.spice.filter")}
                 options={[
-                  { value: 'ALL', label: 'Tất cả mức cay' },
-                  { value: '0', label: 'Không cay' },
-                  { value: '1', label: 'Cay vừa (Tiêu chuẩn)' },
-                  { value: '2', label: 'Siêu cay' },
+                  { value: 'ALL', label: t("menu.spice.all") },
+                  { value: '0', label: t("menu.spice.none") },
+                  { value: '1', label: t("menu.spice.standard") },
+                  { value: '2', label: t("menu.spice.hot") },
                 ]}
               />
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#6B6259' }}>
               <ArrowUpDown size={16} className="text-[#8F1216]" />
-              <span>Sắp xếp:</span>
+              <span>{t("menu.sort.label")}</span>
               <StyledSelect
                 value={sortOption}
                 onChange={(v) => setSortOption(v as any)}
-                ariaLabel="Sắp xếp món ăn"
+                ariaLabel={t("menu.sort.accessibleLabel")}
                 options={[
-                  { value: 'POPULAR', label: 'Bán chạy nhất' },
-                  { value: 'PRICE_ASC', label: 'Giá tăng dần' },
-                  { value: 'PRICE_DESC', label: 'Giá giảm dần' },
+                  { value: 'POPULAR', label: t("menu.sort.popular") },
+                  { value: 'PRICE_ASC', label: t("menu.sort.priceAscending") },
+                  { value: 'PRICE_DESC', label: t("menu.sort.priceDescending") },
                 ]}
               />
             </div>
@@ -292,7 +293,7 @@ function MenuContent() {
                 }}
               >
                 <CategoryIcon id={cat.id} size={18} active={isActive} />
-                <span>{cat.name}</span>
+                <span>{t(cat.messageKey)}</span>
               </button>
             );
           })}
@@ -303,8 +304,7 @@ function MenuContent() {
       {filteredProducts.length > 0 ? (
         <div>
           <div style={{ marginBottom: 16, fontSize: 13, color: '#6B6259', fontWeight: 600 }}>
-            Hiển thị <strong>{filteredProducts.length}</strong> món ăn thơm ngon phù hợp
-          </div>
+            {t("menu.results.prefix")}{" "}<strong>{filteredProducts.length}</strong> {" "}{t("menu.results.suffix")}{" "}</div>
           <div className="product-grid">
             {filteredProducts.map((product) => (
               <ProductCard key={product.slug} product={product} />
@@ -346,8 +346,7 @@ function MenuContent() {
               margin: '0 0 8px',
             }}
           >
-            Không tìm thấy món ăn phù hợp
-          </h3>
+            {t("menu.empty.title")}{" "}</h3>
           <p
             style={{
               fontFamily: 'Quicksand, sans-serif',
@@ -358,15 +357,13 @@ function MenuContent() {
               lineHeight: 1.6,
             }}
           >
-            Thử tìm kiếm với tên món khác hoặc xóa bộ lọc để khám phá các món gà giòn hấp dẫn khác của Clucky.
-          </p>
+            {t("menu.empty.description")}{" "}</p>
           <button
             onClick={handleResetFilters}
             className="btn-primary"
             style={{ border: 'none', cursor: 'pointer' }}
           >
-            Xem tất cả món ăn
-          </button>
+            {t("menu.empty.reset")}{" "}</button>
         </div>
       )}
     </div>
