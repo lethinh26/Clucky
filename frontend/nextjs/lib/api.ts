@@ -34,8 +34,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (token && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${token}`);
     }
-    if (!headers.has("X-Session-Id")) {
-      headers.set("X-Session-Id", getGuestSessionId());
+    const guestSession = localStorage.getItem("clucky_guest_session_id");
+    if (guestSession) {
+      if (!headers.has("X-Guest-Session-Id")) headers.set("X-Guest-Session-Id", guestSession);
+      if (!headers.has("X-Session-Id")) headers.set("X-Session-Id", guestSession);
+    } else if (!token && !headers.has("X-Session-Id") && (path.startsWith("/api/cart") || path.startsWith("/api/orders"))) {
+      const newSession = getGuestSessionId();
+      if (!headers.has("X-Guest-Session-Id")) headers.set("X-Guest-Session-Id", newSession);
+      if (!headers.has("X-Session-Id")) headers.set("X-Session-Id", newSession);
     }
   }
 
