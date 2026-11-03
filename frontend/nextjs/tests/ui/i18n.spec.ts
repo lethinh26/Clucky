@@ -4,10 +4,12 @@ const customer = "http://127.0.0.1:4174";
 const admin = "http://127.0.0.1:4173";
 
 async function switchLanguage(page: Page, locale: "vi" | "en") {
-  await page.getByRole("combobox", { name: /^(Ngôn ngữ|Language)$/ }).click();
+  const dialog = page.getByRole("dialog");
+  const scope = await dialog.isVisible() ? dialog : page;
+  await scope.getByRole("combobox", { name: /^(Ngôn ngữ|Language)$/ }).click();
   await page.getByRole("option", { name: locale === "vi" ? /^Tiếng Việt/ : /^English/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
-  const selector = page.getByRole("combobox", { name: locale === "en" ? "Language" : "Ngôn ngữ" });
+  const selector = scope.getByRole("combobox", { name: locale === "en" ? "Language" : "Ngôn ngữ" });
   await expect(selector).toHaveAttribute("aria-expanded", "false");
   await expect(selector).toBeEnabled();
 }
@@ -31,19 +33,21 @@ for (const origin of [customer, admin]) {
 
 test("customer language changes preserve unsaved form values and translate existing validation", async ({ page }) => {
   await page.goto(customer + "/account");
-  await page.getByLabel("Họ và tên", { exact: true }).fill("Tên người dùng không dịch");
+  const fullName = page.getByRole("textbox", { name: "Họ và tên", exact: true });
+  await expect(fullName).toHaveCount(1);
+  await fullName.fill("Tên người dùng không dịch");
   await switchLanguage(page, "en");
-  await expect(page.getByLabel("Full name", { exact: true })).toHaveValue("Tên người dùng không dịch");
+  await expect(page.getByRole("textbox", { name: "Full name", exact: true })).toHaveValue("Tên người dùng không dịch");
   await expect(page.getByRole("heading", { name: "Personal details" })).toBeVisible();
   await page.getByRole("button", { name: "Change password", exact: true }).click();
-  await page.getByLabel("Current password", { exact: true }).fill("old-password");
-  await page.getByLabel("New password", { exact: true }).fill("new-password");
-  await page.getByLabel("Confirm new password", { exact: true }).fill("different-password");
+  await page.getByLabel("Current password", { exact: true }).filter({ visible: true }).fill("old-password");
+  await page.getByLabel("New password", { exact: true }).filter({ visible: true }).fill("new-password");
+  await page.getByLabel("Confirm new password", { exact: true }).filter({ visible: true }).fill("different-password");
   await page.getByRole("button", { name: "Change password (demo)", exact: true }).click();
-  await expect(page.locator("main [role=alert]")).toContainText("The passwords do not match.");
+  await expect(page.locator("main [role=alert]").filter({ visible: true })).toContainText("The passwords do not match.");
   await switchLanguage(page, "vi");
-  await expect(page.locator("main [role=alert]")).toContainText("Mật khẩu xác nhận không khớp.");
-  await expect(page.getByLabel("Mật khẩu mới", { exact: true })).toHaveValue("new-password");
+  await expect(page.locator("main [role=alert]").filter({ visible: true })).toContainText("Mật khẩu xác nhận không khớp.");
+  await expect(page.getByLabel("Mật khẩu mới", { exact: true }).filter({ visible: true })).toHaveValue("new-password");
   await switchLanguage(page, "en");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Personal details" })).toBeVisible();
@@ -78,14 +82,16 @@ for (const origin of [customer, admin]) {
   test(`safe API errors retranslate without clearing login fields (${origin})`, async ({ page }) => {
     await page.route("**/api/auth/login", route => route.fulfill({ status: 403, json: { code: "FORBIDDEN", message: "secret SQL diagnostic" } }));
     await page.goto(origin + "/login");
-    await page.getByLabel("Email", { exact: true }).fill("locale@example.com");
-    await page.getByLabel("Mật khẩu", { exact: true }).fill("password123");
+    const email = page.getByRole("textbox", { name: "Email", exact: true });
+    await expect(email).toHaveCount(1);
+    await email.fill("locale@example.com");
+    await page.getByLabel("Mật khẩu", { exact: true }).filter({ visible: true }).fill("password123");
     await page.getByRole("button", { name: /Đăng nhập$/, exact: false }).first().click();
-    await expect(page.locator("main [role=alert]").last()).toContainText("Bạn không có quyền");
+    await expect(page.locator("main [role=alert]").filter({ visible: true }).last()).toContainText("Bạn không có quyền");
     await switchLanguage(page, "en");
-    await expect(page.getByLabel("Email", { exact: true })).toHaveValue("locale@example.com");
-    await expect(page.getByLabel("Password", { exact: true })).toHaveValue("password123");
-    await expect(page.locator("main [role=alert]").last()).toContainText("You do not have permission");
+    await expect(email).toHaveValue("locale@example.com");
+    await expect(page.getByLabel("Password", { exact: true }).filter({ visible: true })).toHaveValue("password123");
+    await expect(page.locator("main [role=alert]").filter({ visible: true }).last()).toContainText("You do not have permission");
     await expect(page.locator("body")).not.toContainText("secret SQL diagnostic");
   });
 }
@@ -94,12 +100,19 @@ test("admin filters and an open form survive language changes", async ({ page })
   await page.goto(admin + "/admin/catalog");
   await page.getByPlaceholder("Tìm kiếm tên món, slug, danh mục...").fill("Gà");
   await page.getByRole("button", { name: "Thêm món ăn mới" }).click();
-  await page.getByLabel("Tên món ăn", { exact: true }).fill("Tên món tự nhập");
-  await page.getByRole("combobox", { name: "Ngôn ngữ" }).focus();
-  await page.keyboard.press("ArrowDown");
-  await page.getByRole("option", { name: "English", exact: true }).click();
-  await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByLabel("Dish name", { exact: true })).toHaveValue("Tên món tự nhập");
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Tên món ăn", exact: true }).fill("Tên món tự nhập");
+  await switchLanguage(page, "en");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Dish name", exact: true })).toHaveValue("Tên món tự nhập");
+  const selector = dialog.getByRole("combobox", { name: "Language" });
+  await selector.focus();
+  await selector.press("ArrowDown");
+  await expect(selector).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(selector).toHaveAttribute("aria-expanded", "false");
+  await expect(dialog).toBeVisible();
   await expect(page.getByPlaceholder("Search dish names, slugs, categories...")).toHaveValue("Gà");
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
   await page.reload();

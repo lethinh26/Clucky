@@ -1,4 +1,5 @@
 import { useLocaleTools } from "../../i18n/hooks";
+import { LanguageSwitcher } from "../../i18n/language-switcher";
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from 'react';
 import {
@@ -239,6 +240,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       onClose={onClose}
       title={initialProduct ? t("business:catalog.editDish") : t("business:productform.addToMenu")}
       subtitle={t("business:productform.managePortionsOptionsAndToppingsToCluckyStandards")}
+      extra={<LanguageSwitcher />}
       width={720}
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
