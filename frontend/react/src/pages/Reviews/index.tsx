@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useState } from 'react';
 import {
   Card,
@@ -167,6 +168,8 @@ export const initialReviews: ReviewItem[] = [
 ];
 
 export const ReviewsPage: React.FC = () => {
+  const { t } = useTranslation();
+
   const { user } = useAuth();
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
   const [searchText, setSearchText] = useState('');
@@ -192,12 +195,12 @@ export const ReviewsPage: React.FC = () => {
     if (!target) return;
 
     if (user.role === 'STAFF') {
-      message.error('Nhân viên không có quyền ẩn đánh giá. Chỉ Manager hoặc Admin mới có quyền.');
+      message.error(t("business:reviews.staffCannotHideReviewsOnlyManagersAndAdminsHaveThisPermission"));
       return;
     }
 
     if (user.role === 'STORE_MANAGER' && user.storeId && target.storeId !== user.storeId) {
-      message.warning('Bạn chỉ có quyền ẩn đánh giá thuộc chi nhánh mình phụ trách.');
+      message.warning(t("business:reviews.youCanOnlyHideReviewsBelongingToYourStore"));
       return;
     }
 
@@ -207,9 +210,9 @@ export const ReviewsPage: React.FC = () => {
     );
 
     if (nextStatus === 'HIDDEN') {
-      message.success('Đã ẩn đánh giá vi phạm khỏi ứng dụng Khách hàng.');
+      message.success(t("business:reviews.theViolatingReviewHasBeenHiddenFromTheCustomerApp"));
     } else {
-      message.success('Đã hiển thị lại đánh giá trên ứng dụng Khách hàng.');
+      message.success(t("business:reviews.theReviewIsVisibleAgainInTheCustomerApp"));
     }
   };
 
@@ -227,7 +230,7 @@ export const ReviewsPage: React.FC = () => {
     const newReply: ReviewReply = {
       id: `rep-${Date.now()}`,
       responderId: String(user.id),
-      responderName: user.fullName || 'Ban Quản trị Clucky',
+      responderName: user.fullName || t("business:reviews.cluckyAdministration"),
       responderRole: user.role,
       content: values.content.trim(),
       createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
@@ -239,7 +242,7 @@ export const ReviewsPage: React.FC = () => {
       )
     );
 
-    message.success('Đã gửi phản hồi tới khách hàng thành công.');
+    message.success(t("business:reviews.replySentToTheCustomerSuccessfully"));
     setReplyModalVisible(false);
   };
 
@@ -288,7 +291,7 @@ export const ReviewsPage: React.FC = () => {
 
   const columns: TableColumnsType<ReviewItem> = [
     {
-      title: 'Khách hàng & Đơn',
+      title: t("business:reviews.customerOrder"),
       key: 'customer',
       width: 220,
       render: (_, r) => (
@@ -306,8 +309,7 @@ export const ReviewsPage: React.FC = () => {
             <Text strong style={{ color: '#16100D', display: 'block' }}>
               {r.customerName}
             </Text>
-            <Text type="secondary" style={{ fontSize: 12, color: '#6B6259' }}>
-              Đơn hàng: <span style={{ fontWeight: 600, color: '#8F1216' }}>{r.orderCode}</span>
+            <Text type="secondary" style={{ fontSize: 12, color: '#6B6259' }}> {t("business:reviews.order")} <span style={{ fontWeight: 600, color: '#8F1216' }}>{r.orderCode}</span>
             </Text>
             <div style={{ fontSize: 11, color: '#8c8c8c' }}>{r.createdAt}</div>
           </div>
@@ -315,7 +317,7 @@ export const ReviewsPage: React.FC = () => {
       ),
     },
     {
-      title: 'Món ăn & Chi nhánh',
+      title: t("business:reviews.dishStore"),
       key: 'product',
       width: 230,
       render: (_, r) => (
@@ -331,7 +333,7 @@ export const ReviewsPage: React.FC = () => {
       ),
     },
     {
-      title: 'Đánh giá & Bình luận',
+      title: t("business:reviews.ratingComment"),
       key: 'ratingComment',
       render: (_, r) => (
         <div>
@@ -347,7 +349,7 @@ export const ReviewsPage: React.FC = () => {
             </Text>
           </Space>
           <Paragraph
-            ellipsis={{ rows: 2, expandable: true, symbol: 'Xem thêm' }}
+            ellipsis={{ rows: 2, expandable: true, symbol: t("business:reviews.showMore") }}
             style={{ margin: 0, color: '#16100D', fontSize: 13 }}
           >
             {r.comment}
@@ -364,8 +366,7 @@ export const ReviewsPage: React.FC = () => {
                 borderLeft: '3px solid #8F1216',
               }}
             >
-              <Text strong style={{ fontSize: 11, color: '#8F1216' }}>
-                Phản hồi từ {r.replies[0].responderName}:
+              <Text strong style={{ fontSize: 11, color: '#8F1216' }}> {t("business:reviews.replyFrom")} {r.replies[0].responderName}:
               </Text>
               <div style={{ fontSize: 12, color: '#16100D' }}>{r.replies[0].content}</div>
             </div>
@@ -374,7 +375,7 @@ export const ReviewsPage: React.FC = () => {
       ),
     },
     {
-      title: 'Trạng thái',
+      title: t("business:catalog.status"),
       key: 'status',
       width: 140,
       align: 'center',
@@ -390,9 +391,7 @@ export const ReviewsPage: React.FC = () => {
                 fontWeight: 600,
                 borderRadius: 8,
               }}
-            >
-              Hiển thị
-            </Tag>
+            > {t("business:reports.showing")} </Tag>
           ) : (
             <Tag
               bordered={false}
@@ -403,32 +402,28 @@ export const ReviewsPage: React.FC = () => {
                 fontWeight: 600,
                 borderRadius: 8,
               }}
-            >
-              Đã ẩn vi phạm
-            </Tag>
+            > {t("business:reviews.hiddenForViolation")} </Tag>
           )}
 
           {r.replies.length > 0 ? (
             <Text type="secondary" style={{ fontSize: 11, color: '#1E7A46' }}>
-              <CheckCircleOutlined /> Đã phản hồi
-            </Text>
+              <CheckCircleOutlined /> {t("business:reviews.replied")} </Text>
           ) : (
             <Text type="secondary" style={{ fontSize: 11, color: '#D97706' }}>
-              <ClockCircleOutlined /> Chờ phản hồi
-            </Text>
+              <ClockCircleOutlined /> {t("business:reviews.awaitingReply")} </Text>
           )}
         </Space>
       ),
     },
     {
-      title: 'Thao tác',
+      title: t("business:catalog.actions"),
       key: 'actions',
       width: 170,
       align: 'center',
       render: (_, r) => (
         <Space size={8}>
           {/* Nút phản hồi (Reply Form) */}
-          <Tooltip title="Phản hồi ý kiến khách hàng">
+          <Tooltip title={t("business:reviews.replyToCustomerFeedback")}>
             <Button
               size="small"
               icon={<MessageOutlined />}
@@ -439,9 +434,7 @@ export const ReviewsPage: React.FC = () => {
                 fontWeight: 600,
                 borderRadius: 8,
               }}
-            >
-              Phản hồi
-            </Button>
+            > {t("business:reviews.reply")} </Button>
           </Tooltip>
 
           {/* Nút Ẩn / Hiện (Hide Button) */}
@@ -449,27 +442,27 @@ export const ReviewsPage: React.FC = () => {
             <Popconfirm
               title={
                 r.status === 'VISIBLE'
-                  ? 'Ẩn đánh giá vi phạm này?'
-                  : 'Bỏ ẩn và công khai lại đánh giá này?'
+                  ? t("business:reviews.hideThisViolatingReview")
+                  : t("business:reviews.unhideAndRepublishThisReview")
               }
               description={
                 r.status === 'VISIBLE'
-                  ? 'Đánh giá sẽ không còn xuất hiện trên trang chi tiết món của khách hàng.'
-                  : 'Đánh giá sẽ được hiển thị công khai bình thường.'
+                  ? t("business:reviews.theReviewWillNoLongerAppearOnTheCustomerDishDetailsPage")
+                  : t("business:reviews.theReviewWillBePubliclyVisibleAgain")
               }
               onConfirm={() => handleToggleHide(r.id)}
-              okText={r.status === 'VISIBLE' ? 'Ẩn ngay' : 'Công khai'}
-              cancelText="Hủy"
+              okText={r.status === 'VISIBLE' ? t("business:reviews.hideNow") : t("business:reviews.publish")}
+              cancelText={t("business:account.cancel")}
               okButtonProps={{ danger: r.status === 'VISIBLE' }}
             >
-              <Tooltip title={r.status === 'VISIBLE' ? 'Ẩn đánh giá' : 'Bỏ ẩn'}>
+              <Tooltip title={r.status === 'VISIBLE' ? t("business:reviews.hideReview") : t("business:reviews.unhide")}>
                 <Button
                   size="small"
                   danger={r.status === 'VISIBLE'}
                   icon={r.status === 'VISIBLE' ? <EyeInvisibleOutlined /> : <EyeOutlined />}
                   style={{ borderRadius: 8 }}
                 >
-                  {r.status === 'VISIBLE' ? 'Ẩn' : 'Hiện'}
+                  {r.status === 'VISIBLE' ? t("business:reviews.hide") : t("business:reviews.show")}
                 </Button>
               </Tooltip>
             </Popconfirm>
@@ -483,8 +476,8 @@ export const ReviewsPage: React.FC = () => {
     <div className="reviews-page">
       <PageIntro
         eyebrow="Review & Report"
-        title="Quản lý Đánh giá & Phản hồi"
-        description="Xem ý kiến khách hàng về món ăn sau khi hoàn thành đơn, phản hồi chăm sóc và kiểm duyệt nội dung vi phạm."
+        title={t("business:reviews.reviewsRepliesManagement")}
+        description={t("business:reviews.readCustomerFeedbackAfterCompletedOrdersProvideSupportAndModerateViolatingContent")}
       />
 
       {/* Thống kê nhanh */}
@@ -492,9 +485,9 @@ export const ReviewsPage: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
             <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>Tổng lượt đánh giá</span>}
+              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reviews.totalReviews")}</span>}
               value={totalReviews}
-              suffix="lượt"
+              suffix={t("business:reviews.reviews")}
               valueStyle={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
             />
           </Card>
@@ -502,7 +495,7 @@ export const ReviewsPage: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
             <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>Điểm trung bình</span>}
+              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reviews.averageRating")}</span>}
               value={avgRating}
               prefix={<StarFilled style={{ color: '#C9A227', fontSize: 20, marginRight: 4 }} />}
               suffix="/ 5.0"
@@ -513,9 +506,9 @@ export const ReviewsPage: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
             <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>Cần phản hồi ngay</span>}
+              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reviews.needsAReply")}</span>}
               value={unrepliedCount}
-              suffix="đánh giá"
+              suffix={t("business:reviews.reviews")}
               valueStyle={{ color: '#D97706', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
             />
           </Card>
@@ -523,9 +516,9 @@ export const ReviewsPage: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
             <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>Đã ẩn vi phạm</span>}
+              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reviews.hiddenForViolation")}</span>}
               value={hiddenCount}
-              suffix="nội dung"
+              suffix={t("business:reviews.entries")}
               valueStyle={{ color: '#B42318', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
             />
           </Card>
@@ -544,7 +537,7 @@ export const ReviewsPage: React.FC = () => {
         <Row gutter={[16, 12]} align="middle">
           <Col xs={24} md={8}>
             <Input
-              placeholder="Tìm theo khách hàng, món ăn, mã đơn, nội dung..."
+              placeholder={t("business:reviews.searchCustomersDishesOrderCodesComments")}
               prefix={<SearchOutlined style={{ color: '#8F1216' }} />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
@@ -558,7 +551,7 @@ export const ReviewsPage: React.FC = () => {
               onChange={(val) => setRatingFilter(val)}
               style={{ width: '100%', height: 40 }}
               options={[
-                { value: 'ALL', label: 'Tất cả sao' },
+                { value: 'ALL', label: t("business:reviews.allRatings") },
                 { value: 5, label: '5 sao ⭐⭐⭐⭐⭐' },
                 { value: 4, label: '4 sao ⭐⭐⭐⭐' },
                 { value: 3, label: '3 sao ⭐⭐⭐' },
@@ -573,9 +566,9 @@ export const ReviewsPage: React.FC = () => {
               onChange={(val) => setReplyFilter(val)}
               style={{ width: '100%', height: 40 }}
               options={[
-                { value: 'ALL', label: 'Tất cả phản hồi' },
-                { value: 'UNREPLIED', label: 'Chưa phản hồi' },
-                { value: 'REPLIED', label: 'Đã phản hồi' },
+                { value: 'ALL', label: t("business:reviews.allReplies") },
+                { value: 'UNREPLIED', label: t("business:reviews.notReplied") },
+                { value: 'REPLIED', label: t("business:reviews.replied") },
               ]}
             />
           </Col>
@@ -585,9 +578,9 @@ export const ReviewsPage: React.FC = () => {
               onChange={(val) => setStatusFilter(val)}
               style={{ width: '100%', height: 40 }}
               options={[
-                { value: 'ALL', label: 'Mọi trạng thái' },
-                { value: 'VISIBLE', label: 'Đang hiển thị' },
-                { value: 'HIDDEN', label: 'Đã ẩn vi phạm' },
+                { value: 'ALL', label: t("business:reviews.anyStatus") },
+                { value: 'VISIBLE', label: t("business:reviews.visible") },
+                { value: 'HIDDEN', label: t("business:reviews.hiddenForViolation") },
               ]}
             />
           </Col>
@@ -597,7 +590,7 @@ export const ReviewsPage: React.FC = () => {
               onChange={(val) => setStoreFilter(val)}
               style={{ width: '100%', height: 40 }}
               options={[
-                { value: 'ALL', label: 'Mọi chi nhánh' },
+                { value: 'ALL', label: t("business:reviews.anyStore") },
                 { value: 1, label: 'Nguyễn Trãi' },
                 { value: 2, label: 'Phan Văn Trị' },
                 { value: 3, label: 'Lê Văn Việt' },
@@ -619,17 +612,15 @@ export const ReviewsPage: React.FC = () => {
           columns={columns}
           dataSource={filteredReviews}
           rowKey="id"
-          pagination={{ pageSize: 6, showTotal: (t) => `Tổng cộng ${t} đánh giá` }}
-          locale={{ emptyText: <Empty description="Không có đánh giá nào phù hợp với bộ lọc." /> }}
+          pagination={{ pageSize: 6, showTotal: (total) => t("business:reviews.reviewsInTotal", { value1: total }) }}
+          locale={{ emptyText: <Empty description={t("business:reviews.noReviewsMatchTheFilters")} /> }}
         />
       </Card>
 
       {/* Modal Trả lời Đánh giá (Reply Form) */}
       <Modal
         title={
-          <span style={{ fontFamily: 'Fredoka, sans-serif', color: '#16100D', fontSize: 18 }}>
-            Phản hồi Đánh giá của Khách hàng
-          </span>
+          <span style={{ fontFamily: 'Fredoka, sans-serif', color: '#16100D', fontSize: 18 }}> {t("business:reviews.replyToCustomerReview")} </span>
         }
         open={replyModalVisible}
         onCancel={() => setReplyModalVisible(false)}
@@ -657,8 +648,7 @@ export const ReviewsPage: React.FC = () => {
                   style={{ color: '#C9A227' }}
                 />
               </Flex>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                Món: <span style={{ fontWeight: 600 }}>{currentReview.productName}</span> ({currentReview.orderCode})
+              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}> {t("business:reviews.dish")} <span style={{ fontWeight: 600 }}>{currentReview.productName}</span> ({currentReview.orderCode})
               </Text>
               <Paragraph style={{ margin: 0, fontStyle: 'italic', color: '#16100D' }}>
                 "{currentReview.comment}"
@@ -668,9 +658,7 @@ export const ReviewsPage: React.FC = () => {
             {/* Lịch sử các phản hồi trước */}
             {currentReview.replies.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <Text strong style={{ fontSize: 13, color: '#6B6259' }}>
-                  Các phản hồi trước đó:
-                </Text>
+                <Text strong style={{ fontSize: 13, color: '#6B6259' }}> {t("business:reviews.previousReplies")} </Text>
                 {currentReview.replies.map((rep) => (
                   <div
                     key={rep.id}
@@ -699,15 +687,15 @@ export const ReviewsPage: React.FC = () => {
             <Form form={replyForm} layout="vertical" onFinish={handleSendReply}>
               <Form.Item
                 name="content"
-                label={<Text strong>Nội dung phản hồi mới</Text>}
+                label={<Text strong>{t("business:reviews.newReply")}</Text>}
                 rules={[
-                  { required: true, message: 'Vui lòng nhập nội dung phản hồi.' },
-                  { min: 5, message: 'Nội dung phản hồi tối thiểu 5 ký tự.' },
+                  { required: true, message: t("business:reviews.pleaseEnterAReply") },
+                  { min: 5, message: t("business:reviews.repliesMustContainAtLeastCharacters") },
                 ]}
               >
                 <TextArea
                   rows={4}
-                  placeholder="Gửi lời cảm ơn, giải thích hoặc đưa ra hướng giải quyết chuyên nghiệp cho khách hàng..."
+                  placeholder={t("business:reviews.thankTheCustomerExplainTheSituationOrOfferAProfessionalSolution")}
                   maxLength={500}
                   showCount
                   style={{ borderRadius: 10 }}
@@ -715,9 +703,7 @@ export const ReviewsPage: React.FC = () => {
               </Form.Item>
 
               <Flex justify="end" gap={10}>
-                <Button onClick={() => setReplyModalVisible(false)} style={{ borderRadius: 8 }}>
-                  Hủy
-                </Button>
+                <Button onClick={() => setReplyModalVisible(false)} style={{ borderRadius: 8 }}> {t("business:account.cancel")} </Button>
                 <Button
                   type="primary"
                   htmlType="submit"
@@ -727,9 +713,7 @@ export const ReviewsPage: React.FC = () => {
                     fontWeight: 700,
                     borderRadius: 8,
                   }}
-                >
-                  Gửi phản hồi
-                </Button>
+                > {t("business:reviews.sendReply")} </Button>
               </Flex>
             </Form>
           </div>

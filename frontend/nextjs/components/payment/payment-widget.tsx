@@ -1,8 +1,10 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import { useEffect, useState } from "react";
 import { CircleAlert, Clock, Copy, QrCode, RefreshCw } from "lucide-react";
-import { formatPrice } from "@/lib/products";
 import { buildVietQrUrl, transferReference, type BankInfo } from "@/lib/vietqr";
 import { PaymentStatusBadge, type PaymentStatus } from "./payment-status-badge";
 import styles from "./payment-shared.module.css";
@@ -40,6 +42,9 @@ export function PaymentWidget({
   embedded = false,
   className = "",
 }: PaymentWidgetProps) {
+  const t = useTranslations();
+
+  const { money: formatPrice } = useLocaleTools();
   const expiresMs =
     expiresAt == null
       ? null
@@ -103,10 +108,10 @@ export function PaymentWidget({
   async function copyValue(value: string, label: string) {
     try {
       await navigator.clipboard.writeText(value);
-      setCopyFeedback(`Đã sao chép ${label}.`);
+      setCopyFeedback(t("business.paymentwidget.copied", { value1: label }));
     } catch {
       setCopyFeedback(
-        "Không thể sao chép tự động. Bạn có thể chọn và sao chép thông tin bên dưới.",
+        t("business.paymentwidget.unableToCopyAutomaticallySelectAndCopyTheDetailsBelow"),
       );
     }
   }
@@ -121,8 +126,8 @@ export function PaymentWidget({
             <QrCode size={22} aria-hidden="true" />
           </span>
           <div>
-            <span className={styles.eyebrow}>Thanh toán đơn hàng</span>
-            <h3 className={styles.qrTitle}>Chuyển khoản VietQR</h3>
+            <span className={styles.eyebrow}>{t("business.id.payForOrder")}</span>
+            <h3 className={styles.qrTitle}>{t("business.paymentwidget.vietqrBankTransfer")}</h3>
           </div>
           <PaymentStatusBadge status={shownStatus} />
         </div>
@@ -131,58 +136,44 @@ export function PaymentWidget({
       <div className={styles.amountSummary}>
         <span>
           {status === "PENDING" && !expired
-            ? "Số tiền cần thanh toán"
-            : "Giá trị giao dịch"}
+            ? t("business.id.amountDue")
+            : t("business.paymentwidget.transactionAmount")}
         </span>
         <strong>
-          {validAmount ? formatPrice(amount) : "Chưa có số tiền hợp lệ"}
+          {validAmount ? formatPrice(amount) : t("business.paymentwidget.noValidAmountAvailable")}
         </strong>
-        <span>
-          Đơn hàng <b>{orderCode || "Chưa có mã đơn"}</b>
+        <span> {t("business.paymentwidget.order")} <b>{orderCode || t("business.paymentwidget.noOrderCodeAvailable")}</b>
         </span>
       </div>
 
       {demo && (
-        <p className={styles.demoNotice}>
-          QR dùng tài khoản mẫu để xem giao diện. Không chuyển tiền.
-        </p>
+        <p className={styles.demoNotice}> {t("business.paymentwidget.thisQrUsesASampleAccountForUiPreviewDoNotSend")} </p>
       )}
 
       {expired ? (
         <div className={styles.qrNotice} role="status">
           <Clock size={28} aria-hidden="true" />
-          <strong>Mã QR đã hết hạn</strong>
-          <p>
-            Không chuyển khoản bằng mã đã hết hạn. Kiểm tra trạng thái đơn trước
-            khi thanh toán lại.
-          </p>
+          <strong>{t("business.paymentwidget.qrCodeExpired")}</strong>
+          <p> {t("business.paymentwidget.doNotTransferUsingAnExpiredCodeCheckTheOrderStatusBefore")} </p>
         </div>
       ) : status !== "PENDING" ? (
         <div className={styles.qrNotice}>
           <PaymentStatusBadge status={status} />
-          <p>
-            Mã QR không khả dụng ở trạng thái này. Kiểm tra thông tin thanh toán
-            của đơn hàng trước khi chuyển tiền.
-          </p>
+          <p> {t("business.paymentwidget.theQrCodeIsUnavailableInThisStateCheckTheOrderPayment")} </p>
         </div>
       ) : unavailable ? (
         <div className={styles.qrNotice} role="status">
           <CircleAlert size={28} aria-hidden="true" />
-          <strong>Chưa có thông tin thanh toán.</strong>
-          <p>
-            Thông tin chuyển khoản chưa đầy đủ hoặc không hợp lệ. Vui lòng thử
-            lại sau.
-          </p>
+          <strong>{t("business.paymentwidget.noPaymentDetailsAvailable")}</strong>
+          <p> {t("business.paymentwidget.theTransferDetailsAreIncompleteOrInvalidPleaseTryAgainLater")} </p>
         </div>
       ) : checkingExpiry ? (
-        <div className={styles.qrNotice} role="status">
-          Đang kiểm tra thời hạn thanh toán…
-        </div>
+        <div className={styles.qrNotice} role="status"> {t("business.paymentwidget.checkingPaymentExpiry")} </div>
       ) : failedSrc === imageUrl ? (
         <div className={styles.qrNotice} role="alert">
           <CircleAlert size={28} aria-hidden="true" />
-          <strong>Không tải được mã QR.</strong>
-          <p>Kiểm tra kết nối và tải lại mã thanh toán.</p>
+          <strong>{t("business.paymentwidget.unableToLoadTheQrCode")}</strong>
+          <p>{t("business.paymentwidget.checkYourConnectionAndReloadThePaymentCode")}</p>
           <button
             type="button"
             className={styles.retryButton}
@@ -191,8 +182,7 @@ export function PaymentWidget({
               setFailedSrc(null);
             }}
           >
-            <RefreshCw size={16} aria-hidden="true" /> Thử lại
-          </button>
+            <RefreshCw size={16} aria-hidden="true" /> {t("business.paymentwidget.tryAgain")} </button>
         </div>
       ) : (
         imageUrl && (
@@ -201,14 +191,12 @@ export function PaymentWidget({
             aria-busy={loadedSrc !== imageUrl}
           >
             {loadedSrc !== imageUrl && (
-              <span className={styles.qrLoading} role="status">
-                Đang tải QR…
-              </span>
+              <span className={styles.qrLoading} role="status"> {t("business.paymentwidget.loadingQr")} </span>
             )}
             <img
               key={imageUrl}
               src={imageUrl}
-              alt={`VietQR thanh toán đơn ${orderCode}`}
+              alt={t("business.paymentwidget.vietqrPaymentForOrder", { value1: orderCode })}
               className={`${styles.qrImage} ${loadedSrc !== imageUrl ? styles.qrImageLoading : ""}`}
               width={240}
               height={240}
@@ -221,7 +209,7 @@ export function PaymentWidget({
 
       {canTransfer && remaining != null && (
         <p className={styles.qrTimer}>
-          <Clock size={15} aria-hidden="true" /> Hết hạn sau{" "}
+          <Clock size={15} aria-hidden="true" /> {t("business.paymentwidget.expiresIn")}{" "}
           {formatRemaining(remaining)}
         </p>
       )}
@@ -230,19 +218,19 @@ export function PaymentWidget({
         <>
           <dl className={styles.bankDetails}>
             <div className={styles.bankRow}>
-              <dt>Ngân hàng</dt>
+              <dt>{t("business.paymentwidget.bank")}</dt>
               <dd>{bankInfo.bankName || bankInfo.bankCode}</dd>
             </div>
             <div className={styles.bankRow}>
-              <dt>Số tài khoản</dt>
+              <dt>{t("business.paymentwidget.accountNumber")}</dt>
               <dd>
                 {bankInfo.accountNo.trim()}
                 <button
                   type="button"
                   className={styles.copyButton}
-                  aria-label="Sao chép số tài khoản"
+                  aria-label={t("business.paymentwidget.copyAccountNumber")}
                   onClick={() =>
-                    copyValue(bankInfo.accountNo.trim(), "số tài khoản")
+                    copyValue(bankInfo.accountNo.trim(), t("business.paymentwidget.accountNumberLabel"))
                   }
                 >
                   <Copy size={15} aria-hidden="true" />
@@ -250,18 +238,18 @@ export function PaymentWidget({
               </dd>
             </div>
             <div className={styles.bankRow}>
-              <dt>Chủ tài khoản</dt>
+              <dt>{t("business.paymentwidget.accountHolder")}</dt>
               <dd>{bankInfo.accountName}</dd>
             </div>
             <div className={styles.bankRow}>
-              <dt>Nội dung</dt>
+              <dt>{t("business.paymentwidget.description")}</dt>
               <dd className={styles.bankAmount}>
                 {reference}
                 <button
                   type="button"
                   className={styles.copyButton}
-                  aria-label="Sao chép nội dung chuyển khoản"
-                  onClick={() => copyValue(reference, "nội dung chuyển khoản")}
+                  aria-label={t("business.paymentwidget.copyTransferReference")}
+                  onClick={() => copyValue(reference, t("business.paymentwidget.transferReference"))}
                 >
                   <Copy size={15} aria-hidden="true" />
                 </button>
@@ -271,10 +259,7 @@ export function PaymentWidget({
           <p className={styles.copyFeedback} role="status">
             {copyFeedback}
           </p>
-          <p className={styles.paymentNote}>
-            Quét bằng ứng dụng ngân hàng hỗ trợ VietQR. Giữ đúng số tiền và nội
-            dung chuyển khoản để hệ thống đối chiếu thanh toán.
-          </p>
+          <p className={styles.paymentNote}> {t("business.paymentwidget.scanWithAVietqrCompatibleBankingAppKeepTheAmountAndTransfer")} </p>
         </>
       )}
     </div>

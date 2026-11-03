@@ -1,10 +1,18 @@
+"use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 import { FoodImage } from "@/components/order/food-image";
 import Link from "@/components/ui-loader/navigation-link";
 import Image from "next/image";
-import { formatPrice, type Product } from "@/lib/products";
+import { categories, type Product } from "@/lib/products";
 import { Plus, Flame, Star } from "lucide-react";
 
 export function ProductCard({ product }: { product: Product }) {
+  const t = useTranslations();
+  const { money: formatPrice } = useLocaleTools();
+  const categoryName = product.categoryName || product.category || "";
+  const categoryKey = categories.find(category => category.name === categoryName)?.messageKey;
   const isSoldOut = product.isSoldOut || !product.isAvailable;
 
   return (
@@ -12,7 +20,7 @@ export function ProductCard({ product }: { product: Product }) {
       <Link
         href={`/menu/${product.slug}`}
         className="product-card-media"
-        aria-label={`Xem chi tiết ${product.name}`}
+        aria-label={t("menu.product.view", { name: product.name })}
       >
         <FoodImage
           src={product.imageUrl || product.image}
@@ -26,7 +34,7 @@ export function ProductCard({ product }: { product: Product }) {
           </span>
         )}
 
-        {isSoldOut && <span className="badge-sold-out">Tạm hết hôm nay</span>}
+        {isSoldOut && <span className="badge-sold-out">{t("menu.product.soldOut")}</span>}
       </Link>
 
       <div className="product-card-body">
@@ -38,7 +46,7 @@ export function ProductCard({ product }: { product: Product }) {
           }}
         >
           <span className="card-tag">
-            {product.categoryName || (product as any).category}
+            {categoryKey ? t(categoryKey) : categoryName}
           </span>
           {product.spicyLevel > 0 && (
             <span
@@ -52,7 +60,7 @@ export function ProductCard({ product }: { product: Product }) {
               }}
             >
               <Flame size={13} />
-              {product.spicyLevel >= 2 ? "Siêu cay" : "Cay vừa"}
+              {t(product.spicyLevel >= 2 ? "menu.spice.hot" : "menu.spice.medium")}
             </span>
           )}
         </div>
@@ -70,7 +78,7 @@ export function ProductCard({ product }: { product: Product }) {
           <Link
             className="add-button"
             href={`/menu/${product.slug}`}
-            aria-label={`Xem và chọn món ${product.name}`}
+            aria-label={t("menu.product.customise", { name: product.name })}
           >
             <Plus size={20} />
           </Link>

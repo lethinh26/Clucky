@@ -1,0 +1,49 @@
+{
+  "categories": {
+    "label": "Danh mục món ăn",
+    "all": "Tất cả",
+    "chicken": "Gà rán",
+    "sides": "Món phụ",
+    "drinks": "Đồ uống",
+    "burger": "Burger",
+    "combo": "Combo"
+  },
+  "title": "Thực đơn Clucky",
+  "description": "Chọn món yêu thích của bạn — từ gà rán giòn rụm áp suất, burger brioche thơm lừng, cho tới các combo tiết kiệm trọn gói.",
+  "storePrefix": "📍 Đang xem thực đơn giao hàng từ Chi nhánh #",
+  "search": {
+    "placeholder": "Tìm kiếm món ăn, vị cay, thành phần...",
+    "clear": "Xóa từ khóa"
+  },
+  "spice": {
+    "label": "Độ cay:",
+    "filter": "Lọc theo độ cay",
+    "all": "Tất cả mức cay",
+    "none": "Không cay",
+    "standard": "Cay vừa (Tiêu chuẩn)",
+    "hot": "Siêu cay",
+    "medium": "Cay vừa"
+  },
+  "sort": {
+    "label": "Sắp xếp:",
+    "accessibleLabel": "Sắp xếp món ăn",
+    "popular": "Bán chạy nhất",
+    "priceAscending": "Giá tăng dần",
+    "priceDescending": "Giá giảm dần"
+  },
+  "results": {
+    "prefix": "Hiển thị",
+    "suffix": "món ăn thơm ngon phù hợp"
+  },
+  "empty": {
+    "title": "Không tìm thấy món ăn phù hợp",
+    "description": "Thử tìm kiếm với tên món khác hoặc xóa bộ lọc để khám phá các món gà giòn hấp dẫn khác của Clucky.",
+    "reset": "Xem tất cả món ăn"
+  },
+  "product": {
+    "soldOut": "Tạm hết hôm nay",
+    "view": "Xem chi tiết {name}",
+    "customise": "Xem và chọn món {name}"
+  },
+  "categoryIcon": "Biểu tượng {name}"
+}

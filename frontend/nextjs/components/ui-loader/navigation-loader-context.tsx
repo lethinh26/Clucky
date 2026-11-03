@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   createContext,
   useContext,
@@ -95,21 +96,21 @@ export function NavigationContent({ children }: { children: ReactNode }) {
   const pending = useNavigationPending();
   return (
     <LoadingSurface pending={pending} className={styles.siteMainContent}>
-      {children}
+      <Suspense fallback={<NavigationFallback />}>{children}</Suspense>
     </LoadingSurface>
   );
 }
 
 export function NavigationFallback() {
+  const t = useTranslations();
+
   useNavigationTask(true);
   const [hydrated, setHydrated] = useState(false);
   useLayoutEffect(() => setHydrated(true), []);
   return (
     <div className={styles.fallback} data-route-loading="">
       {!hydrated && (
-        <p role="status" className={styles.serverFallback}>
-          Đang chuẩn bị trang…
-        </p>
+        <p role="status" className={styles.serverFallback}> {t("business.navigationloadercontext.preparingPage")} </p>
       )}
     </div>
   );

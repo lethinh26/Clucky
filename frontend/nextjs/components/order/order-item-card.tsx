@@ -1,5 +1,8 @@
+"use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 import React from "react";
-import { formatPrice } from "@/lib/products";
 import { CartItemOption, CartItemTopping } from "@/lib/types/order";
 import { FoodImage } from "@/components/order/food-image";
 import styles from "./order-shared.module.css";
@@ -29,6 +32,9 @@ export function OrderItemCard({
   note,
   actions,
 }: OrderItemCardProps) {
+  const t = useTranslations();
+
+  const { money: formatPrice } = useLocaleTools();
   return (
     <article className={styles.itemCard}>
       <FoodImage src={image} alt={name} className={styles.itemImage} />
@@ -36,8 +42,7 @@ export function OrderItemCard({
         {category && <span className={styles.itemTag}>{category}</span>}
         <h3 className={styles.itemName}>{name}</h3>
         <p className={styles.itemMeta}>
-          {formatPrice(unitPrice)} × {quantity} phần
-        </p>
+          {formatPrice(unitPrice)} × {quantity} {t("business.cart.servings")} </p>
 
         {(options.length > 0 || toppings.length > 0) && (
           <div className={styles.itemAddons}>
@@ -55,7 +60,7 @@ export function OrderItemCard({
           </div>
         )}
 
-        {note && <p className={styles.itemNote}>Ghi chú: {note}</p>}
+        {note && <p className={styles.itemNote}>{t("business.orderitemcard.note")} {note}</p>}
       </div>
 
       <div className={styles.itemPriceCol}>

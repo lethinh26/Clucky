@@ -229,7 +229,7 @@
     gap: 9px;
   }
   .register,
-  .login svg {
+  .login {
     display: none;
   }
   .login {
@@ -249,5 +249,10 @@
   .mobileNav:not([hidden]) {
     padding: 16px;
     max-height: calc(100dvh - 100px);
+  }
+}
+@media (max-width: 360px) {
+  .brand > span {
+    display: none;
   }
 }

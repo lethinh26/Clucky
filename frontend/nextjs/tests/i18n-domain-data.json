@@ -1,0 +1,23 @@
+{
+  "reason": "Domain data and original sample content: names, addresses, product options, customer reviews and category identifiers. Do not add UI copy here to bypass translation.",
+  "files": {
+    "app/account/page.tsx": [
+      "Khách hàng Clucky"
+    ],
+    "app/checkout/page.tsx": [
+      "Nguyễn Văn A"
+    ],
+    "app/party/page.tsx": [
+      "Tiệc Sinh Nhật Vui Vẻ",
+      "Phù hợp 10-15 người: 30 miếng gà giòn, 4 khoai lắc, nước ngọt thỏa thích.",
+      "Tiệc Công Ty & Hội Nghị",
+      "Phù hợp 20-30 người: 60 miếng gà giòn + sốt cay mật ong, 10 burger mini."
+    ],
+    "components/category-icon.tsx": [
+      "tất cả",
+      "gà rán",
+      "món phụ",
+      "đồ uống"
+    ]
+  }
+}

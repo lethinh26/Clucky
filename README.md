@@ -1,6 +1,8 @@
 # Clucky scaffold
 
-Bộ khung gồm Next.js Customer, React Admin, Config Server, Eureka Discovery Server, API Gateway và 8 microservice.
+Bộ khung gồm Next.js Customer, React Admin, Config Server, Eureka Discovery Server, API Gateway, 8 business service và base Audit Service độc lập.
+
+Log kỹ thuật, cách chạy self-check và giới hạn của Audit base: [docs/observability.md](docs/observability.md). Audit hiện có API đọc/phân quyền; producer/consumer ghi thay đổi quản trị chưa được nối.
 
 ## Bắt đầu
 

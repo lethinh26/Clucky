@@ -1,5 +1,8 @@
+"use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 import React from "react";
-import { formatPrice } from "@/lib/products";
 import styles from "./order-shared.module.css";
 
 interface OrderSummaryCardProps {
@@ -16,7 +19,7 @@ interface OrderSummaryCardProps {
 }
 
 export function OrderSummaryCard({
-  title = "Tóm tắt đơn hàng",
+  title: titleProp,
   subtotal,
   discountAmount = 0,
   voucherCode,
@@ -27,6 +30,10 @@ export function OrderSummaryCard({
   children,
   embedded = false,
 }: OrderSummaryCardProps) {
+  const t = useTranslations();
+  const title = titleProp ?? t("business.cart.orderSummary");
+
+  const { money: formatPrice } = useLocaleTools();
   return (
     <div
       className={`${styles.summaryCard} ${embedded ? styles.summaryEmbedded : ""}`}
@@ -34,13 +41,13 @@ export function OrderSummaryCard({
       <h3 className={styles.summaryTitle}>{title}</h3>
 
       <div className={styles.summaryRow}>
-        <span>Tạm tính</span>
+        <span>{t("business.cart.subtotal")}</span>
         <strong>{formatPrice(subtotal)}</strong>
       </div>
 
       {discountAmount > 0 && (
         <div className={styles.summaryRow}>
-          <span>Giảm giá {voucherCode ? `(${voucherCode})` : ""}</span>
+          <span>{t("business.ordersummarycard.discount")} {voucherCode ? `(${voucherCode})` : ""}</span>
           <strong className={styles.summaryDiscount}>
             -{formatPrice(discountAmount)}
           </strong>
@@ -49,7 +56,7 @@ export function OrderSummaryCard({
 
       {pointsAmount > 0 && (
         <div className={styles.summaryRow}>
-          <span>Điểm tích lũy ({pointsUsed} điểm)</span>
+          <span>{t("business.ordersummarycard.rewardPoints")}{pointsUsed} {t("business.ordersummarycard.points")}</span>
           <strong className={styles.summaryDiscount}>
             -{formatPrice(pointsAmount)}
           </strong>
@@ -57,16 +64,16 @@ export function OrderSummaryCard({
       )}
 
       <div className={styles.summaryRow}>
-        <span>Phí giao hàng</span>
+        <span>{t("business.ordersummarycard.deliveryFee")}</span>
         <strong>
-          {shippingFee > 0 ? formatPrice(shippingFee) : "Miễn phí"}
+          {shippingFee > 0 ? formatPrice(shippingFee) : t("business.ordersummarycard.free")}
         </strong>
       </div>
 
       <hr className={styles.summaryDivider} />
 
       <div className={styles.summaryTotalRow}>
-        <span>Tổng cộng</span>
+        <span>{t("business.id.total")}</span>
         <strong className={styles.summaryTotalAmount}>
           {formatPrice(totalAmount)}
         </strong>

@@ -1,3 +1,5 @@
+import { useLocaleTools } from "../../i18n/hooks";
+import { useTranslation } from "react-i18next";
 import React, { useMemo, useState } from "react";
 import {
   Button,
@@ -45,27 +47,28 @@ import {
 
 const { Text } = Typography;
 
-const STATUS_TAG: Record<PaymentStatus, { color: string; label: string }> = {
-  UNPAID: { color: "default", label: "Chưa thanh toán" },
-  PENDING: { color: "orange", label: "Chờ thanh toán" },
-  PAID: { color: "green", label: "Đã thanh toán" },
-  EXPIRED: { color: "default", label: "Hết hạn" },
-  MISMATCH: { color: "red", label: "Sai lệch" },
-  COLLECTED: { color: "cyan", label: "Đã thu COD" },
-  REFUND_PENDING: { color: "blue", label: "Chờ hoàn tiền" },
-  REFUNDED: { color: "purple", label: "Đã hoàn tiền" },
-};
 
-const formatVnd = (v: number) => `${v.toLocaleString("vi-VN")}đ`;
+
+
 
 export const PaymentsPage: React.FC = () => {
   const { user } = useAuth();
-  return (
-    <PaymentsContent key={`${user.id}-${user.role}-${user.storeId ?? "all"}`} />
-  );
+  return <PaymentsContent key={`${user.id}-${user.role}-${user.storeId ?? "all"}`} />;
 };
 
 const PaymentsContent: React.FC = () => {
+  const { t } = useTranslation();
+  const { money: formatVnd, date } = useLocaleTools();
+  const STATUS_TAG: Record<PaymentStatus, { color: string; label: string }> = {
+    UNPAID: {color: "default", label: t("business:paymentstatusbadge.unpaid")},
+    PENDING: {color: "orange", label: t("business:checkout.awaitingPayment")},
+    PAID: {color: "green", label: t("business:demoordercontrols.paid")},
+    EXPIRED: {color: "default", label: t("business:paymentstatusbadge.expired")},
+    MISMATCH: {color: "red", label: t("business:paymentspage.mismatch")},
+    COLLECTED: {color: "cyan", label: t("business:paymentstatusbadge.codCollected")},
+    REFUND_PENDING: {color: "blue", label: t("business:paymentstatusbadge.refundPending")},
+    REFUNDED: {color: "purple", label: t("business:paymentstatusbadge.refunded")},
+  };
   const { user, isAdmin } = useAuth();
   const managerStoreId =
     user.role === "STORE_MANAGER" ? user.storeId : undefined;
@@ -133,37 +136,37 @@ const PaymentsContent: React.FC = () => {
       {
         orderCode: confirmTarget.orderCode,
         reason: confirmReason.trim(),
-        actor: `${user.fullName} (${user.role}, chi nhánh ${confirmTarget.storeId})`,
-        time: new Date().toLocaleString("vi-VN"),
+        actor: t("business:paymentspage.store", { value1: user.fullName, value2: user.role, value3: confirmTarget.storeId }),
+        time: new Date().toISOString(),
       },
       ...prev,
     ]);
-    message.success(`Đã xác nhận ${confirmTarget.orderCode} trong phiên demo`);
+    message.success(t("business:paymentspage.confirmedInTheDemoSession", { value1: confirmTarget.orderCode }));
     setConfirmTarget(null);
     setConfirmReason("");
   };
 
   const paymentCols: TableColumnsType<Payment> = [
     {
-      title: "Mã đơn",
+      title: t("business:dashboard.orderCode"),
       dataIndex: "orderCode",
       key: "orderCode",
       render: (v: string) => <Text strong>{v}</Text>,
     },
-    { title: "Chi nhánh", dataIndex: "storeName", key: "storeName" },
+    { title: t("business:party.store"), dataIndex: "storeName", key: "storeName" },
     {
-      title: "Phương thức",
+      title: t("business:orderdetaildrawer.method"),
       dataIndex: "method",
       key: "method",
       render: (m: Payment["method"]) =>
         m === "BANK_TRANSFER" ? (
-          <Tag color="blue">Chuyển khoản</Tag>
+          <Tag color="blue">{t("business:id.bankTransfer")}</Tag>
         ) : (
           <Tag color="orange">COD</Tag>
         ),
     },
     {
-      title: "Số tiền",
+      title: t("business:paymentspage.amount"),
       dataIndex: "amount",
       key: "amount",
       align: "right",
@@ -174,16 +177,16 @@ const PaymentsContent: React.FC = () => {
       ),
     },
     {
-      title: "Trạng thái",
+      title: t("business:catalog.status"),
       dataIndex: "status",
       key: "status",
       render: (s: PaymentStatus) => (
         <Tag color={STATUS_TAG[s].color}>{STATUS_TAG[s].label}</Tag>
       ),
     },
-    { title: "Tạo lúc", dataIndex: "createdAt", key: "createdAt" },
+    { title: t("business:paymentspage.createdAt"), dataIndex: "createdAt", key: "createdAt" },
     {
-      title: "Thao tác",
+      title: t("business:catalog.actions"),
       key: "actions",
       render: (_, p) =>
         (p.status === "PENDING" || p.status === "MISMATCH") &&
@@ -196,31 +199,29 @@ const PaymentsContent: React.FC = () => {
               setConfirmReason("");
               setConfirmTarget(p);
             }}
-          >
-            Xác nhận thủ công
-          </Button>
+          > {t("business:paymentspage.manualConfirmation")} </Button>
         ) : null,
     },
   ];
 
   const txCols: TableColumnsType<BankTransaction> = [
-    { title: "Mã giao dịch NH", dataIndex: "bankTxId", key: "bankTxId" },
+    { title: t("business:paymentspage.bankTransactionCode"), dataIndex: "bankTxId", key: "bankTxId" },
     {
-      title: "Số tiền",
+      title: t("business:paymentspage.amount"),
       dataIndex: "amount",
       key: "amount",
       align: "right",
       render: (v: number) => formatVnd(v),
     },
-    { title: "Nội dung", dataIndex: "content", key: "content", ellipsis: true },
+    { title: t("business:paymentwidget.description"), dataIndex: "content", key: "content", ellipsis: true },
     {
-      title: "Đơn khớp",
+      title: t("business:paymentspage.matchedOrder"),
       dataIndex: "matchedOrderCode",
       key: "matchedOrderCode",
       render: (v?: string) =>
-        v ? <Tag color="green">{v}</Tag> : <Tag>Không khớp</Tag>,
+        v ? <Tag color="green">{v}</Tag> : <Tag>{t("business:paymentspage.unmatched")}</Tag>,
     },
-    { title: "Nhận lúc", dataIndex: "receivedAt", key: "receivedAt" },
+    { title: t("business:paymentspage.receivedAt"), dataIndex: "receivedAt", key: "receivedAt" },
     {
       title: "",
       key: "view",
@@ -238,7 +239,7 @@ const PaymentsContent: React.FC = () => {
 
   const logCols: TableColumnsType<WebhookLog> = [
     {
-      title: "Nguồn",
+      title: t("business:paymentspage.source"),
       dataIndex: "provider",
       key: "provider",
       render: (p: WebhookLog["provider"]) => (
@@ -246,14 +247,12 @@ const PaymentsContent: React.FC = () => {
       ),
     },
     {
-      title: "Chữ ký",
+      title: t("business:paymentspage.signature"),
       dataIndex: "signatureValid",
       key: "signatureValid",
       render: (ok: boolean) =>
         ok ? (
-          <Tag icon={<CheckCircleOutlined />} color="success">
-            Hợp lệ
-          </Tag>
+          <Tag icon={<CheckCircleOutlined />} color="success"> {t("business:paymentspage.valid")} </Tag>
         ) : (
           <Tag icon={<CloseCircleOutlined />} color="error">
             Sai
@@ -261,17 +260,17 @@ const PaymentsContent: React.FC = () => {
         ),
     },
     {
-      title: "Đã xử lý",
+      title: t("business:paymentspage.processed"),
       dataIndex: "processed",
       key: "processed",
       render: (ok: boolean) =>
         ok ? (
-          <Tag color="green">Đã xử lý</Tag>
+          <Tag color="green">{t("business:paymentspage.processed")}</Tag>
         ) : (
-          <Tag color="red">Chưa xử lý</Tag>
+          <Tag color="red">{t("business:paymentspage.unprocessed")}</Tag>
         ),
     },
-    { title: "Thời gian", dataIndex: "createdAt", key: "createdAt" },
+    { title: t("business:party.time"), dataIndex: "createdAt", key: "createdAt" },
     {
       title: "",
       key: "view",
@@ -288,16 +287,16 @@ const PaymentsContent: React.FC = () => {
   ];
 
   const bankCols: TableColumnsType<BankAccountConfig> = [
-    { title: "Ngân hàng", dataIndex: "bankName", key: "bankName" },
-    { title: "Số tài khoản", dataIndex: "accountNo", key: "accountNo" },
-    { title: "Chủ tài khoản", dataIndex: "accountName", key: "accountName" },
+    { title: t("business:paymentwidget.bank"), dataIndex: "bankName", key: "bankName" },
+    { title: t("business:paymentwidget.accountNumber"), dataIndex: "accountNo", key: "accountNo" },
+    { title: t("business:paymentwidget.accountHolder"), dataIndex: "accountName", key: "accountName" },
     {
-      title: "Đang dùng",
+      title: t("business:paymentspage.inUse"),
       dataIndex: "isActive",
       key: "isActive",
       render: (v: boolean, row) => (
         <Switch
-          aria-label={`Kích hoạt tài khoản ${row.bankName} ${row.accountNo}`}
+          aria-label={t("business:paymentspage.activateAccount", { value1: row.bankName, value2: row.accountNo })}
           checked={v}
           disabled={!isAdmin}
           onChange={(checked) => {
@@ -308,7 +307,7 @@ const PaymentsContent: React.FC = () => {
               })),
             );
             message.success(
-              checked ? `Đã kích hoạt ${row.bankName}` : "Đã tắt tài khoản",
+              checked ? t("business:paymentspage.activated", { value1: row.bankName }) : t("business:paymentspage.accountDeactivated"),
             );
           }}
         />
@@ -325,9 +324,7 @@ const PaymentsContent: React.FC = () => {
               setEditingAcc(row);
               accForm.setFieldsValue(row);
             }}
-          >
-            Sửa
-          </Button>
+          > {t("business:account.edit")} </Button>
         ) : null,
     },
   ];
@@ -336,15 +333,15 @@ const PaymentsContent: React.FC = () => {
     <div className="payments-page">
       <PageIntro
         eyebrow="Payment & Shipping"
-        title="Thanh toán & Đối soát"
-        description="Giao dịch thanh toán, giao dịch ngân hàng nhận qua webhook SePay/Casso, cấu hình tài khoản nhận tiền và xác nhận thủ công."
+        title={t("business:paymentspage.paymentsReconciliation")}
+        description={t("business:paymentspage.paymentTransactionsBankTransactionsReceivedThroughSepayCassoWebhooksReceivingAccountConfiguration")}
       />
 
       <Alert
         type="info"
         showIcon
-        title="Dữ liệu minh họa Sprint 1"
-        description="Thao tác và nhật ký chỉ lưu trong phiên UI, tải lại trang sẽ đặt lại. Chưa kết nối Payment Service; không dùng để xác nhận giao dịch thật."
+        title={t("business:paymentspage.sprintSampleData")}
+        description={t("business:paymentspage.actionsAndLogsOnlyLastForThisUiSessionAndResetOn")}
         style={{ marginBottom: 16 }}
       />
 
@@ -360,17 +357,17 @@ const PaymentsContent: React.FC = () => {
           items={[
             {
               key: "payments",
-              label: "Giao dịch thanh toán",
+              label: t("business:paymentspage.paymentTransactions"),
               children: (
                 <>
                   <Space wrap style={{ marginBottom: 16 }}>
                     <Select
-                      aria-label="Lọc trạng thái thanh toán"
+                      aria-label={t("business:paymentspage.filterPaymentStatus")}
                       value={statusFilter}
                       onChange={setStatusFilter}
                       style={{ width: 200 }}
                       options={[
-                        { value: "ALL", label: "Tất cả trạng thái" },
+                        { value: "ALL", label: t("business:paymentspage.allStatuses") },
                         ...Object.entries(STATUS_TAG).map(([v, c]) => ({
                           value: v,
                           label: c.label,
@@ -378,13 +375,13 @@ const PaymentsContent: React.FC = () => {
                       ]}
                     />
                     <Select
-                      aria-label="Lọc chi nhánh"
+                      aria-label={t("business:orderspage.filterStores")}
                       value={storeFilter}
                       onChange={setStoreFilter}
                       disabled={managerStoreId != null}
                       style={{ width: 220 }}
                       options={[
-                        { value: "ALL", label: "Tất cả chi nhánh" },
+                        { value: "ALL", label: t("business:stores.allStores") },
                         { value: 1, label: "Nguyễn Trãi (Q.5)" },
                         { value: 2, label: "Phan Văn Trị (Gò Vấp)" },
                         { value: 3, label: "Lê Văn Việt (TP. Thủ Đức)" },
@@ -396,12 +393,10 @@ const PaymentsContent: React.FC = () => {
                         setStatusFilter("ALL");
                         setStoreFilter(managerStoreId ?? "ALL");
                       }}
-                    >
-                      Đặt lại bộ lọc
-                    </Button>
+                    > {t("business:paymentspage.resetFilters")} </Button>
                   </Space>
                   <Table
-                    locale={{ emptyText: "Không có thanh toán phù hợp" }}
+                    locale={{ emptyText: t("business:paymentspage.noMatchingPayments") }}
                     rowKey="id"
                     columns={paymentCols}
                     dataSource={scopedPayments}
@@ -410,15 +405,15 @@ const PaymentsContent: React.FC = () => {
                   />
                   {audit.length > 0 && (
                     <section
-                      aria-label="Nhật ký xác nhận trong phiên demo"
+                      aria-label={t("business:paymentspage.confirmationLogForThisDemoSession")}
                       aria-live="polite"
                     >
-                      <h3>Nhật ký xác nhận (demo)</h3>
+                      <h3>{t("business:paymentspage.confirmationLogDemo")}</h3>
                       {audit.map((entry, index) => (
                         <p key={index}>
                           <strong>{entry.orderCode}</strong> — {entry.reason}
                           <br />
-                          {entry.actor} · {entry.time}
+                          {entry.actor} · {date(entry.time, { hour: "2-digit", minute: "2-digit" })}
                         </p>
                       ))}
                     </section>
@@ -428,11 +423,11 @@ const PaymentsContent: React.FC = () => {
             },
             {
               key: "transactions",
-              label: "Giao dịch ngân hàng",
+              label: t("business:paymentspage.bankTransactions"),
               children: (
                 <Table
                   locale={{
-                    emptyText: "Không có giao dịch thuộc phạm vi đã chọn",
+                    emptyText: t("business:paymentspage.noTransactionsInTheSelectedScope"),
                   }}
                   rowKey="id"
                   columns={txCols}
@@ -457,7 +452,7 @@ const PaymentsContent: React.FC = () => {
             },
             {
               key: "bank-config",
-              label: "Tài khoản nhận tiền",
+              label: t("business:paymentspage.receivingAccounts"),
               children: (
                 <>
                   <div
@@ -469,9 +464,7 @@ const PaymentsContent: React.FC = () => {
                     }}
                   >
                     {!isAdmin ? (
-                      <Text type="secondary">
-                        Chỉ Admin mới được chỉnh sửa cấu hình tài khoản.
-                      </Text>
+                      <Text type="secondary"> {t("business:paymentspage.onlyAdminCanEditAccountConfiguration")} </Text>
                     ) : (
                       <span />
                     )}
@@ -489,9 +482,7 @@ const PaymentsContent: React.FC = () => {
                           });
                           accForm.resetFields();
                         }}
-                      >
-                        Thêm tài khoản
-                      </Button>
+                      > {t("business:paymentspage.addAccount")} </Button>
                     )}
                   </div>
                   <Table
@@ -512,30 +503,29 @@ const PaymentsContent: React.FC = () => {
 
       {/* Manual confirm modal — bắt buộc lý do, ghi audit */}
       <Modal
-        title={`Xác nhận thanh toán thủ công — ${confirmTarget?.orderCode ?? ""}`}
+        title={t("business:paymentspage.manualPaymentConfirmation", { value1: confirmTarget?.orderCode ?? "" })}
         open={!!confirmTarget}
         onCancel={() => {
           setConfirmTarget(null);
           setConfirmReason("");
         }}
         onOk={handleManualConfirm}
-        okText="Xác nhận đã nhận tiền"
+        okText={t("business:paymentspage.confirmPaymentReceived")}
         okButtonProps={{ disabled: !confirmReason.trim(), danger: false }}
       >
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Text>
-            Số tiền cần đối chiếu:{" "}
+          <Text> {t("business:paymentspage.amountToReconcile")}{" "}
             <Text strong style={{ color: "#8F1216" }}>
               {confirmTarget ? formatVnd(confirmTarget.amount) : ""}
             </Text>
           </Text>
-          <label htmlFor="manual-confirm-reason">Lý do xác nhận thủ công</label>
+          <label htmlFor="manual-confirm-reason">{t("business:paymentspage.reasonForManualConfirmation")}</label>
           <Input.TextArea
             id="manual-confirm-reason"
             maxLength={500}
             rows={3}
             required
-            placeholder="Lý do xác nhận thủ công (bắt buộc, ghi vào audit log) — ví dụ: đã kiểm sao kê MB 12:30 26/10"
+            placeholder={t("business:paymentspage.reasonForManualConfirmationRequiredRecordedInTheAuditLogEG")}
             value={confirmReason}
             onChange={(e) => setConfirmReason(e.target.value)}
           />
@@ -560,7 +550,7 @@ const PaymentsContent: React.FC = () => {
         </pre>
       </Drawer>
       <Drawer
-        title={`Giao dịch ${txDrawer?.bankTxId ?? ""}`}
+        title={t("business:paymentspage.transaction", { value1: txDrawer?.bankTxId ?? "" })}
         open={!!txDrawer}
         onClose={() => setTxDrawer(null)}
         size="min(480px, 100vw)"
@@ -580,8 +570,8 @@ const PaymentsContent: React.FC = () => {
       <Modal
         title={
           editingAcc?.id
-            ? "Sửa tài khoản nhận tiền"
-            : "Thêm tài khoản nhận tiền"
+            ? t("business:paymentspage.editReceivingAccount")
+            : t("business:paymentspage.addReceivingAccount")
         }
         open={!!editingAcc}
         onCancel={() => setEditingAcc(null)}
@@ -608,7 +598,7 @@ const PaymentsContent: React.FC = () => {
               }
               setEditingAcc(null);
               message.success(
-                editingAcc?.id ? "Đã cập nhật tài khoản" : "Đã thêm tài khoản",
+                editingAcc?.id ? t("business:paymentspage.accountUpdated") : t("business:paymentspage.accountAdded"),
               );
             })
             .catch(() => undefined);
@@ -617,12 +607,12 @@ const PaymentsContent: React.FC = () => {
         <Form form={accForm} layout="vertical">
           <Form.Item
             name="bankName"
-            label="Ngân hàng"
+            label={t("business:paymentwidget.bank")}
             rules={[
               {
                 required: true,
                 whitespace: true,
-                message: "Nhập tên ngân hàng",
+                message: t("business:paymentspage.enterBankName"),
               },
             ]}
             normalize={(value: string) => value.trimStart()}
@@ -631,22 +621,22 @@ const PaymentsContent: React.FC = () => {
           </Form.Item>
           <Form.Item
             name="accountNo"
-            label="Số tài khoản"
+            label={t("business:paymentwidget.accountNumber")}
             rules={[
-              { required: true, message: "Nhập số tài khoản" },
-              { pattern: /^\d+$/, message: "Số tài khoản chỉ gồm chữ số" },
+              { required: true, message: t("business:paymentspage.enterAccountNumber") },
+              { pattern: /^\d+$/, message: t("business:paymentspage.theAccountNumberMustContainDigitsOnly") },
             ]}
           >
             <Input inputMode="numeric" />
           </Form.Item>
           <Form.Item
             name="accountName"
-            label="Chủ tài khoản"
+            label={t("business:paymentwidget.accountHolder")}
             rules={[
               {
                 required: true,
                 whitespace: true,
-                message: "Nhập chủ tài khoản",
+                message: t("business:paymentspage.enterAccountHolder"),
               },
             ]}
             normalize={(value: string) => value.trimStart()}
@@ -658,7 +648,6 @@ const PaymentsContent: React.FC = () => {
     </div>
   );
 };
-
 export default PaymentsPage;
 
 function formatPayload(payload: string) {

@@ -1,3 +1,5 @@
+"use client";
+import { useTranslations } from "next-intl";
 import { Bike, MapPin, Store, UserRound } from "lucide-react";
 import { ShippingFeeCard } from "./shipping-fee-card";
 import type { ShipmentStatus } from "@/lib/types/order";
@@ -18,20 +20,7 @@ export interface ShipmentInfoProps {
   className?: string;
 }
 
-const SHIPMENT_CONFIG: Record<
-  ShipmentStatus,
-  { label: string; styleClass: string }
-> = {
-  CREATED: { label: "Đã tạo phiếu giao", styleClass: styles.payPending },
-  ASSIGNED: { label: "Đã gán shipper", styleClass: styles.payRefundPending },
-  PICKED_UP: {
-    label: "Shipper đã lấy hàng",
-    styleClass: styles.payRefundPending,
-  },
-  SHIPPING: { label: "Đang giao", styleClass: styles.payRefundPending },
-  DELIVERED: { label: "Đã giao", styleClass: styles.payPaid },
-  FAILED: { label: "Giao thất bại", styleClass: styles.payMismatch },
-};
+
 
 export function ShipmentCard({
   receiverName,
@@ -43,14 +32,31 @@ export function ShipmentCard({
   orderType = "DELIVERY",
   className = "",
 }: ShipmentInfoProps) {
+  const t = useTranslations();
+
+  const SHIPMENT_CONFIG: Record<
+  ShipmentStatus,
+  { label: string; styleClass: string }
+> = {
+  CREATED: { label: t("business.shipmentcard.shipmentCreated"), styleClass: styles.payPending },
+  ASSIGNED: { label: t("business.shipmentcard.driverAssigned"), styleClass: styles.payRefundPending },
+  PICKED_UP: {
+    label: t("business.shipmentcard.pickedUpByDriver"),
+    styleClass: styles.payRefundPending,
+  },
+  SHIPPING: { label: t("business.orderprogress.delivering"), styleClass: styles.payRefundPending },
+  DELIVERED: { label: t("business.shipmentcard.delivered"), styleClass: styles.payPaid },
+  FAILED: { label: t("business.shipmentcard.deliveryFailed"), styleClass: styles.payMismatch },
+};
+
   const pickup = orderType === "PICKUP";
   const shipment = status ? SHIPMENT_CONFIG[status] : undefined;
-  const title = pickup ? "Nhận tại cửa hàng" : "Thông tin giao hàng";
+  const title = pickup ? t("business.shipmentcard.storePickup") : t("business.shipmentcard.deliveryDetails");
 
   return (
     <section
       className={`${styles.shipmentCard} ${styles.paymentScope} ${className}`}
-      aria-label="Thông tin nhận món"
+      aria-label={t("business.shipmentcard.collectionDetails")}
     >
       <div className={styles.shipmentHead}>
         <span className={styles.cardIcon}>
@@ -62,7 +68,7 @@ export function ShipmentCard({
         </span>
         <div>
           <span className={styles.eyebrow}>
-            {pickup ? "Tự đến lấy món" : "Giao tận nơi"}
+            {pickup ? t("business.shipmentcard.pickUpYourMeal") : t("business.checkout.homeDelivery")}
           </span>
           <h3 className={styles.shipmentTitle}>{title}</h3>
         </div>
@@ -80,10 +86,9 @@ export function ShipmentCard({
       <dl className={styles.shipmentDetails}>
         <div className={styles.shipmentItem}>
           <dt className={styles.shipmentLabel}>
-            <UserRound size={15} aria-hidden="true" /> Người nhận
-          </dt>
+            <UserRound size={15} aria-hidden="true" /> {t("business.shipmentcard.recipient")} </dt>
           <dd className={styles.shipmentVal}>
-            {receiverName.trim() || "Chưa có tên người nhận"}
+            {receiverName.trim() || t("business.shipmentcard.noRecipientNameAvailable")}
           </dd>
           <dd className={styles.shipmentVal}>
             {receiverPhone.trim() ? (
@@ -91,19 +96,19 @@ export function ShipmentCard({
                 {receiverPhone}
               </a>
             ) : (
-              "Chưa có số điện thoại"
+              t("business.shipmentcard.noPhoneNumberAvailable")
             )}
           </dd>
         </div>
         <div className={styles.shipmentItem}>
           <dt className={styles.shipmentLabel}>
             <MapPin size={15} aria-hidden="true" />{" "}
-            {pickup ? "Địa điểm nhận món" : "Địa chỉ giao"}
+            {pickup ? t("business.shipmentcard.pickupLocation") : t("business.shipmentcard.deliveryAddress")}
           </dt>
           <dd className={styles.shipmentVal}>
             {pickup
-              ? storeName || address || "Chưa có thông tin cửa hàng"
-              : address?.trim() || "Chưa có địa chỉ giao"}
+              ? storeName || address || t("business.shipmentcard.noStoreDetailsAvailable")
+              : address?.trim() || t("business.shipmentcard.noDeliveryAddressAvailable")}
           </dd>
           {pickup && storeName && address && (
             <dd className={styles.shipmentSecondary}>{address}</dd>
@@ -112,18 +117,14 @@ export function ShipmentCard({
         {!pickup && storeName && (
           <div className={styles.shipmentItem}>
             <dt className={styles.shipmentLabel}>
-              <Store size={15} aria-hidden="true" /> Chuẩn bị tại
-            </dt>
+              <Store size={15} aria-hidden="true" /> {t("business.shipmentcard.preparedAt")} </dt>
             <dd className={styles.shipmentVal}>{storeName}</dd>
           </div>
         )}
       </dl>
 
       {!pickup && status === "CREATED" && (
-        <p className={styles.shipmentNote}>
-          Đã ghi nhận thông tin giao hàng. Theo dõi vận chuyển trực tiếp hiện
-          chưa khả dụng.
-        </p>
+        <p className={styles.shipmentNote}> {t("business.shipmentcard.deliveryDetailsRecordedLiveDeliveryTrackingIsNotAvailableYet")} </p>
       )}
       {!pickup && fee !== undefined && <ShippingFeeCard fee={fee} />}
     </section>

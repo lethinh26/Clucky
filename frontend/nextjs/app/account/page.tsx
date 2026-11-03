@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   UserRound,
@@ -39,6 +40,8 @@ const initialProfile: Profile = {
 };
 const storageKey = "clucky_profile_ui_v1";
 export default function AccountPage() {
+  const t = useTranslations();
+
   const [tab, setTab] = useState("profile");
   const [profile, setProfile] = useState(initialProfile);
   const [savedProfile, setSavedProfile] = useState(initialProfile);
@@ -85,7 +88,7 @@ export default function AccountPage() {
       }
     } catch {
       setError(
-        "Không đọc được dữ liệu mẫu đã lưu. Bạn có thể nhập lại thông tin.",
+        "business.account.unableToReadSavedDemoDataYouCanEnterYourDetailsAgain",
       );
     }
     setReady(true);
@@ -106,7 +109,7 @@ export default function AccountPage() {
       setError("");
       return true;
     } catch {
-      setError("Không lưu được dữ liệu trên trình duyệt. Vui lòng thử lại.");
+      setError("business.account.unableToSaveDataInThisBrowserPleaseTryAgain");
       return false;
     }
   }
@@ -132,7 +135,7 @@ export default function AccountPage() {
         (k) => !clean[k as keyof Address],
       )
     ) {
-      setError("Vui lòng điền đầy đủ địa chỉ và người nhận.");
+      setError("business.account.pleaseCompleteTheAddressAndRecipientDetails");
       return;
     }
     const item = {
@@ -147,15 +150,15 @@ export default function AccountPage() {
       next = next.map((a) => ({ ...a, isDefault: a.id === item.id }));
     if (!next.some((a) => a.isDefault))
       next = next.map((a, i) => ({ ...a, isDefault: i === 0 }));
-    if (save(savedProfile, next, "Đã lưu địa chỉ mẫu.")) setEditing(null);
+    if (save(savedProfile, next, "business.account.demoAddressSaved")) setEditing(null);
   }
   return (
     <>
       <main className={styles.page}>
         <div className={styles.intro}>
-          <span>YOUR CLUCKY · TÀI KHOẢN</span>
-          <h1>Góc nhỏ của bạn.</h1>
-          <p>Thông tin thân quen, để mỗi bữa ngon đến gần hơn.</p>
+          <span>{t("business.account.yourCluckyAccount")}</span>
+          <h1>{t("business.account.yourOwnLittleSpace")}</h1>
+          <p>{t("business.account.yourFamiliarDetailsBringingEveryMealCloser")}</p>
         </div>
         <div className={styles.layout}>
           <aside className={styles.sidebar}>
@@ -164,11 +167,11 @@ export default function AccountPage() {
             </div>
             <strong>{savedProfile.fullName}</strong>
             <p>{savedProfile.email}</p>
-            <nav aria-label="Quản lý tài khoản">
+            <nav aria-label={t("business.account.manageAccount")}>
               {[
-                ["profile", "Thông tin cá nhân", UserRound],
-                ["addresses", "Sổ địa chỉ", MapPin],
-                ["password", "Đổi mật khẩu", ShieldCheck],
+                ["profile", t("business.account.personalDetails"), UserRound],
+                ["addresses", t("business.account.addressBook"), MapPin],
+                ["password", t("business.account.changePassword"), ShieldCheck],
               ].map(([key, label, Icon]) => (
                 <button
                   key={key as string}
@@ -184,26 +187,24 @@ export default function AccountPage() {
           <section className={styles.panel} aria-busy={!ready}>
             {notice && (
               <p role="status" className={styles.success}>
-                {notice}
+                {notice ? t(notice) : ""}
               </p>
             )}
             {error && !editing && (
               <p role="alert" className={styles.error}>
-                {error}
+                {error ? t(error) : ""}
               </p>
             )}
             {tab === "profile" && (
               <>
-                <h2>Thông tin cá nhân</h2>
-                <p className={styles.muted}>
-                  Cập nhật thông tin liên hệ của bạn.
-                </p>
+                <h2>{t("business.account.personalDetails")}</h2>
+                <p className={styles.muted}> {t("business.account.updateYourContactDetails")} </p>
                 <form
                   className={styles.form}
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (!profile.fullName.trim()) {
-                      setError("Vui lòng nhập họ và tên.");
+                      setError("business.account.pleaseEnterYourFullName");
                       return;
                     }
                     const clean = {
@@ -211,12 +212,12 @@ export default function AccountPage() {
                       fullName: profile.fullName.trim(),
                       email: profile.email.trim(),
                     };
-                    if (save(clean, addresses, "Đã lưu thông tin cá nhân mẫu."))
+                    if (save(clean, addresses, "business.account.demoProfileSaved"))
                       setProfile(clean);
                   }}
                 >
                   <Input
-                    label="Họ và tên"
+                    label={t("business.account.fullName")}
                     required
                     maxLength={100}
                     value={profile.fullName}
@@ -234,10 +235,10 @@ export default function AccountPage() {
                     }
                   />
                   <Input
-                    label="Số điện thoại"
+                    label={t("business.account.phoneNumber")}
                     type="tel"
                     pattern="[0-9+ ()-]{9,15}"
-                    title="Nhập số điện thoại từ 9–15 ký tự"
+                    title={t("business.account.enterAPhoneNumberWithCharacters")}
                     value={profile.phone}
                     onChange={(e) =>
                       setProfile({ ...profile, phone: e.target.value })
@@ -248,9 +249,7 @@ export default function AccountPage() {
                       type="submit"
                       disabled={!ready}
                       className={styles.primary}
-                    >
-                      Lưu thay đổi
-                    </button>
+                    > {t("business.account.saveChanges")} </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -258,9 +257,7 @@ export default function AccountPage() {
                         setError("");
                         setNotice("");
                       }}
-                    >
-                      Hủy thay đổi
-                    </button>
+                    > {t("business.account.discardChanges")} </button>
                   </div>
                 </form>
               </>
@@ -269,10 +266,9 @@ export default function AccountPage() {
               <>
                 <div className={styles.heading}>
                   <div>
-                    <h2>Sổ địa chỉ</h2>
+                    <h2>{t("business.account.addressBook")}</h2>
                     <p className={styles.muted}>
-                      {addresses.length} địa chỉ đã lưu
-                    </p>
+                      {addresses.length} {t("business.account.savedAddresses")} </p>
                   </div>
                   <button
                     className={styles.primary}
@@ -286,17 +282,13 @@ export default function AccountPage() {
                       });
                     }}
                   >
-                    <Plus size={16} />
-                    Thêm địa chỉ
-                  </button>
+                    <Plus size={16} /> {t("business.account.addAddress")} </button>
                 </div>
                 {addresses.length === 0 ? (
                   <div className={styles.empty}>
                     <MapPin size={38} />
-                    <h3>Chưa có địa chỉ nào</h3>
-                    <p>
-                      Thêm địa chỉ đầu tiên để sẵn sàng cho bữa ngon tiếp theo.
-                    </p>
+                    <h3>{t("business.account.noAddressesYet")}</h3>
+                    <p> {t("business.account.addYourFirstAddressToGetReadyForYourNextMeal")} </p>
                   </div>
                 ) : (
                   <div className={styles.addressList}>
@@ -305,7 +297,7 @@ export default function AccountPage() {
                         <div className={styles.heading}>
                           <strong>{a.receiverName}</strong>
                           {a.isDefault && (
-                            <span className={styles.badge}>Mặc định</span>
+                            <span className={styles.badge}>{t("business.account.default")}</span>
                           )}
                         </div>
                         <p>{a.phone}</p>
@@ -321,13 +313,9 @@ export default function AccountPage() {
                               setEditing({ ...a });
                             }}
                           >
-                            <Pencil size={14} />
-                            Sửa
-                          </button>
+                            <Pencil size={14} /> {t("business.account.edit")} </button>
                           <button onClick={() => setDeleting(a)}>
-                            <Trash2 size={14} />
-                            Xóa
-                          </button>
+                            <Trash2 size={14} /> {t("business.account.delete")} </button>
                           {!a.isDefault && (
                             <button
                               onClick={() =>
@@ -336,13 +324,10 @@ export default function AccountPage() {
                                   addresses.map((item) => ({
                                     ...item,
                                     isDefault: item.id === a.id,
-                                  })),
-                                  "Đã cập nhật địa chỉ mặc định.",
+                                  })), "business.account.defaultAddressUpdated",
                                 )
                               }
-                            >
-                              Đặt làm mặc định
-                            </button>
+                            > {t("business.account.setAsDefault")} </button>
                           )}
                         </div>
                       </article>
@@ -353,36 +338,31 @@ export default function AccountPage() {
             )}
             {tab === "password" && (
               <>
-                <h2>Đổi mật khẩu</h2>
-                <p className={styles.muted}>
-                  Dùng mật khẩu mới có ít nhất 8 ký tự.
-                </p>
-                <p className={styles.demo}>
-                  Chế độ UI: chỉ kiểm tra biểu mẫu. Mật khẩu không được lưu hoặc
-                  thay đổi trên hệ thống.
-                </p>
+                <h2>{t("business.account.changePassword")}</h2>
+                <p className={styles.muted}> {t("business.account.useANewPasswordWithAtLeastCharacters")} </p>
+                <p className={styles.demo}> {t("business.account.uiDemoThisOnlyValidatesTheFormYourPasswordIsNotSaved")} </p>
                 <form
                   className={styles.form}
                   onSubmit={(e) => {
                     e.preventDefault();
                     setNotice("");
                     if (password.next === password.current) {
-                      setError("Mật khẩu mới phải khác mật khẩu hiện tại.");
+                      setError("business.account.theNewPasswordMustDifferFromYourCurrentPassword");
                       return;
                     }
                     if (password.next !== password.confirm) {
-                      setError("Mật khẩu xác nhận không khớp.");
+                      setError("business.account.thePasswordsDoNotMatch");
                       return;
                     }
                     setError("");
                     setNotice(
-                      "Biểu mẫu hợp lệ. Đây là bản mô phỏng; mật khẩu chưa được thay đổi.",
+                      "business.account.validFormThisIsADemoYourPasswordHasNotBeenChanged",
                     );
                     setPassword({ current: "", next: "", confirm: "" });
                   }}
                 >
                   <Input
-                    label="Mật khẩu hiện tại"
+                    label={t("business.account.currentPassword")}
                     type="password"
                     autoComplete="current-password"
                     required
@@ -392,7 +372,7 @@ export default function AccountPage() {
                     }
                   />
                   <Input
-                    label="Mật khẩu mới"
+                    label={t("business.account.newPassword")}
                     type="password"
                     autoComplete="new-password"
                     required
@@ -403,7 +383,7 @@ export default function AccountPage() {
                     }
                   />
                   <Input
-                    label="Xác nhận mật khẩu mới"
+                    label={t("business.account.confirmNewPassword")}
                     type="password"
                     autoComplete="new-password"
                     required
@@ -413,9 +393,7 @@ export default function AccountPage() {
                       setPassword({ ...password, confirm: e.target.value })
                     }
                   />
-                  <button className={styles.primary}>
-                    Đổi mật khẩu (mô phỏng)
-                  </button>
+                  <button className={styles.primary}> {t("business.account.changePasswordDemo")} </button>
                 </form>
               </>
             )}
@@ -431,23 +409,23 @@ export default function AccountPage() {
             setError("");
           }
         }}
-        title={editing?.id ? "Sửa địa chỉ" : "Thêm địa chỉ"}
+        title={editing?.id ? t("business.account.editAddress") : t("business.account.addAddress")}
       >
         {editing && (
           <form className={styles.form} onSubmit={saveAddress}>
             {error && (
               <p role="alert" className={styles.error}>
-                {error}
+                {error ? t(error) : ""}
               </p>
             )}
             {(
               [
-                ["receiverName", "Tên người nhận"],
-                ["phone", "Số điện thoại người nhận"],
-                ["province", "Tỉnh / Thành phố"],
-                ["district", "Quận / Huyện"],
-                ["ward", "Phường / Xã"],
-                ["detail", "Số nhà, tên đường"],
+                ["receiverName", t("business.account.recipientName")],
+                ["phone", t("business.account.recipientPhoneNumber")],
+                ["province", t("business.account.provinceCity")],
+                ["district", t("business.account.district")],
+                ["ward", t("business.account.ward")],
+                ["detail", t("business.account.houseNumberAndStreet")],
               ] as const
             ).map(([key, label]) => (
               <Input
@@ -471,20 +449,16 @@ export default function AccountPage() {
                 onChange={(e) =>
                   setEditing({ ...editing, isDefault: e.target.checked })
                 }
-              />
-              Đặt làm địa chỉ mặc định
-            </label>
+              /> {t("business.account.setAsDefaultAddress")} </label>
             <div className={styles.actions}>
-              <button className={styles.primary}>Lưu địa chỉ</button>
+              <button className={styles.primary}>{t("business.account.saveAddress")}</button>
               <button
                 type="button"
                 onClick={() => {
                   setEditing(null);
                   setError("");
                 }}
-              >
-                Hủy
-              </button>
+              > {t("business.account.cancel")} </button>
             </div>
           </form>
         )}
@@ -494,24 +468,22 @@ export default function AccountPage() {
         onOpenChange={(open) => {
           if (!open) setDeleting(null);
         }}
-        title="Xóa địa chỉ?"
-        description="Địa chỉ này sẽ được xóa khỏi sổ địa chỉ mẫu."
+        title={t("business.account.deleteAddress")}
+        description={t("business.account.thisAddressWillBeRemovedFromTheDemoAddressBook")}
       >
         <p>{deleting?.detail}</p>
         <div className={styles.actions}>
-          <button onClick={() => setDeleting(null)}>Giữ lại</button>
+          <button onClick={() => setDeleting(null)}>{t("business.account.keepAddress")}</button>
           <button
             className={styles.primary}
             onClick={() => {
               let next = addresses.filter((a) => a.id !== deleting?.id);
               if (next.length && !next.some((a) => a.isDefault))
                 next = next.map((a, i) => ({ ...a, isDefault: i === 0 }));
-              if (save(savedProfile, next, "Đã xóa địa chỉ."))
+              if (save(savedProfile, next, "business.account.addressDeleted"))
                 setDeleting(null);
             }}
-          >
-            Xác nhận xóa
-          </button>
+          > {t("business.account.confirmDeletion")} </button>
         </div>
       </Modal>
     </>

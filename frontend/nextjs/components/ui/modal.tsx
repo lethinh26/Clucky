@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import * as React from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,8 @@ const Modal: React.FC<ModalProps> = ({
   dismissible = true,
   className,
 }) => {
+  const t = useTranslations();
+
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const previouslyFocused = React.useRef<HTMLElement | null>(null);
 
@@ -119,7 +122,7 @@ const Modal: React.FC<ModalProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                aria-label="Đóng hộp thoại"
+                aria-label={t("business.modal.closeDialog")}
                 className="rounded-full p-1.5 text-[#75675E] transition hover:bg-[#F5EDE0] hover:text-[#16100D] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C9A227]"
               >
                 <X size={18} />

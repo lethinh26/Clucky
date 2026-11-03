@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import * as React from "react";
 import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
@@ -7,9 +10,11 @@ import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-nav
 import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Input } from "@/components/ui/input";
-import { authApi, ApiError } from "@/lib/api";
+import { authApi } from "@/lib/api";
 
 function ResetPasswordForm() {
+  const t = useTranslations();
+  const { errorMessage } = useLocaleTools();
   const router = useRouter();
   const startDeferred = useDeferredAction();
   const params = useSearchParams();
@@ -17,7 +22,7 @@ function ResetPasswordForm() {
   const [otp, setOtp] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -27,22 +32,22 @@ function ResetPasswordForm() {
     const task = startDeferred();
     setError(null);
     if (password !== confirm) {
-      setError("Mật khẩu xác nhận không khớp.");
+      setError("auth.validation.confirmMismatch");
       return;
     }
     if (!/^\d{6}$/.test(otp) || password.length < 8) {
-      setError("Vui lòng nhập OTP 6 số và mật khẩu mới có ít nhất 8 ký tự.");
+      setError("auth.validation.resetCredentials");
       return;
     }
     setLoading(true);
     try {
       await authApi.resetPassword({ email, otp, newPassword: password });
       if (!task.isCurrent()) return;
-      setSuccess("Đặt lại mật khẩu thành công. Đang chuyển đến đăng nhập…");
+      setSuccess("auth.reset.success");
       task.schedule(() => router.push("/login"), 1200);
     } catch (err) {
       if (!task.isCurrent()) return;
-      setError((err as ApiError).message || "Không thể đặt lại mật khẩu.");
+      setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }
@@ -50,30 +55,30 @@ function ResetPasswordForm() {
 
   return (
     <AuthShell
-      title="Đặt lại mật khẩu"
-      subtitle={`Nhập mã OTP gửi tới ${email || "email của bạn"} và mật khẩu mới.`}
+      title={t("auth.reset.title")}
+      subtitle={t("auth.reset.description", { email: email || t("auth.fields.yourEmail") })}
     >
       <form className="auth-form" onSubmit={onSubmit} noValidate>
-        {error && (
+        {Boolean(error) && (
           <div className="form-error" role="alert">
-            {error}
+            {typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)}
           </div>
         )}
         {success && (
           <div className="form-success" role="status">
-            {success}
+            {t(success)}
           </div>
         )}
         <Input
-          label="Mã OTP"
+          label={t("auth.otp.label")}
           inputMode="numeric"
           value={otp}
           onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
           required
-          placeholder="Nhập mã 6 số"
+          placeholder={t("auth.otp.placeholder")}
         />
         <Input
-          label="Mật khẩu mới"
+          label={t("auth.fields.newPassword")}
           type="password"
           autoComplete="new-password"
           value={password}
@@ -81,7 +86,7 @@ function ResetPasswordForm() {
           required
         />
         <Input
-          label="Xác nhận mật khẩu"
+          label={t("auth.fields.confirmPassword")}
           type="password"
           autoComplete="new-password"
           value={confirm}
@@ -89,7 +94,7 @@ function ResetPasswordForm() {
           required
           error={
             password !== confirm && confirm
-              ? "Mật khẩu xác nhận không khớp."
+              ? t("auth.validation.confirmMismatch")
               : undefined
           }
         />
@@ -98,10 +103,10 @@ function ResetPasswordForm() {
           className="btn-primary btn-block"
           disabled={loading}
         >
-          {loading ? "Đang cập nhật…" : "Đặt lại mật khẩu"}
+          {loading ? t("common.updating") : t("auth.reset.title")}
         </button>
         <span className="auth-footer-link">
-          <Link href="/login">← Quay lại đăng nhập</Link>
+          <Link href="/login">{t("auth.backToLogin")}</Link>
         </span>
       </form>
     </AuthShell>
@@ -109,10 +114,11 @@ function ResetPasswordForm() {
 }
 
 export default function ResetPasswordPage() {
+  const t = useTranslations();
   return (
     <React.Suspense
       fallback={
-        <AuthShell title="Đặt lại mật khẩu">
+        <AuthShell title={t("auth.reset.title")}>
           <div />
         </AuthShell>
       }

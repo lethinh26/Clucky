@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import { useState, use } from "react";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
@@ -18,7 +21,6 @@ import {
   MessageSquare,
   CircleAlert,
 } from "lucide-react";
-import { formatPrice } from "@/lib/products";
 import { displayOrderTime } from "@/lib/order-demo";
 import { useOrder } from "@/components/order/order-provider";
 import { useNavigationTask } from "@/components/ui-loader";
@@ -40,6 +42,9 @@ export default function OrderTrackingPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useTranslations();
+
+  const { locale, money: formatPrice } = useLocaleTools();
   const { id } = use(params);
   const router = useRouter();
   const { orders, ready, cancelOrder, reorder, demoEnabled } =
@@ -60,11 +65,9 @@ export default function OrderTrackingPage({
           ) : (
             <div className="order-empty">
               <PackageCheck size={44} />
-              <h1>Không tìm thấy đơn hàng</h1>
-              <p>Kiểm tra mã đơn hoặc quay lại lịch sử mua hàng.</p>
-              <Link href="/orders" className="btn-primary">
-                Xem đơn hàng của tôi
-              </Link>
+              <h1>{t("business.id.orderNotFound")}</h1>
+              <p>{t("business.id.checkTheOrderCodeOrReturnToYourPurchaseHistory")}</p>
+              <Link href="/orders" className="btn-primary"> {t("business.id.viewMyOrders")} </Link>
             </div>
           )}
         </main>
@@ -78,25 +81,25 @@ export default function OrderTrackingPage({
   const terminal = ["COMPLETED", "CANCELLED"].includes(order.status);
   const paymentCopy = {
     PAID: {
-      label: "Số tiền đã thanh toán",
-      message: "Thanh toán của bạn đã được ghi nhận. Cảm ơn bạn đã chọn Clucky!",
+      label: t("business.id.amountPaid"),
+      message: t("business.id.yourPaymentHasBeenReceivedThankYouForChoosingClucky"),
       icon: CheckCircle2,
     },
     PENDING: {
-      label: "Số tiền cần thanh toán",
+      label: t("business.id.amountDue"),
       message: order.paymentMethod === "COD"
-        ? "Bạn thanh toán bằng tiền mặt khi nhận món."
-        : "Quét mã bên dưới để hoàn tất thanh toán.",
+        ? t("business.id.payInCashWhenYouReceiveYourMeal")
+        : t("business.id.scanTheCodeBelowToCompletePayment"),
       icon: Wallet,
     },
     FAILED: {
-      label: "Giá trị đơn hàng",
-      message: "Thanh toán chưa thành công. Vui lòng kiểm tra lại trạng thái đơn hàng.",
+      label: t("business.id.orderValue"),
+      message: t("business.id.paymentWasUnsuccessfulPleaseCheckYourOrderStatus"),
       icon: CircleAlert,
     },
     EXPIRED: {
-      label: "Giá trị đơn hàng",
-      message: "Phiên thanh toán đã hết hạn. Vui lòng kiểm tra lại đơn hàng trước khi thanh toán.",
+      label: t("business.id.orderValue"),
+      message: t("business.id.thePaymentSessionHasExpiredPleaseCheckYourOrderBeforePaying"),
       icon: Clock3,
     },
   }[order.paymentStatus];
@@ -105,24 +108,23 @@ export default function OrderTrackingPage({
     if (!cancelReason.trim()) return;
     cancelOrder(order.id, cancelReason.trim());
     setCancelOpen(false);
-    setFeedback("Đơn đã được hủy thành công.");
+    setFeedback(t("business.id.yourOrderHasBeenCancelled"));
   };
   return (
     <>
       <main className={`${styles.trackingContainer} m3-page`}>
-        <nav className={styles.breadcrumb} aria-label="Đường dẫn">
+        <nav className={styles.breadcrumb} aria-label={t("business.id.breadcrumb")}>
           <Link href="/orders">
-            <ArrowLeft size={15} /> Đơn hàng của tôi
-          </Link>
+            <ArrowLeft size={15} /> {t("business.orders.myOrders")} </Link>
           <span>/</span>
           <span>{order.orderCode}</span>
         </nav>
         <header className={styles.detailHeader}>
           <div>
-            <span className={styles.eyebrow}>BỮA NGON CỦA BẠN</span>
-            <h1>Chi tiết đơn hàng</h1>
+            <span className={styles.eyebrow}>{t("business.cart.yourMeal")}</span>
+            <h1>{t("business.id.orderDetails")}</h1>
             <p>
-              <Clock3 size={14} /> Đặt lúc {displayOrderTime(order.createdAt)}
+              <Clock3 size={14} /> {t("business.id.placedAt")} {displayOrderTime(order.createdAt, locale)}
               <span>·</span>
               {order.storeName}
             </p>
@@ -144,7 +146,7 @@ export default function OrderTrackingPage({
         )}
         {demoEnabled && (
           <details className={styles.demoDisclosure} open>
-            <summary>Mô phỏng trạng thái đơn hàng</summary>
+            <summary>{t("business.id.orderStatusSimulator")}</summary>
             <DemoOrderControls order={order} />
           </details>
         )}
@@ -155,9 +157,8 @@ export default function OrderTrackingPage({
             <section className={styles.detailCard}>
               <div className={styles.sectionHeading}>
                 <h2>
-                  <ShoppingBag size={19} /> Món đã đặt
-                </h2>
-                <span>{itemCount} phần</span>
+                  <ShoppingBag size={19} /> {t("business.id.orderedItems")} </h2>
+                <span>{itemCount} {t("business.cart.servings")}</span>
               </div>
               <div className={styles.detailItems}>
                 {order.items.map((item) => (
@@ -178,14 +179,14 @@ export default function OrderTrackingPage({
                 <div className={styles.orderNote}>
                   <MessageSquare size={17} />
                   <div>
-                    <strong>Ghi chú đơn hàng</strong>
+                    <strong>{t("business.checkout.orderNotes")}</strong>
                     <p>{order.note}</p>
                   </div>
                 </div>
               )}
               <OrderSummaryCard
                 embedded
-                title="Tổng tiền"
+                title={t("business.id.total")}
                 subtotal={order.subtotal}
                 discountAmount={order.discountAmount}
                 voucherCode={order.voucherCode}
@@ -205,14 +206,10 @@ export default function OrderTrackingPage({
                     router.push("/cart");
                   }}
                 >
-                  <RotateCcw size={17} />
-                  Đặt lại những món này
-                </button>
+                  <RotateCcw size={17} /> {t("business.id.reorderTheseItems")} </button>
               ) : (
                 <Link href="/menu" className={`${styles.primaryButton} ${styles.exploreAction}`}>
-                  <ShoppingBag size={19} aria-hidden="true" />
-                  Khám phá thêm món
-                  <span className={styles.actionArrow} aria-hidden="true"><ArrowRight size={17} /></span>
+                  <ShoppingBag size={19} aria-hidden="true" /> {t("business.id.exploreMoreDishes")} <span className={styles.actionArrow} aria-hidden="true"><ArrowRight size={17} /></span>
                 </Link>
               )}
               {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
@@ -221,24 +218,21 @@ export default function OrderTrackingPage({
                   className={styles.cancelAction}
                   onClick={() => setCancelOpen(true)}
                 >
-                  <CircleX size={18} aria-hidden="true" /> Hủy đơn hàng này
-                </button>
+                  <CircleX size={18} aria-hidden="true" /> {t("business.id.cancelThisOrder")} </button>
               )}
               <Link href="/orders" className={styles.textButton}>
-                <History size={18} aria-hidden="true" /> Về lịch sử đơn
-              </Link>
+                <History size={18} aria-hidden="true" /> {t("business.id.backToOrderHistory")} </Link>
             </div>
           </div>
           <aside className={styles.detailAside}>
             <section
               className={`${styles.detailCard} ${styles.paymentCard}`}
               data-state={order.paymentStatus}
-              aria-label="Thanh toán đơn hàng"
+              aria-label={t("business.id.payForOrder")}
             >
               <div className={styles.paymentHeading}>
                 <h2>
-                  <Wallet size={19} /> Thanh toán
-                </h2>
+                  <Wallet size={19} /> {t("business.cart.checkout")} </h2>
                 <PaymentStatusBadge status={order.paymentStatus} />
               </div>
               {!awaitingPayment && (
@@ -256,8 +250,8 @@ export default function OrderTrackingPage({
                   {order.paymentMethod === "COD" ? <Wallet size={23} /> : <CreditCard size={23} />}
                 </span>
                 <div>
-                  <span className={styles.paymentMethodLabel}>Phương thức thanh toán</span>
-                  <strong>{order.paymentMethod === "COD" ? "Tiền mặt khi nhận món" : "Chuyển khoản ngân hàng"}</strong>
+                  <span className={styles.paymentMethodLabel}>{t("business.checkout.paymentMethod")}</span>
+                  <strong>{order.paymentMethod === "COD" ? t("business.id.cashOnDelivery") : t("business.id.bankTransfer")}</strong>
                 </div>
                 <span className={styles.paymentNetwork}>{order.paymentMethod === "COD" ? "COD" : "VietQR"}</span>
               </div>
@@ -275,9 +269,7 @@ export default function OrderTrackingPage({
               )}
               {order.refundStatus === "PENDING" && (
                 <p className={styles.refundNotice}>
-                  <CircleAlert size={16} />
-                  Yêu cầu hoàn tiền đang chờ duyệt.
-                </p>
+                  <CircleAlert size={16} /> {t("business.id.yourRefundRequestIsAwaitingReview")} </p>
               )}
             </section>
             <ShipmentCard
@@ -296,17 +288,14 @@ export default function OrderTrackingPage({
           titleId="cancel-order-title"
         >
           <div className={styles.cancelDialog}>
-            <h2 id="cancel-order-title">Hủy đơn hàng?</h2>
-            <p>
-              Đơn chỉ có thể hủy trước khi bếp chế biến. Nếu đã thanh toán
-              chuyển khoản, yêu cầu hoàn tiền sẽ được tạo và xử lý.
-            </p>
-            <label htmlFor="cancel-reason">Lý do hủy *</label>
+            <h2 id="cancel-order-title">{t("business.id.cancelOrder")}</h2>
+            <p> {t("business.id.youCanOnlyCancelBeforePreparationBeginsIfYouHavePaidBy")} </p>
+            <label htmlFor="cancel-reason">{t("business.id.cancellationReason")}</label>
             <textarea
               id="cancel-reason"
               value={cancelReason}
               onChange={(event) => setCancelReason(event.target.value)}
-              placeholder="Cho Clucky biết lý do của bạn…"
+              placeholder={t("business.id.tellCluckyYourReason")}
               maxLength={500}
             />
             <div>
@@ -314,17 +303,13 @@ export default function OrderTrackingPage({
                 type="button"
                 className={styles.outlineButton}
                 onClick={() => setCancelOpen(false)}
-              >
-                Giữ đơn hàng
-              </button>
+              > {t("business.id.keepOrder")} </button>
               <button
                 type="button"
                 className={styles.primaryButton}
                 disabled={!cancelReason.trim()}
                 onClick={handleCancel}
-              >
-                Xác nhận hủy
-              </button>
+              > {t("business.id.confirmCancellation")} </button>
             </div>
           </div>
         </OrderDialog>

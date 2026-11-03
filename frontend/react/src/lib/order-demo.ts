@@ -1,14 +1,17 @@
+import { getBrowserLocale, type Locale } from "../i18n/locale.ts";
+import { getTranslator } from "../i18n/translator.ts";
 import type { AdminOrder, AdminOrderStatus } from "../types/order";
 
-export const orderStatusLabels: Record<AdminOrderStatus, string> = {
-  PENDING_PAYMENT: "Chờ thanh toán",
-  CONFIRMED: "Đã xác nhận",
-  PREPARING: "Đang chế biến",
-  READY: "Món sẵn sàng",
-  SHIPPING: "Đang giao",
-  COMPLETED: "Hoàn thành",
-  CANCELLED: "Đã hủy",
-};
+export const orderStatusKeys = {
+  PENDING_PAYMENT: "business:checkout.awaitingPayment",
+  CONFIRMED: "business:orderstatuschip.confirmed",
+  PREPARING: "business:orderprogress.preparing",
+  READY: "business:orderdetaildrawer.mealReady",
+  SHIPPING: "business:orderprogress.delivering",
+  COMPLETED: "business:orders.completed",
+  CANCELLED: "business:orders.cancelled",
+} as const satisfies Record<AdminOrderStatus, string>;
+export const orderStatusLabels = Object.fromEntries(Object.entries(orderStatusKeys).map(([status, key]) => [status, getTranslator("vi")(key)])) as Record<AdminOrderStatus, string>;
 type Role = "ADMIN" | "STORE_MANAGER" | "STAFF";
 export type AdminDemoAction =
   | { type: "STATUS"; status: AdminOrderStatus; reason?: string }
@@ -22,8 +25,9 @@ export function applyAdminDemoAction(
   storeId?: number,
   now = new Date().toISOString(),
 ) {
+  const t = getTranslator(getBrowserLocale());
   if (role !== "ADMIN" && order.storeId !== String(storeId))
-    return { ok: false, order, message: "Đơn nằm ngoài chi nhánh của bạn." };
+    return { ok: false, order, message: t("business:orderdemo.thisOrderBelongsToADifferentStore") };
   let next = { ...order };
   let description = "";
   if (action.type === "STATUS") {
@@ -38,16 +42,16 @@ export function applyAdminDemoAction(
       return {
         ok: false,
         order,
-        message: "Bước chuyển trạng thái không hợp lệ.",
+        message: t("business:orderdemo.invalidStatusTransition"),
       };
     if (action.status === "COMPLETED" && order.paymentStatus !== "PAID")
       return {
         ok: false,
         order,
-        message: "Cần xác nhận thu tiền trước khi hoàn thành.",
+        message: t("business:orderdetaildrawer.confirmPaymentCollectionBeforeCompletingTheOrder"),
       };
     if (action.status === "CANCELLED" && !action.reason?.trim())
-      return { ok: false, order, message: "Vui lòng nhập lý do hủy đơn." };
+      return { ok: false, order, message: t("business:orderdemo.pleaseEnterACancellationReason") };
     next.status = action.status;
     if (action.status === "CANCELLED" && order.paymentStatus === "PAID") {
       next = {
@@ -60,7 +64,7 @@ export function applyAdminDemoAction(
     }
     description =
       action.reason?.trim() ||
-      `Chuyển sang ${orderStatusLabels[action.status].toLocaleLowerCase("vi-VN")}.`;
+      t("business:orderdemo.changedTo", { value1: t(orderStatusKeys[action.status]) });
   } else if (action.type === "COD") {
     if (
       order.paymentMethod !== "COD" ||
@@ -70,10 +74,10 @@ export function applyAdminDemoAction(
       return {
         ok: false,
         order,
-        message: "Không có khoản COD cần xác nhận cho đơn này.",
+        message: t("business:orderdemo.thereIsNoCodPaymentToConfirmForThisOrder"),
       };
     next.paymentStatus = "PAID";
-    description = "Đã xác nhận thu tiền COD.";
+    description = t("business:orderdemo.codCollectionConfirmed");
   } else {
     if (
       role === "STAFF" ||
@@ -84,10 +88,10 @@ export function applyAdminDemoAction(
         ok: false,
         order,
         message:
-          "Không thể duyệt yêu cầu này. Kiểm tra quyền và ghi chú quyết định.",
+          t("business:orderdemo.cannotReviewThisRequestCheckYourPermissionsAndDecisionNote"),
       };
     next = { ...next, hasRefundRequest: false, refundStatus: action.decision };
-    description = `${action.decision === "APPROVED" ? "Đã duyệt" : "Đã từ chối"} yêu cầu hoàn tiền. ${action.note.trim()}`;
+    description = t("business:orderdemo.refundRequest", { value1: action.decision === "APPROVED" ? t("business:orderdetaildrawer.approved") : t("business:orderdetaildrawer.rejected"), value2: action.note.trim() });
   }
   next.updatedAt = now;
   next.timeline = [
@@ -96,10 +100,10 @@ export function applyAdminDemoAction(
       status: next.status,
       title:
         action.type === "COD"
-          ? "Đã thu COD"
+          ? t("business:paymentstatusbadge.codCollected")
           : action.type === "REFUND"
-            ? "Xử lý yêu cầu hoàn tiền"
-            : orderStatusLabels[next.status],
+            ? t("business:orderdetaildrawer.reviewRefundRequest")
+            : t(orderStatusKeys[next.status]),
       description,
       time: now,
       actor: role,
@@ -108,15 +112,15 @@ export function applyAdminDemoAction(
   return { ok: true, order: next, message: description };
 }
 
-export function displayOrderTime(value?: string) {
-  if (!value) return "Chưa có cập nhật";
+export function displayOrderTime(value?: string, locale: Locale = "vi") {
+  if (!value) return getTranslator(locale)("orders:noUpdates");
   if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(value))
     value = value.replace(" ", "T") + ":00+07:00";
   if (!/^\d{4}-\d{2}-\d{2}T/.test(value)) return value;
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat("vi-VN", {
+    : new Intl.DateTimeFormat(locale === "vi" ? "vi-VN" : "en-US", {
         day: "2-digit",
         month: "2-digit",
         hour: "2-digit",

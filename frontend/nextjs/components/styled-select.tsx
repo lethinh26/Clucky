@@ -4,23 +4,29 @@ import { Select } from '@base-ui/react/select';
 import { ChevronDown } from 'lucide-react';
 import React from 'react';
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; lang?: string };
 
 export function StyledSelect({
   value,
   onChange,
   options,
   ariaLabel,
+  disabled = false,
+  style,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: Option[];
   ariaLabel?: string;
+  disabled?: boolean;
+  style?: React.CSSProperties;
 }) {
   const selected = options.find((o) => o.value === value);
 
   return (
-    <Select.Root value={value} onValueChange={(v) => onChange(v as string)}>
+    <Select.Root value={value} disabled={disabled} onValueChange={(nextValue) => {
+      if (typeof nextValue === 'string') onChange(nextValue);
+    }}>
       <Select.Trigger
         aria-label={ariaLabel}
         style={{
@@ -33,20 +39,22 @@ export function StyledSelect({
           fontSize: 13,
           fontWeight: 600,
           color: '#16100D',
-          cursor: 'pointer',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.6 : 1,
           display: 'inline-flex',
           alignItems: 'center',
           gap: 6,
           fontFamily: "'Quicksand', sans-serif",
+          ...style,
         }}
       >
-        <Select.Value>{selected?.label ?? value}</Select.Value>
+        <Select.Value lang={selected?.lang}>{selected?.label ?? value}</Select.Value>
         <Select.Icon>
           <ChevronDown size={14} />
         </Select.Icon>
       </Select.Trigger>
       <Select.Portal>
-        <Select.Positioner sideOffset={8} align="start" alignItemWithTrigger={false}>
+        <Select.Positioner sideOffset={8} align="start" alignItemWithTrigger={false} style={{ zIndex: 1100 }}>
           <Select.Popup
             style={{
               background: '#FFFAF3',
@@ -66,6 +74,7 @@ export function StyledSelect({
                 <Select.Item
                   key={opt.value}
                   value={opt.value}
+                  lang={opt.lang}
                   style={{
                     padding: '8px 12px',
                     borderRadius: 9,

@@ -1,3 +1,7 @@
+"use client";
+import { useTranslations } from "next-intl";
+
+
 import Link from "@/components/ui-loader/navigation-link";
 import { Hero } from "@/components/hero";
 import { ProductCard } from "@/components/product-card";
@@ -6,6 +10,7 @@ import { products, categories } from "@/lib/products";
 import { Flame, Award, Truck } from "lucide-react";
 
 export default function Home() {
+  const t = useTranslations();
   const featuredProducts = products
     .filter((p) => p.isBestSeller || p.id <= 6)
     .slice(0, 6);
@@ -26,17 +31,17 @@ export default function Home() {
               Happy <strong>inside.</strong>
             </>
           }
-          description="Gà rán giòn rụm đậm vị truyền thống, chế biến thủ công từ 100% gà tươi mỗi ngày. Từng miếng gà nóng hổi chuẩn nhiệt độ vàng mang lại niềm vui trọn vẹn cho bạn và người thân."
+          description={t("home.hero.description")}
           actions={[
-            { href: "/menu", label: "Đặt món ngay", variant: "primary" },
-            { href: "/menu", label: "Xem thực đơn", variant: "secondary" },
+            { href: "/menu", label: t("home.hero.order"), variant: "primary" },
+            { href: "/menu", label: t("home.hero.menu"), variant: "secondary" },
           ]}
           imageSrc="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=1000&q=85"
-          imageAlt="Đĩa gà rán giòn vàng óng ánh Clucky"
+          imageAlt={t("home.hero.imageAlt")}
         />
 
         {/* Floating Category Dock */}
-        <section className="category-row-section" aria-label="Danh mục món ăn">
+        <section className="category-row-section" aria-label={t("menu.categories.label")}>
           <div className="category-dock">
             {categories.map((cat) => (
               <Link
@@ -45,7 +50,7 @@ export default function Home() {
                 className={`category-pill ${cat.id === 0 ? "active" : ""}`}
               >
                 <CategoryIcon id={cat.id} size={18} active={cat.id === 0} />
-                <span>{cat.name}</span>
+                <span>{t(cat.messageKey)}</span>
               </Link>
             ))}
           </div>
@@ -74,8 +79,7 @@ export default function Home() {
                 textTransform: "uppercase",
               }}
             >
-              Món ăn bán chạy nhất
-            </span>
+              {t("home.bestSellers")}{" "}</span>
             <h2
               style={{
                 fontFamily: "Baloo 2, sans-serif",
@@ -86,8 +90,7 @@ export default function Home() {
                 letterSpacing: "-0.03em",
               }}
             >
-              Hương vị được yêu thích tại Clucky
-            </h2>
+              {t("home.favourites")}{" "}</h2>
           </div>
           <Link
             href="/menu"
@@ -101,8 +104,7 @@ export default function Home() {
               gap: 6,
             }}
           >
-            Xem tất cả thực đơn →
-          </Link>
+            {t("home.fullMenu")}{" "}</Link>
         </section>
 
         {/* Featured Product Grid */}
@@ -122,40 +124,33 @@ export default function Home() {
         {/* Brand Promise Section */}
         <section
           className="brand-promise"
-          aria-label="Cam kết thương hiệu Clucky"
+          aria-label={t("home.promise.label")}
         >
           <div className="promise-card">
             <div className="promise-icon" style={{ color: "#8F1216" }}>
               <Flame size={28} />
             </div>
-            <h3>Giòn nóng mỗi phần</h3>
+            <h3>{t("home.promise.crispyTitle")}</h3>
             <p>
-              Gà chỉ được chiên áp suất ngay sau khi bạn đặt hàng, cam kết lớp
-              vỏ giòn rụm không bị ỉu, giữ trọn độ ẩm ngọt mọng nước bên trong.
-            </p>
+              {t("home.promise.crispyDescription")}{" "}</p>
           </div>
 
           <div className="promise-card">
             <div className="promise-icon" style={{ color: "#C9A227" }}>
               <Award size={28} />
             </div>
-            <h3>Công thức độc quyền</h3>
+            <h3>{t("home.promise.recipeTitle")}</h3>
             <p>
-              Pha trộn tinh tế từ 12 loại thảo mộc tự nhiên theo công thức chuẩn
-              Âu, mang lại dư vị thơm nồng kích thích vị giác nhưng không gắt
-              cổ.
-            </p>
+              {t("home.promise.recipeDescription")}{" "}</p>
           </div>
 
           <div className="promise-card">
             <div className="promise-icon" style={{ color: "#1E7A46" }}>
               <Truck size={28} />
             </div>
-            <h3>Giao hàng chuẩn nhiệt</h3>
+            <h3>{t("home.promise.deliveryTitle")}</h3>
             <p>
-              Túi giữ nhiệt chuyên dụng giữ trọn độ nóng giòn từ bếp tới tận cửa
-              nhà bạn trong vòng 30 phút từ các chi nhánh gần nhất.
-            </p>
+              {t("home.promise.deliveryDescription")}{" "}</p>
           </div>
         </section>
       </main>

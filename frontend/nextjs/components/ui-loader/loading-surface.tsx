@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   useEffect,
   useLayoutEffect,
@@ -40,13 +41,16 @@ export function LoadingSurface({
   pending,
   children,
   className,
-  message = "Đang tải…",
+  message: messageProp,
 }: {
   pending: boolean;
   children: ReactNode;
   className?: string;
   message?: string;
 }) {
+  const t = useTranslations();
+  const message = messageProp ?? t("business.loadingsurface.loading");
+
   const region = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
@@ -227,7 +231,7 @@ export function LoadingSurface({
                 </div>
                 <div>
                   <p className={styles.message}>{message}</p>
-                  <p className={styles.hint}>Vui lòng chờ trong giây lát</p>
+                  <p className={styles.hint}>{t("business.loadingsurface.pleaseWaitAMoment")}</p>
                 </div>
               </div>
             </div>

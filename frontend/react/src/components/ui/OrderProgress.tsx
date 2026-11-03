@@ -1,8 +1,10 @@
+import { useTranslation } from "react-i18next";
+import { useLocaleTools } from "../../i18n/hooks";
 import { useEffect, useId, useState } from "react";
 import { Check, ChevronDown, Clock3 } from "lucide-react";
 import type { AdminOrder } from "../../types/order";
-import { displayOrderTime, orderStatusLabels } from "../../lib/order-demo";
-export { orderStatusLabels } from "../../lib/order-demo";
+import { displayOrderTime, orderStatusKeys } from "../../lib/order-demo";
+export { orderStatusKeys } from "../../lib/order-demo";
 
 export function OrderProgress({
   order,
@@ -11,6 +13,9 @@ export function OrderProgress({
   order: AdminOrder;
   surface?: "card" | "detail";
 }) {
+  const { t } = useTranslation();
+
+  const { locale } = useLocaleTools();
   const [expanded, setExpanded] = useState(false);
   const id = useId();
   const key = `clucky-admin-progress:${surface}:${order.id}`;
@@ -54,13 +59,13 @@ export function OrderProgress({
       >
         <Clock3 size={15} />
         <span>
-          <strong>Tiến trình đơn</strong>
-          <small>{displayOrderTime(order.updatedAt ?? order.createdAt)}</small>
+          <strong>{t("business:demoordercontrols.orderProgress")}</strong>
+          <small>{displayOrderTime(order.updatedAt ?? order.createdAt, locale)}</small>
         </span>
-        <b>{orderStatusLabels[order.status]}</b>
+        <b>{t(orderStatusKeys[order.status])}</b>
         <ChevronDown size={16} />
         <span className="sr-only">
-          {expanded ? "Thu gọn" : "Mở rộng"} tiến trình {order.orderCode}
+          {expanded ? t("business:orderprogress.collapse") : t("business:orderprogress.expand")} {t("business:orderprogress.progress")} {order.orderCode}
         </span>
       </button>
       <div
@@ -71,15 +76,15 @@ export function OrderProgress({
       >
         <div>
           {order.status === "CANCELLED" ? (
-            <p className="order-stopped">Đơn đã hủy. Tiến trình đã dừng.</p>
+            <p className="order-stopped">{t("business:orderprogress.orderCancelledProgressHasStopped")}</p>
           ) : (
             <ol className="m3-admin-progress-rail">
               {[
-                "Thanh toán",
-                "Xác nhận",
-                "Chế biến",
-                order.orderType === "PICKUP" ? "Chờ nhận" : "Sẵn sàng",
-                "Hoàn tất",
+                t("business:cart.checkout"),
+                t("business:orderprogress.confirm"),
+                t("business:orderprogress.preparing"),
+                order.orderType === "PICKUP" ? t("business:orderprogress.awaitingCollection") : t("business:orderprogress.ready"),
+                t("business:orderprogress.complete"),
               ].map((label, index) => (
                 <li
                   key={label}
@@ -100,24 +105,23 @@ export function OrderProgress({
               ))}
             </ol>
           )}
-          <ol className="m3-admin-history" aria-label="Lịch sử cập nhật">
+          <ol className="m3-admin-history" aria-label={t("business:orderprogress.updateHistory")}>
             {order.timeline?.map((event, index) => (
               <li key={`${index}-${event.time}`}>
                 <div>
                   <strong>{event.title}</strong>
                   <p>{event.description}</p>
                   {event.actor && (
-                    <small>
-                      Vai trò:{" "}
+                    <small> {t("business:orderprogress.role")}{" "}
                       {{
-                        STAFF: "Nhân viên",
-                        STORE_MANAGER: "Quản lý chi nhánh",
-                        ADMIN: "Quản trị viên",
+                        STAFF: t("business:orderprogress.staff"),
+                        STORE_MANAGER: t("business:reviews.storeManager"),
+                        ADMIN: t("business:orderprogress.administrator"),
                       }[event.actor] ?? event.actor}
                     </small>
                   )}
                 </div>
-                <time>{displayOrderTime(event.time)}</time>
+                <time>{displayOrderTime(event.time, locale)}</time>
               </li>
             ))}
           </ol>

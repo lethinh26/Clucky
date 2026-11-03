@@ -1,17 +1,21 @@
+import { useTranslation } from "react-i18next";
+import { useLocaleTools } from "../../i18n/hooks";
 import React from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useScopedNavigate as useNavigate } from "../../components/ui-loader/use-scoped-navigate";
 import { useDeferredAction } from "../../components/ui-loader/use-deferred-action";
 import { Form, Input, Button, Alert } from "antd";
 import { AuthLayout } from "./AuthLayout";
-import { authApi, getErrorMessage } from "../../lib/api";
+import { authApi } from "../../lib/api";
 
 export const ResetPasswordPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const { errorMessage } = useLocaleTools();
   const navigate = useNavigate();
   const startDeferred = useDeferredAction();
   const [params] = useSearchParams();
   const email = params.get("email") ?? "";
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -25,11 +29,11 @@ export const ResetPasswordPage: React.FC = () => {
     setError(null);
     setSuccess(null);
     if (!/^\d{6}$/.test(values.otp)) {
-      setError("Mã OTP phải gồm đúng 6 chữ số.");
+      setError("auth:validation.otpLength");
       return;
     }
     if (values.password !== values.confirm) {
-      setError("Mật khẩu xác nhận không khớp.");
+      setError("auth:validation.confirmMismatch");
       return;
     }
     setLoading(true);
@@ -40,11 +44,11 @@ export const ResetPasswordPage: React.FC = () => {
         newPassword: values.password,
       });
       if (!task.isCurrent()) return;
-      setSuccess("Đặt lại mật khẩu thành công. Đang chuyển đến đăng nhập…");
+      setSuccess("auth:reset.success");
       task.schedule(() => navigate("/login"), 1200);
     } catch (err) {
       if (!task.isCurrent()) return;
-      setError(getErrorMessage(err, "Không thể đặt lại mật khẩu."));
+      setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }
@@ -52,14 +56,14 @@ export const ResetPasswordPage: React.FC = () => {
 
   return (
     <AuthLayout
-      title="Đặt lại mật khẩu"
-      subtitle={`Nhập mã OTP gửi tới ${email || "email của bạn"} và mật khẩu mới.`}
+      title={t("auth:reset.title")}
+      subtitle={t("auth:reset.description", { email: email || t("auth:fields.yourEmail") })}
     >
       <Form layout="vertical" onFinish={onFinish} requiredMark={false}>
-        {error && (
+        {Boolean(error) && (
           <Alert
             type="error"
-            message={error}
+            message={typeof error === "string" && i18n.exists(error) ? t(error) : errorMessage(error)}
             showIcon
             style={{ marginBottom: 18, borderRadius: 12 }}
           />
@@ -67,48 +71,48 @@ export const ResetPasswordPage: React.FC = () => {
         {success && (
           <Alert
             type="success"
-            message={success}
+            message={t(success)}
             showIcon
             style={{ marginBottom: 18, borderRadius: 12 }}
           />
         )}
         <Form.Item
-          label="Mã OTP"
+          label={t("auth:otp.label")}
           name="otp"
           rules={[
-            { required: true, message: "Vui lòng nhập mã OTP." },
-            { pattern: /^\d{6}$/, message: "Mã OTP phải gồm đúng 6 chữ số." },
+            { required: true, message: t("auth:validation.otpRequired") },
+            { pattern: /^\d{6}$/, message: t("auth:validation.otpLength") },
           ]}
         >
           <Input
             size="large"
             inputMode="numeric"
-            placeholder="Mã 6 số"
+            placeholder={t("auth:otp.shortPlaceholder")}
             autoComplete="one-time-code"
           />
         </Form.Item>
         <Form.Item
-          label="Mật khẩu mới"
+          label={t("auth:fields.newPassword")}
           name="password"
           rules={[
-            { required: true, message: "Vui lòng nhập mật khẩu mới." },
-            { min: 8, message: "Tối thiểu 8 ký tự." },
+            { required: true, message: t("auth:validation.newPasswordRequired") },
+            { min: 8, message: t("auth:validation.minimumLength") },
           ]}
         >
           <Input.Password size="large" autoComplete="new-password" />
         </Form.Item>
         <Form.Item
-          label="Xác nhận mật khẩu"
+          label={t("auth:fields.confirmPassword")}
           name="confirm"
           dependencies={["password"]}
           rules={[
-            { required: true, message: "Vui lòng xác nhận mật khẩu." },
+            { required: true, message: t("auth:validation.confirmRequired") },
             ({ getFieldValue }) => ({
               validator(_, value) {
                 if (!value || getFieldValue("password") === value)
                   return Promise.resolve();
                 return Promise.reject(
-                  new Error("Mật khẩu xác nhận không khớp."),
+                  new Error(t("auth:validation.confirmMismatch")),
                 );
               },
             }),
@@ -124,8 +128,7 @@ export const ResetPasswordPage: React.FC = () => {
           block
           style={{ borderRadius: 999, height: 48, fontWeight: 700 }}
         >
-          Đặt lại mật khẩu
-        </Button>
+          {t("auth:reset.title")}{" "}</Button>
         <div
           style={{
             marginTop: 20,
@@ -136,8 +139,7 @@ export const ResetPasswordPage: React.FC = () => {
           }}
         >
           <Link to="/login" style={{ color: "#8F1216" }}>
-            ← Quay lại đăng nhập
-          </Link>
+            {t("auth:backToLogin")}{" "}</Link>
         </div>
       </Form>
     </AuthLayout>

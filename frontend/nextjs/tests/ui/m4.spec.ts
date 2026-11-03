@@ -304,7 +304,7 @@ test("Google request loading and error can be retried without storing a pending 
     page.getByRole("button", { name: "Đang mở Google…" }),
   ).toBeDisabled();
   release();
-  await expect(page.getByRole("alert")).toHaveText("Dịch vụ tạm gián đoạn");
+  await expect(page.getByRole("alert")).toHaveText("Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.");
   await expect(
     page.getByRole("button", { name: "Đăng nhập bằng Google" }),
   ).toBeEnabled();

@@ -1,5 +1,8 @@
+"use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 import { Truck } from "lucide-react";
-import { formatPrice } from "@/lib/products";
 import styles from "../payment/payment-shared.module.css";
 
 export interface ShippingFeeCardProps {
@@ -20,6 +23,9 @@ export function ShippingFeeCard({
   error,
   className = "",
 }: ShippingFeeCardProps) {
+  const t = useTranslations();
+
+  const { money: formatPrice } = useLocaleTools();
   const validFee = fee != null && Number.isSafeInteger(fee) && fee >= 0;
   const missing =
     freeFromAmount != null &&
@@ -40,38 +46,32 @@ export function ShippingFeeCard({
     >
       <div className={styles.feeRow}>
         <span className={styles.feeLabel}>
-          <Truck size={19} aria-hidden="true" /> Phí giao hàng
-        </span>
+          <Truck size={19} aria-hidden="true" /> {t("business.ordersummarycard.deliveryFee")} </span>
         <strong
           className={
             showHint && fee === 0 ? styles.feeFree : styles.shipmentFee
           }
         >
           {loading
-            ? "Đang tính…"
+            ? t("business.shippingfeecard.calculating")
             : error
-              ? "Không thể tính phí"
+              ? t("business.shippingfeecard.unableToCalculateFee")
               : !validFee
-                ? "Chưa tính được phí"
+                ? t("business.shippingfeecard.feeNotYetAvailable")
                 : fee === 0
-                  ? "Miễn phí"
+                  ? t("business.ordersummarycard.free")
                   : formatPrice(fee!)}
         </strong>
       </div>
       {!loading && error && <p className={styles.errorText}>{error}</p>}
       {!loading && !error && !validFee && (
-        <p className={styles.feeHint}>
-          Phí giao hàng sẽ hiển thị khi có đủ thông tin địa chỉ và cửa hàng.
-        </p>
+        <p className={styles.feeHint}> {t("business.shippingfeecard.theDeliveryFeeWillAppearOnceTheAddressAndStoreDetailsAre")} </p>
       )}
       {showHint && fee! > 0 && missing != null && missing > 0 && (
-        <p className={styles.feeHint}>
-          Mua thêm <strong>{formatPrice(missing)}</strong> để được miễn phí giao
-          hàng.
-        </p>
+        <p className={styles.feeHint}> {t("business.shippingfeecard.spendAnother")} <strong>{formatPrice(missing)}</strong> {t("business.shippingfeecard.toGetFreeDelivery")} </p>
       )}
       {showHint && fee === 0 && (
-        <p className={styles.feeHint}>Đơn hàng của bạn được miễn phí giao.</p>
+        <p className={styles.feeHint}>{t("business.shippingfeecard.yourOrderQualifiesForFreeDelivery")}</p>
       )}
     </div>
   );

@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import React, { useState } from "react";
 import styles from "./auth-shared.module.css";
@@ -18,6 +21,8 @@ export function GoogleCompletePassword({
   loading = false,
   className = "",
 }: GoogleCompletePasswordProps) {
+  const t = useTranslations();
+  const { errorMessage } = useLocaleTools();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -26,11 +31,11 @@ export function GoogleCompletePassword({
     e.preventDefault();
     if (loading) return;
     if (password.length < 8) {
-      setError("Mật khẩu phải có ít nhất 8 ký tự.");
+      setError("auth.validation.passwordLength");
       return;
     }
     if (password !== confirm) {
-      setError("Mật khẩu nhập lại không khớp.");
+      setError("auth.validation.passwordMismatch");
       return;
     }
     setError("");
@@ -39,17 +44,14 @@ export function GoogleCompletePassword({
 
   return (
     <div className={`${styles.completeCard} ${styles.authScope} ${className}`}>
-      <h2 className={styles.completeTitle}>Tạo mật khẩu Clucky</h2>
+      <h2 className={styles.completeTitle}>{t("auth.google.passwordTitle")}</h2>
       <p className={styles.completeDesc}>
-        Tài khoản Google <strong>{email}</strong> chưa có mật khẩu. Đặt mật khẩu
-        để sau này đăng nhập được cả bằng email + mật khẩu, không cần Google.
-      </p>
+        {t("auth.google.account")}{" "}<strong>{email}</strong> {" "}{t("auth.google.passwordDescription")}{" "}</p>
 
       <form onSubmit={handleSubmit} noValidate>
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor="google-new-password">
-            Mật khẩu mới
-          </label>
+            {t("auth.fields.newPassword")}{" "}</label>
           <input
             id="google-new-password"
             type="password"
@@ -71,8 +73,7 @@ export function GoogleCompletePassword({
             className={styles.fieldLabel}
             htmlFor="google-confirm-password"
           >
-            Nhập lại mật khẩu
-          </label>
+            {t("auth.fields.repeatPassword")}{" "}</label>
           <input
             id="google-confirm-password"
             type="password"
@@ -87,18 +88,18 @@ export function GoogleCompletePassword({
           />
         </div>
 
-        {error && (
+        {Boolean(error) && (
           <p
             id="google-password-error"
             className={styles.fieldError}
             role="alert"
           >
-            {error}
+            {typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)}
           </p>
         )}
 
         <button type="submit" className={styles.submitBtn} disabled={loading}>
-          {loading ? "Đang tạo tài khoản…" : "Hoàn tất đăng ký"}
+          {loading ? t("auth.register.loading") : t("auth.register.complete")}
         </button>
       </form>
     </div>

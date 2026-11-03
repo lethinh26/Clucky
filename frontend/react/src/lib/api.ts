@@ -1,4 +1,5 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
+import { getBrowserLocale, getErrorMessage as resolveError } from '../i18n/core';
 
 /**
  * Axios client for the Clucky staff/admin app.
@@ -13,12 +14,12 @@ export const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('clucky_admin_access_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  config.headers['Accept-Language'] = getBrowserLocale();
   return config;
 });
 
-export function getErrorMessage(err: unknown, fallback = 'Đã có lỗi xảy ra.'): string {
-  const e = err as AxiosError<{ message?: string }>;
-  return e?.response?.data?.message || e?.message || fallback;
+export function getErrorMessage(err: unknown, _fallback?: string): string {
+  return resolveError(err);
 }
 
 /* ---------- Auth ---------- */

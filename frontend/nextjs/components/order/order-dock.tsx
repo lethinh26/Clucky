@@ -1,10 +1,12 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "@/components/ui-loader/navigation-link";
 import { usePathname } from "next/navigation";
 import { ShoppingBag, ArrowRight, Minus, Plus, Trash2, X } from "lucide-react";
-import { formatPrice } from "@/lib/products";
 import { isFloatingCartRoute } from "@/lib/order-demo";
 import { useOrder } from "./order-provider";
 import { OrderDialog } from "./order-dialog";
@@ -13,6 +15,9 @@ import { FoodImage } from "./food-image";
 import styles from "./order-experience.module.css";
 
 function MiniCartContent({ onNavigate }: { onNavigate: () => void }) {
+  const t = useTranslations();
+
+  const { money: formatPrice } = useLocaleTools();
   const { items, count, subtotal, updateQuantity, removeItem } = useOrder();
   return (
     <>
@@ -20,10 +25,9 @@ function MiniCartContent({ onNavigate }: { onNavigate: () => void }) {
         {!items.length ? (
           <div className={styles.miniEmpty}>
             <ShoppingBag size={38} />
-            <h3>Giỏ hàng đang chờ món ngon</h3>
-            <p>Chọn món yêu thích, Clucky sẽ giữ giúp bạn ở đây.</p>
-            <Link href="/menu" onClick={onNavigate}>
-              Khám phá thực đơn <ArrowRight size={16} />
+            <h3>{t("business.orderdock.yourCartIsWaitingForSomethingDelicious")}</h3>
+            <p>{t("business.orderdock.chooseYourFavouritesCluckyWillKeepThemHereForYou")}</p>
+            <Link href="/menu" onClick={onNavigate}> {t("business.checkout.exploreTheMenu")} <ArrowRight size={16} />
             </Link>
           </div>
         ) : (
@@ -45,17 +49,16 @@ function MiniCartContent({ onNavigate }: { onNavigate: () => void }) {
                 </p>
                 {item.note && <p className={styles.miniNote}>{item.note}</p>}
                 <span className={styles.miniUnitPrice}>
-                  {formatPrice(item.unitPrice)} / phần
-                </span>
+                  {formatPrice(item.unitPrice)} {t("business.cart.serving")} </span>
                 <div className={styles.miniCartItemBottom}>
                   <div
                     className={styles.quickQuantity}
-                    aria-label={`Số lượng ${item.name}`}
+                    aria-label={t("business.orderdock.quantityFor", { value1: item.name })}
                   >
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.id, -1)}
-                      aria-label={`Giảm ${item.name}`}
+                      aria-label={t("business.cart.decrease", { value1: item.name })}
                     >
                       <Minus size={14} />
                     </button>
@@ -63,7 +66,7 @@ function MiniCartContent({ onNavigate }: { onNavigate: () => void }) {
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.id, 1)}
-                      aria-label={`Tăng ${item.name}`}
+                      aria-label={t("business.cart.increase", { value1: item.name })}
                     >
                       <Plus size={14} />
                     </button>
@@ -75,7 +78,7 @@ function MiniCartContent({ onNavigate }: { onNavigate: () => void }) {
                 type="button"
                 className={styles.iconAction}
                 onClick={() => removeItem(item.id)}
-                aria-label={`Xóa ${item.name}`}
+                aria-label={t("business.orderdock.remove", { value1: item.name })}
               >
                 <Trash2 size={16} />
               </button>
@@ -86,24 +89,21 @@ function MiniCartContent({ onNavigate }: { onNavigate: () => void }) {
       {items.length > 0 && (
         <div className={styles.miniCartFooter}>
           <div>
-            <span>Tạm tính · {count} phần ăn</span>
+            <span>{t("business.orderdock.subtotal")} {count} {t("business.cart.servings")}</span>
             <strong>{formatPrice(subtotal)}</strong>
           </div>
-          <p>Phí giao hàng và ưu đãi được tính tại checkout.</p>
+          <p>{t("business.orderdock.deliveryFeesAndDiscountsAreCalculatedAtCheckout")}</p>
           <div className={styles.miniCartActions}>
             <Link
               href="/cart"
               onClick={onNavigate}
               className={styles.secondaryAction}
-            >
-              Xem giỏ hàng
-            </Link>
+            > {t("business.orderdock.viewCart")} </Link>
             <Link
               href="/checkout"
               onClick={onNavigate}
               className={styles.primaryAction}
-            >
-              Thanh toán <ArrowRight size={16} />
+            > {t("business.cart.checkout")} <ArrowRight size={16} />
             </Link>
           </div>
         </div>
@@ -113,6 +113,8 @@ function MiniCartContent({ onNavigate }: { onNavigate: () => void }) {
 }
 
 export function OrderDock() {
+  const t = useTranslations();
+
   const navigating = useNavigationPending();
   const { count, ready } = useOrder();
   const pathname = usePathname();
@@ -155,7 +157,7 @@ export function OrderDock() {
     <>
       <aside
         className={styles.floatingCart}
-        aria-label="Giỏ hàng nhanh"
+        aria-label={t("business.orderdock.quickCart")}
         onPointerEnter={(event) => {
           if (event.pointerType === "mouse" && !open) setPreview(true);
         }}
@@ -178,13 +180,13 @@ export function OrderDock() {
         >
           <header>
             <div>
-              <small>BỮA NGON TRONG TẦM TAY</small>
-              <h2>Giỏ hàng của bạn</h2>
+              <small>{t("business.orderdock.aGreatMealAtYourFingertips")}</small>
+              <h2>{t("business.cart.yourCart")}</h2>
             </div>
             <button
               className={styles.iconAction}
               type="button"
-              aria-label="Đóng xem nhanh giỏ hàng"
+              aria-label={t("business.orderdock.closeCartPreview")}
               onClick={() => setPreview(false)}
             >
               <X size={18} />
@@ -196,7 +198,7 @@ export function OrderDock() {
           ref={button}
           type="button"
           className={styles.cartFab}
-          aria-label={`Mở giỏ hàng nhanh, ${count} phần ăn`}
+          aria-label={t("business.orderdock.openQuickCartServings", { value1: count })}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => {
@@ -218,15 +220,14 @@ export function OrderDock() {
       >
         <header className={styles.drawerHeader}>
           <div>
-            <small>CHỌN THÊM MỘT CHÚT VUI</small>
-            <h2 id={titleId}>
-              Giỏ hàng của bạn <span>{count} phần</span>
+            <small>{t("business.orderdock.addALittleMoreJoy")}</small>
+            <h2 id={titleId}> {t("business.cart.yourCart")} <span>{count} {t("business.cart.servings")}</span>
             </h2>
           </div>
           <button
             type="button"
             onClick={close}
-            aria-label="Đóng giỏ hàng nhanh"
+            aria-label={t("business.orderdock.closeQuickCart")}
             className={styles.iconAction}
           >
             <X size={22} />

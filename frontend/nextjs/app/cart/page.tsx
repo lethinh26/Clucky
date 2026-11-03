@@ -1,7 +1,9 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import Link from "@/components/ui-loader/navigation-link";
-import { formatPrice } from "@/lib/products";
 import { useOrder } from "@/components/order/order-provider";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
@@ -17,6 +19,9 @@ import { FoodImage } from "@/components/order/food-image";
 import styles from "./cart.module.css";
 
 export default function CartPage() {
+  const t = useTranslations();
+
+  const { money: formatPrice } = useLocaleTools();
   const {
     items,
     count,
@@ -33,15 +38,13 @@ export default function CartPage() {
             <main className={`${styles.cartContainer} m3-page`}>
         <OrderProgress stage="cart" />
         <div className={styles.cartHeading}>
-          <span className={styles.eyebrow}>Bữa ngon bắt đầu từ đây</span>
-          <h1 className={styles.title}>
-            Giỏ hàng của bạn
-            <span className={styles.countPill}>{count} phần ăn</span>
+          <span className={styles.eyebrow}>{t("business.cart.aDeliciousMealStartsHere")}</span>
+          <h1 className={styles.title}> {t("business.cart.yourCart")} <span className={styles.countPill}>{count} {t("business.cart.servings")}</span>
           </h1>
           <p className={styles.subtitle}>
             {items.length > 0
-              ? `Bạn đang có ${items.reduce((s, i) => s + i.quantity, 0)} món thơm ngon trong giỏ.`
-              : "Giỏ hàng đang trống."}
+              ? t("business.cart.youHaveDeliciousItemsInYourCart", { value1: items.reduce((s, i) => s + i.quantity, 0) })
+              : t("business.cart.yourCartIsEmpty")}
           </p>
         </div>
 
@@ -52,28 +55,21 @@ export default function CartPage() {
             <div className={styles.emptyEmoji} aria-hidden="true">
               <ShoppingBag size={52} />
             </div>
-            <h2 className={styles.emptyTitle}>Chưa có món nào trong giỏ</h2>
-            <p className={styles.emptyDesc}>
-              Hãy chọn những phần gà rán vàng giòn và combo ưu đãi đặc biệt từ
-              Clucky ngay nhé!
-            </p>
-            <Link href="/menu" className={styles.browseBtn}>
-              Khám phá thực đơn ngay →
-            </Link>
+            <h2 className={styles.emptyTitle}>{t("business.cart.noItemsInYourCartYet")}</h2>
+            <p className={styles.emptyDesc}> {t("business.cart.chooseGoldenCrispyChickenAndSpecialValueCombosFromClucky")} </p>
+            <Link href="/menu" className={styles.browseBtn}> {t("business.cart.exploreTheMenuNow")} </Link>
           </div>
         ) : (
           <div className={styles.cartGrid}>
             <section
               className={styles.itemsList}
-              aria-label="Danh sách món trong giỏ hàng"
+              aria-label={t("business.cart.cartItems")}
             >
               <div className={styles.listHeading}>
                 <span>
-                  <ChefHat size={18} /> Món ngon đã chọn
-                </span>
+                  <ChefHat size={18} /> {t("business.cart.yourChosenDishes")} </span>
                 <Link href="/menu">
-                  <Plus size={16} /> Thêm món
-                </Link>
+                  <Plus size={16} /> {t("business.cart.addItems")} </Link>
               </div>
               {items.map((item) => (
                 <article className={styles.cartCard} key={item.id}>
@@ -87,8 +83,7 @@ export default function CartPage() {
                     <span className={styles.itemCategory}>{item.category}</span>
                     <h2 className={styles.itemName}>{item.name}</h2>
                     <p className={styles.itemUnitPrice}>
-                      {formatPrice(item.unitPrice)} / phần
-                    </p>
+                      {formatPrice(item.unitPrice)} {t("business.cart.serving")} </p>
 
                     {(item.options || item.toppings) && (
                       <div className={styles.addonsList}>
@@ -108,11 +103,11 @@ export default function CartPage() {
                     <div className={styles.noteInputWrapper}>
                       <input
                         type="text"
-                        placeholder="Ghi chú thêm cho quán (VD: ít đá, cay vừa)..."
+                        placeholder={t("business.cart.notesForTheRestaurantEGLessIceMediumSpice")}
                         value={item.note || ""}
                         onChange={(e) => updateNote(item.id, e.target.value)}
                         className={styles.noteInput}
-                        aria-label={`Ghi chú cho món ${item.name}`}
+                        aria-label={t("business.cart.notesFor", { value1: item.name })}
                       />
                     </div>
                   </div>
@@ -125,13 +120,13 @@ export default function CartPage() {
                     <div
                       className={styles.stepper}
                       role="group"
-                      aria-label="Thay đổi số lượng"
+                      aria-label={t("business.cart.changeQuantity")}
                     >
                       <button
                         type="button"
                         onClick={() => updateQuantity(item.id, -1)}
                         className={styles.stepperBtn}
-                        aria-label={`Giảm ${item.name}`}
+                        aria-label={t("business.cart.decrease", { value1: item.name })}
                       >
                         <Minus size={16} />
                       </button>
@@ -140,7 +135,7 @@ export default function CartPage() {
                         type="button"
                         onClick={() => updateQuantity(item.id, 1)}
                         className={styles.stepperBtn}
-                        aria-label={`Tăng ${item.name}`}
+                        aria-label={t("business.cart.increase", { value1: item.name })}
                       >
                         <Plus size={16} />
                       </button>
@@ -151,53 +146,47 @@ export default function CartPage() {
                       onClick={() => removeItem(item.id)}
                       className={styles.removeBtn}
                     >
-                      <Trash2 size={13} /> Xóa món
-                    </button>
+                      <Trash2 size={13} /> {t("business.cart.removeItem")} </button>
                   </div>
                 </article>
               ))}
             </section>
 
             <aside className={styles.summaryBox}>
-              <div className={styles.receiptLabel}>BỮA NGON CỦA BẠN</div>
-              <h2 className={styles.summaryTitle}>Tóm tắt đơn hàng</h2>
+              <div className={styles.receiptLabel}>{t("business.cart.yourMeal")}</div>
+              <h2 className={styles.summaryTitle}>{t("business.cart.orderSummary")}</h2>
 
               <div className={styles.summaryRow}>
-                <span>Tạm tính</span>
+                <span>{t("business.cart.subtotal")}</span>
                 <strong>{formatPrice(subtotal)}</strong>
               </div>
 
               <div className={styles.summaryRow}>
-                <span>Số lượng món</span>
-                <strong>{count} phần</strong>
+                <span>{t("business.cart.itemQuantity")}</span>
+                <strong>{count} {t("business.cart.servings")}</strong>
               </div>
 
               <hr className={styles.divider} />
 
               <div className={styles.summaryTotal}>
-                <span>Tổng tạm tính</span>
+                <span>{t("business.cart.subtotalAmount")}</span>
                 <strong className={styles.totalPrice}>
                   {formatPrice(subtotal)}
                 </strong>
               </div>
 
-              <Link href="/checkout" className={styles.checkoutBtn}>
-                Thanh toán <ArrowRight size={18} />
+              <Link href="/checkout" className={styles.checkoutBtn}> {t("business.cart.checkout")} <ArrowRight size={18} />
               </Link>
 
-              <p className={styles.summaryHint}>
-                Phí giao hàng và ưu đãi sẽ được tính ở bước thanh toán.
-              </p>
+              <p className={styles.summaryHint}> {t("business.cart.deliveryFeesAndDiscountsWillBeCalculatedAtCheckout")} </p>
               <div className={styles.kitchenNote}>
                 <ChefHat size={24} />
                 <div>
-                  <strong>Từ bếp, với cả sự chăm chút.</strong>
-                  <p>Món được chuẩn bị sau khi đơn hàng được xác nhận.</p>
+                  <strong>{t("business.cart.fromOurKitchenWithCare")}</strong>
+                  <p>{t("business.cart.yourMealIsPreparedAfterYourOrderIsConfirmed")}</p>
                 </div>
               </div>
-              <Link href="/menu" className={styles.continueShopping}>
-                ← Tiếp tục chọn thêm món
-              </Link>
+              <Link href="/menu" className={styles.continueShopping}> {t("business.cart.continueShopping")} </Link>
             </aside>
           </div>
         )}

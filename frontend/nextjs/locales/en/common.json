@@ -1,0 +1,37 @@
+{
+  "language": "Language",
+  "errors": {
+    "timeout": "The connection timed out. Please try again.",
+    "network": "Unable to connect. Please check your network and try again."
+  },
+  "nav": {
+    "home": "Home",
+    "menu": "Menu",
+    "stores": "Stores",
+    "party": "Party bookings",
+    "orders": "Orders",
+    "account": "Account",
+    "main": "Main navigation",
+    "cart": "Cart",
+    "close": "Close navigation",
+    "open": "Open navigation",
+    "mobile": "Mobile navigation",
+    "trackOrders": "Track orders"
+  },
+  "tagline": "A delicious meal, a little more joy.",
+  "homeLabel": "Clucky home",
+  "footer": {
+    "links": "Footer links"
+  },
+  "backHome": "Back to home",
+  "exploreMenu": "Explore the menu",
+  "pageError": {
+    "title": "Unable to load this page",
+    "description": "Please try again or choose another page."
+  },
+  "retry": "Try again",
+  "confirm": "Confirm",
+  "updating": "Updating…",
+  "signOut": "Sign out",
+  "signedOut": "Signed out."
+}

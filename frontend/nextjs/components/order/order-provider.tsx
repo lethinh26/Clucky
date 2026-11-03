@@ -1,4 +1,6 @@
 "use client";
+import { getBrowserLocale } from "@/lib/i18n/locale";
+import { getTranslator } from "@/lib/i18n/translator";
 
 import {
   createContext,
@@ -275,7 +277,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
               ...order.timeline.map((step) => ({ ...step, current: false })),
               {
                 status: "CANCELLED",
-                title: "Đã hủy đơn",
+                title: getTranslator(getBrowserLocale())("business.orderprovider.orderCancelled"),
                 description: reason.trim(),
                 time: new Date().toISOString(),
                 done: true,
@@ -294,7 +296,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         id: crypto.randomUUID(),
         slug: item.slug ?? `reorder-${order.id}-${item.id}`,
         name: item.itemName,
-        category: "Đặt lại",
+        category: getTranslator(getBrowserLocale())("business.orderprovider.reorder"),
         basePrice: item.unitPrice,
         unitPrice: item.unitPrice,
         quantity: item.quantity,
@@ -316,7 +318,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       const previous = workspaceRef.current.orders.find(
         (order) => order.id === id,
       );
-      if (!previous) return { ok: false, message: "Không tìm thấy đơn hàng." };
+      if (!previous) return { ok: false, message: getTranslator(getBrowserLocale())("business.orderprovider.orderNotFound") };
       const result = applyDemoAction(previous, action, DEMO_CONTROLS_ENABLED);
       if (result.ok)
         setWorkspace((prev) => ({

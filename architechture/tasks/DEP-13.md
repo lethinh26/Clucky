@@ -6,4 +6,4 @@ Nội dung đã được chuyển vào task đích dưới đây; không tạo/g
 
 - [INT-05](INT-05.md) — Auth E2E: register → OTP → login → refresh, 2 app; PIC: Trần Nguyễn Hữu Khánh.
 
-Lịch cũ và file đính kèm gốc được lưu trong `architechture/verification/backlog-before-replan-2026-10-29.zip`. Xem [danh sách task hiện hành](README.md).
+Bản lưu trữ cũ không còn được quản lý trong repository; xem lịch sử Git nếu cần bản cũ. Trang này chỉ giữ ánh xạ gộp, không tạo task mới. Xem [danh sách task hiện hành](README.md).
