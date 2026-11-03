@@ -12,6 +12,7 @@ import {
   Space,
   Typography,
   Badge,
+  Alert,
   App as AntApp,
 } from "antd";
 import type { TableColumnsType } from "antd";
@@ -73,14 +74,16 @@ export const OrdersPage: React.FC = () => {
     setDrawerOpen(true);
   };
 
-  const handleStatusChange = (
+    const handleStatusChange = async (
     orderId: string,
     newStatus: AdminOrderStatus,
     reason?: string,
   ) => {
-    if (!updateStatus(orderId, newStatus, reason)) {
+    const success = await updateStatus(orderId, newStatus, reason);
+    if (!success) {
       message.warning(
-        t("business:orderspage.cannotChangeStatusYetCheckTheProgressAndConfirmPaymentCollectionBefore"),
+        actionError ||
+          t("business:orderspage.cannotChangeStatusYetCheckTheProgressAndConfirmPaymentCollectionBefore"),
       );
       return false;
     }
@@ -88,12 +91,12 @@ export const OrdersPage: React.FC = () => {
     return true;
   };
 
-  const handleConfirmRefund = (
+  const handleConfirmRefund = async (
     orderId: string,
     action: "APPROVED" | "REJECTED",
     note: string,
   ) => {
-    return reviewRefund(orderId, action, note);
+    return await reviewRefund(orderId, action, note);
   };
 
   // Filter logic
@@ -367,6 +370,14 @@ export const OrdersPage: React.FC = () => {
         > {t("business:orderspage.clearFilters")} </Button>
       </div>
 
+      {actionError && (
+        <Alert
+          message={actionError}
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
       <Tabs items={tabItems} activeKey={activeTab} onChange={setActiveTab} />
 
       <div className={styles.mobileCards}>

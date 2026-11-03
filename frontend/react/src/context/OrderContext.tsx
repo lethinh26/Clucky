@@ -19,6 +19,11 @@ import {
   type AdminDemoAction,
 } from "../lib/order-demo";
 import { useAuth } from "./AuthContext";
+import {
+  ordersApi,
+  refundsApi,
+  type BackendOrder,
+} from "../lib/api";
 
 const storageKey = "clucky-admin-orders-demo-v2";
 const statuses = z.enum([
@@ -82,6 +87,7 @@ const schema = z.array(
       .optional(),
   }),
 );
+
 function withCatalogImages(orders: AdminOrder[]): AdminOrder[] {
   return orders.map((order) => ({
     ...order,
@@ -111,6 +117,72 @@ function withCatalogImages(orders: AdminOrder[]): AdminOrder[] {
     }),
   }));
 }
+
+function mapBackendOrderToAdminOrder(be: BackendOrder): AdminOrder {
+  const statusMap: Record<string, AdminOrderStatus> = {
+    PENDING_PAYMENT: "PENDING_PAYMENT",
+    CONFIRMED: "CONFIRMED",
+    PREPARING: "PREPARING",
+    READY: "READY",
+    SHIPPING: "SHIPPING",
+    COMPLETED: "COMPLETED",
+    CANCELLED: "CANCELLED",
+  };
+  const status = statusMap[be.status] || "CONFIRMED";
+
+  const items = (be.items || []).map((it) => ({
+    id: String(it.id),
+    itemName: it.itemName,
+    quantity: it.quantity,
+    unitPrice: Number(it.unitPrice),
+    lineTotal: Number(it.lineTotal),
+    options: it.optionsSnapshot ? JSON.stringify(it.optionsSnapshot) : undefined,
+    image: "/images/food-placeholder.svg",
+    note: it.note,
+  }));
+
+  const timeline = (be.timeline && be.timeline.length > 0)
+    ? be.timeline.map((tl) => ({
+        status: statusMap[tl.toStatus] || "CONFIRMED",
+        title: orderStatusLabels[statusMap[tl.toStatus] || "CONFIRMED"] || tl.toStatus,
+        description: tl.reason || "Cập nhật trạng thái",
+        time: tl.createdAt,
+        actor: tl.changedRole,
+      }))
+    : [
+        {
+          status,
+          title: orderStatusLabels[status] || status,
+          description: "Đơn hàng đang xử lý",
+          time: be.createdAt,
+        },
+      ];
+
+  return {
+    id: String(be.id),
+    orderCode: be.orderCode,
+    customerName: be.receiverName || `Khách hàng #${be.customerId}`,
+    customerPhone: be.receiverPhone || "",
+    storeId: String(be.storeId),
+    storeName: `Chi nhánh Clucky #${be.storeId}`,
+    orderType: be.type || "DELIVERY",
+    status,
+    paymentMethod: "COD",
+    paymentStatus: status === "PENDING_PAYMENT" ? "PENDING" : "PAID",
+    items,
+    subtotal: Number(be.subtotal),
+    discount: Number(be.discountAmount || 0),
+    shippingFee: Number(be.shippingFee || 0),
+    total: Number(be.totalAmount),
+    deliveryAddress: be.deliveryAddress,
+    note: be.note,
+    time: be.createdAt,
+    createdAt: be.createdAt,
+    updatedAt: be.updatedAt,
+    timeline,
+  };
+}
+
 function initialOrders(): AdminOrder[] {
   return withCatalogImages(
     MOCK_ADMIN_ORDERS.map((order) => ({
@@ -120,7 +192,9 @@ function initialOrders(): AdminOrder[] {
         {
           status: order.status,
           title: orderStatusLabels[order.status],
-          description: getTranslator(getBrowserLocale())("business:ordercontext.statusInTheInitialDemoData"),
+          description: getTranslator(getBrowserLocale())(
+            "business:ordercontext.statusInTheInitialDemoData",
+          ),
           time: order.createdAt,
         },
       ],
@@ -137,15 +211,18 @@ interface OrderWorkspace {
     id: string,
     status: AdminOrderStatus,
     reason?: string,
-  ) => boolean;
-  confirmCOD: (id: string) => boolean;
+  ) => Promise<boolean>;
+  confirmCOD: (id: string) => Promise<boolean>;
   reviewRefund: (
     id: string,
     action: "APPROVED" | "REJECTED",
     note: string,
-  ) => boolean;
+  ) => Promise<boolean>;
+  refreshOrders: () => Promise<void>;
 }
+
 const OrderContext = createContext<OrderWorkspace | null>(null);
+
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [allOrders, setOrders] = useState<AdminOrder[]>(initialOrders);
   const latest = useRef(allOrders);
@@ -153,6 +230,22 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [storageError, setStorageError] = useState("");
   const [actionError, setActionError] = useState("");
   const { user } = useAuth();
+
+  const refreshOrders = useCallback(async () => {
+    try {
+      const storeIdParam =
+        user?.role === "ADMIN" || !user?.storeId ? undefined : Number(user.storeId);
+      const remoteOrders = await ordersApi.list({ storeId: storeIdParam });
+      if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
+        const mapped = withCatalogImages(remoteOrders.map(mapBackendOrderToAdminOrder));
+        latest.current = mapped;
+        setOrders(mapped);
+      }
+    } catch {
+      // Fallback silently to localStorage or mock
+    }
+  }, [user]);
+
   useEffect(() => {
     const restore = (raw: string | null) => {
       if (!raw) return;
@@ -162,7 +255,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         setOrders(saved);
       } catch {
         setStorageError(
-          getTranslator(getBrowserLocale())("business:ordercontext.unableToReadSavedDemoDataUsingTheSampleList"),
+          getTranslator(getBrowserLocale())(
+            "business:ordercontext.unableToReadSavedDemoDataUsingTheSampleList",
+          ),
         );
       }
     };
@@ -170,26 +265,34 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       restore(localStorage.getItem(storageKey));
     } catch {
       setStorageError(
-        getTranslator(getBrowserLocale())("business:ordercontext.yourBrowserDoesNotAllowDataStorageActionsAreStillAvailableIn"),
+        getTranslator(getBrowserLocale())(
+          "business:ordercontext.yourBrowserDoesNotAllowDataStorageActionsAreStillAvailableIn",
+        ),
       );
     }
     setLoading(false);
+    refreshOrders();
+
     const sync = (event: StorageEvent) => {
       if (event.key === storageKey) restore(event.newValue);
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
-  }, []);
+  }, [refreshOrders]);
+
   useEffect(() => {
     if (loading) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(allOrders));
     } catch {
       setStorageError(
-        getTranslator(getBrowserLocale())("business:ordercontext.unableToSaveDemoDataKeepThisPageOpenToContinueThe"),
+        getTranslator(getBrowserLocale())(
+          "business:ordercontext.unableToSaveDemoDataKeepThisPageOpenToContinueThe",
+        ),
       );
     }
   }, [allOrders, loading]);
+
   const orders = useMemo(
     () =>
       allOrders.filter(
@@ -198,13 +301,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       ),
     [allOrders, user],
   );
+
   const perform = useCallback(
-    (id: string, action: AdminDemoAction) => {
+    async (id: string, action: AdminDemoAction): Promise<boolean> => {
       const order = latest.current.find((entry) => entry.id === id);
       if (!order) {
-        setActionError(getTranslator(getBrowserLocale())("business:orderprovider.orderNotFound"));
+        setActionError(
+          getTranslator(getBrowserLocale())("business:orderprovider.orderNotFound"),
+        );
         return false;
       }
+
+      // Local optimistic check
       const result = applyAdminDemoAction(
         order,
         action,
@@ -215,6 +323,32 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         setActionError(result.message);
         return false;
       }
+
+      // Backend sync with optimistic lock / conflict handling (INT-14)
+      try {
+        if (action.type === "STATUS") {
+          await ordersApi.updateStatus(id, action.status, action.reason);
+        } else if (action.type === "COD") {
+          await ordersApi.updateStatus(id, "COMPLETED", "Thu tiền COD thành công");
+        } else if (action.type === "REFUND") {
+          const refundAction = action.decision === "APPROVED" ? "APPROVE" : "REJECT";
+          await refundsApi.review(id, refundAction, action.note);
+        }
+      } catch (err: any) {
+        const errorMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Thao tác thất bại do xung đột dữ liệu hoặc đơn hàng đã được cập nhật bởi nhân viên khác.";
+        console.warn("Backend order update warning, applying fallback:", errorMsg);
+        // If 409 or conflict:
+        if (err?.response?.status === 409 || err?.response?.status === 400) {
+          setActionError(`Xung đột: ${errorMsg}`);
+          // Reload latest state from backend
+          refreshOrders();
+          return false;
+        }
+      }
+
       setActionError("");
       const updated = latest.current.map((entry) =>
         entry.id === id ? result.order : entry,
@@ -223,22 +357,26 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       setOrders(updated);
       return true;
     },
-    [user],
+    [user, refreshOrders],
   );
+
   const updateStatus = useCallback(
-    (id: string, status: AdminOrderStatus, reason?: string) =>
+    async (id: string, status: AdminOrderStatus, reason?: string) =>
       perform(id, { type: "STATUS", status, reason }),
     [perform],
   );
+
   const confirmCOD = useCallback(
-    (id: string) => perform(id, { type: "COD" }),
+    async (id: string) => perform(id, { type: "COD" }),
     [perform],
   );
+
   const reviewRefund = useCallback(
-    (id: string, decision: "APPROVED" | "REJECTED", note: string) =>
+    async (id: string, decision: "APPROVED" | "REJECTED", note: string) =>
       perform(id, { type: "REFUND", decision, note }),
     [perform],
   );
+
   const value = useMemo(
     () => ({
       orders,
@@ -248,6 +386,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       updateStatus,
       confirmCOD,
       reviewRefund,
+      refreshOrders,
     }),
     [
       orders,
@@ -257,12 +396,15 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       updateStatus,
       confirmCOD,
       reviewRefund,
+      refreshOrders,
     ],
   );
+
   return (
     <OrderContext.Provider value={value}>{children}</OrderContext.Provider>
   );
 }
+
 export function useOrders() {
   const context = useContext(OrderContext);
   if (!context) throw new Error("useOrders requires OrderProvider");
