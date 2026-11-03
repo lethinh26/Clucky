@@ -17,3 +17,10 @@ spring:
     schemas: order_service
     create-schemas: true
     baseline-on-migrate: false
+  session:
+    timeout: 24h
+    redis:
+      namespace: clucky:cart:sessions
+clucky:
+  identity:
+    issuer: ${IDENTITY_ISSUER_URI:}

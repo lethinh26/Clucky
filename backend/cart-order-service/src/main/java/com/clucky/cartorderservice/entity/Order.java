@@ -66,6 +66,7 @@ public class Order {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Version
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -128,7 +129,4 @@ public class Order {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
-
-    @PreUpdate
-    protected void touch() { updatedAt = Instant.now(); }
 }
