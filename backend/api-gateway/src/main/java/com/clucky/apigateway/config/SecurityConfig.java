@@ -80,6 +80,7 @@ public class SecurityConfig {
     }
 
     private Mono<Void> error(ServerWebExchange exchange, ObjectMapper mapper, HttpStatus status) {
+        exchange.getAttributes().put(CorrelationIdFilter.ERROR_CODE, ApiError.of(status, "").code());
         exchange.getResponse().setStatusCode(status);
         if (status == HttpStatus.UNAUTHORIZED) {
             exchange.getResponse().getHeaders().set("WWW-Authenticate", "Bearer");

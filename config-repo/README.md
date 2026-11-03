@@ -70,3 +70,31 @@ Add one `<service-name>.yml` per bounded context. Keep service-owned settings
 (datasource schema, Kafka topics, feature flags) in that file — not duplicated in
 the service's own `application.yml`, which should stay bootstrap-only.
 
+## Automatic schema migrations
+
+Flyway is explicitly enabled in `application.yml`. All eight business services
+have Flyway dependencies, their own `schemas` / `default-schema`, and
+`create-schemas: true`. When a service starts against an existing empty database,
+Flyway creates its schema and applies its migrations from
+`src/main/resources/db/migration` (`V1`, `V2`, then any new versions).
+Each schema has its own `flyway_schema_history`; subsequent starts apply only
+pending versioned migrations. Hibernate uses `ddl-auto: validate`, including
+the `dev` profile, rather than changing tables outside Flyway.
+
+Create the PostgreSQL database first and point the service's `DB_NAME` at it.
+For the local Docker database, keep `DB_NAME` aligned with `POSTGRES_DB`.
+The migration user needs permission to create the service schema and modify
+its objects. Restart the service after changing its database/configuration;
+this does not watch for or migrate every new database on the PostgreSQL server.
+
+Keep `baseline-on-migrate: false`: a fresh database or empty schema does not
+need a baseline. An existing non-empty schema without Flyway history requires
+an explicit, reviewed adoption plan, not automatic baselining or deletion.
+Do not edit applied migrations; add a new version instead. Config Server,
+Discovery and Gateway do not gain domain tables from this setting, and the
+Audit Service now has a separate `audit-service.yml`, module and V1 migration
+for `audit_service.audit_logs`. Its read API is implemented in source; domain
+producers/ingestion and runtime verification are still pending. See
+[logging and audit setup](../docs/observability.md) for log levels, Docker rotation,
+the read-only base and manual verification commands.
+

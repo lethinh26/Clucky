@@ -1,5 +1,8 @@
 package com.clucky.reviewreportservice.exception;
 
+import com.clucky.reviewreportservice.logging.SafeLog;
+import com.clucky.reviewreportservice.config.CorrelationIdFilter;
+
 import com.clucky.reviewreportservice.dto.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -25,6 +28,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ApiError> business(ApiException failure, HttpServletRequest request) {
+        request.setAttribute(CorrelationIdFilter.ERROR_CODE, failure.getCode().name());
         return ResponseEntity.status(failure.getCode().httpStatus()).body(ApiError.of(failure.getCode(), request.getRequestURI()));
     }
 
@@ -58,12 +62,14 @@ public class GlobalExceptionHandler {
                 return respond(status, request);
             }
         }
-        LOG.error("Request failed: type={}", failure.getClass().getSimpleName());
+        LOG.error("event=http_error correlationId={} trace={}",
+                request.getAttribute(CorrelationIdFilter.HEADER), SafeLog.trace(failure));
         return respond(HttpStatus.INTERNAL_SERVER_ERROR, request);
     }
 
     private ResponseEntity<ApiError> respond(HttpStatus status, HttpServletRequest request) {
         ApiError error = ApiError.of(status, request.getRequestURI());
+        request.setAttribute(CorrelationIdFilter.ERROR_CODE, error.code());
         return ResponseEntity.status(error.status()).body(error);
     }
 }

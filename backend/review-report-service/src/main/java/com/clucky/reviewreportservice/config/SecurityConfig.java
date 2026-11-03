@@ -50,12 +50,14 @@ public class SecurityConfig {
         converter.setJwtGrantedAuthoritiesConverter(token -> List.of(
                 new SimpleGrantedAuthority("ROLE_" + token.getClaimAsString("role"))));
         AuthenticationEntryPoint unauthorized = (request, response, failure) -> {
+            request.setAttribute(CorrelationIdFilter.ERROR_CODE, "UNAUTHENTICATED");
             response.setStatus(401);
             response.setHeader("WWW-Authenticate", "Bearer");
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             mapper.writeValue(response.getOutputStream(), ApiError.of(HttpStatus.UNAUTHORIZED, request.getRequestURI()));
         };
         AccessDeniedHandler forbidden = (request, response, failure) -> {
+            request.setAttribute(CorrelationIdFilter.ERROR_CODE, "FORBIDDEN");
             response.setStatus(403);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             mapper.writeValue(response.getOutputStream(), ApiError.of(HttpStatus.FORBIDDEN, request.getRequestURI()));

@@ -1,6 +1,7 @@
 package com.clucky.reviewreportservice.config;
 
 import java.util.List;
+import com.clucky.reviewreportservice.logging.KafkaLogging;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +21,7 @@ public class KafkaConfig {
             throw new IllegalStateException("Event recovery requires a configured durable DLQ handler");
         }, new FixedBackOff(1000L, 2L));
         handler.setAckAfterHandle(false);
+        handler.setRetryListeners(KafkaLogging::failedDelivery);
         return handler;
     }
 

@@ -25,3 +25,9 @@ tasks.register('baseSelfCheck', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.clucky.identityservice.BaseSelfCheck'
 }
+
+tasks.register('loggingSelfCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.clucky.identityservice.LoggingSelfCheck'
+}

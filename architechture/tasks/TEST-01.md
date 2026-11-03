@@ -1,5 +1,124 @@
 # [TEST-01] E2E Guest→register→OTP→browse→cart→COD order
 
+> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+
+## Thông tin quản lý
+
+| Thuộc tính | Giá trị giữ nguyên |
+|---|---|
+| PIC | Trần Đức Anh |
+| Trạng thái snapshot — không xác nhận lại | TO DO |
+| Sprint kế hoạch | SPRINT 2 |
+| Bắt đầu → deadline (UTC+7) | 05/11/2026 08:00 → 05/11/2026 23:59 |
+| SP / giờ công dự kiến | 5 SP / 6 giờ công |
+
+Nhóm sprint hiện tại trên Lark (nếu khác kế hoạch) và toàn bộ metadata được giữ trong mục cuối. Không tự đổi PIC, lịch, estimate hoặc trạng thái vì viết lại tiêu chí.
+
+## 1. Mục tiêu nghiệp vụ
+
+Nghiệm thu hành trình khách từ chưa đăng nhập đến đơn COD thật, dữ liệu khớp qua các service.
+
+## 2. Phạm vi
+
+### Bao gồm
+
+- Bộ case/script và báo cáo Guest→register→OTP→browse→cart→COD có actual/expected và IDs.
+- Nghiệm thu Guest → register/OTP → menu → cart → COD; đối chiếu dữ liệu thực giữa các service.
+
+### Không bao gồm
+
+Không nhận PASS từ screenshot đơn giả, không payment transfer thay luồng COD.
+
+## 3. Đầu vào, đầu ra và contract
+
+| Thành phần | Chi tiết cần bàn giao |
+|---|---|
+| Đầu vào / nguồn tin cậy | Môi trường tích hợp, customer mới, store/menu còn bán, email sender và Staff đúng quán. |
+| Đầu ra / contract | Bộ case/script và báo cáo Guest→register→OTP→browse→cart→COD có actual/expected và IDs. |
+| Điểm giao tiếp / deliverable đã cam kết | COD verified |
+
+Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
+
+## 4. Luồng xử lý / cách thực hiện
+
+1. Chuẩn bị dữ liệu/tài khoản và ghi phiên bản hệ thống
+2. Đi qua UI/Gateway/auth/cart/preview/create-order
+3. Kiểm tra persisted Order/COD, thao tác nhân sự và dữ liệu sau reload
+
+## 5. Quy tắc và điểm cần chốt
+
+**Điểm cần PIC/owner xác nhận:** Chốt môi trường/recipient/test data và cleanup; phần guest-cart merge chỉ nghiệm thu theo policy đã duyệt.
+
+**Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
+
+Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+## 6. Dependency và bàn giao
+
+### Tiên quyết đã có trong backlog
+
+| Task tiên quyết đã khai báo | PIC bàn giao | Cần nhận cụ thể | Mốc sử dụng |
+|---|---|---|---|
+| [INT-05](INT-05.md) | Trần Nguyễn Hữu Khánh | Luồng auth hai app với JWT/refresh thật, register/OTP chỉ Customer. | Trước kiểm chứng xuyên hệ thống; cần luồng thật và dữ liệu/evidence bàn giao. |
+| [INT-06](INT-06.md) | Nguyễn Duy Quang Nhật | Browse/search/filter/detail nối API thay mock trong phạm vi tích hợp. | Trước kiểm chứng xuyên hệ thống; cần luồng thật và dữ liệu/evidence bàn giao. |
+| [INT-07](INT-07.md) | Trần Đức Anh | Cart→preview→submit→order detail qua Gateway với trạng thái nhất quán. | Trước kiểm chứng xuyên hệ thống; cần luồng thật và dữ liệu/evidence bàn giao. |
+| [INT-51](INT-51.md) | Lê Phú Thịnh | COD lifecycle với Payment COLLECTED và Order progression theo contract. | Trước kiểm chứng xuyên hệ thống; cần luồng thật và dữ liệu/evidence bàn giao. |
+
+### Có thể bắt đầu đến đâu?
+
+- Chuẩn bị input/fixture, đối chiếu phạm vi và chốt contract ở mục 3–5 mà không chờ mọi API hoàn tất. Chỉ code theo fixture khi contract liên quan đã thống nhất.
+- Phần sử dụng đầu ra của dependency chỉ được nghiệm thu sau khi owner bàn giao bản thật và chạy được tình huống liên quan; deadline cùng ngày không chứng minh đầu ra đã sẵn sàng.
+- Phối hợp bổ sung nêu ở mục 5 là việc cần xác nhận, **không tự thêm dependency hoặc đổi lịch** trong snapshot này. Một PIC chịu trách nhiệm task; owner domain khác giữ trách nhiệm producer/consumer của mình.
+
+**Task nhận đầu ra theo dependency đã khai báo:** [DEP-06](DEP-06.md), [DEP-10](DEP-10.md)
+
+## 7. Tiêu chí nghiệm thu
+
+| AC | Điều kiện / thao tác | Kết quả mong đợi |
+|---|---|---|
+| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Bộ case/script và báo cáo Guest→register→OTP→browse→cart→COD có actual/expected và IDs. |
+| AC-02 | Luồng chuẩn | Mỗi bước có dữ liệu thực, không localStorage mock thay backend |
+| AC-03 | OTP sai hoặc món hết tại checkout | Không tạo đơn sai, lỗi đúng bước |
+| AC-04 | Gửi lại checkout | Không tạo order/payment thứ hai |
+
+Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+
+## 8. Checklist và bằng chứng bàn giao
+
+- [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
+- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
+- [ ] AC-02: Luồng chuẩn — ghi kết quả và evidence.
+- [ ] AC-03: OTP sai hoặc món hết tại checkout — ghi kết quả và evidence.
+- [ ] AC-04: Gửi lại checkout — ghi kết quả và evidence.
+- [ ] Bàn giao bằng chứng cụ thể: Script, expected/actual, network trace và order/payment/email IDs đã mask.
+- [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
+
+
+
+## 9. Truy vết gộp task
+
+Không
+
+Không có ID gộp trực tiếp vào task này.
+
+## 10. Tài liệu nguồn
+
+- [SRS.md](../../architechture/docs/SRS.md)
+- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
+- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
+- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
+- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
+- [schema.sql](../../architechture/database/schema.sql)
+- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
+- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
+- [Danh mục error code](../../contracts/errors.json)
+- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+
+## 11. Metadata và lịch sử kế hoạch
+
+<details>
+<summary>Xem nguyên trạng metadata, ước lượng và lịch từ bản trước</summary>
+
 **PIC:** Trần Đức Anh
 **Trạng thái trên Lark:** TO DO
 **Sprint:** SPRINT 2
@@ -28,57 +147,8 @@ Lịch cũ (30/10): 07/11/2026 08:00 → 07/11/2026 23:59. Lịch mới: 05/11/2
 
 Bắt đầu có thể là chuẩn bị fixture/UI theo contract; phần cần API/event thật bị chặn cho đến khi dependency bàn giao. Nếu cùng ngày đến hạn, phải bàn giao prerequisite trước khi nghiệm thu task này; không coi deadline trùng ngày là bằng chứng đã sẵn sàng.
 
-## Mục tiêu và phạm vi
-
-- Nghiệm thu Guest → register/OTP → menu → cart → COD; đối chiếu dữ liệu thực giữa các service.
-- Nhóm tự kiểm chứng/sửa lỗi cuốn chiếu, hoàn tất chậm nhất 05/11 trước Sprint Review 06/11; task chưa đạt tiêu chí không đánh DONE.
-
-## Đầu ra
-
-- COD verified
-- Mã nguồn/tài liệu/evidence của đúng domain; không commit secret.
-
-## Dependency và phối hợp
-
-- [INT-05](INT-05.md) — Auth E2E: register → OTP → login → refresh, 2 app — PIC: Trần Nguyễn Hữu Khánh
-- [INT-06](INT-06.md) — Menu/catalog E2E: browse, search, availability theo quán — PIC: Nguyễn Duy Quang Nhật
-- [INT-07](INT-07.md) — Cart → checkout → tạo đơn E2E — PIC: Trần Đức Anh
-- [INT-51](INT-51.md) — COD lifecycle: confirm at branch → collected → completed — PIC: Lê Phú Thịnh
-
-PIC là người chịu trách nhiệm kết nối và bàn giao task. Producer/consumer hoặc API của domain khác vẫn do owner task dependency triển khai; danh sách phối hợp không phải đồng PIC.
-
-## Checklist thực hiện
-
-- [ ] Đối chiếu SRS/API/database/RBAC và dependency trước khi triển khai.
-- [ ] Hoàn thành phạm vi và đầu ra nêu trên, gồm phần đã gộp.
-- [ ] Xử lý validation, trạng thái lỗi, quyền và idempotency khi áp dụng.
-- [ ] Người phụ trách tự kiểm chứng luồng chính/lỗi và ghi evidence.
-- [ ] Cập nhật trạng thái thực tế; lỗi phát sinh gán một PIC theo domain.
-
-## Tiêu chí nghiệm thu
-
-1. Đầu ra được bàn giao đúng phạm vi: E2E Guest→register→OTP→browse→cart→COD order.
-2. Hoàn tất từng mục phạm vi ở trên; input hợp lệ, input lỗi và dependency lỗi được xử lý rõ theo API/docs.
-3. Một PIC chịu trách nhiệm; phối hợp thông qua dependency, không thêm đồng PIC.
-4. Khi có API/nghiệp vụ: DTO/validation/error shape, ownership/storeId và idempotency theo contract; frontend chỉ gọi Gateway.
-5. Nhóm/người phụ trách tự kiểm chứng và ghi evidence; không coi file tồn tại hoặc UI mock là nghiệm thu chức năng.
-
-## Truy vết gộp task
-
-Không
-
-Nội dung trùng đã nhập vào phạm vi/tiêu chí ở trên. Các ID nguồn không còn là task độc lập để giao lại. Phần avatar/banner, proposal và Phase 2 được giữ trong backlog theo kế hoạch, không tính là đã hoàn thành.
-
-## Tài liệu nguồn
-
-- `architechture/docs/SRS.md`
-- `architechture/docs/Đặc tả API.md`
-- `architechture/docs/Kiến trúc hệ thống.md`
-- `architechture/docs/Ma trận phân quyền.md`
-- `architechture/docs/Thiết kế cơ sở dữ liệu.md`
-- `architechture/database/schema.sql`
-- `architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md`
+</details>
 
 ## Quy ước kiểm chứng
 
-Việc cập nhật backlog/task detail không thực thi test, lint, typecheck, build, Docker hoặc kiểm thử frontend. Nhóm tự thực hiện kiểm chứng khi triển khai; không ghi kết quả PASS trước khi có bằng chứng.
+Việc cập nhật detail không chạy test, lint, typecheck, build, Docker hoặc trình duyệt. Checklist là điều kiện nghiệm thu để người phụ trách thực hiện, không phải báo cáo PASS. Giữ trạng thái snapshot, kể cả DONE; chưa xác nhận lại trên Lark.

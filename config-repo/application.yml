@@ -7,6 +7,8 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${DB_NAME:clucky}
     username: ${POSTGRES_USER:clucky}
     password: ${POSTGRES_PASSWORD:change-me}
+  flyway:
+    enabled: true
   jpa:
     open-in-view: false
   data:
@@ -79,4 +81,9 @@ springdoc:
     enabled: ${API_DOCS_ENABLED:false}
 logging:
   pattern:
-    level: '%5p [correlationId=%X{correlationId}]'
+    level: '%5p [service=${spring.application.name:unknown},correlationId=%X{correlationId},eventId=%X{eventId}]'
+  level:
+    com.clucky: ${APP_LOG_LEVEL:INFO}
+    org.springframework.kafka.listener.DefaultErrorHandler: "OFF"
+    org.springframework.kafka.listener.KafkaMessageListenerContainer: "OFF"
+    org.apache.kafka.clients.producer.internals.ProducerBatch: "OFF"

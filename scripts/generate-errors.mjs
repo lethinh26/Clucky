@@ -24,7 +24,7 @@ for (const [, value] of entries) {
   if (!defaults[value.httpStatus]) throw new Error(`Missing default error for HTTP ${value.httpStatus}`);
 }
 const modules = ["api-gateway", "identity-service", "catalog-store-service", "cart-order-service",
-  "payment-service", "promotion-loyalty-service", "shipping-service", "notification-service", "review-report-service"];
+  "payment-service", "promotion-loyalty-service", "shipping-service", "notification-service", "review-report-service", "audit-service"];
 const outputs = new Map();
 for (const module of modules) {
   const packageName = `com.clucky.${module.replaceAll("-", "")}.exception`;

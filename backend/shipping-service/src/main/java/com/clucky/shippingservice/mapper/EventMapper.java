@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import jakarta.validation.Validator;
+import java.nio.charset.StandardCharsets;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -34,6 +36,17 @@ public class EventMapper {
         } catch (JsonProcessingException failure) {
             throw new IllegalArgumentException("Invalid event JSON");
         }
+    }
+
+    public ProducerRecord<String, String> toRecord(DomainEvent event, String aggregateKey) {
+        if (aggregateKey == null || aggregateKey.isBlank() || aggregateKey.length() > 160) {
+            throw new IllegalArgumentException("Aggregate key is required");
+        }
+        String json = toJson(event);
+        ProducerRecord<String, String> record = new ProducerRecord<>(event.eventType(), aggregateKey, json);
+        record.headers().add("X-Correlation-ID", event.correlationId().getBytes(StandardCharsets.UTF_8));
+        record.headers().add("X-Event-ID", event.eventId().getBytes(StandardCharsets.UTF_8));
+        return record;
     }
 
     public String toJson(DomainEvent event) {

@@ -131,7 +131,7 @@ Quy ước chung:
 |---|---|---|
 | GET /api/audit-logs | MGR/ADM | Phân trang, lọc actorId/actorRole/sourceService/action/targetType/targetId/storeId/from/to; Admin xem mọi role, Manager chỉ xem thao tác Staff trong quán mình theo RBAC |
 
-Endpoint thuộc Audit Service riêng, frontend gọi qua Gateway, không thuộc `/api/reports`. Backend bắt buộc giới hạn quyền/store trước khi áp dụng bộ lọc. Dữ liệu gồm người/role thực hiện, khâu nghiệp vụ, đối tượng, thay đổi trước–sau đã loại secret và thời gian; không có API cho frontend tạo/sửa/xóa audit. Các backend domain phát sự kiện `audit.recorded` sau thay đổi thành công để Audit Service lưu. Đây là contract đích, chưa phải endpoint runtime đã triển khai.
+Endpoint thuộc Audit Service riêng, frontend gọi qua Gateway, không thuộc `/api/reports`. Backend bắt buộc giới hạn quyền/store trước khi áp dụng bộ lọc. Dữ liệu gồm người/role thực hiện, khâu nghiệp vụ, đối tượng, thay đổi trước–sau đã loại secret và thời gian; không có API cho frontend tạo/sửa/xóa audit. Các backend domain phát sự kiện `audit.recorded` sau thay đổi thành công để Audit Service lưu. Base API đọc đã có mã nguồn trong `backend/audit-service`, chưa kiểm chứng runtime; producer/consumer ghi audit và mở rộng allowlist before/after theo domain vẫn thuộc INT-48. Xem [phạm vi base và kiểm chứng](../../docs/observability.md).
 
 
 ## 9.1. Mail Sender nội bộ

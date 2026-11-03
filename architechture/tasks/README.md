@@ -1,6 +1,6 @@
 # Clucky — task detail hiện hành
 
-**184 task độc lập**, mỗi task một PIC; **37 DONE** được giữ. 48 ID đã gộp/bỏ record trùng được giữ dưới dạng trang chuyển hướng để truy vết.
+**184 task độc lập**, mỗi task một PIC; **37 DONE trong snapshot** được giữ, chưa xác nhận lại tiến độ. 48 ID đã gộp/bỏ record trùng được giữ dưới dạng trang chuyển hướng để truy vết.
 
 - Sprint 1: 26/10–01/11/2026 — 65 task (37 DONE).
 - Sprint 2: giữ khung 02–08/11/2026 — 94 task; hoàn tất 05/11, Sprint Review 06/11, không xếp triển khai/nghiệm thu sang 06–08/11.
@@ -8,6 +8,37 @@
 - Deadline: 23:59 ngày đến hạn, Asia/Ho_Chi_Minh (UTC+7).
 - Lark là nơi cập nhật trạng thái làm việc; metadata trạng thái trong file là snapshot lúc đồng bộ.
 - Người phụ trách tự kiểm chứng; việc sửa tài liệu không đồng nghĩa đã test ứng dụng.
+
+## Bản detail biên soạn lại 02/11/2026
+
+Đã viết lại nội dung **70 BE + 43 UI + 43 INT + 14 TEST + 14 DEP = 184 task**, không tạo task mới. Bản này chỉ cập nhật trong repository, **chưa đồng bộ nội dung mới lên Lark**; các ghi nhận đồng bộ ngày 01/11 bên dưới là lịch sử, không phải kết quả của lần sửa này.
+
+Mỗi detail có mục tiêu riêng, bao gồm/không bao gồm, đầu vào/đầu ra, API/event/data contract hoặc deliverable tương ứng, luồng thực hiện, quy tắc và quyết định còn mở, dependency kèm đầu ra/PIC/mốc bàn giao, tình huống nghiệm thu cùng kết quả mong đợi, checklist và bằng chứng cần nộp. Metadata gốc, diễn giải estimate/lịch và truy vết gộp được giữ; metadata dài nằm trong mục thu gọn cuối file.
+
+### Cách dùng khi nhận việc
+
+1. Đọc mục tiêu, phạm vi và contract trước; template/entity hoặc UI fixture không chứng minh nghiệp vụ đã chạy.
+2. Chốt các quyết định còn mở với owner. Nhãn **đề xuất/cần chốt** không phải business rule đã được duyệt; AC liên quan chưa được đánh đạt khi quyết định còn thiếu.
+3. Đọc bảng dependency để biết **nhận gì, từ ai, trước mốc nào**. Có thể chuẩn bị theo contract, nhưng phần nghiệm thu tích hợp vẫn cần API/event/môi trường thật; cùng deadline không có nghĩa là hết chặn.
+4. Ghi kết quả từng AC và bằng chứng theo task. Không đổi snapshot DONE/TO DO vì có thêm mô tả; cập nhật tiến độ thực tế ở Lark khi đã kiểm chứng.
+
+Dependency khai báo, PIC, sprint, ngày, SP và estimate được giữ nguyên. Handoff bổ sung trong mục cần chốt chỉ là khoảng trống được chỉ ra, chưa tự thêm edge hoặc dời lịch. Các ID gộp vẫn là trang chuyển hướng, không được giao lại. Phần việc Phase 2/backlog chưa xếp lịch không tự nhập vào Sprint 2.
+
+### Một số quyết định cần owner xác nhận
+
+| Task | Điểm cần chốt trước khi nghiệm thu |
+|---|---|
+| [BE-29](BE-29.md) | Nguồn Order snapshot, TTL/QR format, retry/concurrent, tạo lại QR hết hạn, đơn tổng tiền 0; 15 phút trong SRS chỉ là ví dụ |
+| [BE-43](BE-43.md), [INT-48](INT-48.md) | Audit Service riêng, một bảng audit_logs; ước lượng lại phạm vi service/producer và chuyển dữ liệu cũ nếu có |
+| [BE-39](BE-39.md), [BE-67](BE-67.md) | Template nghiệp vụ, retry/delivery policy và trường hợp SMTP đã nhận nhưng client mất response |
+| [BE-75](BE-75.md) | Bàn giao base DTO không thay bằng chứng secrecy của upload/read/update thực tế |
+| [TEST-05](TEST-05.md) | Phân biệt Manager xếp ca và assign-store chỉ dành cho Admin; không tự mở quyền để khớp tên task cũ |
+| [TEST-13](TEST-13.md), [TEST-14](TEST-14.md) | Workload, môi trường, cách đo ngưỡng 500ms và tiêu chí của 50 lượt tạo đơn đồng thời |
+| [INT-70](INT-70.md), [INT-71](INT-71.md) | API/quyền cho trạng thái email của Customer và thao tác retry; không lấy API Admin dùng cho Customer |
+
+Đây là các điểm nổi bật, không thay danh sách cần chốt riêng trong từng detail. Ví dụ đầy đủ: [BE-29 — tạo QR thanh toán](BE-29.md); các mẫu khác: [UI-09 — auth UI](UI-09.md), [INT-48 — audit tích hợp](INT-48.md), [TEST-05 — Manager E2E](TEST-05.md), [DEP-07 — backup/restore](DEP-07.md).
+
+## Lịch sử đồng bộ và bảng kế hoạch
 
 [Kế hoạch chi tiết](../TASK-PLAN.md) · [Ước lượng/lịch mới 01/11](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-ESTIMATES-2026-11-01.json) · [Snapshot lịch sử 30/10](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-2026-10-30.json)
 
