@@ -61,8 +61,8 @@ export default function PartyOrderPage() {
     setSubmitting(true);
     const chosenPkg = PARTY_PACKAGES.find((pkg) => pkg.id === selectedPackage);
     const combinedNotes = notes.trim()
-      ? `${notes.trim()} (Gói chọn: ${chosenPkg?.title || selectedPackage})`
-      : `Gói chọn: ${chosenPkg?.title || selectedPackage}`;
+      ? `${notes.trim()} (Pkg: ${selectedPackage})`
+      : `Pkg: ${selectedPackage}`;
 
     try {
       const result = await partyOrderApi.create({
@@ -306,7 +306,7 @@ export default function PartyOrderPage() {
               className={styles.submitBtn}
             >
               {submitting
-                ? "Đang gửi yêu cầu..."
+                ? t("business.checkout.processingYourOrder")
                 : t("business.party.sendPartyBookingRequest")}
             </button>
           </form>
@@ -323,14 +323,12 @@ export default function PartyOrderPage() {
               <CheckCircle2 size={48} />
             </div>
             <h2 id="party-success-title" className={styles.modalTitle}>
-              {createdPartyOrder
-                ? `Đã tiếp nhận yêu cầu tiệc #${createdPartyOrder.requestNumber || createdPartyOrder.id}`
-                : t("business.party.yourDemoPartyRequestIsReady")}
+              {t("business.party.yourDemoPartyRequestIsReady")}
             </h2>
             <p className={styles.modalDesc}>
-              {createdPartyOrder
-                ? `Yêu cầu đặt tiệc cho ${guestCount} khách đã được chuyển tới chi nhánh phụ trách. Đội ngũ tư vấn tiệc sẽ liên hệ sớm nhất!`
-                : `${t("business.party.youHaveCompletedTheFormFor")} ${guestCount} ${t("business.party.guestsThisIsAUiPreviewNoRequestHasBeenSentTo")}`}
+              {t("business.party.youHaveCompletedTheFormFor")}{" "}
+              {guestCount}{" "}
+              {t("business.party.guestsThisIsAUiPreviewNoRequestHasBeenSentTo")}
             </p>
             <dl className={styles.partyReceipt}>
               <div>
@@ -371,13 +369,11 @@ export default function PartyOrderPage() {
               </div>
             </dl>
             <p className={styles.saveHint}>
-              {createdPartyOrder
-                ? "Thông tin yêu cầu đã được lưu trữ trên hệ thống Clucky."
-                : savedLocally
-                  ? t("business.party.theDemoFormHasBeenSavedInThisBrowser")
-                  : t(
-                      "business.party.couldNotSaveInThisBrowserYourDetailsRemainAvailableInThis",
-                    )}
+              {savedLocally
+                ? t("business.party.theDemoFormHasBeenSavedInThisBrowser")
+                : t(
+                    "business.party.couldNotSaveInThisBrowserYourDetailsRemainAvailableInThis",
+                  )}
             </p>
             <button
               type="button"

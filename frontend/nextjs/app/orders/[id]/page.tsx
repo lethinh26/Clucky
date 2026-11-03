@@ -164,7 +164,7 @@ export default function OrderTrackingPage({
       } catch {}
     } catch (err: any) {
       setCancelOpen(false);
-      setFeedback(err?.message || "Không thể hủy đơn hàng.");
+      setFeedback(err?.message || t("business.orderprovider.orderNotFound"));
     }
   };
 
@@ -210,14 +210,14 @@ export default function OrderTrackingPage({
         >
           <MailCheck size={20} style={{ flexShrink: 0, color: "#15803d" }} />
           <div>
-            <strong>Email thông báo đã gửi:</strong>{" "}
+            <strong>Email ({order.orderCode}):</strong>{" "}
             {order.status === "CONFIRMED" || order.status === "PENDING_PAYMENT"
-              ? "Email xác nhận đơn hàng và mã hóa đơn đã được gửi tới hòm thư của bạn."
+              ? t("business.checkout.yourCashOnDeliveryOrderHasBeenConfirmed")
               : order.status === "CANCELLED"
-                ? "Email thông báo hủy đơn và thông tin hoàn tiền đã được gửi tới hòm thư của bạn."
+                ? t("business.orderprogress.orderCancelledProgressHasStopped")
                 : order.status === "COMPLETED"
-                  ? "Email cảm ơn và chi tiết biên nhận đã được gửi tới hòm thư của bạn."
-                  : `Email cập nhật tiến độ đơn hàng (${order.status}) đã được gửi tự động.`}
+                  ? t("business.demoordercontrols.yourOrderIsCompleteThankYouForChoosingClucky")
+                  : order.status}
           </div>
         </div>
 
@@ -242,7 +242,7 @@ export default function OrderTrackingPage({
                 backgroundColor: "#16a34a",
               }}
             />
-            Đang tự động cập nhật trạng thái đơn hàng theo thời gian thực (5s/lần)
+            Live Status ({order.status}) · 5s
           </div>
         )}
 

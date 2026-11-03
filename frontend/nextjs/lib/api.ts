@@ -328,6 +328,8 @@ export interface PartyOrderResult {
   status: string;
 }
 
+export type BackendPartyOrder = PartyOrderResult;
+
 export const partyOrderApi = {
   create: (payload: CreatePartyOrderPayload) =>
     request<PartyOrderResult>("/api/party-orders", {

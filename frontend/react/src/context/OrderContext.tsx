@@ -145,7 +145,7 @@ function mapBackendOrderToAdminOrder(be: BackendOrder): AdminOrder {
     ? be.timeline.map((tl) => ({
         status: statusMap[tl.toStatus] || "CONFIRMED",
         title: orderStatusLabels[statusMap[tl.toStatus] || "CONFIRMED"] || tl.toStatus,
-        description: tl.reason || "Cập nhật trạng thái",
+        description: tl.reason || tl.toStatus,
         time: tl.createdAt,
         actor: tl.changedRole,
       }))
@@ -153,7 +153,7 @@ function mapBackendOrderToAdminOrder(be: BackendOrder): AdminOrder {
         {
           status,
           title: orderStatusLabels[status] || status,
-          description: "Đơn hàng đang xử lý",
+          description: status,
           time: be.createdAt,
         },
       ];
@@ -161,10 +161,10 @@ function mapBackendOrderToAdminOrder(be: BackendOrder): AdminOrder {
   return {
     id: String(be.id),
     orderCode: be.orderCode,
-    customerName: be.receiverName || `Khách hàng #${be.customerId}`,
+    customerName: be.receiverName || `Customer #${be.customerId}`,
     customerPhone: be.receiverPhone || "",
     storeId: String(be.storeId),
-    storeName: `Chi nhánh Clucky #${be.storeId}`,
+    storeName: `Clucky #${be.storeId}`,
     orderType: be.type || "DELIVERY",
     status,
     paymentMethod: "COD",
@@ -329,7 +329,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         if (action.type === "STATUS") {
           await ordersApi.updateStatus(id, action.status, action.reason);
         } else if (action.type === "COD") {
-          await ordersApi.updateStatus(id, "COMPLETED", "Thu tiền COD thành công");
+          await ordersApi.updateStatus(id, "COMPLETED", "COD confirmed");
         } else if (action.type === "REFUND") {
           const refundAction = action.decision === "APPROVED" ? "APPROVE" : "REJECT";
           await refundsApi.review(id, refundAction, action.note);
@@ -338,11 +338,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         const errorMsg =
           err?.response?.data?.message ||
           err?.message ||
-          "Thao tác thất bại do xung đột dữ liệu hoặc đơn hàng đã được cập nhật bởi nhân viên khác.";
+          "Order operation failed due to conflict.";
         console.warn("Backend order update warning, applying fallback:", errorMsg);
         // If 409 or conflict:
         if (err?.response?.status === 409 || err?.response?.status === 400) {
-          setActionError(`Xung đột: ${errorMsg}`);
+          setActionError(`[Conflict] ${errorMsg}`);
           // Reload latest state from backend
           refreshOrders();
           return false;

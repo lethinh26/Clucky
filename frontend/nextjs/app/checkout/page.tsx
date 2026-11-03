@@ -209,7 +209,7 @@ export default function CheckoutPage() {
       // AC-03 & AC-04: API error does not simulate success, keeps form and cart intact
       const message =
         err?.message ||
-        "Không thể đặt hàng. Vui lòng kiểm tra lại thông tin hoặc món ăn trong giỏ.";
+        t("business.demoordercontrols.paymentFailedTheOrderWasCancelledYouCanReorderTheItems");
       setSubmitError(message);
     }
   };
