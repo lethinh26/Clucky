@@ -102,10 +102,10 @@ test("admin filters and an open form survive language changes", async ({ page })
   await page.getByRole("button", { name: "Thêm món ăn mới" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("textbox", { name: "Tên món ăn", exact: true }).fill("Tên món tự nhập");
+  await dialog.getByLabel("Tên món ăn", { exact: true }).fill("Tên món tự nhập");
   await switchLanguage(page, "en");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("textbox", { name: "Dish name", exact: true })).toHaveValue("Tên món tự nhập");
+  await expect(dialog.getByLabel("Dish name", { exact: true })).toHaveValue("Tên món tự nhập");
   const selector = dialog.getByRole("combobox", { name: "Language" });
   await selector.focus();
   await selector.press("ArrowDown");
