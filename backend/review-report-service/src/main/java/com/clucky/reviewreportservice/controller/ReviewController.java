@@ -2,6 +2,9 @@ package com.clucky.reviewreportservice.controller;
 
 import com.clucky.reviewreportservice.config.CurrentActor;
 import com.clucky.reviewreportservice.dto.CreateReviewRequest;
+import com.clucky.reviewreportservice.dto.CreateReplyRequest;
+import com.clucky.reviewreportservice.dto.HideReviewRequest;
+import com.clucky.reviewreportservice.dto.ReviewReplyDto;
 import com.clucky.reviewreportservice.dto.ProductReviewSummaryDto;
 import com.clucky.reviewreportservice.dto.ReviewDto;
 import com.clucky.reviewreportservice.dto.UpdateReviewRequest;
@@ -86,5 +89,19 @@ public class ReviewController {
         Long customerId = CurrentActor.require().userId();
         reviewService.deleteReview(id, customerId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/replies")
+    @PreAuthorize("hasAnyRole('STAFF', 'STORE_MANAGER', 'ADMIN')")
+    public ResponseEntity<ReviewReplyDto> replyReview(@PathVariable @Positive Long id,
+            @Valid @RequestBody CreateReplyRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(reviewService.addReply(id, request));
+    }
+
+    @PutMapping("/{id}/hide")
+    @PreAuthorize("hasAnyRole('STORE_MANAGER', 'ADMIN')")
+    public ResponseEntity<ReviewDto> hideReview(@PathVariable @Positive Long id,
+            @Valid @RequestBody(required = false) HideReviewRequest request) {
+        return ResponseEntity.ok(reviewService.hideReview(id, request));
     }
 }

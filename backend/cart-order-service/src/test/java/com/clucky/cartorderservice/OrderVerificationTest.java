@@ -70,4 +70,23 @@ class OrderVerificationTest {
         assertEquals(7L, response.customerId());
         assertEquals(List.of(20L), response.productIds());
     }
+
+    @Test
+    void storeLookupRejectsCustomersAndUsesJwtStoreForStaff() {
+        assertEquals(ErrorCode.FORBIDDEN,
+                assertThrows(ApiException.class, () -> controller.getStore(10L)).getCode());
+        Jwt jwt = Jwt.withTokenValue("test-token").header("alg", "HS256")
+                .subject("9").claim("role", "STAFF").claim("storeId", 2L).build();
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt,
+                List.of(new SimpleGrantedAuthority("ROLE_STAFF"))));
+        when(orders.findByIdAndStoreId(10L, 2L)).thenReturn(Optional.empty());
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND,
+                assertThrows(ApiException.class, () -> controller.getStore(10L)).getCode());
+        Order order = new Order();
+        order.setId(10L);
+        order.setStoreId(2L);
+        when(orders.findByIdAndStoreId(10L, 2L)).thenReturn(Optional.of(order));
+        assertEquals(2L, controller.getStore(10L).storeId());
+        verify(orders, never()).findById(anyLong());
+    }
 }

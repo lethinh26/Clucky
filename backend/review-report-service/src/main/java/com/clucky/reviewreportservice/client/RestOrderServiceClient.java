@@ -18,7 +18,6 @@ import org.springframework.web.client.RestTemplate;
 
 @Component
 public class RestOrderServiceClient implements OrderServiceClient {
-
     private final RestTemplate restTemplate;
 
     public RestOrderServiceClient(@Qualifier("orderRestTemplate") RestTemplate restTemplate) {
@@ -27,6 +26,23 @@ public class RestOrderServiceClient implements OrderServiceClient {
 
     @Override
     public OrderVerificationDto getOrderForReview(Long orderId, Long customerId) {
+        return get("/api/internal/orders/{orderId}/verification?customerId={customerId}",
+                OrderVerificationDto.class, orderId, customerId);
+    }
+
+    @Override
+    public Long getOrderStoreId(Long orderId) {
+        OrderStoreDto order = get("/api/internal/orders/{orderId}/store", OrderStoreDto.class, orderId);
+        if (order == null) {
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!orderId.equals(order.orderId()) || order.storeId() == null || order.storeId() <= 0) {
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+        }
+        return order.storeId();
+    }
+
+    private <Response> Response get(String path, Class<Response> responseType, Object... parameters) {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (!(authentication instanceof JwtAuthenticationToken token) || !token.isAuthenticated()) {
             throw new AuthenticationCredentialsNotFoundException("Authentication required");
@@ -34,13 +50,12 @@ public class RestOrderServiceClient implements OrderServiceClient {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token.getToken().getTokenValue());
         try {
-            OrderVerificationDto order = restTemplate.exchange(
-                    "http://cart-order-service/api/internal/orders/{orderId}/verification?customerId={customerId}",
-                    HttpMethod.GET, new HttpEntity<>(headers), OrderVerificationDto.class, orderId, customerId).getBody();
-            if (order == null) {
+            Response response = restTemplate.exchange("http://cart-order-service" + path,
+                    HttpMethod.GET, new HttpEntity<>(headers), responseType, parameters).getBody();
+            if (response == null) {
                 throw new ApiException(ErrorCode.UPSTREAM_ERROR);
             }
-            return order;
+            return response;
         } catch (HttpClientErrorException.NotFound failure) {
             return null;
         } catch (HttpClientErrorException.Unauthorized failure) {
