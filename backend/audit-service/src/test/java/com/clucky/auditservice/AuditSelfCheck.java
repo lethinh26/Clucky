@@ -13,12 +13,16 @@ public final class AuditSelfCheck {
     public static void main(String[] args) throws Exception {
         CurrentActor manager = new CurrentActor(1L, Role.STORE_MANAGER, 11L);
         require(AuditLogService.effectiveStore(manager, query(null, null)) == 11L, "Manager scope not enforced");
+        require(AuditLogService.effectiveStore(manager, query(11L, "STAFF")) == 11L, "Manager matching query rejected");
+        require(AuditLogService.effectiveStore(manager, null) == 11L, "Manager null query rejected");
         denied(() -> AuditLogService.effectiveStore(manager, query(12L, null)));
         denied(() -> AuditLogService.effectiveStore(manager, query(null, "ADMIN")));
         denied(() -> AuditLogService.effectiveStore(new CurrentActor(2L, Role.STAFF, 11L), query(null, null)));
         denied(() -> AuditLogService.effectiveStore(new CurrentActor(3L, Role.CUSTOMER, null), query(null, null)));
         require(AuditLogService.effectiveStore(new CurrentActor(4L, Role.ADMIN, null), query(null, null)) == null,
                 "Admin global query restricted");
+        require(AuditLogService.effectiveStore(new CurrentActor(4L, Role.ADMIN, null), query(15L, null)) == 15L,
+                "Admin store query ignored");
         ObjectMapper mapper = new ObjectMapper();
         String safe = new AuditMapper().safeDetail(mapper.readTree("""
                 {"before":{"password":"secret","amount":100,"nested":{"token":"secret"}},

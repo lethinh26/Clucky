@@ -32,9 +32,18 @@ public class AuditLogService {
 
     @Transactional(readOnly = true)
     public PageResponse<AuditLogResponse> search(AuditLogQuery query) {
+        if (query == null) {
+            query = new AuditLogQuery(null, null, null, null, null, null, null, null, null, 0, 20);
+        }
         CurrentActor actor = CurrentActor.require();
         Long store = effectiveStore(actor, query);
         if (query.from() != null && query.to() != null && query.from().isAfter(query.to())) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        if (query.page() != null && query.page() < 0) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        if (query.size() != null && (query.size() < 1 || query.size() > 200)) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
         Specification<AuditLog> specification = (entry, criteria, builder) -> {
@@ -57,10 +66,10 @@ public class AuditLogService {
     }
 
     public static Long effectiveStore(CurrentActor actor, AuditLogQuery query) {
-        if (actor.role() == Role.ADMIN) { return query.storeId(); }
+        if (actor.role() == Role.ADMIN) { return query != null ? query.storeId() : null; }
         if (actor.role() != Role.STORE_MANAGER || actor.storeId() == null
-                || query.storeId() != null && !query.storeId().equals(actor.storeId())
-                || query.actorRole() != null && !Role.STAFF.name().equals(query.actorRole())) {
+                || (query != null && query.storeId() != null && !query.storeId().equals(actor.storeId()))
+                || (query != null && query.actorRole() != null && !Role.STAFF.name().equals(query.actorRole()))) {
             throw new AccessDeniedException("Access denied");
         }
         return actor.storeId();
