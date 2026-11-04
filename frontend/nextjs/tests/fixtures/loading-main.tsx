@@ -1,3 +1,5 @@
+import { NextIntlClientProvider } from "next-intl";
+import { resources } from "../../lib/i18n/resources";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -68,7 +70,7 @@ function Fixture() {
   );
 }
 createRoot(document.getElementById("root")!).render(
-  <NavigationLoaderProvider>
+  <NextIntlClientProvider locale="vi" messages={resources.vi} timeZone="Asia/Ho_Chi_Minh"><NavigationLoaderProvider>
     <Fixture />
-  </NavigationLoaderProvider>,
+  </NavigationLoaderProvider></NextIntlClientProvider>,
 );

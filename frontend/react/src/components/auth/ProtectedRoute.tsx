@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Result, Button } from 'antd';
@@ -9,6 +10,7 @@ export interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -19,13 +21,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, ch
           status="403"
           title={
             <span style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 32, color: '#16100D' }}>
-              403 — Không có quyền truy cập
-            </span>
+              {t("admin:forbidden.title")}{" "}</span>
           }
           subTitle={
             <span style={{ fontFamily: 'Quicksand, sans-serif', fontSize: 16, color: '#6B6259' }}>
-              Tài khoản của bạn ({user.fullName} · {user.role}) không được phân quyền truy cập vào phân hệ này.
-            </span>
+              {t("admin:forbidden.accountPrefix")}{user.fullName} · {user.role}{t("admin:forbidden.description")}{" "}</span>
           }
           extra={
             <Button
@@ -41,8 +41,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, ch
                 padding: '0 24px',
               }}
             >
-              Quay lại Bảng điều khiển
-            </Button>
+              {t("admin:forbidden.back")}{" "}</Button>
           }
         />
       </div>

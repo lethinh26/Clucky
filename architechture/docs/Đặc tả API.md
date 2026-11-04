@@ -4,7 +4,7 @@
 Quy ước chung:
 - Base URL qua Gateway: `https://<domain>/api/...` ; mỗi service có tiền tố riêng.
 - Xác thực: header `Authorization: Bearer <JWT>` (trừ API công khai và webhook).
-- Định dạng: JSON; lỗi trả về `{ timestamp, status, error, message, path }`.
+- Định dạng: JSON; lỗi trả về `{ timestamp, status, error, code, message, path }`. `code` ổn định từ `contracts/errors.json`; backend giữ message tiếng Anh an toàn, frontend ánh xạ vi/en theo locale, không hiển thị exception thô. HTTP status và bản dịch được sinh từ cùng danh mục; xem `contracts/README.md`.
 - Phân trang: `?page=0&size=20&sort=createdAt,desc`.
 - Mỗi service công bố OpenAPI tại `/swagger-ui.html` (môi trường dev/demo).
 - Frontend Customer (Next.js) và frontend quản trị (React) dùng chung toàn bộ hệ API này; khác biệt chỉ ở giao diện và quyền của role đăng nhập.
@@ -125,7 +125,13 @@ Quy ước chung:
 | GET /api/reports/dashboard | STF/MGR/ADM | Dashboard theo phạm vi role (ca / quán / toàn chuỗi) |
 | GET /api/reports/revenue?storeId=&from=&to= | MGR/ADM | Báo cáo doanh thu (Manager bị ép storeId) |
 | GET /api/reports/export?format=xlsx/pdf | MGR/ADM | Xuất báo cáo Excel/PDF |
-| GET /api/reports/audit-logs | MGR/ADM | Tra cứu audit log theo phạm vi |
+
+# AUDIT SERVICE — /api/audit-logs
+| Method & Path | Quyền | Mô tả |
+|---|---|---|
+| GET /api/audit-logs | MGR/ADM | Phân trang, lọc actorId/actorRole/sourceService/action/targetType/targetId/storeId/from/to; Admin xem mọi role, Manager chỉ xem thao tác Staff trong quán mình theo RBAC |
+
+Endpoint thuộc Audit Service riêng, frontend gọi qua Gateway, không thuộc `/api/reports`. Backend bắt buộc giới hạn quyền/store trước khi áp dụng bộ lọc. Dữ liệu gồm người/role thực hiện, khâu nghiệp vụ, đối tượng, thay đổi trước–sau đã loại secret và thời gian; không có API cho frontend tạo/sửa/xóa audit. Các backend domain phát sự kiện `audit.recorded` sau thay đổi thành công để Audit Service lưu. Base API đọc đã có mã nguồn trong `backend/audit-service`, chưa kiểm chứng runtime; producer/consumer ghi audit và mở rộng allowlist before/after theo domain vẫn thuộc INT-48. Xem [phạm vi base và kiểm chứng](../../docs/observability.md).
 
 
 ## 9.1. Mail Sender nội bộ

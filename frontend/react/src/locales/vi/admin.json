@@ -1,0 +1,73 @@
+{
+  "nav": {
+    "overview": "Tổng quan",
+    "catalog": "Quản lý Thực đơn & Sản phẩm",
+    "stores": "Quản lý Chi nhánh",
+    "inventory": "Tồn kho Chi nhánh",
+    "orders": "Quản lý Đơn hàng",
+    "shiftOrders": "Đơn hàng Ca trực",
+    "reviews": "Quản lý Đánh giá",
+    "users": "Quản lý Người dùng",
+    "reports": "Báo cáo & Thống kê",
+    "payments": "Thanh toán & Đối soát"
+  },
+  "breadcrumb": {
+    "catalog": "Thực đơn & Combo",
+    "stores": "Hệ thống Chi nhánh",
+    "reviews": "Đánh giá & Phản hồi",
+    "users": "Người dùng"
+  },
+  "roles": {
+    "hqAdmin": "Quản trị viên HQ",
+    "shiftStaff": "Nhân viên Ca",
+    "admin": "Quản trị viên",
+    "manager": "Quản lý chi nhánh",
+    "staff": "Nhân viên"
+  },
+  "demo": {
+    "switchAdmin": "Chuyển sang: Quản trị viên (HQ)",
+    "switchedAdmin": "Đã chuyển vai trò: Quản trị viên HQ",
+    "switchManager": "Chuyển sang: Quản lý Chi nhánh",
+    "switchedManager": "Đã chuyển vai trò: Quản lý Chi nhánh Lê Lợi",
+    "switchStaff": "Chuyển sang: Nhân viên Chi nhánh",
+    "switchedStaff": "Đã chuyển vai trò: Nhân viên Chi nhánh Lê Lợi",
+    "store": "Clucky Lê Lợi (Q.1)",
+    "staffRole": "👨‍🍳 Role: Staff Chi nhánh"
+  },
+  "dashboard": "Trang quản trị",
+  "workspace": "DANH MỤC NGHIỆP VỤ",
+  "currentRole": "Quyền hiện tại:",
+  "navigation": "Điều hướng Clucky",
+  "expandNav": "Mở rộng điều hướng",
+  "collapseNav": "Thu gọn điều hướng",
+  "storeLabel": "Chi nhánh:",
+  "notifications": {
+    "title": "Thông báo hệ thống",
+    "empty": "Không có thông báo khẩn mới."
+  },
+  "myAccount": "Tài khoản của tôi",
+  "footer": "Clucky · Hệ thống quản trị ·",
+  "auth": {
+    "eyebrow": "Không gian dành cho đội ngũ Clucky",
+    "workspace": "Không gian làm việc Clucky",
+    "title": "Cùng nhau tạo nên",
+    "subtitle": "những bữa ngon.",
+    "description": "Một không gian chung để kết nối đội ngũ, chăm sóc chi nhánh và sẵn sàng cho mỗi ca làm việc.",
+    "team": "ĐỘI NGŨ CLUCKY",
+    "adminDescription": "Kết nối toàn hệ thống",
+    "managerDescription": "Đồng hành cùng đội ngũ",
+    "staffDescription": "Chăm chút từng đơn hàng",
+    "teamMotto": "Cùng một đội ngũ. Cùng một niềm vui.",
+    "badge": "KHÔNG GIAN QUẢN TRỊ",
+    "back": "Về không gian làm việc",
+    "loginTitle": "Đăng nhập quản trị",
+    "loginDescription": "Khu vực dành cho Admin, Store Manager và Staff của Clucky.",
+    "assignedAccount": "Sử dụng tài khoản được cấp. Nếu chưa có tài khoản, vui lòng liên hệ quản trị viên."
+  },
+  "forbidden": {
+    "title": "403 — Không có quyền truy cập",
+    "accountPrefix": "Tài khoản của bạn (",
+    "description": ") không được phân quyền truy cập vào phân hệ này.",
+    "back": "Quay lại Bảng điều khiển"
+  }
+}

@@ -3,6 +3,20 @@ server:
 spring:
   application:
     name: identity-service
+  datasource:
+    hikari:
+      schema: identity_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: identity_service
+  flyway:
+    default-schema: identity_service
+    schemas: identity_service
+    create-schemas: true
+    baseline-on-migrate: false
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}

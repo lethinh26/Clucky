@@ -1,3 +1,5 @@
+import { useLocaleTools } from "../../i18n/hooks";
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from 'react';
 import { useDeferredAction } from '../../components/ui-loader/use-deferred-action';
 import {
@@ -189,6 +191,9 @@ export const storePerformances: StorePerformance[] = [
 ];
 
 export const ReportsPage: React.FC = () => {
+  const { t } = useTranslation();
+  const { locale } = useLocaleTools();
+
   const startDeferredExport = useDeferredAction();
   useEffect(() => () => { message.destroy('exportMsg'); }, []);
   const { user } = useAuth();
@@ -248,10 +253,10 @@ export const ReportsPage: React.FC = () => {
     const toStr = dateRange[1].format('YYYY-MM-DD');
     const fileName = `Bao_Cao_Doanh_Thu_Clucky_${storeLabel}_${fromStr}_${toStr}.${format}`;
 
-    message.loading({ content: `Đang kết xuất báo cáo ${format.toUpperCase()}...`, key: 'exportMsg' });
+    message.loading({ content: t("business:reports.exportingReport", { value1: format.toUpperCase() }), key: 'exportMsg' });
     task.schedule(() => {
       message.success({
-        content: `Đã xuất báo cáo thành công: ${fileName}`,
+        content: t("business:reports.reportExportedSuccessfully", { value1: fileName }),
         key: 'exportMsg',
         duration: 3,
       });
@@ -260,7 +265,7 @@ export const ReportsPage: React.FC = () => {
 
   const columns: TableColumnsType<RevenueRecord> = [
     {
-      title: 'Ngày',
+      title: t("business:reports.date"),
       dataIndex: 'date',
       key: 'date',
       width: 120,
@@ -272,7 +277,7 @@ export const ReportsPage: React.FC = () => {
       ),
     },
     {
-      title: 'Chi nhánh',
+      title: t("business:party.store"),
       dataIndex: 'storeName',
       key: 'storeName',
       width: 200,
@@ -284,41 +289,40 @@ export const ReportsPage: React.FC = () => {
       ),
     },
     {
-      title: 'Số đơn',
+      title: t("business:reports.orderCount"),
       dataIndex: 'orderCount',
       key: 'orderCount',
       align: 'right',
-      render: (val: number) => <Text strong>{val} đơn</Text>,
+      render: (val: number) => <Text strong>{val} {t("business:dashboard.orders")}</Text>,
     },
     {
-      title: 'Doanh thu gộp',
+      title: t("business:reports.grossRevenue"),
       dataIndex: 'grossRevenue',
       key: 'grossRevenue',
       align: 'right',
-      render: (val: number) => <span>{val.toLocaleString('vi-VN')}đ</span>,
+      render: (val: number) => <span>{val.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:orderdetaildrawer.currency")}</span>,
     },
     {
-      title: 'Khuyến mãi',
+      title: t("business:reports.promotions"),
       dataIndex: 'discountAmount',
       key: 'discountAmount',
       align: 'right',
       render: (val: number) => (
-        <span style={{ color: '#B42318' }}>-{val.toLocaleString('vi-VN')}đ</span>
+        <span style={{ color: '#B42318' }}>-{val.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:orderdetaildrawer.currency")}</span>
       ),
     },
     {
-      title: 'Doanh thu thuần',
+      title: t("business:reports.netRevenue"),
       dataIndex: 'netRevenue',
       key: 'netRevenue',
       align: 'right',
       render: (val: number) => (
         <Text strong style={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif', fontSize: 15 }}>
-          {val.toLocaleString('vi-VN')}đ
-        </Text>
+          {val.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:orderdetaildrawer.currency")} </Text>
       ),
     },
     {
-      title: 'Phương thức',
+      title: t("business:orderdetaildrawer.method"),
       key: 'methodSplit',
       align: 'center',
       render: (_, r) => (
@@ -340,14 +344,14 @@ export const ReportsPage: React.FC = () => {
   const chartValues =
     chartView === 'revenue'
       ? ['42,5 tr', '51,2 tr', '48,0 tr', '62,8 tr', '79,5 tr', '66,1 tr', '71,8 tr']
-      : ['220 đơn', '265 đơn', '240 đơn', '310 đơn', '390 đơn', '333 đơn', '355 đơn'];
+      : [t("business:reports.orders"), t("business:reports.value265Orders"), t("business:reports.value240Orders"), t("business:reports.value310Orders"), t("business:reports.value390Orders"), t("business:reports.value333Orders"), t("business:reports.value355Orders")];
 
   return (
     <div className="reports-page">
       <PageIntro
         eyebrow="Review & Report"
-        title="Báo cáo Doanh thu & Hiệu suất"
-        description="Theo dõi chi tiết số liệu doanh thu, số lượng đơn hàng, voucher khuyến mãi và kết xuất dữ liệu cho quản trị."
+        title={t("business:reports.revenuePerformanceReports")}
+        description={t("business:reports.viewDetailedRevenueOrderCountsAndPromotionalVouchersAndExportManagementReports")}
       />
 
       {/* Thanh điều khiển: Date Picker, Store Filter & Nút Export */}
@@ -365,9 +369,7 @@ export const ReportsPage: React.FC = () => {
             <Flex wrap="wrap" gap={12} align="center">
               {/* Khoảng thời gian */}
               <Space>
-                <Text strong style={{ color: '#16100D' }}>
-                  Thời gian:
-                </Text>
+                <Text strong style={{ color: '#16100D' }}> {t("business:reports.period")} </Text>
                 <RangePicker
                   value={dateRange}
                   onChange={(dates) => {
@@ -387,16 +389,14 @@ export const ReportsPage: React.FC = () => {
 
               {/* Lọc chi nhánh */}
               <Space>
-                <Text strong style={{ color: '#16100D' }}>
-                  Chi nhánh:
-                </Text>
+                <Text strong style={{ color: '#16100D' }}> {t("business:reports.store")} </Text>
                 <Select
                   value={selectedStore}
                   onChange={(val) => setSelectedStore(val)}
                   disabled={user.role === 'STORE_MANAGER' && !!user.storeId}
                   style={{ width: 220, height: 40 }}
                   options={[
-                    { value: 'ALL', label: 'Tất cả chi nhánh' },
+                    { value: 'ALL', label: t("business:stores.allStores") },
                     { value: 1, label: 'Nguyễn Trãi (Q.5)' },
                     { value: 2, label: 'Phan Văn Trị (Gò Vấp)' },
                     { value: 3, label: 'Lê Văn Việt (TP. Thủ Đức)' },
@@ -419,9 +419,7 @@ export const ReportsPage: React.FC = () => {
                   borderColor: '#1E7A46',
                   color: '#1E7A46',
                 }}
-              >
-                Xuất Excel (.xlsx)
-              </Button>
+              > {t("business:reports.exportExcelXlsx")} </Button>
               <Button
                 icon={<FilePdfOutlined style={{ color: '#8F1216' }} />}
                 onClick={() => handleExport('pdf')}
@@ -432,9 +430,7 @@ export const ReportsPage: React.FC = () => {
                   borderColor: '#8F1216',
                   color: '#8F1216',
                 }}
-              >
-                Xuất PDF (.pdf)
-              </Button>
+              > {t("business:reports.exportPdfPdf")} </Button>
             </Flex>
           </Col>
         </Row>
@@ -445,56 +441,50 @@ export const ReportsPage: React.FC = () => {
         <Col xs={24} sm={12} xl={6}>
           <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
             <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>Doanh thu thuần</span>}
-              value={totalNetRevenue.toLocaleString('vi-VN')}
-              suffix="đ"
+              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reports.netRevenue")}</span>}
+              value={totalNetRevenue.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}
+              suffix={t("business:orderdetaildrawer.currency")}
               prefix={<DollarOutlined style={{ color: '#8F1216' }} />}
               valueStyle={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
             />
             <div style={{ marginTop: 8, fontSize: 12, color: '#1E7A46' }}>
-              <ArrowUpOutlined /> +11.4% so với kỳ trước
-            </div>
+              <ArrowUpOutlined /> {t("business:reports.fromThePreviousPeriod")} </div>
           </Card>
         </Col>
         <Col xs={24} sm={12} xl={6}>
           <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
             <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>Tổng đơn hàng</span>}
+              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reports.totalOrders")}</span>}
               value={totalOrders}
-              suffix="đơn"
+              suffix={t("business:dashboard.orders")}
               prefix={<ShoppingOutlined style={{ color: '#C9A227' }} />}
               valueStyle={{ color: '#16100D', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
             />
             <div style={{ marginTop: 8, fontSize: 12, color: '#1E7A46' }}>
-              <ArrowUpOutlined /> +8.2% đơn hoàn thành
-            </div>
+              <ArrowUpOutlined /> {t("business:reports.completedOrders")} </div>
           </Card>
         </Col>
         <Col xs={24} sm={12} xl={6}>
           <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
             <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>Giá trị đơn trung bình (AOV)</span>}
-              value={averageOrderValue.toLocaleString('vi-VN')}
-              suffix="đ"
+              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reports.averageOrderValueAov")}</span>}
+              value={averageOrderValue.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}
+              suffix={t("business:orderdetaildrawer.currency")}
               prefix={<RiseOutlined style={{ color: '#22577A' }} />}
               valueStyle={{ color: '#22577A', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
             />
-            <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}>
-              Trung bình mỗi giao dịch thành công
-            </div>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}> {t("business:reports.averagePerSuccessfulTransaction")} </div>
           </Card>
         </Col>
         <Col xs={24} sm={12} xl={6}>
           <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
             <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>Chi phí khuyến mãi</span>}
-              value={totalDiscounts.toLocaleString('vi-VN')}
-              suffix="đ"
+              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reports.promotionCosts")}</span>}
+              value={totalDiscounts.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}
+              suffix={t("business:orderdetaildrawer.currency")}
               valueStyle={{ color: '#B42318', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
             />
-            <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}>
-              Tương đương {totalGrossRevenue > 0 ? ((totalDiscounts / totalGrossRevenue) * 100).toFixed(1) : 0}% tổng doanh thu gộp
-            </div>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}> {t("business:reports.equivalentTo")} {totalGrossRevenue > 0 ? ((totalDiscounts / totalGrossRevenue) * 100).toFixed(1) : 0}{t("business:reports.ofTotalGrossRevenue")} </div>
           </Card>
         </Col>
       </Row>
@@ -507,14 +497,14 @@ export const ReportsPage: React.FC = () => {
             title={
               <Space>
                 <BarChartOutlined style={{ color: '#8F1216' }} />
-                <span>Xu hướng doanh thu theo ngày</span>
+                <span>{t("business:reports.dailyRevenueTrend")}</span>
               </Space>
             }
             extra={
               <Segmented
                 options={[
-                  { value: 'revenue', label: 'Doanh thu (VNĐ)' },
-                  { value: 'orders', label: 'Số lượng đơn' },
+                  { value: 'revenue', label: t("business:reports.revenueVnd") },
+                  { value: 'orders', label: t("business:reports.numberOfOrders") },
                 ]}
                 value={chartView}
                 onChange={(val) => setChartView(val as 'revenue' | 'orders')}
@@ -566,12 +556,8 @@ export const ReportsPage: React.FC = () => {
                 ))}
               </div>
               <Flex justify="space-between" align="center" style={{ marginTop: 16 }}>
-                <Text type="secondary" style={{ color: '#6B6259', fontSize: 13 }}>
-                  Dữ liệu ghi nhận từ các giao dịch hoàn thành trong kỳ chọn
-                </Text>
-                <Text strong style={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif', fontSize: 16 }}>
-                  Tổng cộng: {totalNetRevenue.toLocaleString('vi-VN')}đ
-                </Text>
+                <Text type="secondary" style={{ color: '#6B6259', fontSize: 13 }}> {t("business:reports.dataFromCompletedTransactionsInTheSelectedPeriod")} </Text>
+                <Text strong style={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif', fontSize: 16 }}> {t("business:reports.total")} {totalNetRevenue.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:orderdetaildrawer.currency")} </Text>
               </Flex>
             </div>
           </Card>
@@ -583,7 +569,7 @@ export const ReportsPage: React.FC = () => {
             title={
               <Space>
                 <PieChartOutlined style={{ color: '#C9A227' }} />
-                <span>Hiệu suất các chi nhánh</span>
+                <span>{t("business:reports.storePerformance")}</span>
               </Space>
             }
             style={{ borderRadius: 20, background: '#FFFAF3', border: '1px solid #E8E2D9', height: '100%' }}
@@ -614,10 +600,9 @@ export const ReportsPage: React.FC = () => {
 
                   <Flex justify="space-between" align="baseline" style={{ marginTop: 6 }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      {st.orderCount} đơn hàng
-                    </Text>
+                      {st.orderCount} {t("business:dashboard.orders")} </Text>
                     <Text strong style={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif' }}>
-                      {st.revenue.toLocaleString('vi-VN')}đ ({st.percentage}%)
+                      {st.revenue.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:reports.vnd")}{st.percentage}%)
                     </Text>
                   </Flex>
                 </div>
@@ -631,12 +616,8 @@ export const ReportsPage: React.FC = () => {
       <Card
         title={
           <Flex justify="space-between" align="center">
-            <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18, color: '#16100D' }}>
-              Chi tiết giao dịch doanh thu theo ngày
-            </span>
-            <Text type="secondary" style={{ fontSize: 13, fontWeight: 'normal' }}>
-              Hiển thị {filteredRecords.length} bản ghi
-            </Text>
+            <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18, color: '#16100D' }}> {t("business:reports.dailyRevenueTransactionDetails")} </span>
+            <Text type="secondary" style={{ fontSize: 13, fontWeight: 'normal' }}> {t("business:reports.showing")} {filteredRecords.length} {t("business:reports.records")} </Text>
           </Flex>
         }
         style={{

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
 
 import { useEffect, useId, useState } from "react";
 import Link from "@/components/ui-loader/navigation-link";
@@ -14,17 +16,10 @@ import {
   Clock3,
 } from "lucide-react";
 import type { Order, OrderStatus, OrderType } from "@/lib/types/order";
-import { displayOrderTime, orderStatusLabels } from "@/lib/order-demo";
+import { displayOrderTime, orderStatusKeys } from "@/lib/order-demo";
 import styles from "./order-experience.module.css";
 
-const steps = [
-  { label: "Chọn món", icon: ShoppingBag },
-  { label: "Thanh toán", icon: CreditCard },
-  { label: "Xác nhận", icon: ClipboardCheck },
-  { label: "Chế biến", icon: ChefHat },
-  { label: "Sẵn sàng", icon: PackageCheck },
-  { label: "Hoàn tất", icon: Flag },
-];
+
 
 export function OrderProgress({
   stage,
@@ -43,6 +38,18 @@ export function OrderProgress({
   updatedAt?: string;
   history?: Order["timeline"];
 }) {
+  const t = useTranslations();
+
+  const steps = [
+  { label: t("business.orderprogress.chooseDishes"), icon: ShoppingBag },
+  { label: t("business.cart.checkout"), icon: CreditCard },
+  { label: t("business.orderprogress.confirm"), icon: ClipboardCheck },
+  { label: t("business.orderprogress.preparing"), icon: ChefHat },
+  { label: t("business.orderprogress.ready"), icon: PackageCheck },
+  { label: t("business.orderprogress.complete"), icon: Flag },
+];
+
+  const { locale } = useLocaleTools();
   const [expanded, setExpanded] = useState(false);
   const regionId = useId();
   const preferenceKey = `clucky-progress:${compact ? "card" : "detail"}:${orderCode ?? stage ?? "order"}`;
@@ -73,21 +80,17 @@ export function OrderProgress({
   }[status];
   if (stage)
     return (
-      <nav className={styles.checkoutSteps} aria-label="Các bước đặt hàng">
+      <nav className={styles.checkoutSteps} aria-label={t("business.orderprogress.orderingSteps")}>
         <Link href="/cart" aria-current={stage === "cart" ? "step" : undefined}>
           <ShoppingBag size={16} />
-          <span>Giỏ hàng</span>
+          <span>{t("business.orderprogress.cart")}</span>
         </Link>
         <span className={styles.flowConnector} />
         <span aria-current={stage === "checkout" ? "step" : undefined}>
-          <CreditCard size={16} />
-          Thanh toán
-        </span>
+          <CreditCard size={16} /> {t("business.cart.checkout")} </span>
         <span className={styles.flowConnector} />
         <span>
-          <ClipboardCheck size={16} />
-          Xác nhận
-        </span>
+          <ClipboardCheck size={16} /> {t("business.orderprogress.confirm")} </span>
       </nav>
     );
   return (
@@ -106,15 +109,15 @@ export function OrderProgress({
           <Clock3 size={17} />
         </span>
         <span className={styles.progressCopy}>
-          <strong>{orderCode ?? "Tiến trình đơn hàng"}</strong>
-          <small>{displayOrderTime(updatedAt ?? history.at(-1)?.time)}</small>
+          <strong>{orderCode ?? t("business.demoordercontrols.orderProgress")}</strong>
+          <small>{displayOrderTime(updatedAt ?? history.at(-1)?.time, locale)}</small>
         </span>
         <span className={styles.progressState} data-status={status}>
-          {orderStatusLabels[status]}
+          {t(orderStatusKeys[status])}
         </span>
         <ChevronDown size={17} className={styles.disclosureChevron} />
         <span className="sr-only">
-          {expanded ? "Thu gọn tiến trình" : "Mở rộng tiến trình"}
+          {expanded ? t("business.orderprogress.collapseProgress") : t("business.orderprogress.expandProgress")}
         </span>
       </button>
       <div
@@ -125,7 +128,7 @@ export function OrderProgress({
       >
         <div className={styles.disclosureInner}>
           {status === "CANCELLED" ? (
-            <p className={styles.stopped}>Đơn đã hủy. Tiến trình đã dừng.</p>
+            <p className={styles.stopped}>{t("business.orderprogress.orderCancelledProgressHasStopped")}</p>
           ) : (
             <ol
               className={styles.progressRail}
@@ -152,10 +155,10 @@ export function OrderProgress({
                     <span>
                       {index === 4
                         ? status === "SHIPPING"
-                          ? "Đang giao"
+                          ? t("business.orderprogress.delivering")
                           : type === "PICKUP"
-                            ? "Chờ nhận"
-                            : "Sẵn sàng"
+                            ? t("business.orderprogress.awaitingCollection")
+                            : t("business.orderprogress.ready")
                         : step.label}
                     </span>
                   </li>
@@ -164,7 +167,7 @@ export function OrderProgress({
             </ol>
           )}
           {history.length > 0 && (
-            <ol className={styles.eventHistory} aria-label="Lịch sử cập nhật">
+            <ol className={styles.eventHistory} aria-label={t("business.orderprogress.updateHistory")}>
               {history.map((event, index) => (
                 <li key={`${index}-${event.time}`} data-current={event.current}>
                   <span className={styles.eventDot} />
@@ -172,7 +175,7 @@ export function OrderProgress({
                     <strong>{event.title}</strong>
                     <p>{event.description}</p>
                   </div>
-                  <time>{displayOrderTime(event.time)}</time>
+                  <time>{displayOrderTime(event.time, locale)}</time>
                 </li>
               ))}
             </ol>

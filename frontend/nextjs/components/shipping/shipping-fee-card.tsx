@@ -1,15 +1,17 @@
-import React from "react";
-import { formatPrice } from "@/lib/products";
+"use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
+import { Truck } from "lucide-react";
 import styles from "../payment/payment-shared.module.css";
 
 export interface ShippingFeeCardProps {
-  /** Phí ship đã tính; null = chưa tính được */
+  /** Fee returned by the caller; null means no quote is available yet. */
   fee: number | null;
-  /** Ngưỡng miễn phí ship (nếu có) */
   freeFromAmount?: number;
-  /** Tạm tính hiện tại để gợi ý mua thêm đủ free-ship */
   subtotal?: number;
   loading?: boolean;
+  error?: string;
   className?: string;
 }
 
@@ -18,12 +20,23 @@ export function ShippingFeeCard({
   freeFromAmount,
   subtotal,
   loading = false,
+  error,
   className = "",
 }: ShippingFeeCardProps) {
+  const t = useTranslations();
+
+  const { money: formatPrice } = useLocaleTools();
+  const validFee = fee != null && Number.isSafeInteger(fee) && fee >= 0;
   const missing =
-    freeFromAmount != null && subtotal != null
+    freeFromAmount != null &&
+    Number.isSafeInteger(freeFromAmount) &&
+    freeFromAmount > 0 &&
+    subtotal != null &&
+    Number.isSafeInteger(subtotal) &&
+    subtotal >= 0
       ? Math.max(0, freeFromAmount - subtotal)
       : null;
+  const showHint = !loading && !error && validFee;
 
   return (
     <div
@@ -32,24 +45,33 @@ export function ShippingFeeCard({
       aria-busy={loading}
     >
       <div className={styles.feeRow}>
-        <span>Phí giao hàng</span>
-        {loading ? (
-          <strong>Đang tính…</strong>
-        ) : fee == null ? (
-          <strong>Chưa tính được phí</strong>
-        ) : fee === 0 ? (
-          <strong className={styles.feeFree}>Miễn phí</strong>
-        ) : (
-          <strong className={styles.shipmentFee}>{formatPrice(fee)}</strong>
-        )}
+        <span className={styles.feeLabel}>
+          <Truck size={19} aria-hidden="true" /> {t("business.ordersummarycard.deliveryFee")} </span>
+        <strong
+          className={
+            showHint && fee === 0 ? styles.feeFree : styles.shipmentFee
+          }
+        >
+          {loading
+            ? t("business.shippingfeecard.calculating")
+            : error
+              ? t("business.shippingfeecard.unableToCalculateFee")
+              : !validFee
+                ? t("business.shippingfeecard.feeNotYetAvailable")
+                : fee === 0
+                  ? t("business.ordersummarycard.free")
+                  : formatPrice(fee!)}
+        </strong>
       </div>
-      {missing != null && missing > 0 && (
-        <p className={styles.feeHint}>
-          Mua thêm {formatPrice(missing)} để được miễn phí giao hàng.
-        </p>
+      {!loading && error && <p className={styles.errorText}>{error}</p>}
+      {!loading && !error && !validFee && (
+        <p className={styles.feeHint}> {t("business.shippingfeecard.theDeliveryFeeWillAppearOnceTheAddressAndStoreDetailsAre")} </p>
       )}
-      {missing === 0 && fee === 0 && (
-        <p className={styles.feeHint}>Đơn hàng của bạn được miễn phí giao.</p>
+      {showHint && fee! > 0 && missing != null && missing > 0 && (
+        <p className={styles.feeHint}> {t("business.shippingfeecard.spendAnother")} <strong>{formatPrice(missing)}</strong> {t("business.shippingfeecard.toGetFreeDelivery")} </p>
+      )}
+      {showHint && fee === 0 && (
+        <p className={styles.feeHint}>{t("business.shippingfeecard.yourOrderQualifiesForFreeDelivery")}</p>
       )}
     </div>
   );

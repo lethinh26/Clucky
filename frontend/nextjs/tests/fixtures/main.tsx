@@ -1,3 +1,5 @@
+import { NextIntlClientProvider } from "next-intl";
+import { resources } from "../../lib/i18n/resources";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { GoogleAuthFlow } from "../../components/auth/google-auth-flow";
@@ -10,7 +12,7 @@ const qr = params.has("qr");
 document.body.style.cssText =
   "margin:16px;background:#fffaf3;font-family:Arial,sans-serif";
 createRoot(document.getElementById("root")!).render(
-  qr ? (
+  <NextIntlClientProvider locale="vi" messages={resources.vi} timeZone="Asia/Ho_Chi_Minh">{qr ? (
     <>
       <PaymentWidget
         orderCode="CLUCKY-TEST-001"
@@ -44,5 +46,5 @@ createRoot(document.getElementById("root")!).render(
     <GoogleAuthFlow>
       <p>Đăng nhập bằng email</p>
     </GoogleAuthFlow>
-  ),
+  )}</NextIntlClientProvider>,
 );

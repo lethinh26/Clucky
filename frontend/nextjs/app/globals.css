@@ -460,6 +460,10 @@ select option:hover {
 }
 
 .badge-best-seller {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
   position: absolute;
   top: 14px;
   left: 14px;

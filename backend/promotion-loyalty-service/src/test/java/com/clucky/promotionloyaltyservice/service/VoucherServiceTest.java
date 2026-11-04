@@ -6,6 +6,7 @@ import com.clucky.promotionloyaltyservice.dto.VoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.VoucherResponse;
 import com.clucky.promotionloyaltyservice.exception.BadRequestException;
 import com.clucky.promotionloyaltyservice.exception.ConflictException;
+import com.clucky.promotionloyaltyservice.mapper.DomainMapper;
 import com.clucky.promotionloyaltyservice.model.Voucher;
 import com.clucky.promotionloyaltyservice.model.VoucherScope;
 import com.clucky.promotionloyaltyservice.model.VoucherStatus;
@@ -40,6 +41,15 @@ class VoucherServiceTest {
     private Voucher activePercentVoucher;
     private Voucher activeAmountVoucher;
     private Voucher storeVoucher;
+
+    @Test
+    void domainMapperUsesMergedVoucherModel() {
+        VoucherResponse response = DomainMapper.toResponse(activePercentVoucher);
+        assertEquals(activePercentVoucher.getId(), response.getId());
+        assertEquals(activePercentVoucher.getCode(), response.getCode());
+        assertEquals(VoucherType.PERCENT, response.getType());
+        assertEquals(VoucherStatus.ACTIVE, response.getEffectiveStatus());
+    }
 
     @BeforeEach
     void setUp() {

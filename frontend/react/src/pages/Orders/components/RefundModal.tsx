@@ -1,3 +1,5 @@
+import { useLocaleTools } from "../../../i18n/hooks";
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
 import { Modal, Input, Radio, Typography, Space, App as AntApp } from "antd";
 import { AdminOrder } from "../../../types/order";
@@ -19,6 +21,9 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   onClose,
   onConfirmRefund,
 }) => {
+  const { t } = useTranslation();
+  const { locale } = useLocaleTools();
+
   const { message } = AntApp.useApp();
   const [action, setAction] = useState<"APPROVED" | "REJECTED">("APPROVED");
   const [reviewNote, setReviewNote] = useState("");
@@ -35,26 +40,26 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   const handleOk = () => {
     if (!onConfirmRefund(order.id, action, reviewNote)) {
       message.error(
-        "Không thể xử lý yêu cầu hoàn tiền. Kiểm tra quyền và dữ liệu hiện tại.",
+        t("business:refundmodal.unableToProcessThisRefundCheckYourPermissionsAndTheCurrentData"),
       );
       return;
     }
     message.success(
       action === "APPROVED"
-        ? `Đã phê duyệt hoàn tiền cho đơn ${order.orderCode}!`
-        : `Đã từ chối yêu cầu hoàn tiền cho đơn ${order.orderCode}.`,
+        ? t("business:refundmodal.refundApprovedForOrder", { value1: order.orderCode })
+        : t("business:refundmodal.refundRequestRejectedForOrder", { value1: order.orderCode }),
     );
     onClose();
   };
 
   return (
     <Modal
-      title={`Xử lý yêu cầu hoàn tiền: ${order.orderCode}`}
+      title={t("business:refundmodal.reviewRefundRequest", { value1: order.orderCode })}
       open={open}
       onOk={handleOk}
       onCancel={onClose}
       okText={
-        action === "APPROVED" ? "Xác nhận duyệt hoàn tiền" : "Xác nhận từ chối"
+        action === "APPROVED" ? t("business:refundmodal.confirmRefundApproval") : t("business:refundmodal.confirmRejection")
       }
       okButtonProps={{
         disabled: action === "REJECTED" && !reviewNote.trim(),
@@ -62,55 +67,42 @@ export const RefundModal: React.FC<RefundModalProps> = ({
       }}
     >
       <div style={{ marginBottom: 16 }}>
-        <Typography.Paragraph>
-          Khách hàng: <strong>{order.customerName}</strong> (
+        <Typography.Paragraph> {t("business:refundmodal.customer")} <strong>{order.customerName}</strong> (
           {order.customerPhone})
         </Typography.Paragraph>
-        <Typography.Paragraph>
-          Số tiền yêu cầu hoàn:{" "}
+        <Typography.Paragraph> {t("business:refundmodal.requestedRefundAmount")}{" "}
           <strong style={{ color: "#8f1216", fontSize: 16 }}>
-            {new Intl.NumberFormat("vi-VN").format(
+            {new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN").format(
               order.refundAmount || order.total,
-            )}
-            đ
-          </strong>
+            )} {t("business:orderdetaildrawer.currency")} </strong>
         </Typography.Paragraph>
         <Typography.Paragraph
           style={{ background: "#f5ede0", padding: 12, borderRadius: 8 }}
-        >
-          Lý do từ khách hàng:{" "}
-          <em>{order.refundReason || "Không có lý do chi tiết"}</em>
+        > {t("business:refundmodal.customerSReason")}{" "}
+          <em>{order.refundReason || t("business:refundmodal.noDetailedReasonProvided")}</em>
         </Typography.Paragraph>
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <Typography.Text strong style={{ display: "block", marginBottom: 8 }}>
-          Quyết định duyệt:
-        </Typography.Text>
+        <Typography.Text strong style={{ display: "block", marginBottom: 8 }}> {t("business:refundmodal.reviewDecision")} </Typography.Text>
         <Radio.Group value={action} onChange={(e) => setAction(e.target.value)}>
           <Space orientation="vertical">
             <Radio value="APPROVED">
-              <span style={{ color: "#1e7a46", fontWeight: 600 }}>
-                Phê duyệt hoàn tiền
-              </span>
+              <span style={{ color: "#1e7a46", fontWeight: 600 }}> {t("business:refundmodal.approveRefund")} </span>
             </Radio>
             <Radio value="REJECTED">
-              <span style={{ color: "#b42318", fontWeight: 600 }}>
-                Từ chối yêu cầu
-              </span>
+              <span style={{ color: "#b42318", fontWeight: 600 }}> {t("business:refundmodal.rejectRequest")} </span>
             </Radio>
           </Space>
         </Radio.Group>
       </div>
 
       <div>
-        <Typography.Text strong style={{ display: "block", marginBottom: 8 }}>
-          Ghi chú phê duyệt (Lý do):
-        </Typography.Text>
+        <Typography.Text strong style={{ display: "block", marginBottom: 8 }}> {t("business:refundmodal.reviewNoteReason")} </Typography.Text>
         <Input.TextArea
-          aria-label="Ghi chú quyết định hoàn tiền"
+          aria-label={t("business:refundmodal.refundDecisionNote")}
           rows={3}
-          placeholder="Nhập ghi chú cho kế toán / gửi thông báo khách hàng..."
+          placeholder={t("business:refundmodal.enterNotesForAccountingCustomerNotification")}
           value={reviewNote}
           onChange={(e) => setReviewNote(e.target.value)}
         />

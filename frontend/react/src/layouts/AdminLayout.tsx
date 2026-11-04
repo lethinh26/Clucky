@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "../i18n/language-switcher";
 import React, { useState } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import {
@@ -37,20 +39,21 @@ import { AdminFooter } from "../components/AdminFooter";
 import { PageLoadingContent } from "../components/ui-loader/page-loading";
 
 const routeBreadcrumbMap: Record<string, string> = {
-  "/admin": "Tổng quan",
-  "/admin/dashboard": "Tổng quan",
-  "/admin/catalog": "Quản lý Thực đơn & Sản phẩm",
-  "/admin/stores": "Quản lý Chi nhánh",
-  "/admin/inventory": "Tồn kho Chi nhánh",
-  "/admin/orders": "Quản lý Đơn hàng",
-  "/admin/staff/orders": "Đơn hàng Ca trực",
-  "/admin/reviews": "Quản lý Đánh giá",
-  "/admin/users": "Quản lý Người dùng",
-  "/admin/reports": "Báo cáo & Thống kê",
-  "/admin/payments": "Thanh toán & Đối soát",
+  "/admin": "admin:nav.overview",
+  "/admin/dashboard": "admin:nav.overview",
+  "/admin/catalog": "admin:nav.catalog",
+  "/admin/stores": "admin:nav.stores",
+  "/admin/inventory": "admin:nav.inventory",
+  "/admin/orders": "admin:nav.orders",
+  "/admin/staff/orders": "admin:nav.shiftOrders",
+  "/admin/reviews": "admin:nav.reviews",
+  "/admin/users": "admin:nav.users",
+  "/admin/reports": "admin:nav.reports",
+  "/admin/payments": "admin:nav.payments",
 };
 
 export const AdminLayout: React.FC = () => {
+  const { t } = useTranslation();
   const { message } = AntApp.useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -105,61 +108,61 @@ export const AdminLayout: React.FC = () => {
     {
       key: "dashboard",
       icon: <DashboardOutlined />,
-      label: "Tổng quan",
+      label: t("admin:nav.overview"),
       onClick: () => navigate("/admin/dashboard"),
     },
     {
       key: "catalog",
       icon: <CoffeeOutlined />,
-      label: "Thực đơn & Combo",
+      label: t("admin:breadcrumb.catalog"),
       onClick: () => navigate("/admin/catalog"),
     },
     {
       key: "stores",
       icon: <ShopOutlined />,
-      label: "Hệ thống Chi nhánh",
+      label: t("admin:breadcrumb.stores"),
       onClick: () => navigate("/admin/stores"),
     },
     {
       key: "inventory",
       icon: <InboxOutlined />,
-      label: "Tồn kho Chi nhánh",
+      label: t("admin:nav.inventory"),
       onClick: () => navigate("/admin/inventory"),
     },
     {
       key: "orders",
       icon: <FileTextOutlined />,
-      label: "Quản lý Đơn hàng",
+      label: t("admin:nav.orders"),
       onClick: () => navigate("/admin/orders"),
     },
     {
       key: "staff-orders",
       icon: <ShopOutlined />,
-      label: "Đơn hàng Ca trực",
+      label: t("admin:nav.shiftOrders"),
       onClick: () => navigate("/admin/staff/orders"),
     },
     {
       key: "reviews",
       icon: <CommentOutlined />,
-      label: "Đánh giá & Phản hồi",
+      label: t("admin:breadcrumb.reviews"),
       onClick: () => navigate("/admin/reviews"),
     },
     {
       key: "users",
       icon: <UserOutlined />,
-      label: "Người dùng",
+      label: t("admin:breadcrumb.users"),
       onClick: () => navigate("/admin/users"),
     },
     {
       key: "reports",
       icon: <BarChartOutlined />,
-      label: "Báo cáo & Thống kê",
+      label: t("admin:nav.reports"),
       onClick: () => navigate("/admin/reports"),
     },
     {
       key: "payments",
       icon: <BarChartOutlined />,
-      label: "Thanh toán & Đối soát",
+      label: t("admin:nav.payments"),
       onClick: () => navigate("/admin/payments"),
     },
   ];
@@ -170,9 +173,9 @@ export const AdminLayout: React.FC = () => {
   );
 
   const roleLabelMap: Record<string, { label: string; color: string }> = {
-    ADMIN: { label: "Quản trị viên HQ", color: "#8F1216" },
-    STORE_MANAGER: { label: "Quản lý Chi nhánh", color: "#C9A227" },
-    STAFF: { label: "Nhân viên Ca", color: "#1E7A46" },
+    ADMIN: { label: t("admin:roles.hqAdmin"), color: "#8F1216" },
+    STORE_MANAGER: { label: t("admin:nav.stores"), color: "#C9A227" },
+    STAFF: { label: t("admin:roles.shiftStaff"), color: "#1E7A46" },
   };
 
   const profileMenuItems: MenuProps["items"] = [
@@ -197,44 +200,44 @@ export const AdminLayout: React.FC = () => {
     { type: "divider" },
     {
       key: "switch-role-admin",
-      label: "Chuyển sang: Quản trị viên (HQ)",
+      label: t("admin:demo.switchAdmin"),
       icon: <SwapOutlined />,
       onClick: () => {
         switchRole("ADMIN");
-        message.success("Đã chuyển vai trò: Quản trị viên HQ");
+        message.success(t("admin:demo.switchedAdmin"));
       },
     },
     {
       key: "switch-role-manager",
-      label: "Chuyển sang: Quản lý Chi nhánh",
+      label: t("admin:demo.switchManager"),
       icon: <SwapOutlined />,
       onClick: () => {
         switchRole("STORE_MANAGER");
-        message.success("Đã chuyển vai trò: Quản lý Chi nhánh Lê Lợi");
+        message.success(t("admin:demo.switchedManager"));
       },
     },
     {
       key: "switch-role-staff",
-      label: "Chuyển sang: Nhân viên Chi nhánh",
+      label: t("admin:demo.switchStaff"),
       icon: <SwapOutlined />,
       onClick: () => {
         switchRole("STAFF");
-        message.success("Đã chuyển vai trò: Nhân viên Chi nhánh Lê Lợi");
+        message.success(t("admin:demo.switchedStaff"));
       },
     },
     { type: "divider" },
     {
       key: "logout",
-      label: "Đăng xuất",
+      label: t("common:signOut"),
       icon: <LogoutOutlined />,
       onClick: () => {
         logout();
-        message.info("Đã đăng xuất.");
+        message.info(t("common:signedOut"));
       },
     },
   ];
 
-  const currentTitle = routeBreadcrumbMap[pathname] || "Trang quản trị";
+  const currentTitle = t(routeBreadcrumbMap[pathname] || "admin:dashboard");
 
   return (
     <Layout
@@ -313,8 +316,7 @@ export const AdminLayout: React.FC = () => {
               fontFamily: "Quicksand, sans-serif",
             }}
           >
-            DANH MỤC NGHIỆP VỤ
-          </div>
+            {t("admin:workspace")}{" "}</div>
         )}
 
         <Menu
@@ -351,8 +353,7 @@ export const AdminLayout: React.FC = () => {
                 fontFamily: "Quicksand, sans-serif",
               }}
             >
-              Quyền hiện tại:
-            </div>
+              {t("admin:currentRole")}{" "}</div>
             <div
               style={{
                 fontFamily: "Baloo 2, sans-serif",
@@ -381,7 +382,7 @@ export const AdminLayout: React.FC = () => {
       </Layout.Sider>
 
       <Drawer
-        title="Điều hướng Clucky"
+        title={t("admin:navigation")}
         placement="left"
         open={isMobile && mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
@@ -422,10 +423,10 @@ export const AdminLayout: React.FC = () => {
               icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
               aria-label={
                 isMobile
-                  ? "Mở điều hướng"
+                  ? t("common:nav.open")
                   : collapsed
-                    ? "Mở rộng điều hướng"
-                    : "Thu gọn điều hướng"
+                    ? t("admin:expandNav")
+                    : t("admin:collapseNav")
               }
               onClick={() =>
                 isMobile ? setMobileMenuOpen(true) : setCollapsed(!collapsed)
@@ -461,7 +462,7 @@ export const AdminLayout: React.FC = () => {
               >
                 <ShopOutlined />
                 <span>
-                  Chi nhánh: {user.storeName || "Clucky Lê Lợi (Q.1)"}
+                  {t("admin:storeLabel")}{" "}{user.storeName || t("admin:demo.store")}
                 </span>
               </Tag>
             )}
@@ -476,7 +477,7 @@ export const AdminLayout: React.FC = () => {
               options={[
                 { value: "ADMIN", label: "🛡️ Role: Admin HQ" },
                 { value: "STORE_MANAGER", label: "🏪 Role: Store Manager" },
-                { value: "STAFF", label: "👨‍🍳 Role: Staff Chi nhánh" },
+                { value: "STAFF", label: t("admin:demo.staffRole") },
               ]}
             />
 
@@ -488,16 +489,17 @@ export const AdminLayout: React.FC = () => {
                 icon={
                   <BellOutlined style={{ fontSize: 18, color: "#16100D" }} />
                 }
-                aria-label="Thông báo hệ thống"
-                onClick={() => message.info("Không có thông báo khẩn mới.")}
+                aria-label={t("admin:notifications.title")}
+                onClick={() => message.info(t("admin:notifications.empty"))}
               />
             </Badge>
 
             {/* Profile Dropdown */}
+            <LanguageSwitcher />
             <Dropdown menu={{ items: profileMenuItems }} trigger={["click"]}>
               <Button
                 type="text"
-                aria-label="Tài khoản của tôi"
+                aria-label={t("admin:myAccount")}
                 className="admin-profile-button"
                 style={{
                   height: 44,

@@ -1,58 +1,80 @@
 package com.clucky.promotionloyaltyservice.exception;
 
-import com.clucky.promotionloyaltyservice.dto.ErrorResponse;
+import com.clucky.promotionloyaltyservice.logging.SafeLog;
+import com.clucky.promotionloyaltyservice.config.CorrelationIdFilter;
+
+import com.clucky.promotionloyaltyservice.dto.ApiError;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger LOG = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(ApiException.class)
+    ResponseEntity<ApiError> business(ApiException failure, HttpServletRequest request) {
+        request.setAttribute(CorrelationIdFilter.ERROR_CODE, failure.getCode().name());
+        return ResponseEntity.status(failure.getCode().httpStatus()).body(ApiError.of(failure.getCode(), request.getRequestURI()));
+    }
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
-        ErrorResponse res = new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage());
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(res);
+    ResponseEntity<ApiError> notFound(ResourceNotFoundException failure, HttpServletRequest request) {
+        return respond(HttpStatus.NOT_FOUND, request);
     }
 
-    @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
-        ErrorResponse res = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+    @ExceptionHandler({BadRequestException.class, MethodArgumentNotValidException.class, ConstraintViolationException.class,
+            HttpMessageNotReadableException.class, HandlerMethodValidationException.class,
+            MethodArgumentTypeMismatchException.class})
+    ResponseEntity<ApiError> invalid(Exception failure, HttpServletRequest request) {
+        return respond(HttpStatus.BAD_REQUEST, request);
     }
 
-    @ExceptionHandler(ConflictException.class)
-    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
-        ErrorResponse res = new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(res);
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<ApiError> unauthenticated(AuthenticationException failure, HttpServletRequest request) {
+        return respond(HttpStatus.UNAUTHORIZED, request);
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
-        List<String> errors = new ArrayList<>();
-        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-            errors.add(error.getField() + ": " + error.getDefaultMessage());
-        }
-        ErrorResponse res = new ErrorResponse(
-            HttpStatus.BAD_REQUEST.value(),
-            "Dữ liệu đầu vào không hợp lệ",
-            errors
-        );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ApiError> forbidden(AccessDeniedException failure, HttpServletRequest request) {
+        return respond(HttpStatus.FORBIDDEN, request);
+    }
+
+    @ExceptionHandler({ConflictException.class, DataIntegrityViolationException.class, OptimisticLockingFailureException.class})
+    ResponseEntity<ApiError> conflict(Exception failure, HttpServletRequest request) {
+        return respond(HttpStatus.CONFLICT, request);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
-        ErrorResponse res = new ErrorResponse(
-            HttpStatus.INTERNAL_SERVER_ERROR.value(),
-            "Đã xảy ra lỗi hệ thống: " + ex.getMessage()
-        );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+    ResponseEntity<ApiError> unexpected(Exception failure, HttpServletRequest request) {
+        if (failure instanceof ErrorResponse response) {
+            HttpStatus status = HttpStatus.resolve(response.getStatusCode().value());
+            if (status != null && status.is4xxClientError()) {
+                return respond(status, request);
+            }
+        }
+        LOG.error("event=http_error correlationId={} trace={}",
+                request.getAttribute(CorrelationIdFilter.HEADER), SafeLog.trace(failure));
+        return respond(HttpStatus.INTERNAL_SERVER_ERROR, request);
+    }
+
+    private ResponseEntity<ApiError> respond(HttpStatus status, HttpServletRequest request) {
+        ApiError error = ApiError.of(status, request.getRequestURI());
+        request.setAttribute(CorrelationIdFilter.ERROR_CODE, error.code());
+        return ResponseEntity.status(error.status()).body(error);
     }
 }
-

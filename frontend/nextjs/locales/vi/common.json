@@ -1,0 +1,39 @@
+{
+  "language": "Ngôn ngữ",
+  "errors": {
+    "timeout": "Kết nối quá thời gian chờ. Vui lòng thử lại.",
+    "network": "Không thể kết nối. Vui lòng kiểm tra mạng và thử lại."
+  },
+  "nav": {
+    "home": "Trang chủ",
+    "menu": "Thực đơn",
+    "stores": "Cửa hàng",
+    "vouchers": "Ưu đãi",
+    "loyalty": "Clucky Club",
+    "party": "Đặt tiệc",
+    "orders": "Đơn hàng",
+    "account": "Tài khoản",
+    "main": "Điều hướng chính",
+    "cart": "Giỏ hàng",
+    "close": "Đóng điều hướng",
+    "open": "Mở điều hướng",
+    "mobile": "Điều hướng di động",
+    "trackOrders": "Tra cứu đơn"
+  },
+  "tagline": "Một bữa ngon, thêm niềm vui.",
+  "homeLabel": "Clucky trang chủ",
+  "footer": {
+    "links": "Liên kết cuối trang"
+  },
+  "backHome": "Về trang chủ",
+  "exploreMenu": "Khám phá thực đơn",
+  "pageError": {
+    "title": "Chưa tải được trang",
+    "description": "Vui lòng thử lại hoặc chọn một trang khác."
+  },
+  "retry": "Thử lại",
+  "confirm": "Xác nhận",
+  "updating": "Đang cập nhật…",
+  "signOut": "Đăng xuất",
+  "signedOut": "Đã đăng xuất."
+}

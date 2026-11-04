@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useState, useMemo } from 'react';
 import {
   Button,
@@ -31,6 +32,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { InventoryItem, mockInventory, mockStores } from '../../../mocks/catalogData';
 
 export const StaffInventoryPage: React.FC = () => {
+  const { t } = useTranslation();
+
   const { user, isAdmin } = useAuth();
   const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,10 +97,10 @@ export const StaffInventoryPage: React.FC = () => {
     );
     if (checked) {
       message.warning(
-        `Đã đánh dấu "Hết món trong ca" cho "${item.productName}". Khách tại chi nhánh sẽ không thể đặt món này.`
+        t("business:inventory.markedAsSoldOutForThisShiftCustomersAtThisStoreWill", { value1: item.productName })
       );
     } else {
-      message.success(`Đã mở bán lại món "${item.productName}" tại chi nhánh.`);
+      message.success(t("business:inventory.isBackOnSaleAtThisStore", { value1: item.productName }));
     }
   };
 
@@ -128,16 +131,16 @@ export const StaffInventoryPage: React.FC = () => {
             : i
         )
       );
-      message.success(`Đã cập nhật số lượng tồn kho cho "${editingItem?.productName}".`);
+      message.success(t("business:inventory.inventoryQuantityUpdatedFor", { value1: editingItem?.productName }));
       setModalOpen(false);
     } catch {
-      message.error('Vui lòng nhập số lượng hợp lệ.');
+      message.error(t("business:inventory.pleaseEnterAValidQuantity"));
     }
   };
 
   const columns: TableColumnsType<InventoryItem> = [
     {
-      title: 'Món ăn',
+      title: t("business:catalog.dish"),
       key: 'product',
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -177,7 +180,7 @@ export const StaffInventoryPage: React.FC = () => {
       ),
     },
     {
-      title: 'Tồn kho hiện tại',
+      title: t("business:inventory.currentInventory"),
       dataIndex: 'quantityAvailable',
       key: 'quantityAvailable',
       width: 170,
@@ -193,8 +196,7 @@ export const StaffInventoryPage: React.FC = () => {
                 color: isLow ? '#D97706' : qty === 0 ? '#B42318' : '#1E7A46',
               }}
             >
-              {qty} phần
-            </span>
+              {qty} {t("business:cart.servings")} </span>
             {isLow && (
               <div style={{ marginTop: 2 }}>
                 <Tag
@@ -208,8 +210,7 @@ export const StaffInventoryPage: React.FC = () => {
                     gap: 4,
                   }}
                 >
-                  <WarningOutlined /> Sắp hết hàng
-                </Tag>
+                  <WarningOutlined /> {t("business:inventory.lowStock")} </Tag>
               </div>
             )}
           </div>
@@ -217,18 +218,17 @@ export const StaffInventoryPage: React.FC = () => {
       },
     },
     {
-      title: 'Ngưỡng cảnh báo',
+      title: t("business:inventory.alertThreshold"),
       dataIndex: 'lowStockThreshold',
       key: 'lowStockThreshold',
       width: 150,
       render: (threshold: number) => (
         <span style={{ fontFamily: 'Quicksand, sans-serif', fontWeight: 600, color: '#6B6259' }}>
-          ≤ {threshold} phần
-        </span>
+          ≤ {threshold} {t("business:cart.servings")} </span>
       ),
     },
     {
-      title: 'Hết món trong ca',
+      title: t("business:inventory.soldOutThisShift"),
       key: 'soldOut',
       width: 170,
       render: (_, record) => (
@@ -242,14 +242,14 @@ export const StaffInventoryPage: React.FC = () => {
           />
           <StatusBadge
             status={record.isSoldOut ? 'error' : 'success'}
-            text={record.isSoldOut ? 'Đã tắt bán' : 'Đang phục vụ'}
+            text={record.isSoldOut ? t("business:inventory.salesDisabled") : t("business:catalog.available")}
             size="small"
           />
         </div>
       ),
     },
     {
-      title: 'Cập nhật lần cuối',
+      title: t("business:inventory.lastUpdated"),
       key: 'updated',
       render: (_, record) => (
         <div style={{ fontSize: 12, color: '#6B6259' }}>
@@ -259,7 +259,7 @@ export const StaffInventoryPage: React.FC = () => {
       ),
     },
     {
-      title: 'Thao tác',
+      title: t("business:catalog.actions"),
       key: 'action',
       width: 120,
       align: 'right',
@@ -274,9 +274,7 @@ export const StaffInventoryPage: React.FC = () => {
             fontWeight: 600,
             borderColor: '#E8E2D9',
           }}
-        >
-          Kiểm kê
-        </Button>
+        > {t("business:inventory.stocktake")} </Button>
       ),
     },
   ];
@@ -304,9 +302,7 @@ export const StaffInventoryPage: React.FC = () => {
                 color: '#16100D',
                 margin: 0,
               }}
-            >
-              Kiểm kê Tồn kho Chi nhánh
-            </h1>
+            > {t("business:inventory.storeInventoryStocktake")} </h1>
             {isAdmin ? (
               <Select
                 value={adminSelectedStoreId}
@@ -339,9 +335,7 @@ export const StaffInventoryPage: React.FC = () => {
               fontSize: 14,
               margin: '6px 0 0',
             }}
-          >
-            Quản lý số lượng có sẵn trong ca làm việc, kích hoạt cảnh báo hết hàng và tắt bán tức thì tại quán.
-          </p>
+          > {t("business:inventory.manageAvailableQuantitiesDuringTheShiftEnableLowStockAlertsAndInstantly")} </p>
         </div>
       </div>
 
@@ -357,9 +351,9 @@ export const StaffInventoryPage: React.FC = () => {
             }}
           >
             <Statistic
-              title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>Tổng mặt hàng</span>}
+              title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.totalStockItems")}</span>}
               value={totalItems}
-              suffix="món"
+              suffix={t("business:orderspage.items")}
               valueStyle={{ fontFamily: 'Baloo 2', color: '#16100D', fontWeight: 700 }}
               prefix={<InboxOutlined style={{ color: '#22577A' }} />}
             />
@@ -375,9 +369,9 @@ export const StaffInventoryPage: React.FC = () => {
             }}
           >
             <Statistic
-              title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>Đang phục vụ</span>}
+              title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:catalog.available")}</span>}
               value={availableCount}
-              suffix="món"
+              suffix={t("business:orderspage.items")}
               valueStyle={{ fontFamily: 'Baloo 2', color: '#1E7A46', fontWeight: 700 }}
               prefix={<CheckCircleOutlined style={{ color: '#1E7A46' }} />}
             />
@@ -394,9 +388,9 @@ export const StaffInventoryPage: React.FC = () => {
             }}
           >
             <Statistic
-              title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>Sắp hết hàng</span>}
+              title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.lowStock")}</span>}
               value={lowStockCount}
-              suffix="món"
+              suffix={t("business:orderspage.items")}
               valueStyle={{ fontFamily: 'Baloo 2', color: '#D97706', fontWeight: 700 }}
               prefix={<WarningOutlined style={{ color: '#D97706' }} />}
             />
@@ -413,9 +407,9 @@ export const StaffInventoryPage: React.FC = () => {
             }}
           >
             <Statistic
-              title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>Tắt bán trong ca</span>}
+              title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.salesPausedThisShift")}</span>}
               value={soldOutCount}
-              suffix="món"
+              suffix={t("business:orderspage.items")}
               valueStyle={{ fontFamily: 'Baloo 2', color: '#B42318', fontWeight: 700 }}
               prefix={<StopOutlined style={{ color: '#B42318' }} />}
             />
@@ -428,7 +422,7 @@ export const StaffInventoryPage: React.FC = () => {
         columns={columns}
         dataSource={filteredItems}
         rowKey="productId"
-        searchPlaceholder="Tìm món ăn kiểm kê..."
+        searchPlaceholder={t("business:inventory.searchInventoryItems")}
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         filterNodes={
@@ -437,14 +431,14 @@ export const StaffInventoryPage: React.FC = () => {
             onChange={setStatusFilter}
             style={{ width: 180, fontFamily: 'Quicksand, sans-serif' }}
             options={[
-              { value: 'ALL', label: 'Tất cả trạng thái' },
-              { value: 'AVAILABLE', label: '🟢 Đang phục vụ' },
-              { value: 'LOW_STOCK', label: '🟡 Sắp hết hàng' },
-              { value: 'SOLD_OUT', label: '🔴 Đã tắt bán' },
+              { value: 'ALL', label: t("business:paymentspage.allStatuses") },
+              { value: 'AVAILABLE', label: t("business:inventory.available") },
+              { value: 'LOW_STOCK', label: t("business:inventory.lowStockLabel") },
+              { value: 'SOLD_OUT', label: t("business:inventory.salesDisabledLabel") },
             ]}
           />
         }
-        emptyTitle="Không tìm thấy món ăn trong kho"
+        emptyTitle={t("business:inventory.noInventoryItemsFound")}
       />
 
       {/* Quick Stock Update Modal */}
@@ -452,23 +446,23 @@ export const StaffInventoryPage: React.FC = () => {
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={handleUpdateStockSubmit}
-        title={`Cập nhật tồn kho: ${editingItem?.productName}`}
-        subtitle="Ghi nhận số lượng thực tế sau kiểm kê ca"
+        title={t("business:inventory.updateInventory", { value1: editingItem?.productName })}
+        subtitle={t("business:inventory.recordActualQuantitiesAfterShiftStocktake")}
         width={480}
       >
         <Form form={form} layout="vertical">
           <Form.Item
             name="quantityAvailable"
-            label="Số lượng thực tế còn lại (Phần/Khẩu phần)"
-            rules={[{ required: true, message: 'Vui lòng nhập số lượng tồn kho' }]}
+            label={t("business:inventory.actualRemainingQuantityServings")}
+            rules={[{ required: true, message: t("business:inventory.pleaseEnterTheInventoryQuantity") }]}
           >
             <InputNumber min={0} max={9999} style={{ width: '100%', height: 40 }} />
           </Form.Item>
 
           <Form.Item
             name="lowStockThreshold"
-            label="Ngưỡng cảnh báo sắp hết (Phần)"
-            rules={[{ required: true, message: 'Vui lòng nhập ngưỡng cảnh báo' }]}
+            label={t("business:inventory.lowStockAlertThresholdServings")}
+            rules={[{ required: true, message: t("business:inventory.pleaseEnterAnAlertThreshold") }]}
           >
             <InputNumber min={1} max={500} style={{ width: '100%', height: 40 }} />
           </Form.Item>
@@ -482,10 +476,7 @@ export const StaffInventoryPage: React.FC = () => {
               color: '#6B6259',
               fontFamily: 'Quicksand, sans-serif',
             }}
-          >
-            ℹ️ Nhân viên kiểm kê: <strong>{user.fullName}</strong> ({user.role})<br />
-            Thời gian ghi nhận: thời gian thực hiện tại.
-          </div>
+          > {t("business:inventory.stocktakeStaff")} <strong>{user.fullName}</strong> ({user.role})<br /> {t("business:inventory.recordedAtTheCurrentTime")} </div>
         </Form>
       </AdminModal>
     </div>

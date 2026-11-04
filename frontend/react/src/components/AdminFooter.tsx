@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { Layout } from "antd";
 
 export function AdminFooter() {
+  const { t } = useTranslation();
   return (
     <Layout.Footer
       data-loading-shell="bottom"
@@ -14,7 +16,7 @@ export function AdminFooter() {
         fontSize: 13,
       }}
     >
-      Clucky · Hệ thống quản trị ·{" "}
+      {t("admin:footer")}{" "}
       <span style={{ color: "#8F1216", fontWeight: 700 }}>
         Crispy Outside, Happy Inside
       </span>

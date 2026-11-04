@@ -16,6 +16,10 @@ import java.util.Optional;
 @Repository
 public interface VoucherRepository extends JpaRepository<Voucher, Long>, JpaSpecificationExecutor<Voucher> {
 
+    Optional<Voucher> findByIdAndStoreId(Long id, Long storeId);
+
+    Optional<Voucher> findByCode(String code);
+
     Optional<Voucher> findByCodeIgnoreCase(String code);
 
     boolean existsByCodeIgnoreCase(String code);
@@ -61,4 +65,3 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long>, JpaSpec
         @Param("keyword") String keyword
     );
 }
-

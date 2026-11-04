@@ -2,6 +2,8 @@ apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
 
 dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
@@ -17,3 +19,15 @@ dependencies {
 
 bootJar { archiveFileName = 'identity-service-0.1.0-SNAPSHOT.jar' }
 jar { enabled = false }
+
+tasks.register('baseSelfCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.clucky.identityservice.BaseSelfCheck'
+}
+
+tasks.register('loggingSelfCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.clucky.identityservice.LoggingSelfCheck'
+}

@@ -3,6 +3,20 @@ server:
 spring:
   application:
     name: notification-service
+  datasource:
+    hikari:
+      schema: notification_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: notification_service
+  flyway:
+    default-schema: notification_service
+    schemas: notification_service
+    create-schemas: true
+    baseline-on-migrate: false
 
 mail-sender:
   enabled: ${MAIL_SENDER_ENABLED:false}

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useState, useMemo } from 'react';
 import {
   Button,
@@ -31,6 +32,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Store, mockStores, mockManagers } from '../../mocks/catalogData';
 
 export const StoresPage: React.FC = () => {
+  const { t } = useTranslation();
+
   const { user, isAdmin } = useAuth();
   const [stores, setStores] = useState<Store[]>(mockStores);
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,15 +114,15 @@ export const StoresPage: React.FC = () => {
         setStores((prev) =>
           prev.map((s) => (s.id === editingStore.id ? storePayload : s))
         );
-        message.success(`Đã cập nhật thông tin chi nhánh "${storePayload.name}".`);
+        message.success(t("business:stores.storeDetailsUpdatedFor", { value1: storePayload.name }));
       } else {
         setStores((prev) => [storePayload, ...prev]);
-        message.success(`Đã tạo mới chi nhánh "${storePayload.name}" thành công.`);
+        message.success(t("business:stores.storeCreatedSuccessfully", { value1: storePayload.name }));
       }
 
       setModalOpen(false);
     } catch {
-      message.error('Vui lòng kiểm tra lại các trường thông tin chi nhánh.');
+      message.error(t("business:stores.pleaseCheckTheStoreInformationFields"));
     }
   };
 
@@ -129,16 +132,16 @@ export const StoresPage: React.FC = () => {
     );
     const label =
       newStatus === 'OPEN'
-        ? 'Đang mở cửa'
+        ? t("business:stores.open")
         : newStatus === 'CLOSED_TEMP'
-        ? 'Tạm đóng cửa'
-        : 'Ngừng hoạt động';
-    message.success(`Đã chuyển trạng thái chi nhánh "${store.name}" sang ${label}.`);
+        ? t("business:stores.temporarilyClosed")
+        : t("business:stores.inactive");
+    message.success(t("business:stores.changedStoreTo", { value1: store.name, value2: label }));
   };
 
   const columns: TableColumnsType<Store> = [
     {
-      title: 'Tên Chi nhánh & Hotline',
+      title: t("business:stores.storeNameHotline"),
       key: 'name',
       render: (_, record) => (
         <div>
@@ -163,19 +166,19 @@ export const StoresPage: React.FC = () => {
       ),
     },
     {
-      title: 'Địa chỉ & Khu vực',
+      title: t("business:stores.addressArea"),
       key: 'address',
       render: (_, record) => (
         <div>
           <div style={{ color: '#16100D', fontWeight: 600 }}>{record.address}</div>
           <div style={{ fontSize: 12, color: '#6B6259', marginTop: 2 }}>
-            <CompassOutlined /> Giao hàng: {record.deliveryArea}
+            <CompassOutlined /> {t("business:stores.delivery")} {record.deliveryArea}
           </div>
         </div>
       ),
     },
     {
-      title: 'Giờ mở cửa',
+      title: t("business:stores.openingTime"),
       key: 'hours',
       width: 150,
       render: (_, record) => (
@@ -193,36 +196,36 @@ export const StoresPage: React.FC = () => {
       ),
     },
     {
-      title: 'Trưởng chi nhánh',
+      title: t("business:reviews.storeManager"),
       dataIndex: 'managerName',
       key: 'managerName',
       width: 170,
       render: (manager) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
           <UserOutlined style={{ color: '#C9A227' }} />
-          <span style={{ fontWeight: 600, color: '#16100D' }}>{manager || 'Chưa phân công'}</span>
+          <span style={{ fontWeight: 600, color: '#16100D' }}>{manager || t("business:stores.unassigned")}</span>
         </div>
       ),
     },
     {
-      title: 'Trạng thái vận hành',
+      title: t("business:stores.operatingStatus"),
       dataIndex: 'status',
       key: 'status',
       width: 160,
       render: (status: Store['status']) => {
-        if (status === 'OPEN') return <StatusBadge status="success" text="Đang mở cửa" />;
-        if (status === 'CLOSED_TEMP') return <StatusBadge status="warning" text="Tạm đóng" />;
-        return <StatusBadge status="error" text="Ngừng hoạt động" />;
+        if (status === 'OPEN') return <StatusBadge status="success" text={t("business:stores.open")} />;
+        if (status === 'CLOSED_TEMP') return <StatusBadge status="warning" text={t("business:stores.temporarilyClosed")} />;
+        return <StatusBadge status="error" text={t("business:stores.inactive")} />;
       },
     },
     {
-      title: 'Thao tác',
+      title: t("business:catalog.actions"),
       key: 'action',
       width: 140,
       align: 'right',
       render: (_, record) => (
         <Space size={6}>
-          <Tooltip title="Chỉnh sửa chi nhánh">
+          <Tooltip title={t("business:stores.editStore")}>
             <Button
               type="text"
               icon={<EditOutlined style={{ color: '#22577A' }} />}
@@ -230,7 +233,7 @@ export const StoresPage: React.FC = () => {
             />
           </Tooltip>
           {record.status === 'OPEN' ? (
-            <Tooltip title="Chuyển tạm đóng">
+            <Tooltip title={t("business:stores.temporarilyClose")}>
               <Button
                 type="text"
                 danger
@@ -239,7 +242,7 @@ export const StoresPage: React.FC = () => {
               />
             </Tooltip>
           ) : (
-            <Tooltip title="Mở cửa trở lại">
+            <Tooltip title={t("business:stores.reopen")}>
               <Button
                 type="text"
                 style={{ color: '#1E7A46' }}
@@ -275,9 +278,7 @@ export const StoresPage: React.FC = () => {
               color: '#16100D',
               margin: 0,
             }}
-          >
-            Quản lý Hệ thống Chi nhánh
-          </h1>
+          > {t("business:stores.storeNetworkManagement")} </h1>
           <p
             style={{
               fontFamily: 'Quicksand, sans-serif',
@@ -285,9 +286,7 @@ export const StoresPage: React.FC = () => {
               fontSize: 14,
               margin: '6px 0 0',
             }}
-          >
-            Cấu hình thời gian vận hành, bán kính giao hàng và người quản lý cho từng cơ sở Clucky.
-          </p>
+          > {t("business:stores.configureOpeningHoursDeliveryAreasAndManagersForEachCluckyStore")} </p>
         </div>
 
         {isAdmin && (
@@ -304,9 +303,7 @@ export const StoresPage: React.FC = () => {
               fontWeight: 700,
               fontFamily: 'Quicksand, sans-serif',
             }}
-          >
-            Thêm chi nhánh mới
-          </Button>
+          > {t("business:stores.addANewStore")} </Button>
         )}
       </div>
 
@@ -315,7 +312,7 @@ export const StoresPage: React.FC = () => {
         columns={columns}
         dataSource={filteredStores}
         rowKey="id"
-        searchPlaceholder="Tìm theo tên chi nhánh, đường, quận..."
+        searchPlaceholder={t("business:stores.searchByStoreNameStreetDistrict")}
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         filterNodes={
@@ -324,15 +321,15 @@ export const StoresPage: React.FC = () => {
             onChange={setStatusFilter}
             style={{ width: 180, fontFamily: 'Quicksand, sans-serif' }}
             options={[
-              { value: 'ALL', label: 'Tất cả trạng thái' },
-              { value: 'OPEN', label: '🟢 Đang mở cửa' },
-              { value: 'CLOSED_TEMP', label: '🟡 Tạm đóng' },
-              { value: 'INACTIVE', label: '🔴 Ngừng hoạt động' },
+              { value: 'ALL', label: t("business:paymentspage.allStatuses") },
+              { value: 'OPEN', label: t("business:stores.openLabel") },
+              { value: 'CLOSED_TEMP', label: t("business:stores.temporarilyClosedIndicator") },
+              { value: 'INACTIVE', label: t("business:stores.inactiveLabel") },
             ]}
           />
         }
-        emptyTitle="Không tìm thấy chi nhánh nào"
-        emptyDescription="Thử nhập từ khóa tìm kiếm quận huyện hoặc trạng thái khác."
+        emptyTitle={t("business:stores.noStoresFound")}
+        emptyDescription={t("business:stores.tryADifferentDistrictOrStatus")}
       />
 
       {/* Create / Edit Store Modal */}
@@ -340,32 +337,32 @@ export const StoresPage: React.FC = () => {
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={handleFormSubmit}
-        title={editingStore ? 'Chỉnh sửa thông tin Chi nhánh' : 'Thiết lập Chi nhánh mới'}
-        subtitle="Thông tin hiển thị trên ứng dụng khách hàng và điều phối đơn hàng"
+        title={editingStore ? t("business:stores.editStoreDetails") : t("business:stores.setUpANewStore")}
+        subtitle={t("business:stores.detailsShownInTheCustomerAppAndUsedForOrderRouting")}
         width={680}
       >
         <Form form={form} layout="vertical">
           <Form.Item
             name="name"
-            label="Tên chi nhánh"
-            rules={[{ required: true, message: 'Vui lòng nhập tên chi nhánh' }]}
+            label={t("business:stores.storeName")}
+            rules={[{ required: true, message: t("business:stores.pleaseEnterAStoreName") }]}
           >
-            <Input placeholder="Ví dụ: Clucky Lê Lợi (Flagship Store)" style={{ height: 40 }} />
+            <Input placeholder={t("business:stores.forExampleCluckyLLIFlagshipStore")} style={{ height: 40 }} />
           </Form.Item>
 
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
             <Form.Item
               name="address"
-              label="Địa chỉ chi tiết (Số nhà, tên đường, phường)"
-              rules={[{ required: true, message: 'Nhập địa chỉ chi tiết' }]}
+              label={t("business:stores.fullAddressHouseNumberStreetWard")}
+              rules={[{ required: true, message: t("business:stores.enterFullAddress") }]}
             >
               <Input placeholder="128 Lê Lợi, Phường Bến Nghé" style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
               name="district"
-              label="Quận / Huyện"
-              rules={[{ required: true, message: 'Nhập Quận/Huyện' }]}
+              label={t("business:account.district")}
+              rules={[{ required: true, message: t("business:stores.enterDistrict") }]}
             >
               <Input placeholder="Quận 1" style={{ height: 40 }} />
             </Form.Item>
@@ -374,24 +371,24 @@ export const StoresPage: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
             <Form.Item
               name="phone"
-              label="Số hotline chi nhánh"
-              rules={[{ required: true, message: 'Nhập hotline' }]}
+              label={t("business:stores.storeHotline")}
+              rules={[{ required: true, message: t("business:stores.enterHotline") }]}
             >
               <Input placeholder="028 7300 1234" style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
               name="openTime"
-              label="Giờ mở cửa"
-              rules={[{ required: true, message: 'Chọn giờ mở cửa' }]}
+              label={t("business:stores.openingTime")}
+              rules={[{ required: true, message: t("business:stores.chooseOpeningTime") }]}
             >
               <TimePicker format="HH:mm" style={{ width: '100%', height: 40 }} />
             </Form.Item>
 
             <Form.Item
               name="closeTime"
-              label="Giờ đóng cửa"
-              rules={[{ required: true, message: 'Chọn giờ đóng cửa' }]}
+              label={t("business:stores.closingTime")}
+              rules={[{ required: true, message: t("business:stores.chooseClosingTime") }]}
             >
               <TimePicker format="HH:mm" style={{ width: '100%', height: 40 }} />
             </Form.Item>
@@ -399,19 +396,19 @@ export const StoresPage: React.FC = () => {
 
           <Form.Item
             name="deliveryArea"
-            label="Khu vực giao hàng hỗ trợ (Bán kính / Các quận lân cận)"
-            rules={[{ required: true, message: 'Vui lòng mô tả khu vực giao' }]}
+            label={t("business:stores.supportedDeliveryAreaRadiusNearbyDistricts")}
+            rules={[{ required: true, message: t("business:stores.pleaseDescribeTheDeliveryArea") }]}
           >
             <Input.TextArea
               rows={2}
-              placeholder="Ví dụ: Quận 1, Quận 3, Quận 4, Bình Thạnh (bán kính 5km)"
+              placeholder={t("business:stores.forExampleDistrictsBNhThNhKmRadius")}
             />
           </Form.Item>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <Form.Item name="managerId" label="Phân công Quản lý Chi nhánh (Store Manager)">
+            <Form.Item name="managerId" label={t("business:stores.assignAStoreManager")}>
               <Select
-                placeholder="Chọn quản lý phụ trách"
+                placeholder={t("business:stores.chooseTheResponsibleManager")}
                 style={{ height: 40 }}
                 options={mockManagers.map((m) => ({
                   value: m.id,
@@ -420,11 +417,11 @@ export const StoresPage: React.FC = () => {
               />
             </Form.Item>
 
-            <Form.Item name="status" label="Trạng thái hoạt động">
+            <Form.Item name="status" label={t("business:stores.activityStatus")}>
               <Radio.Group style={{ marginTop: 6 }}>
-                <Radio value="OPEN">Mở cửa</Radio>
-                <Radio value="CLOSED_TEMP">Tạm đóng</Radio>
-                <Radio value="INACTIVE">Ngừng bán</Radio>
+                <Radio value="OPEN">{t("business:stores.open")}</Radio>
+                <Radio value="CLOSED_TEMP">{t("business:stores.temporarilyClosed")}</Radio>
+                <Radio value="INACTIVE">{t("business:stores.salesStopped")}</Radio>
               </Radio.Group>
             </Form.Item>
           </div>

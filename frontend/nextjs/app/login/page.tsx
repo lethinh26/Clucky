@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import * as React from "react";
 import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
@@ -7,14 +10,16 @@ import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
-import { authApi, ApiError } from "@/lib/api";
+import { authApi } from "@/lib/api";
 
 export default function LoginPage() {
+  const t = useTranslations();
+  const { errorMessage } = useLocaleTools();
   const router = useRouter();
   const startAction = useDeferredAction();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<unknown>(null);
   const [loading, setLoading] = React.useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -23,11 +28,11 @@ export default function LoginPage() {
     const task = startAction();
     setError(null);
     if (!email || !password) {
-      setError("Vui lòng nhập email và mật khẩu.");
+      setError("auth.validation.credentialsRequired");
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("Email chưa đúng định dạng. Bạn kiểm tra lại nhé.");
+      setError("auth.validation.checkEmail");
       return;
     }
     setLoading(true);
@@ -41,8 +46,8 @@ export default function LoginPage() {
       router.push("/account");
     } catch (err) {
       if (!task.isCurrent()) return;
-      const apiErr = err as ApiError;
-      setError(apiErr.message || "Đăng nhập thất bại. Kiểm tra lại thông tin.");
+
+      setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }
@@ -50,14 +55,14 @@ export default function LoginPage() {
 
   return (
     <AuthShell
-      title="Chào mừng trở lại"
-      subtitle="Đăng nhập để đặt món nhanh hơn và theo dõi đơn hàng của bạn."
+      title={t("auth.login.title")}
+      subtitle={t("auth.login.description")}
     >
       <GoogleAuthFlow>
         <form className="auth-form" onSubmit={onSubmit} noValidate>
-          {error && (
+          {Boolean(error) && (
             <div className="form-error" role="alert">
-              {error}
+              {typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)}
             </div>
           )}
           <Input
@@ -70,7 +75,7 @@ export default function LoginPage() {
             required
           />
           <Input
-            label="Mật khẩu"
+            label={t("auth.fields.password")}
             type="password"
             autoComplete="current-password"
             placeholder="••••••••"
@@ -79,17 +84,17 @@ export default function LoginPage() {
             required
           />
           <div className="auth-links">
-            <Link href="/forgot-password">Quên mật khẩu?</Link>
+            <Link href="/forgot-password">{t("auth.login.forgotPassword")}</Link>
           </div>
           <button
             type="submit"
             className="btn-primary btn-block"
             disabled={loading}
           >
-            {loading ? "Đang đăng nhập…" : "Đăng nhập"}
+            {loading ? t("auth.login.loading") : t("auth.login.action")}
           </button>
           <span className="auth-footer-link">
-            Chưa có tài khoản? <Link href="/register">Đăng ký ngay</Link>
+            {t("auth.login.noAccount")}{" "}<Link href="/register">{t("auth.login.signUp")}</Link>
           </span>
         </form>
       </GoogleAuthFlow>

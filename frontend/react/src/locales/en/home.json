@@ -1,0 +1,20 @@
+{
+  "hero": {
+    "description": "Traditionally seasoned crispy chicken, handcrafted from fresh chicken every day. Golden, piping-hot bites bring joy to you and your loved ones.",
+    "order": "Order now",
+    "menu": "View menu",
+    "imageAlt": "Clucky golden crispy fried chicken"
+  },
+  "bestSellers": "Best sellers",
+  "favourites": "Clucky favourites",
+  "fullMenu": "View the full menu →",
+  "promise": {
+    "label": "The Clucky promise",
+    "crispyTitle": "Hot and crispy every time",
+    "crispyDescription": "Our chicken is pressure-fried to order for a crisp coating and a juicy centre.",
+    "recipeTitle": "Our signature recipe",
+    "recipeDescription": "A balanced blend of 12 natural herbs delivers an aromatic, satisfying flavour.",
+    "deliveryTitle": "Delivered warm",
+    "deliveryDescription": "Insulated bags keep your meal warm from the kitchen to your doorstep, delivered within 30 minutes from nearby stores."
+  }
+}

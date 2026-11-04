@@ -1,0 +1,20 @@
+{
+  "hero": {
+    "description": "Gà rán giòn rụm đậm vị truyền thống, chế biến thủ công từ 100% gà tươi mỗi ngày. Từng miếng gà nóng hổi chuẩn nhiệt độ vàng mang lại niềm vui trọn vẹn cho bạn và người thân.",
+    "order": "Đặt món ngay",
+    "menu": "Xem thực đơn",
+    "imageAlt": "Đĩa gà rán giòn vàng óng ánh Clucky"
+  },
+  "bestSellers": "Món ăn bán chạy nhất",
+  "favourites": "Hương vị được yêu thích tại Clucky",
+  "fullMenu": "Xem tất cả thực đơn →",
+  "promise": {
+    "label": "Cam kết thương hiệu Clucky",
+    "crispyTitle": "Giòn nóng mỗi phần",
+    "crispyDescription": "Gà chỉ được chiên áp suất ngay sau khi bạn đặt hàng, cam kết lớp vỏ giòn rụm không bị ỉu, giữ trọn độ ẩm ngọt mọng nước bên trong.",
+    "recipeTitle": "Công thức độc quyền",
+    "recipeDescription": "Pha trộn tinh tế từ 12 loại thảo mộc tự nhiên theo công thức chuẩn Âu, mang lại dư vị thơm nồng kích thích vị giác nhưng không gắt cổ.",
+    "deliveryTitle": "Giao hàng chuẩn nhiệt",
+    "deliveryDescription": "Túi giữ nhiệt chuyên dụng giữ trọn độ nóng giòn từ bếp tới tận cửa nhà bạn trong vòng 30 phút từ các chi nhánh gần nhất."
+  }
+}

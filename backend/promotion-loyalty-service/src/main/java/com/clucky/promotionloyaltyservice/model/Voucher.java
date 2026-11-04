@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "vouchers")
+@Table(name = "vouchers", schema = "promotion_service")
 public class Voucher {
 
     @Id

@@ -241,6 +241,7 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await page.setViewportSize({ width: 375, height: 900 });
   await page.route("https://vietqr.app/img?*", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
   await page.goto(customer + "/orders/demo-clucky");
+  await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Thông tin giao hàng" }),
   ).toBeVisible();
@@ -256,9 +257,11 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
     order.status = "PENDING_PAYMENT";
     order.paymentStatus = "PENDING";
     order.createdAt = new Date().toISOString();
+    delete order.shipmentStatus;
     localStorage.setItem(key, JSON.stringify(snapshot));
   });
   await page.reload();
+  await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }),
   ).toBeVisible();
@@ -301,7 +304,7 @@ test("Google request loading and error can be retried without storing a pending 
     page.getByRole("button", { name: "Đang mở Google…" }),
   ).toBeDisabled();
   release();
-  await expect(page.getByRole("alert")).toHaveText("Dịch vụ tạm gián đoạn");
+  await expect(page.getByRole("alert")).toHaveText("Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.");
   await expect(
     page.getByRole("button", { name: "Đăng nhập bằng Google" }),
   ).toBeEnabled();

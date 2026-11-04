@@ -3,3 +3,17 @@ server:
 spring:
   application:
     name: payment-service
+  datasource:
+    hikari:
+      schema: payment_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: payment_service
+  flyway:
+    default-schema: payment_service
+    schemas: payment_service
+    create-schemas: true
+    baseline-on-migrate: false

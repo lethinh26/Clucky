@@ -1,100 +1,132 @@
-import React from "react";
-import { Bike, Store } from "lucide-react";
-import { formatPrice } from "@/lib/products";
+"use client";
+import { useTranslations } from "next-intl";
+import { Bike, MapPin, Store, UserRound } from "lucide-react";
+import { ShippingFeeCard } from "./shipping-fee-card";
+import type { ShipmentStatus } from "@/lib/types/order";
 import styles from "../payment/payment-shared.module.css";
 
-export type ShipmentStatus =
-  "CREATED" | "ASSIGNED" | "PICKED_UP" | "SHIPPING" | "DELIVERED" | "FAILED";
+// MVP only creates CREATED records. Assignment and tracking are Phase 2.
+export type { ShipmentStatus } from "@/lib/types/order";
 
 export interface ShipmentInfoProps {
   receiverName: string;
   receiverPhone: string;
   address?: string;
-  fee?: number;
+  storeName?: string;
+  fee?: number | null;
+  /** Only pass an actual shipment status; never infer it from the order status. */
   status?: ShipmentStatus;
   orderType?: "DELIVERY" | "PICKUP";
   className?: string;
 }
 
-const SHIPMENT_LABEL: Record<ShipmentStatus, string> = {
-  CREATED: "Đã tạo phiếu giao",
-  ASSIGNED: "Đã gán shipper",
-  PICKED_UP: "Shipper đã lấy hàng",
-  SHIPPING: "Đang giao",
-  DELIVERED: "Đã giao",
-  FAILED: "Giao thất bại",
-};
+
 
 export function ShipmentCard({
   receiverName,
   receiverPhone,
   address,
+  storeName,
   fee,
-  status = "CREATED",
+  status,
   orderType = "DELIVERY",
   className = "",
 }: ShipmentInfoProps) {
+  const t = useTranslations();
+
+  const SHIPMENT_CONFIG: Record<
+  ShipmentStatus,
+  { label: string; styleClass: string }
+> = {
+  CREATED: { label: t("business.shipmentcard.shipmentCreated"), styleClass: styles.payPending },
+  ASSIGNED: { label: t("business.shipmentcard.driverAssigned"), styleClass: styles.payRefundPending },
+  PICKED_UP: {
+    label: t("business.shipmentcard.pickedUpByDriver"),
+    styleClass: styles.payRefundPending,
+  },
+  SHIPPING: { label: t("business.orderprogress.delivering"), styleClass: styles.payRefundPending },
+  DELIVERED: { label: t("business.shipmentcard.delivered"), styleClass: styles.payPaid },
+  FAILED: { label: t("business.shipmentcard.deliveryFailed"), styleClass: styles.payMismatch },
+};
+
+  const pickup = orderType === "PICKUP";
+  const shipment = status ? SHIPMENT_CONFIG[status] : undefined;
+  const title = pickup ? t("business.shipmentcard.storePickup") : t("business.shipmentcard.deliveryDetails");
+
   return (
-    <div
+    <section
       className={`${styles.shipmentCard} ${styles.paymentScope} ${className}`}
+      aria-label={t("business.shipmentcard.collectionDetails")}
     >
       <div className={styles.shipmentHead}>
-        <h3 className={styles.shipmentTitle}>
-          {orderType === "PICKUP" ? "Nhận tại cửa hàng" : "Thông tin giao hàng"}
-        </h3>
-        {orderType === "DELIVERY" && (
-          <span className={`${styles.payChip} ${styles.payPending}`}>
-            <span className={styles.payDot} aria-hidden="true" />
-            {SHIPMENT_LABEL[status]}
-          </span>
-        )}
-      </div>
-
-      <div className={styles.shipmentItem}>
-        <span className={styles.shipmentLabel}>Người nhận</span>
-        <p className={styles.shipmentVal}>
-          {receiverName} (<a href={`tel:${receiverPhone}`}>{receiverPhone}</a>)
-        </p>
-      </div>
-
-      <div className={styles.shipmentItem}>
-        <span className={styles.shipmentLabel}>Hình thức</span>
-        <p className={styles.shipmentVal}>
-          {orderType === "DELIVERY" ? (
-            <>
-              <Bike size={16} aria-hidden="true" /> Giao tận nơi
-            </>
+        <span className={styles.cardIcon}>
+          {pickup ? (
+            <Store size={22} aria-hidden="true" />
           ) : (
-            <>
-              <Store size={16} aria-hidden="true" /> Nhận tại cửa hàng
-            </>
+            <Bike size={22} aria-hidden="true" />
           )}
-        </p>
-      </div>
-
-      {address && (
-        <div className={styles.shipmentItem}>
-          <span className={styles.shipmentLabel}>
-            {orderType === "PICKUP" ? "Chi nhánh" : "Địa chỉ giao"}
+        </span>
+        <div>
+          <span className={styles.eyebrow}>
+            {pickup ? t("business.shipmentcard.pickUpYourMeal") : t("business.checkout.homeDelivery")}
           </span>
-          <p className={styles.shipmentVal}>{address}</p>
+          <h3 className={styles.shipmentTitle}>{title}</h3>
         </div>
-      )}
-      {orderType === "DELIVERY" && status === "CREATED" && (
-        <p className={styles.feeHint}>
-          MVP chỉ tạo phiếu giao hàng. Gán shipper và theo dõi giao hàng thuộc
-          Phase 2.
-        </p>
+      </div>
+      {!pickup && shipment && (
+        <span
+          className={`${styles.payChip} ${shipment.styleClass}`}
+          role="status"
+        >
+          <span className={styles.payDot} aria-hidden="true" />
+          {shipment.label}
+        </span>
       )}
 
-      {fee != null && (
+      <dl className={styles.shipmentDetails}>
         <div className={styles.shipmentItem}>
-          <span className={styles.shipmentLabel}>Phí giao hàng</span>
-          <p className={`${styles.shipmentVal} ${styles.shipmentFee}`}>
-            {fee === 0 ? "Miễn phí" : formatPrice(fee)}
-          </p>
+          <dt className={styles.shipmentLabel}>
+            <UserRound size={15} aria-hidden="true" /> {t("business.shipmentcard.recipient")} </dt>
+          <dd className={styles.shipmentVal}>
+            {receiverName.trim() || t("business.shipmentcard.noRecipientNameAvailable")}
+          </dd>
+          <dd className={styles.shipmentVal}>
+            {receiverPhone.trim() ? (
+              <a href={`tel:${receiverPhone.replace(/[^+\d]/g, "")}`}>
+                {receiverPhone}
+              </a>
+            ) : (
+              t("business.shipmentcard.noPhoneNumberAvailable")
+            )}
+          </dd>
         </div>
+        <div className={styles.shipmentItem}>
+          <dt className={styles.shipmentLabel}>
+            <MapPin size={15} aria-hidden="true" />{" "}
+            {pickup ? t("business.shipmentcard.pickupLocation") : t("business.shipmentcard.deliveryAddress")}
+          </dt>
+          <dd className={styles.shipmentVal}>
+            {pickup
+              ? storeName || address || t("business.shipmentcard.noStoreDetailsAvailable")
+              : address?.trim() || t("business.shipmentcard.noDeliveryAddressAvailable")}
+          </dd>
+          {pickup && storeName && address && (
+            <dd className={styles.shipmentSecondary}>{address}</dd>
+          )}
+        </div>
+        {!pickup && storeName && (
+          <div className={styles.shipmentItem}>
+            <dt className={styles.shipmentLabel}>
+              <Store size={15} aria-hidden="true" /> {t("business.shipmentcard.preparedAt")} </dt>
+            <dd className={styles.shipmentVal}>{storeName}</dd>
+          </div>
+        )}
+      </dl>
+
+      {!pickup && status === "CREATED" && (
+        <p className={styles.shipmentNote}> {t("business.shipmentcard.deliveryDetailsRecordedLiveDeliveryTrackingIsNotAvailableYet")} </p>
       )}
-    </div>
+      {!pickup && fee !== undefined && <ShippingFeeCard fee={fee} />}
+    </section>
   );
 }

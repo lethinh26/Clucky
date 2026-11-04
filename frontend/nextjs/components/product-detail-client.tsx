@@ -1,10 +1,13 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
+
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { FoodImage } from "@/components/order/food-image";
 import Link from "@/components/ui-loader/navigation-link";
 import { useOrder } from "@/components/order/order-provider";
-import { formatPrice, type Product } from "@/lib/products";
+import { type Product } from "@/lib/products";
 import { ArrowLeft, Star, Minus, Plus, ShoppingBag, Check } from "lucide-react";
 
 interface ProductDetailClientProps {
@@ -12,6 +15,9 @@ interface ProductDetailClientProps {
 }
 
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
+  const t = useTranslations();
+
+  const { money: formatPrice } = useLocaleTools();
   const { addItem, ready } = useOrder();
 
   // Selected single options (one choice per group)
@@ -160,7 +166,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         }}
       >
         <ArrowLeft size={18} />
-        <span>Quay lại Thực đơn Clucky</span>
+        <span>{t("business.productdetailclient.backToTheCluckyMenu")}</span>
       </Link>
 
       {/* Main 2-Column Detail Grid */}
@@ -235,9 +241,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   padding: "6px 14px",
                   borderRadius: 999,
                 }}
-              >
-                Tạm hết hôm nay
-              </span>
+              > {t("business.productdetailclient.soldOutToday")} </span>
             )}
           </div>
 
@@ -266,12 +270,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   fontSize: 16,
                   color: "#16100D",
                 }}
-              >
-                Giòn tan
-              </strong>
-              <span style={{ fontSize: 12, color: "#6B6259" }}>
-                Làm mới mỗi phần
-              </span>
+              > {t("business.productdetailclient.crispy")} </strong>
+              <span style={{ fontSize: 12, color: "#6B6259" }}> {t("business.productdetailclient.freshlyMade")} </span>
             </div>
 
             <div
@@ -293,9 +293,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               >
                 {product.kcal} kcal
               </strong>
-              <span style={{ fontSize: 12, color: "#6B6259" }}>
-                Khẩu phần vừa đủ
-              </span>
+              <span style={{ fontSize: 12, color: "#6B6259" }}> {t("business.productdetailclient.justTheRightPortion")} </span>
             </div>
 
             <div
@@ -314,12 +312,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   fontSize: 16,
                   color: "#16100D",
                 }}
-              >
-                15 phút
-              </strong>
-              <span style={{ fontSize: 12, color: "#6B6259" }}>
-                Chuẩn bị nóng hổi
-              </span>
+              > {t("business.productdetailclient.minutes")} </strong>
+              <span style={{ fontSize: 12, color: "#6B6259" }}> {t("business.productdetailclient.preparedHotAndFresh")} </span>
             </div>
           </div>
         </div>
@@ -385,8 +379,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               {product.rating || 4.9}
             </span>
             <span style={{ color: "#6B6259", fontSize: 13 }}>
-              ({product.reviewCount || 128} đánh giá từ thực khách)
-            </span>
+              ({product.reviewCount || 128} {t("business.productdetailclient.customerReviews")} </span>
           </div>
 
           {/* Description */}
@@ -425,9 +418,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 </span>
                 <span
                   style={{ fontSize: 12, color: "#8F1216", fontWeight: 700 }}
-                >
-                  * Chọn 1
-                </span>
+                > {t("business.productdetailclient.choose")} </span>
               </div>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -488,14 +479,10 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     fontSize: 16,
                     color: "#16100D",
                   }}
-                >
-                  Thêm Topping hảo hạng
-                </span>
+                > {t("business.productdetailclient.addPremiumToppings")} </span>
                 <span
                   style={{ fontSize: 12, color: "#6B6259", fontWeight: 600 }}
-                >
-                  Chọn nhiều tùy thích
-                </span>
+                > {t("business.productdetailclient.chooseAsManyAsYouLike")} </span>
               </div>
 
               <div
@@ -584,15 +571,13 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 color: "#16100D",
                 marginBottom: 8,
               }}
-            >
-              Ghi chú cho bếp (tùy chọn)
-            </label>
+            > {t("business.productdetailclient.kitchenNotesOptional")} </label>
             <textarea
               id="special-note"
               rows={2}
               value={specialNote}
               onChange={(e) => setSpecialNote(e.target.value)}
-              placeholder="Ví dụ: Gà chiên giòn kỹ, sốt để riêng, không lấy tương ớt..."
+              placeholder={t("business.productdetailclient.forExampleExtraCrispyChickenSauceOnTheSideNoChilliSauce")}
               style={{
                 width: "100%",
                 padding: "12px 16px",
@@ -639,9 +624,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     marginBottom: 6,
                     textTransform: "uppercase",
                   }}
-                >
-                  Số lượng phần
-                </span>
+                > {t("business.productdetailclient.numberOfServings")} </span>
                 <div
                   style={{
                     display: "inline-flex",
@@ -657,7 +640,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     type="button"
                     onClick={handleDecrease}
                     disabled={quantity <= 1}
-                    aria-label="Giảm số lượng"
+                    aria-label={t("business.productdetailclient.decreaseQuantity")}
                     style={{
                       width: 36,
                       height: 36,
@@ -687,7 +670,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   <button
                     type="button"
                     onClick={handleIncrease}
-                    aria-label="Tăng số lượng"
+                    aria-label={t("business.productdetailclient.increaseQuantity")}
                     style={{
                       width: 36,
                       height: 36,
@@ -717,9 +700,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                     marginBottom: 2,
                     textTransform: "uppercase",
                   }}
-                >
-                  Tổng tiền ({quantity} phần)
-                </span>
+                > {t("business.productdetailclient.total")}{quantity} {t("business.productdetailclient.servings")} </span>
                 <div
                   style={{
                     fontFamily: "Baloo 2, sans-serif",
@@ -732,9 +713,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 >
                   {formatPrice(totalPrice)}
                 </div>
-                <div style={{ fontSize: 12, color: "#6B6259", marginTop: 2 }}>
-                  Đơn giá: {formatPrice(unitPrice)}/phần
-                </div>
+                <div style={{ fontSize: 12, color: "#6B6259", marginTop: 2 }}> {t("business.productdetailclient.unitPrice")} {formatPrice(unitPrice)}{t("business.productdetailclient.serving")} </div>
               </div>
             </div>
 
@@ -758,10 +737,10 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               <ShoppingBag size={20} />
               <span>
                 {isSoldOut
-                  ? "Món ăn tạm hết hàng"
+                  ? t("business.productdetailclient.thisDishIsTemporarilySoldOut")
                   : isAddedSuccess
-                    ? "Đã thêm vào giỏ hàng!"
-                    : `Thêm vào giỏ hàng · ${formatPrice(totalPrice)}`}
+                    ? t("business.productdetailclient.addedToCart")
+                    : t("business.productdetailclient.addToCart", { value1: formatPrice(totalPrice) })}
               </span>
             </button>
           </div>

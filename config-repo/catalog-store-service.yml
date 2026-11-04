@@ -3,6 +3,20 @@ server:
 spring:
   application:
     name: catalog-store-service
+  datasource:
+    hikari:
+      schema: catalog_service
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: catalog_service
+  flyway:
+    default-schema: catalog_service
+    schemas: catalog_service
+    create-schemas: true
+    baseline-on-migrate: false
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}

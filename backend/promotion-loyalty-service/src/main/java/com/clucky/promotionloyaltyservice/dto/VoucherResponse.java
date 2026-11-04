@@ -236,4 +236,3 @@ public class VoucherResponse {
         this.updatedAt = updatedAt;
     }
 }
-

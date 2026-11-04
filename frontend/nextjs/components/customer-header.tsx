@@ -1,4 +1,8 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { LanguageSwitcher } from "@/lib/i18n/language-switcher";
+
+
 
 import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
@@ -10,17 +14,18 @@ import { useOrder } from "@/components/order/order-provider";
 import styles from "./customer-header.module.css";
 
 const links = [
-  ["/", "Trang chủ"],
-  ["/menu", "Thực đơn"],
-  ["/stores", "Cửa hàng"],
-  ["/vouchers", "Ưu đãi"],
-  ["/loyalty", "Clucky Club"],
-  ["/party", "Đặt tiệc"],
-  ["/orders", "Đơn hàng"],
-  ["/account", "Tài khoản"],
+  ["/", "common.nav.home"],
+  ["/menu", "common.nav.menu"],
+  ["/stores", "common.nav.stores"],
+  ["/vouchers", "common.nav.vouchers"],
+  ["/loyalty", "common.nav.loyalty"],
+  ["/party", "common.nav.party"],
+  ["/orders", "common.nav.orders"],
+  ["/account", "common.nav.account"],
 ] as const;
 
 export function CustomerHeader() {
+  const t = useTranslations();
   const { count } = useOrder();
   const pathname = usePathname();
   const [openPath, setOpenPath] = useState<string | null>(null);
@@ -54,13 +59,13 @@ export function CustomerHeader() {
   return (
     <header className={styles.header} ref={rootRef} data-loading-shell="top">
       <div className={styles.topline}>
-        Crispy outside. Happy inside.<span>Một bữa ngon, thêm niềm vui.</span>
+        Crispy outside. Happy inside.<span>{t("common.tagline")}</span>
       </div>
       <div className={styles.inner}>
         <Link
           className={styles.brand}
           href="/"
-          aria-label="Clucky trang chủ"
+          aria-label={t("common.homeLabel")}
           onClick={() => setOpenPath(null)}
         >
           <Image
@@ -74,18 +79,19 @@ export function CustomerHeader() {
             Clucky<span className={styles.brandCaption}>CRISPY & HAPPY</span>
           </span>
         </Link>
-        <nav className={styles.desktopNav} aria-label="Điều hướng chính">
+        <nav className={styles.desktopNav} aria-label={t("common.nav.main")}>
           {links.map(([href, label]) => (
             <Link
               key={href}
               href={href}
               aria-current={isCurrent(href) ? "page" : undefined}
             >
-              {label}
+              {t(label)}
             </Link>
           ))}
         </nav>
         <div className={styles.actions}>
+          <LanguageSwitcher />
           <Link
             href="/login"
             className={styles.login}
@@ -93,20 +99,20 @@ export function CustomerHeader() {
             onClick={() => setOpenPath(null)}
           >
             <UserRound size={17} aria-hidden="true" />
-            <span>Đăng nhập</span>
+            <span>{t("auth.login.action")}</span>
           </Link>
           <Link
             href="/register"
             className={styles.register}
             onClick={() => setOpenPath(null)}
           >
-            Đăng ký <ArrowUpRight size={16} aria-hidden="true" />
+            {t("auth.register.action")}{" "}<ArrowUpRight size={16} aria-hidden="true" />
           </Link>
           <CartBadge count={count}>
             <Link
               href="/cart"
               className={styles.cart}
-              aria-label="Giỏ hàng"
+              aria-label={t("common.nav.cart")}
               onClick={() => setOpenPath(null)}
             >
               <ShoppingBag size={20} aria-hidden="true" />
@@ -118,7 +124,7 @@ export function CustomerHeader() {
             type="button"
             aria-expanded={open}
             aria-controls={menuId}
-            aria-label={open ? "Đóng điều hướng" : "Mở điều hướng"}
+            aria-label={open ? t("common.nav.close") : t("common.nav.open")}
             onClick={() => setOpenPath(open ? null : pathname)}
           >
             {open ? <X size={22} /> : <Menu size={22} />}
@@ -130,7 +136,7 @@ export function CustomerHeader() {
         hidden={!open}
         className={styles.mobileNav}
         data-loading-shell="top"
-        aria-label="Điều hướng di động"
+        aria-label={t("common.nav.mobile")}
       >
         <div className={styles.mobileLinks}>
           {links.map(([href, label]) => (
@@ -140,17 +146,16 @@ export function CustomerHeader() {
               aria-current={isCurrent(href) ? "page" : undefined}
               onClick={() => setOpenPath(null)}
             >
-              {label}
+              {t(label)}
               <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
           ))}
         </div>
         <div className={styles.mobileAuth}>
           <Link href="/login" onClick={() => setOpenPath(null)}>
-            Đăng nhập
-          </Link>
+            {t("auth.login.action")}{" "}</Link>
           <Link href="/register" onClick={() => setOpenPath(null)}>
-            Tạo tài khoản <ArrowUpRight size={16} aria-hidden="true" />
+            {t("auth.register.createAccount")}{" "}<ArrowUpRight size={16} aria-hidden="true" />
           </Link>
         </div>
       </nav>

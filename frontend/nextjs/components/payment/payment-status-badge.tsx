@@ -1,3 +1,5 @@
+"use client";
+import { useTranslations } from "next-intl";
 import React from "react";
 import type { PaymentStatus as OrderPaymentStatus } from "@/lib/types/order";
 import styles from "./payment-shared.module.css";
@@ -10,40 +12,48 @@ export type PaymentStatus =
   | "REFUND_PENDING"
   | "REFUNDED";
 
-interface PaymentStatusBadgeProps {
+export interface PaymentStatusBadgeProps {
   status: PaymentStatus;
   className?: string;
 }
 
-const STATUS_CONFIG: Record<
-  PaymentStatus,
-  { label: string; styleClass: string }
-> = {
-  UNPAID: { label: "Chưa thanh toán", styleClass: styles.payUnpaid },
-  FAILED: { label: "Thanh toán thất bại", styleClass: styles.payMismatch },
-  PENDING: { label: "Chờ thanh toán", styleClass: styles.payPending },
-  PAID: { label: "Đã thanh toán", styleClass: styles.payPaid },
-  EXPIRED: { label: "Hết hạn", styleClass: styles.payExpired },
-  MISMATCH: { label: "Sai lệch", styleClass: styles.payMismatch },
-  COLLECTED: { label: "Đã thu COD", styleClass: styles.payCollected },
-  REFUND_PENDING: {
-    label: "Chờ hoàn tiền",
-    styleClass: styles.payRefundPending,
-  },
-  REFUNDED: { label: "Đã hoàn tiền", styleClass: styles.payRefunded },
-};
+
 
 export function PaymentStatusBadge({
   status,
   className = "",
 }: PaymentStatusBadgeProps) {
+  const t = useTranslations();
+
+  const STATUS_CONFIG: Record<
+  PaymentStatus,
+  { label: string; styleClass: string }
+> = {
+  UNPAID: { label: t("business.paymentstatusbadge.unpaid"), styleClass: styles.payUnpaid },
+  FAILED: { label: t("business.paymentstatusbadge.paymentFailed"), styleClass: styles.payMismatch },
+  PENDING: { label: t("business.checkout.awaitingPayment"), styleClass: styles.payPending },
+  PAID: { label: t("business.demoordercontrols.paid"), styleClass: styles.payPaid },
+  EXPIRED: { label: t("business.paymentstatusbadge.expired"), styleClass: styles.payExpired },
+  MISMATCH: { label: t("business.paymentstatusbadge.amountMismatch"), styleClass: styles.payMismatch },
+  COLLECTED: { label: t("business.paymentstatusbadge.codCollected"), styleClass: styles.payCollected },
+  REFUND_PENDING: {
+    label: t("business.paymentstatusbadge.refundPending"),
+    styleClass: styles.payRefundPending,
+  },
+  REFUNDED: { label: t("business.paymentstatusbadge.refunded"), styleClass: styles.payRefunded },
+};
+
   const config = STATUS_CONFIG[status] ?? {
-    label: status,
-    styleClass: styles.payPending,
+    label: t("business.paymentstatusbadge.unknownStatus"),
+    styleClass: styles.payExpired,
   };
 
   return (
-    <span className={`${styles.payChip} ${config.styleClass} ${className}`}>
+    <span
+      className={`${styles.paymentScope} ${styles.payChip} ${config.styleClass} ${className}`}
+      role="status"
+      aria-label={t("business.paymentstatusbadge.payment", { value1: config.label })}
+    >
       <span className={styles.payDot} aria-hidden="true" />
       {config.label}
     </span>
