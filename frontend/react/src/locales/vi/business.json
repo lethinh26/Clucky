@@ -189,6 +189,8 @@
     "deletePermanently": "Xóa vĩnh viễn"
   },
   "productform": {
+    "uploadingImage": "Đang tải ảnh lên Cloudinary...",
+    "imageUploadFailed": "Tải ảnh thất bại",
     "onlyPngJpgAndWebpImagesAreAccepted": "Chỉ chấp nhận file ảnh định dạng PNG, JPG hoặc WEBP!",
     "imagesMustNotExceedMb": "Dung lượng ảnh tối đa là 5MB!",
     "newOptionGroup": "Nhóm tùy chọn mới",

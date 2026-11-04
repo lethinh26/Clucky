@@ -31,7 +31,7 @@ function MenuContent() {
 
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<{ id: number; name: string; messageKey?: string }[]>([
-    { id: 0, name: 'Tất cả', messageKey: 'menu.categories.all' },
+    { id: 0, name: 'All', messageKey: 'menu.categories.all' },
   ]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -47,7 +47,7 @@ function MenuContent() {
       setLoadError(null);
       setProducts([]);
       if (hasInvalidStoreId) {
-        setCategories([{ id: 0, name: 'Tất cả', messageKey: 'menu.categories.all' }]);
+        setCategories([{ id: 0, name: 'All', messageKey: 'menu.categories.all' }]);
         setLoading(false);
         return;
       }
@@ -60,12 +60,12 @@ function MenuContent() {
         if (active) {
           setProducts(liveProds);
           setCategories([
-            { id: 0, name: 'Tất cả', messageKey: 'menu.categories.all' },
+            { id: 0, name: 'All', messageKey: 'menu.categories.all' },
             ...liveCats.map((c: CategoryItem) => ({ id: c.id, name: c.name })),
           ]);
         }
       } catch (err) {
-        if (active) setLoadError(err instanceof Error ? err.message : 'Không thể tải thực đơn.');
+        if (active) setLoadError(err instanceof Error ? err.message : t("menu.empty.title"));
       } finally {
         if (active) setLoading(false);
       }
@@ -327,7 +327,7 @@ function MenuContent() {
         </p>
       )}
       {loading ? (
-        <p aria-live="polite" style={{ textAlign: 'center' }}>Đang tải thực đơn...</p>
+        <p aria-live="polite" style={{ textAlign: 'center' }}>{t("menu.loading")}</p>
       ) : errorMessage ? null : filteredProducts.length > 0 ? (
         <div>
           <div style={{ marginBottom: 16, fontSize: 13, color: '#6B6259', fontWeight: 600 }}>

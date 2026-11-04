@@ -227,6 +227,7 @@
     "allStores": "All stores",
     "cluckyStoresInHoChiMinhCity": "Clucky stores in Ho Chi Minh City",
     "openNow": "● Open now",
+    "loading": "Loading stores...",
     "underMaintenance": "○ Under maintenance",
     "closed": "✕ Closed",
     "temporarilyClosed": "Temporarily closed",
@@ -359,6 +360,7 @@
     "scanWithAVietqrCompatibleBankingAppKeepTheAmountAndTransfer": "Scan with a VietQR-compatible banking app. Keep the amount and transfer reference unchanged so the system can match your payment."
   },
   "productdetailclient": {
+    "comboItems": "Items in this combo",
     "backToTheCluckyMenu": "Back to the Clucky menu",
     "soldOutToday": "Sold out today",
     "crispy": "Crispy",

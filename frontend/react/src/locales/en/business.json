@@ -189,6 +189,8 @@
     "deletePermanently": "Delete permanently"
   },
   "productform": {
+    "uploadingImage": "Uploading image to Cloudinary...",
+    "imageUploadFailed": "Image upload failed",
     "onlyPngJpgAndWebpImagesAreAccepted": "Only PNG, JPG and WEBP images are accepted!",
     "imagesMustNotExceedMb": "Images must not exceed 5MB!",
     "newOptionGroup": "New option group",

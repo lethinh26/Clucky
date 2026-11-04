@@ -440,7 +440,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             {uploading && (
               <div style={{ marginTop: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6B6259', marginBottom: 4 }}>
-                  <span><LoadingOutlined spin /> Đang tải ảnh lên Cloudinary...</span>
+                  <span><LoadingOutlined spin /> {t("business:productform.uploadingImage")}</span>
                   <span>{uploadProgress}%</span>
                 </div>
                 <Progress percent={uploadProgress} status="active" strokeColor="#8F1216" />
@@ -451,7 +451,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               <Alert
                 type="error"
                 showIcon
-                message="Tải ảnh thất bại"
+                message={t("business:productform.imageUploadFailed")}
                 description={uploadError}
                 style={{ marginTop: 12, borderRadius: 10 }}
               />

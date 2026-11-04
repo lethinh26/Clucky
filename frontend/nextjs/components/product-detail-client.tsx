@@ -329,7 +329,7 @@ export function ProductDetailClient({ product, storeId }: ProductDetailClientPro
           {product.comboItems && product.comboItems.length > 0 && (
             <section style={{ marginBottom: 28 }}>
               <h2 style={{ fontFamily: "Baloo 2, sans-serif", fontSize: 18, marginBottom: 8 }}>
-                Sản phẩm trong combo
+                {t("business.productdetailclient.comboItems")}
               </h2>
               <ul style={{ margin: 0, paddingLeft: 22, color: "#6B6259" }}>
                 {product.comboItems.map((item) => (

@@ -227,6 +227,7 @@
     "allStores": "Tất cả chi nhánh",
     "cluckyStoresInHoChiMinhCity": "Chi nhánh Clucky TP.HCM",
     "openNow": "● Đang mở cửa",
+    "loading": "Đang tải danh sách chi nhánh...",
     "underMaintenance": "○ Đang bảo trì",
     "closed": "✕ Đóng cửa",
     "temporarilyClosed": "Tạm đóng",
@@ -359,6 +360,7 @@
     "scanWithAVietqrCompatibleBankingAppKeepTheAmountAndTransfer": "Quét bằng ứng dụng ngân hàng hỗ trợ VietQR. Giữ đúng số tiền và nội dung chuyển khoản để hệ thống đối chiếu thanh toán."
   },
   "productdetailclient": {
+    "comboItems": "Sản phẩm trong combo",
     "backToTheCluckyMenu": "Quay lại Thực đơn Clucky",
     "soldOutToday": "Tạm hết hôm nay",
     "crispy": "Giòn tan",

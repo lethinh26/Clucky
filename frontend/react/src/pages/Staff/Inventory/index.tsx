@@ -118,13 +118,15 @@ export const StaffInventoryPage: React.FC = () => {
       await fetchInventory();
       if (checked) {
         message.warning(
-          `Đã đánh dấu "Hết món trong ca" cho "${item.productName}". Khách tại chi nhánh sẽ không thể đặt món này.`
+          t("business:inventory.markedAsSoldOutForThisShiftCustomersAtThisStoreWill", { value1: item.productName })
         );
       } else {
-        message.success(`Đã mở bán lại món "${item.productName}" tại chi nhánh.`);
+        message.success(
+          t("business:inventory.isBackOnSaleAtThisStore", { value1: item.productName })
+        );
       }
     } catch (err) {
-      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái món tại chi nhánh!'));
+      message.error(getErrorMessage(err));
     }
   };
 
@@ -150,11 +152,13 @@ export const StaffInventoryPage: React.FC = () => {
             i.productId === editingItem.productId ? updated : i
           )
         );
-        message.success(`Đã cập nhật số lượng tồn kho cho "${editingItem.productName}".`);
+        message.success(
+          t("business:inventory.inventoryQuantityUpdatedFor", { value1: editingItem.productName })
+        );
       }
       setModalOpen(false);
     } catch (err) {
-      message.error(getErrorMessage(err, 'Lỗi cập nhật tồn kho!'));
+      message.error(getErrorMessage(err));
     }
   };
 

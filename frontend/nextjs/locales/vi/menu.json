@@ -9,6 +9,7 @@
     "combo": "Combo"
   },
   "title": "Thực đơn Clucky",
+  "loading": "Đang tải thực đơn...",
   "description": "Chọn món yêu thích của bạn — từ gà rán giòn rụm áp suất, burger brioche thơm lừng, cho tới các combo tiết kiệm trọn gói.",
   "storePrefix": "📍 Đang xem thực đơn giao hàng từ Chi nhánh #",
   "errors": {

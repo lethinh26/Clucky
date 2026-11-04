@@ -4,57 +4,41 @@ export type StoreStatus = (typeof STORE_STATUSES)[number];
 
 export interface StoreStatusMeta {
   key: StoreStatus;
-  label: string;
-  badgeLabel: string;
-  description: string;
-  isOpen: boolean;
-  canOrder: boolean;
+  badgeStatus: 'success' | 'warning' | 'error';
   color: string;
   bgColor: string;
   borderColor: string;
-  badgeStatus: 'success' | 'warning' | 'error';
-  actionText: string;
+  isOpen: boolean;
+  canOrder: boolean;
 }
 
 export const STORE_STATUS_META: Record<StoreStatus, StoreStatusMeta> = {
   OPEN: {
     key: 'OPEN',
-    label: 'Mở cửa',
-    badgeLabel: '● Đang mở cửa',
-    description: 'Chi nhánh đang phục vụ bình thường',
-    isOpen: true,
-    canOrder: true,
+    badgeStatus: 'success',
     color: '#1E7A46',
     bgColor: '#EAF6EE',
     borderColor: '#A7F3D0',
-    badgeStatus: 'success',
-    actionText: 'Đặt món tại đây',
+    isOpen: true,
+    canOrder: true,
   },
   CLOSED_TEMP: {
     key: 'CLOSED_TEMP',
-    label: 'Đang bảo trì',
-    badgeLabel: '○ Đang bảo trì',
-    description: 'Chi nhánh tạm dừng phục vụ để bảo trì',
-    isOpen: false,
-    canOrder: false,
+    badgeStatus: 'warning',
     color: '#D97706',
     bgColor: '#FEF3C7',
     borderColor: '#FDE68A',
-    badgeStatus: 'warning',
-    actionText: 'Đang bảo trì',
+    isOpen: false,
+    canOrder: false,
   },
   INACTIVE: {
     key: 'INACTIVE',
-    label: 'Đóng cửa',
-    badgeLabel: '✕ Đóng cửa',
-    description: 'Chi nhánh đã đóng cửa hoặc ngừng hoạt động',
-    isOpen: false,
-    canOrder: false,
+    badgeStatus: 'error',
     color: '#DC2626',
     bgColor: '#FEE2E2',
     borderColor: '#FECACA',
-    badgeStatus: 'error',
-    actionText: 'Ngừng hoạt động',
+    isOpen: false,
+    canOrder: false,
   },
 };
 

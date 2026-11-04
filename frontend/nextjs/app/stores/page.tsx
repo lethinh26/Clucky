@@ -35,7 +35,7 @@ export default function StoresPage() {
         if (active) setStoreList(data);
       })
       .catch((err) => {
-        if (active) setLoadError(err instanceof Error ? err.message : 'Không thể tải danh sách chi nhánh.');
+        if (active) setLoadError(err instanceof Error ? err.message : t("business.stores.noMatchingStoresFound"));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -175,7 +175,7 @@ export default function StoresPage() {
           </p>
         )}
         {loading ? (
-          <p aria-live="polite" style={{ textAlign: 'center' }}>Đang tải danh sách chi nhánh...</p>
+          <p aria-live="polite" style={{ textAlign: 'center' }}>{t("business.stores.loading")}</p>
         ) : loadError ? null : filteredStores.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 24 }}>
             {filteredStores.map((store) => {

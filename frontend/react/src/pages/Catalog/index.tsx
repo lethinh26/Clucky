@@ -95,11 +95,10 @@ export const CatalogPage: React.FC = () => {
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? { ...p, isActive: checked } : p))
       );
-      message.success(
-        `Đã chuyển "${product.name}" sang ${checked ? 'Đang phục vụ' : 'Tạm dừng bán'}.`
-      );
+      const statusText = checked ? t("business:catalog.available") : t("business:catalog.salesPaused");
+      message.success(t("business:catalog.changedTo", { value1: product.name, value2: statusText }));
     } catch (err) {
-      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái sản phẩm!'));
+      message.error(getErrorMessage(err));
     }
   };
 
@@ -110,11 +109,10 @@ export const CatalogPage: React.FC = () => {
       setCombos((prev) =>
         prev.map((c) => (c.id === combo.id ? { ...c, isActive: checked } : c))
       );
-      message.success(
-        `Đã chuyển Combo "${combo.name}" sang ${checked ? 'Đang áp dụng' : 'Tạm dừng'}.`
-      );
+      const statusText = checked ? t("business:catalog.active") : t("business:catalog.paused");
+      message.success(t("business:catalog.changedComboTo", { value1: combo.name, value2: statusText }));
     } catch (err) {
-      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái gói Combo!'));
+      message.error(getErrorMessage(err));
     }
   };
 
@@ -123,9 +121,9 @@ export const CatalogPage: React.FC = () => {
     try {
       await catalogApi.deleteCombo(combo.id);
       setCombos((prev) => prev.filter((c) => c.id !== combo.id));
-      message.success(`Đã xóa gói Combo "${combo.name}".`);
+      message.success(t("business:catalog.deletedCombo", { value1: combo.name }));
     } catch (err) {
-      message.error(getErrorMessage(err, 'Lỗi xóa gói Combo!'));
+      message.error(getErrorMessage(err));
     }
   };
 
@@ -198,9 +196,9 @@ export const CatalogPage: React.FC = () => {
       try {
         await catalogApi.deleteProduct(productToDelete.id);
         setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
-        message.success(`Đã xóa món "${productToDelete.name}" khỏi thực đơn.`);
+        message.success(t("business:catalog.removedFromTheMenu", { value1: productToDelete.name }));
       } catch (err) {
-        message.error(getErrorMessage(err, 'Lỗi xóa món ăn!'));
+        message.error(getErrorMessage(err));
       } finally {
         setDeleteModalOpen(false);
         setProductToDelete(null);
