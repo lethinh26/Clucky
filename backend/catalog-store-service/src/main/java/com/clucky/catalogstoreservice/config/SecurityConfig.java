@@ -82,6 +82,7 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll();
+                    auth.requestMatchers("/api/catalog/internal/**").hasAnyRole("INTERNAL_SERVICE", "ADMIN");
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })

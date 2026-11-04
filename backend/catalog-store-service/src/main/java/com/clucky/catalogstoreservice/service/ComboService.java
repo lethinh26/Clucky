@@ -11,10 +11,13 @@ import com.clucky.catalogstoreservice.media.CloudinaryMediaAdapter;
 import com.clucky.catalogstoreservice.repository.ComboItemRepository;
 import com.clucky.catalogstoreservice.repository.ComboRepository;
 import com.clucky.catalogstoreservice.repository.ProductRepository;
+import com.clucky.catalogstoreservice.repository.StoreInventoryRepository;
+import com.clucky.catalogstoreservice.repository.StoreProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,34 +29,56 @@ public class ComboService {
     private final ComboRepository comboRepository;
     private final ComboItemRepository comboItemRepository;
     private final ProductRepository productRepository;
+    private final StoreProductRepository storeProductRepository;
+    private final StoreInventoryRepository storeInventoryRepository;
     private final CloudinaryMediaAdapter mediaAdapter;
     private final CatalogCacheService cacheService;
 
     public ComboService(ComboRepository comboRepository,
                         ComboItemRepository comboItemRepository,
                         ProductRepository productRepository,
+                        StoreProductRepository storeProductRepository,
+                        StoreInventoryRepository storeInventoryRepository,
                         CloudinaryMediaAdapter mediaAdapter,
                         CatalogCacheService cacheService) {
         this.comboRepository = comboRepository;
         this.comboItemRepository = comboItemRepository;
         this.productRepository = productRepository;
+        this.storeProductRepository = storeProductRepository;
+        this.storeInventoryRepository = storeInventoryRepository;
         this.mediaAdapter = mediaAdapter;
         this.cacheService = cacheService;
     }
 
     @Transactional(readOnly = true)
     public List<ComboDto.Response> getAllCombos(boolean activeOnly) {
-        List<Combo> combos = activeOnly
-                ? comboRepository.findAllActiveWithItems()
-                : comboRepository.findAllWithItems();
-        return combos.stream().map(this::toResponse).collect(Collectors.toList());
+        return getAllCombos(null, activeOnly);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ComboDto.Response> getAllCombos(Long storeId, boolean activeOnly) {
+        List<Combo> combos = comboRepository.findAllWithItems();
+        OffsetDateTime now = OffsetDateTime.now();
+        if (activeOnly) {
+            combos = combos.stream().filter(c ->
+                Boolean.TRUE.equals(c.getIsActive())
+                && (c.getStartAt() == null || !now.isBefore(c.getStartAt()))
+                && (c.getEndAt() == null || !now.isAfter(c.getEndAt()))
+            ).collect(Collectors.toList());
+        }
+        return combos.stream().map(c -> toResponse(c, storeId)).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public ComboDto.Response getComboById(Long id) {
+        return getComboById(id, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ComboDto.Response getComboById(Long id, Long storeId) {
         Combo combo = comboRepository.findByIdWithItems(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy combo với mã: " + id));
-        return toResponse(combo);
+        return toResponse(combo, storeId);
     }
 
     public ComboDto.Response createCombo(ComboDto.Request request) {
@@ -175,6 +200,49 @@ public class ComboService {
             }
         }
         r.setItems(items);
+        return r;
+    }
+
+    private ComboDto.Response toResponse(Combo c, Long storeId) {
+        ComboDto.Response r = toResponse(c);
+        if (storeId != null) {
+            boolean available = Boolean.TRUE.equals(c.getIsActive());
+            OffsetDateTime now = OffsetDateTime.now();
+            if (c.getStartAt() != null && now.isBefore(c.getStartAt())) available = false;
+            if (c.getEndAt() != null && now.isAfter(c.getEndAt())) available = false;
+
+            boolean soldOut = false;
+            if (c.getItems() == null || c.getItems().isEmpty()) {
+                available = false;
+            } else {
+                for (ComboItem item : c.getItems()) {
+                    Product cp = item.getProduct();
+                    if (cp == null || !Boolean.TRUE.equals(cp.getIsActive())) {
+                        available = false;
+                        break;
+                    }
+                    var spOpt = storeProductRepository.findByStoreIdAndProductId(storeId, cp.getId());
+                    var siOpt = storeInventoryRepository.findByStoreIdAndProductId(storeId, cp.getId());
+                    if (spOpt.isEmpty() || !Boolean.TRUE.equals(spOpt.get().getIsAvailable())) {
+                        available = false;
+                        break;
+                    }
+                    if (Boolean.TRUE.equals(spOpt.get().getIsSoldOut())) {
+                        soldOut = true;
+                        available = false;
+                        break;
+                    }
+                    int required = item.getQuantity() != null && item.getQuantity() > 0 ? item.getQuantity() : 1;
+                    if (siOpt.isEmpty() || (siOpt.get().getQuantityAvailable() != null && siOpt.get().getQuantityAvailable() < required)) {
+                        soldOut = true;
+                        available = false;
+                        break;
+                    }
+                }
+            }
+            r.setIsAvailable(available);
+            r.setIsSoldOut(soldOut);
+        }
         return r;
     }
 }

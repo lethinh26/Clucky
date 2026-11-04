@@ -66,7 +66,7 @@ export default function StoresPage() {
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <span className="eyebrow">
             <Sparkles size={16} className="inline mr-1 text-[#C9A227]" />
-            Find your Clucky
+            {t("business.stores.eyebrow")}
           </span>
           <h1
             style={{

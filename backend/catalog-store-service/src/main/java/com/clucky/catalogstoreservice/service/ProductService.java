@@ -147,7 +147,7 @@ public class ProductService {
         // Auto initialize store_products and store_inventory across all existing stores
         List<Store> stores = storeRepository.findAll();
         for (Store s : stores) {
-            StoreProduct sp = new StoreProduct(null, s, saved, saved.getBasePrice(), true, false);
+            StoreProduct sp = new StoreProduct(null, s, saved, null, true, false);
             storeProductRepository.save(sp);
 
             StoreInventory si = new StoreInventory(null, s, saved, 0, 10, null);

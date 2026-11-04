@@ -171,6 +171,8 @@ export interface ComboItem {
   startAt?: string;
   endAt?: string;
   isActive: boolean;
+  isAvailable?: boolean | null;
+  isSoldOut?: boolean | null;
   items: { productId: number; productName: string; quantity: number; optionId?: number }[];
 }
 
@@ -188,6 +190,8 @@ function comboAsProduct(combo: ComboItem): ProductItem {
     image: combo.imageUrl,
     alt: combo.name,
     isActive: combo.isActive,
+    isAvailable: combo.isAvailable,
+    isSoldOut: combo.isSoldOut,
     options: [],
     toppings: [],
     comboItems: combo.items,
@@ -213,8 +217,10 @@ export const catalogApi = {
     const products = await request<ProductItem[]>(`/api/catalog/products${qs ? `?${qs}` : ''}`);
     if (params?.categoryId !== undefined) return products;
 
-    const activeOnly = params?.activeOnly ?? true;
-    const combos = await request<ComboItem[]>(`/api/catalog/combos?activeOnly=${activeOnly}`);
+    const comboQuery = new URLSearchParams();
+    if (params?.storeId) comboQuery.set('storeId', String(params.storeId));
+    comboQuery.set('activeOnly', String(params?.activeOnly ?? true));
+    const combos = await request<ComboItem[]>(`/api/catalog/combos?${comboQuery.toString()}`);
     const mappedCombos = combos.map(comboAsProduct);
     const keyword = params?.keyword?.toLocaleLowerCase();
     const filteredCombos = keyword
@@ -228,12 +234,12 @@ export const catalogApi = {
   getProductById: async (id: number, storeId?: number): Promise<ProductItem> => {
     return request<ProductItem>(`/api/catalog/products/${id}${storeId ? `?storeId=${storeId}` : ''}`);
   },
-  getComboProductById: async (id: number): Promise<ProductItem> =>
-    comboAsProduct(await request<ComboItem>(`/api/catalog/combos/${id}`)),
-  getCombos: (activeOnly = true) =>
-    request<ComboItem[]>(`/api/catalog/combos?activeOnly=${activeOnly}`),
-  getComboById: (id: number) =>
-    request<ComboItem>(`/api/catalog/combos/${id}`),
+  getComboProductById: async (id: number, storeId?: number): Promise<ProductItem> =>
+    comboAsProduct(await request<ComboItem>(`/api/catalog/combos/${id}${storeId ? `?storeId=${storeId}` : ''}`)),
+  getCombos: (storeId?: number, activeOnly = true) =>
+    request<ComboItem[]>(`/api/catalog/combos?activeOnly=${activeOnly}${storeId ? `&storeId=${storeId}` : ''}`),
+  getComboById: (id: number, storeId?: number) =>
+    request<ComboItem>(`/api/catalog/combos/${id}${storeId ? `?storeId=${storeId}` : ''}`),
 };
 
 export default request;

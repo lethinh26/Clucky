@@ -215,7 +215,7 @@ export const inventoryApi = {
     api.get<InventoryItem[]>(`/api/stores/${storeId}/inventory`).then((r) => r.data),
   updateInventory: (storeId: number, productId: number, data: { quantityAvailable?: number; lowStockThreshold?: number; isSoldOut?: boolean }) =>
     api.put<InventoryItem>(`/api/stores/${storeId}/inventory/${productId}`, data).then((r) => r.data),
-  updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number }) =>
+  updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean }) =>
     api.put(`/api/stores/${storeId}/products/${productId}/availability`, data).then((r) => r.data),
 };
 

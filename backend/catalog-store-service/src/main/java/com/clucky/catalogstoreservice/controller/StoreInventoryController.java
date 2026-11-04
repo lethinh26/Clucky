@@ -54,7 +54,7 @@ public class StoreInventoryController {
             @PathVariable Long productId,
             @Valid @RequestBody InventoryDto.AvailabilityUpdateRequest body) {
         accessGuard.requireStore(storeId);
-        if (body.getStorePrice() != null && CurrentActor.require().role() != Role.ADMIN) {
+        if ((body.getStorePrice() != null || Boolean.TRUE.equals(body.getClearStorePrice())) && CurrentActor.require().role() != Role.ADMIN) {
             throw new AccessDeniedException("Only an Admin can change the store price");
         }
         inventoryService.updateProductAvailability(storeId, productId, body);

@@ -25,15 +25,18 @@ public class ComboController {
 
     @GetMapping
     public ResponseEntity<List<ComboDto.Response>> listCombos(
+            @RequestParam(name = "storeId", required = false) Long storeId,
             @RequestParam(name = "activeOnly", defaultValue = "false") boolean activeOnly) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
-                .body(comboService.getAllCombos(activeOnly));
+                .body(comboService.getAllCombos(storeId, activeOnly));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ComboDto.Response> getCombo(@PathVariable Long id) {
-        return ResponseEntity.ok(comboService.getComboById(id));
+    public ResponseEntity<ComboDto.Response> getCombo(
+            @PathVariable Long id,
+            @RequestParam(name = "storeId", required = false) Long storeId) {
+        return ResponseEntity.ok(comboService.getComboById(id, storeId));
     }
 
     @PostMapping

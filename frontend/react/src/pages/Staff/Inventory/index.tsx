@@ -34,7 +34,7 @@ import { inventoryApi, storesApi, getErrorMessage, type InventoryItem, type Stor
 export const StaffInventoryPage: React.FC = () => {
   const { t } = useTranslation();
 
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isStaff } = useAuth();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -143,10 +143,14 @@ export const StaffInventoryPage: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (editingItem && activeStoreId) {
-        const updated = await inventoryApi.updateInventory(activeStoreId, editingItem.productId, {
+        const payload: { quantityAvailable?: number; lowStockThreshold?: number } = {
           quantityAvailable: values.quantityAvailable,
-          lowStockThreshold: values.lowStockThreshold,
-        });
+        };
+        if (!isStaff && values.lowStockThreshold != null) {
+          payload.lowStockThreshold = values.lowStockThreshold;
+        }
+
+        const updated = await inventoryApi.updateInventory(activeStoreId, editingItem.productId, payload);
         setInventory((prev) =>
           prev.map((i) =>
             i.productId === editingItem.productId ? updated : i
@@ -485,9 +489,9 @@ export const StaffInventoryPage: React.FC = () => {
           <Form.Item
             name="lowStockThreshold"
             label={t("business:inventory.lowStockAlertThresholdServings")}
-            rules={[{ required: true, message: t("business:inventory.pleaseEnterAnAlertThreshold") }]}
+            rules={isStaff ? [] : [{ required: true, message: t("business:inventory.pleaseEnterAnAlertThreshold") }]}
           >
-            <InputNumber min={1} max={500} style={{ width: '100%', height: 40 }} />
+            <InputNumber min={1} max={500} disabled={isStaff} style={{ width: '100%', height: 40 }} />
           </Form.Item>
 
           <div

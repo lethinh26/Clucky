@@ -1,13 +1,57 @@
 SET search_path TO catalog_service, public;
 
-INSERT INTO stores (id, name, address, phone, open_time, close_time, status, delivery_area)
+-- Foreign key cascade adjustment if tables already existed without ON DELETE CASCADE
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'product_options_product_id_fkey' AND table_schema = 'catalog_service'
+  ) THEN
+    ALTER TABLE catalog_service.product_options DROP CONSTRAINT product_options_product_id_fkey;
+    ALTER TABLE catalog_service.product_options ADD CONSTRAINT product_options_product_id_fkey
+      FOREIGN KEY (product_id) REFERENCES catalog_service.products(id) ON DELETE CASCADE;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name = 'product_toppings_product_id_fkey' AND table_schema = 'catalog_service'
+  ) THEN
+    ALTER TABLE catalog_service.product_toppings DROP CONSTRAINT product_toppings_product_id_fkey;
+    ALTER TABLE catalog_service.product_toppings ADD CONSTRAINT product_toppings_product_id_fkey
+      FOREIGN KEY (product_id) REFERENCES catalog_service.products(id) ON DELETE CASCADE;
+  END IF;
+
+  -- Ensure non-negative price constraints
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_combos_price'
+  ) THEN
+    ALTER TABLE combos ADD CONSTRAINT chk_combos_price CHECK (combo_price >= 0);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_product_options_price'
+  ) THEN
+    ALTER TABLE product_options ADD CONSTRAINT chk_product_options_price CHECK (extra_price >= 0);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_product_toppings_price'
+  ) THEN
+    ALTER TABLE product_toppings ADD CONSTRAINT chk_product_toppings_price CHECK (extra_price >= 0);
+  END IF;
+END $$;
+
+INSERT INTO stores (id, name, address, district, city, phone, open_time, close_time, status, delivery_area)
 VALUES
- (1, 'Clucky Lê Lợi (Flagship Store)', '128 Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh', '02873001234', '09:00', '22:30', 'ACTIVE', 'Quận 1, Quận 3, Quận 4, Bình Thạnh (bán kính 5km)'),
- (2, 'Clucky Phan Văn Trị', '245 Phan Văn Trị, Phường 11, Quận Gò Vấp, TP. Hồ Chí Minh', '02873005678', '09:00', '22:00', 'ACTIVE', 'Gò Vấp, Bình Thạnh, Phú Nhuận, Quận 12'),
- (3, 'Clucky Nguyễn Trãi', '192 Nguyễn Trãi, Phường 3, Quận 5, TP. Hồ Chí Minh', '02873009012', '10:00', '23:00', 'ACTIVE', 'Quận 5, Quận 10, Quận 11, Quận 6 (bán kính 6km)'),
- (4, 'Clucky Lê Văn Việt (Thủ Đức)', '88 Lê Văn Việt, Phường Hiệp Phú, TP. Thủ Đức, TP. Hồ Chí Minh', '02873003456', '10:00', '22:00', 'ACTIVE', 'Khu công nghệ cao, Làng Đại học, TP. Thủ Đức, Quận 9'),
- (5, 'Clucky Landmark 81 (Tạm đóng bảo trì)', 'Tầng B1, TTTM Landmark 81, 720A Điện Biên Phủ, Bình Thạnh, TP. Hồ Chí Minh', '02873007890', '09:30', '22:00', 'CLOSED_TEMP', 'Vinhomes Central Park, Bình Thạnh, Thảo Điền TP. Thủ Đức')
-ON CONFLICT (id) DO NOTHING;
+ (1, 'Clucky Lê Lợi (Flagship Store)', '128 Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh', 'Quận 1', 'TP. Hồ Chí Minh', '02873001234', '09:00', '22:30', 'OPEN', 'Quận 1, Quận 3, Quận 4, Bình Thạnh (bán kính 5km)'),
+ (2, 'Clucky Phan Văn Trị', '245 Phan Văn Trị, Phường 11, Quận Gò Vấp, TP. Hồ Chí Minh', 'Gò Vấp', 'TP. Hồ Chí Minh', '02873005678', '09:00', '22:00', 'INACTIVE', 'Gò Vấp, Bình Thạnh, Phú Nhuận, Quận 12'),
+ (3, 'Clucky Nguyễn Trãi', '192 Nguyễn Trãi, Phường 3, Quận 5, TP. Hồ Chí Minh', 'Quận 5', 'TP. Hồ Chí Minh', '02873009012', '10:00', '23:00', 'OPEN', 'Quận 5, Quận 10, Quận 11, Quận 6 (bán kính 6km)'),
+ (4, 'Clucky Lê Văn Việt (Thủ Đức)', '88 Lê Văn Việt, Phường Hiệp Phú, TP. Thủ Đức, TP. Hồ Chí Minh', 'TP. Thủ Đức', 'TP. Hồ Chí Minh', '02873003456', '10:00', '22:00', 'OPEN', 'Khu công nghệ cao, Làng Đại học, TP. Thủ Đức, Quận 9'),
+ (5, 'Clucky Landmark 81 (Tạm đóng bảo trì)', 'Tầng B1, TTTM Landmark 81, 720A Điện Biên Phủ, Bình Thạnh, TP. Hồ Chí Minh', 'Bình Thạnh', 'TP. Hồ Chí Minh', '02873007890', '09:30', '22:00', 'CLOSED_TEMP', 'Vinhomes Central Park, Bình Thạnh, Thảo Điền TP. Thủ Đức')
+ON CONFLICT (id) DO UPDATE SET
+  district = EXCLUDED.district,
+  city = EXCLUDED.city,
+  status = EXCLUDED.status;
 
 INSERT INTO categories (id, name, sort_order, is_active)
 VALUES
@@ -82,12 +126,18 @@ VALUES
  (2, 5, 2)
 ON CONFLICT DO NOTHING;
 
--- Store Products (Availability per store)
+-- Store Products (Availability per store, store_price is NULL by default to inherit base_price)
 INSERT INTO store_products (store_id, product_id, store_price, is_available, is_sold_out)
-SELECT s.id, p.id, p.base_price, TRUE,
+SELECT s.id, p.id, NULL, TRUE,
   CASE WHEN s.id = 1 AND p.id = 7 THEN TRUE ELSE FALSE END
 FROM stores s CROSS JOIN products p
 ON CONFLICT (store_id, product_id) DO NOTHING;
+
+-- Reset any legacy store_price back to NULL if equal to base_price (inherit base_price)
+UPDATE store_products sp
+SET store_price = NULL
+FROM products p
+WHERE sp.product_id = p.id AND sp.store_price = p.base_price;
 
 -- Store Inventory
 INSERT INTO store_inventory (store_id, product_id, quantity_available, low_stock_threshold, updated_by, updated_at)

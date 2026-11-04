@@ -11,6 +11,7 @@ public class InventoryDto {
         private Boolean isSoldOut;
         @DecimalMin(value = "0.0")
         private BigDecimal storePrice;
+        private Boolean clearStorePrice;
 
         public Boolean getIsAvailable() { return isAvailable; }
         public void setIsAvailable(Boolean isAvailable) { this.isAvailable = isAvailable; }
@@ -20,6 +21,9 @@ public class InventoryDto {
 
         public BigDecimal getStorePrice() { return storePrice; }
         public void setStorePrice(BigDecimal storePrice) { this.storePrice = storePrice; }
+
+        public Boolean getClearStorePrice() { return clearStorePrice; }
+        public void setClearStorePrice(Boolean clearStorePrice) { this.clearStorePrice = clearStorePrice; }
     }
 
     public static class InventoryResponse {

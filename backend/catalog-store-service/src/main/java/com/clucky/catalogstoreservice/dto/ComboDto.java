@@ -52,6 +52,8 @@ public class ComboDto {
         private String startAt;
         private String endAt;
         private Boolean isActive;
+        private Boolean isAvailable;
+        private Boolean isSoldOut;
         private List<ItemDto> items = new ArrayList<>();
 
         public Response() {}
@@ -86,6 +88,12 @@ public class ComboDto {
         public Boolean getIsActive() { return isActive; }
         public void setIsActive(Boolean isActive) { this.isActive = isActive; }
 
+        public Boolean getIsAvailable() { return isAvailable; }
+        public void setIsAvailable(Boolean isAvailable) { this.isAvailable = isAvailable; }
+
+        public Boolean getIsSoldOut() { return isSoldOut; }
+        public void setIsSoldOut(Boolean isSoldOut) { this.isSoldOut = isSoldOut; }
+
         public List<ItemDto> getItems() { return items; }
         public void setItems(List<ItemDto> items) { this.items = items; }
     }
@@ -98,6 +106,7 @@ public class ComboDto {
         private String description;
 
         @NotNull(message = "Giá combo không được để trống")
+        @DecimalMin(value = "0.0", message = "Giá combo không được âm")
         private BigDecimal comboPrice;
 
         private String imageUrl;

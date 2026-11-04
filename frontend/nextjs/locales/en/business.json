@@ -221,6 +221,7 @@
     "backToForm": "Back to form"
   },
   "stores": {
+    "eyebrow": "Find your Clucky",
     "cluckyStores": "Clucky stores",
     "pickUpAHotCrispyMealAtAStoreOrChooseYour": "Pick up a hot, crispy meal at a store or choose your nearest branch for fast delivery.",
     "searchByStoreNameStreetDistrict": "Search by store name, street, district...",

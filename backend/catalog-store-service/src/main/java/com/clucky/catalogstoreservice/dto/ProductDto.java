@@ -16,7 +16,10 @@ public class ProductDto {
 
     public static class OptionChoiceDto {
         private String id;
+        @NotBlank(message = "Tên lựa chọn không được để trống")
         private String name;
+        @NotNull(message = "Giá điều chỉnh không được để trống")
+        @DecimalMin(value = "0.0", message = "Giá điều chỉnh không được âm")
         private BigDecimal priceAdjustment = BigDecimal.ZERO;
 
         public OptionChoiceDto() {}
@@ -39,8 +42,10 @@ public class ProductDto {
 
     public static class OptionGroupDto {
         private String id;
+        @NotBlank(message = "Tên nhóm tùy chọn không được để trống")
         private String name;
         private boolean required = true;
+        @Valid
         private List<OptionChoiceDto> choices = new ArrayList<>();
 
         public OptionGroupDto() {}
@@ -67,7 +72,10 @@ public class ProductDto {
 
     public static class ToppingDto {
         private String id;
+        @NotBlank(message = "Tên topping không được để trống")
         private String name;
+        @NotNull(message = "Giá topping không được để trống")
+        @DecimalMin(value = "0.0", message = "Giá topping không được âm")
         private BigDecimal price = BigDecimal.ZERO;
 
         public ToppingDto() {}
@@ -217,7 +225,9 @@ public class ProductDto {
         private Integer spicyLevel;
         private Boolean isActive;
 
+        @Valid
         private List<OptionGroupDto> options;
+        @Valid
         private List<ToppingDto> toppings;
 
         public String getName() { return name; }

@@ -8,9 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -76,6 +75,29 @@ public class ValidationService {
             return response;
         }
 
+        // Aggregate total demanded quantities per product across standalone items and combos
+        Map<Long, Integer> totalDemandedQuantity = new HashMap<>();
+        Map<Long, Combo> comboCache = new HashMap<>();
+
+        for (ValidationDto.ValidateItemRequest itemReq : request.getItems()) {
+            int qty = itemReq.getQuantity() != null && itemReq.getQuantity() > 0 ? itemReq.getQuantity() : 1;
+            if (itemReq.getProductId() != null) {
+                totalDemandedQuantity.merge(itemReq.getProductId(), qty, Integer::sum);
+            } else if (itemReq.getComboId() != null) {
+                Combo combo = comboCache.computeIfAbsent(itemReq.getComboId(), id ->
+                        comboRepository.findByIdWithItems(id).orElse(null)
+                );
+                if (combo != null && combo.getItems() != null) {
+                    for (ComboItem ci : combo.getItems()) {
+                        if (ci.getProduct() != null && ci.getProduct().getId() != null) {
+                            int compQty = (ci.getQuantity() != null && ci.getQuantity() > 0 ? ci.getQuantity() : 1) * qty;
+                            totalDemandedQuantity.merge(ci.getProduct().getId(), compQty, Integer::sum);
+                        }
+                    }
+                }
+            }
+        }
+
         for (ValidationDto.ValidateItemRequest itemReq : request.getItems()) {
             ValidationDto.ValidatedItem itemResult = new ValidationDto.ValidatedItem();
             int qty = itemReq.getQuantity() != null && itemReq.getQuantity() > 0 ? itemReq.getQuantity() : 1;
@@ -93,68 +115,185 @@ public class ValidationService {
                     Product prod = prodOpt.get();
                     itemResult.setName(prod.getName());
 
-                    // Check availability at store
+                    // Check availability & inventory strictly at store
                     Optional<StoreProduct> spOpt = storeProductRepository.findByStoreIdAndProductId(store.getId(), prod.getId());
                     Optional<StoreInventory> siOpt = storeInventoryRepository.findByStoreIdAndProductId(store.getId(), prod.getId());
 
-                    boolean soldOut = spOpt.map(sp -> Boolean.TRUE.equals(sp.getIsSoldOut())).orElse(false)
-                            || siOpt.map(si -> si.getQuantityAvailable() < qty).orElse(false);
-
-                    if (soldOut) {
+                    if (spOpt.isEmpty()) {
+                        itemResult.setAvailable(false);
+                        itemResult.setReason("Món ăn không khả dụng tại chi nhánh này.");
+                        allValid = false;
+                    } else if (!Boolean.TRUE.equals(spOpt.get().getIsAvailable())) {
+                        itemResult.setAvailable(false);
+                        itemResult.setReason("Món ăn hiện không được bán tại chi nhánh này.");
+                        allValid = false;
+                    } else if (Boolean.TRUE.equals(spOpt.get().getIsSoldOut())) {
                         itemResult.setAvailable(false);
                         itemResult.setReason("Món ăn đã hết hàng tại chi nhánh này.");
                         allValid = false;
+                    } else if (siOpt.isEmpty()) {
+                        itemResult.setAvailable(false);
+                        itemResult.setReason("Món ăn không có dữ liệu tồn kho tại chi nhánh này.");
+                        allValid = false;
+                    } else {
+                        int availableStock = siOpt.get().getQuantityAvailable() != null ? siOpt.get().getQuantityAvailable() : 0;
+                        int requiredStock = totalDemandedQuantity.getOrDefault(prod.getId(), qty);
+                        if (availableStock < requiredStock) {
+                            itemResult.setAvailable(false);
+                            itemResult.setReason("Món ăn không đủ số lượng tồn kho tại chi nhánh.");
+                            allValid = false;
+                        }
                     }
 
-                    BigDecimal unitPrice = spOpt.map(StoreProduct::getStorePrice).filter(p -> p != null).orElse(prod.getBasePrice());
+                    BigDecimal unitPrice = spOpt.map(StoreProduct::getStorePrice).filter(Objects::nonNull).orElse(prod.getBasePrice());
                     itemResult.setUnitPrice(unitPrice);
 
-                    // Calculate extra price from options
-                    BigDecimal extras = BigDecimal.ZERO;
-                    if (itemReq.getOptionIds() != null) {
-                        for (Long optId : itemReq.getOptionIds()) {
-                            Optional<ProductOption> opt = optionRepository.findById(optId);
-                            if (opt.isPresent() && opt.get().getProduct().getId().equals(prod.getId())) {
-                                extras = extras.add(opt.get().getExtraPrice());
+                    // Validate required option groups and reject invalid/foreign option IDs
+                    List<ProductOption> productOptions = optionRepository.findByProductId(prod.getId());
+                    Map<String, List<ProductOption>> groupMap = productOptions.stream()
+                            .collect(Collectors.groupingBy(ProductOption::getGroupName, LinkedHashMap::new, Collectors.toList()));
+                    Map<Long, ProductOption> validOptionMap = productOptions.stream()
+                            .collect(Collectors.toMap(ProductOption::getId, o -> o));
+
+                    BigDecimal optionExtras = BigDecimal.ZERO;
+                    boolean optionsValid = true;
+                    Set<String> chosenGroups = new HashSet<>();
+                    List<Long> requestedOptionIds = itemReq.getOptionIds() != null ? itemReq.getOptionIds() : Collections.emptyList();
+
+                    for (Long optId : requestedOptionIds) {
+                        ProductOption opt = validOptionMap.get(optId);
+                        if (opt == null) {
+                            itemResult.setAvailable(false);
+                            itemResult.setReason("Tùy chọn (optionId=" + optId + ") không hợp lệ hoặc không thuộc món ăn này.");
+                            allValid = false;
+                            optionsValid = false;
+                            break;
+                        }
+                        if (!chosenGroups.add(opt.getGroupName())) {
+                            itemResult.setAvailable(false);
+                            itemResult.setReason("Không thể chọn nhiều hơn 1 tùy chọn cho nhóm '" + opt.getGroupName() + "'.");
+                            allValid = false;
+                            optionsValid = false;
+                            break;
+                        }
+                        optionExtras = optionExtras.add(opt.getExtraPrice());
+                    }
+
+                    if (optionsValid) {
+                        for (String groupName : groupMap.keySet()) {
+                            if (!chosenGroups.contains(groupName)) {
+                                itemResult.setAvailable(false);
+                                itemResult.setReason("Thiếu tùy chọn bắt buộc cho nhóm '" + groupName + "'.");
+                                allValid = false;
+                                optionsValid = false;
+                                break;
                             }
                         }
                     }
 
-                    // Calculate extra price from toppings
-                    if (itemReq.getToppingIds() != null) {
-                        for (Long topId : itemReq.getToppingIds()) {
-                            Optional<ProductTopping> top = toppingRepository.findById(topId);
-                            if (top.isPresent() && top.get().getProduct().getId().equals(prod.getId())) {
-                                extras = extras.add(top.get().getExtraPrice());
-                            }
+                    // Validate toppings and reject invalid/foreign topping IDs
+                    BigDecimal toppingExtras = BigDecimal.ZERO;
+                    boolean toppingsValid = true;
+                    List<ProductTopping> productToppings = toppingRepository.findByProductId(prod.getId());
+                    Map<Long, ProductTopping> validToppingMap = productToppings.stream()
+                            .collect(Collectors.toMap(ProductTopping::getId, t -> t));
+                    List<Long> requestedToppingIds = itemReq.getToppingIds() != null ? itemReq.getToppingIds() : Collections.emptyList();
+
+                    for (Long topId : requestedToppingIds) {
+                        ProductTopping top = validToppingMap.get(topId);
+                        if (top == null) {
+                            itemResult.setAvailable(false);
+                            itemResult.setReason("Topping (toppingId=" + topId + ") không hợp lệ hoặc không thuộc món ăn này.");
+                            allValid = false;
+                            toppingsValid = false;
+                            break;
                         }
+                        toppingExtras = toppingExtras.add(top.getExtraPrice());
                     }
 
-                    itemResult.setExtraPrice(extras);
-                    BigDecimal lineTotal = unitPrice.add(extras).multiply(BigDecimal.valueOf(qty));
-                    itemResult.setLineTotal(lineTotal);
-                    totalSubtotal = totalSubtotal.add(lineTotal);
+                    if (optionsValid && toppingsValid && itemResult.isAvailable()) {
+                        BigDecimal extras = optionExtras.add(toppingExtras);
+                        itemResult.setExtraPrice(extras);
+                        BigDecimal lineTotal = unitPrice.add(extras).multiply(BigDecimal.valueOf(qty));
+                        itemResult.setLineTotal(lineTotal);
+                        totalSubtotal = totalSubtotal.add(lineTotal);
+                    } else {
+                        itemResult.setExtraPrice(BigDecimal.ZERO);
+                        itemResult.setLineTotal(BigDecimal.ZERO);
+                    }
                 }
             } else if (itemReq.getComboId() != null) {
                 // Validate Combo
                 itemResult.setComboId(itemReq.getComboId());
-                Optional<Combo> comboOpt = comboRepository.findByIdWithItems(itemReq.getComboId());
-                if (comboOpt.isEmpty() || !Boolean.TRUE.equals(comboOpt.get().getIsActive())) {
+                Combo combo = comboCache.computeIfAbsent(itemReq.getComboId(), id ->
+                        comboRepository.findByIdWithItems(id).orElse(null)
+                );
+
+                if (combo == null || !Boolean.TRUE.equals(combo.getIsActive())) {
                     itemResult.setAvailable(false);
-                    itemResult.setReason("Combo không tồn tại hoặc đã hết hạn áp dụng.");
+                    itemResult.setReason("Combo không tồn tại hoặc đã ngừng áp dụng.");
                     allValid = false;
                 } else {
-                    Combo combo = comboOpt.get();
                     OffsetDateTime now = OffsetDateTime.now();
                     if (combo.getStartAt() != null && now.isBefore(combo.getStartAt())) {
                         itemResult.setAvailable(false);
                         itemResult.setReason("Combo chưa đến thời gian áp dụng.");
                         allValid = false;
-                    }
-                    if (combo.getEndAt() != null && now.isAfter(combo.getEndAt())) {
+                    } else if (combo.getEndAt() != null && now.isAfter(combo.getEndAt())) {
                         itemResult.setAvailable(false);
                         itemResult.setReason("Combo đã hết thời gian áp dụng.");
                         allValid = false;
+                    } else if (combo.getItems() == null || combo.getItems().isEmpty()) {
+                        itemResult.setAvailable(false);
+                        itemResult.setReason("Combo chưa có món thành phần.");
+                        allValid = false;
+                    } else {
+                        // Check availability and stock for each combo component
+                        for (ComboItem ci : combo.getItems()) {
+                            Product cp = ci.getProduct();
+                            if (cp == null || !Boolean.TRUE.equals(cp.getIsActive())) {
+                                itemResult.setAvailable(false);
+                                itemResult.setReason("Món '" + (cp != null ? cp.getName() : "thành phần") + "' trong combo đã ngừng phục vụ.");
+                                allValid = false;
+                                break;
+                            }
+
+                            Optional<StoreProduct> spOpt = storeProductRepository.findByStoreIdAndProductId(store.getId(), cp.getId());
+                            Optional<StoreInventory> siOpt = storeInventoryRepository.findByStoreIdAndProductId(store.getId(), cp.getId());
+
+                            if (spOpt.isEmpty()) {
+                                itemResult.setAvailable(false);
+                                itemResult.setReason("Món '" + cp.getName() + "' trong combo không khả dụng tại chi nhánh này.");
+                                allValid = false;
+                                break;
+                            }
+                            if (!Boolean.TRUE.equals(spOpt.get().getIsAvailable())) {
+                                itemResult.setAvailable(false);
+                                itemResult.setReason("Món '" + cp.getName() + "' trong combo không được bán tại chi nhánh này.");
+                                allValid = false;
+                                break;
+                            }
+                            if (Boolean.TRUE.equals(spOpt.get().getIsSoldOut())) {
+                                itemResult.setAvailable(false);
+                                itemResult.setReason("Món '" + cp.getName() + "' trong combo đã hết hàng tại chi nhánh này.");
+                                allValid = false;
+                                break;
+                            }
+                            if (siOpt.isEmpty()) {
+                                itemResult.setAvailable(false);
+                                itemResult.setReason("Món '" + cp.getName() + "' trong combo không có dữ liệu tồn kho tại chi nhánh này.");
+                                allValid = false;
+                                break;
+                            }
+                            int availableStock = siOpt.get().getQuantityAvailable() != null ? siOpt.get().getQuantityAvailable() : 0;
+                            int requiredStock = totalDemandedQuantity.getOrDefault(cp.getId(), 0);
+                            if (availableStock < requiredStock) {
+                                itemResult.setAvailable(false);
+                                itemResult.setReason("Món '" + cp.getName() + "' trong combo không đủ tồn kho tại chi nhánh.");
+                                allValid = false;
+                                break;
+                            }
+                        }
                     }
 
                     itemResult.setName(combo.getName());

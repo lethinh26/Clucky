@@ -19,14 +19,17 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "npm run start -- --hostname 127.0.0.1 --port 4174",
-      url: "http://127.0.0.1:4174",
-      reuseExistingServer: false,
-    },
-    {
       command: "node tests/fixtures/server.mjs",
       url: "http://127.0.0.1:4175",
       reuseExistingServer: false,
+    },
+    {
+      command: "npm run start -- --hostname 127.0.0.1 --port 4174",
+      url: "http://127.0.0.1:4174",
+      reuseExistingServer: false,
+      env: {
+        NEXT_PUBLIC_API_URL: "http://127.0.0.1:4175",
+      },
     },
   ],
 });

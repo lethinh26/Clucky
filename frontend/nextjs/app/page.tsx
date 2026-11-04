@@ -23,14 +23,8 @@ export default async function Home() {
     displayProducts = prods;
     liveCategories = cats;
   } catch {
-    // Provide standard category navigation when backend is unavailable (e.g. CI UI tests)
-    liveCategories = [
-      { id: 1, name: t("menu.categories.chicken") },
-      { id: 2, name: t("menu.categories.burger") },
-      { id: 3, name: t("menu.categories.combo") },
-      { id: 4, name: t("menu.categories.sides") },
-      { id: 5, name: t("menu.categories.drinks") },
-    ];
+    displayProducts = [];
+    liveCategories = [];
   }
 
   const displayCategories: DisplayCategory[] = [
@@ -50,17 +44,9 @@ export default async function Home() {
       <main>
         {/* Hero Section */}
         <Hero
-          eyebrow="Fresh from the fryer"
-          titleTop={
-            <>
-              Crispy <strong>outside.</strong>
-            </>
-          }
-          titleBottom={
-            <>
-              Happy <strong>inside.</strong>
-            </>
-          }
+          eyebrow={t("home.hero.eyebrow")}
+          titleTop={t("home.hero.titleTop")}
+          titleBottom={t("home.hero.titleBottom")}
           description={t("home.hero.description")}
           actions={[
             { href: "/menu", label: t("home.hero.order"), variant: "primary" },

@@ -118,7 +118,7 @@ function MenuContent() {
       <div style={{ padding: '32px 0 24px', textAlign: 'center' }}>
         <span className="eyebrow">
           <Sparkles size={16} className="inline mr-1 text-[#C9A227]" />
-          Fresh from the fryer
+          {t("menu.eyebrow")}
         </span>
         <h1
           style={{

@@ -109,7 +109,7 @@ public class InventoryService {
                             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh: " + storeId));
                     Product p = productRepository.findById(productId)
                             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn: " + productId));
-                    return new StoreProduct(null, s, p, p.getBasePrice(), true, false);
+                    return new StoreProduct(null, s, p, null, true, false);
                 });
 
         if (request.getIsAvailable() != null) {
@@ -118,7 +118,9 @@ public class InventoryService {
         if (request.getIsSoldOut() != null) {
             sp.setIsSoldOut(request.getIsSoldOut());
         }
-        if (request.getStorePrice() != null) {
+        if (Boolean.TRUE.equals(request.getClearStorePrice())) {
+            sp.setStorePrice(null);
+        } else if (request.getStorePrice() != null) {
             sp.setStorePrice(request.getStorePrice());
         }
         storeProductRepository.save(sp);
