@@ -1,6 +1,7 @@
 package com.clucky.cartorderservice.controller;
 
 import com.clucky.cartorderservice.config.CurrentActor;
+import com.clucky.cartorderservice.dto.Role;
 import com.clucky.cartorderservice.entity.OrderItem;
 import com.clucky.cartorderservice.exception.ApiException;
 import com.clucky.cartorderservice.exception.ErrorCode;
@@ -47,4 +48,20 @@ public class OrderVerificationController {
 
     public record OrderVerificationResponse(Long id, String orderCode, Long customerId,
             String status, List<Long> productIds) {}
+
+    @GetMapping("/api/internal/orders/{orderId}/store")
+    @PreAuthorize("hasAnyRole('STAFF', 'STORE_MANAGER', 'ADMIN')")
+    @Transactional(readOnly = true)
+    public OrderStoreResponse getStore(@PathVariable @Positive Long orderId) {
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() != Role.ADMIN && actor.role() != Role.STAFF && actor.role() != Role.STORE_MANAGER) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+        var order = (actor.role() == Role.ADMIN ? orders.findById(orderId)
+                : orders.findByIdAndStoreId(orderId, actor.storeId()))
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        return new OrderStoreResponse(order.getId(), order.getStoreId());
+    }
+
+    public record OrderStoreResponse(Long orderId, Long storeId) {}
 }

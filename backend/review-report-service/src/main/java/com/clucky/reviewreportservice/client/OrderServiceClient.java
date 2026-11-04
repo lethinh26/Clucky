@@ -12,5 +12,12 @@ public interface OrderServiceClient {
         List<Long> productIds
     ) {}
 
+    record OrderStoreDto(
+        Long orderId,
+        Long storeId
+    ) {}
+
     OrderVerificationDto getOrderForReview(Long orderId, Long customerId);
+
+    Long getOrderStoreId(Long orderId);
 }

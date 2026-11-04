@@ -136,6 +136,16 @@ Quy ước chung:
 - Mỗi `(customer_id, order_id, product_id)` có tối đa một review đang lưu, kể cả review HIDDEN. Review trùng trả 409. Migration V4 thêm UNIQUE; nếu dữ liệu cũ đã trùng, migration dừng để xử lý thủ công, không tự xóa review/phản hồi.
 - Audit vẫn thuộc Audit Service; không tạo entity/bảng audit trong Review Report. Producer audit thuộc phạm vi tích hợp riêng.
 
+### Reply/hide và bàn giao audit BE-41
+
+- Reply chỉ cho STAFF/STORE_MANAGER/ADMIN; hide chỉ STORE_MANAGER/ADMIN. Actor/role/store lấy từ JWT. `GET /api/internal/orders/{orderId}/store` tại Cart Order nhận cùng Bearer JWT, giới hạn STAFF/STORE_MANAGER bằng `storeId` trong JWT và cho ADMIN đọc toàn hệ thống; trả `{orderId, storeId}`. Không có route Gateway cho endpoint nội bộ này.
+- Review Report xác minh ID đơn và store từ response; không dùng store mặc định khi lỗi. Không tìm thấy đơn trong scope trả 404, thiếu quyền trả 403, dependency không sẵn sàng trả 503, response sai contract trả 502. ADMIN cũng lấy store thực tế của đối tượng để ghi nhận mutation.
+- Lý do hide là tùy chọn, tối đa 500 ký tự; không lưu/phát nội dung tự do này vào audit. Reply content cũng không đi vào audit để tránh lưu secret do người dùng nhập.
+- Migration V5 thêm optimistic version cho review: update/hide đồng thời trên phiên bản cũ bị rollback và trả 409, không ghi đè HIDDEN bằng trạng thái cũ. Hide lại một review đã HIDDEN không tạo mutation mới.
+- V5 tạo `review_report_service.audit_outbox` để giữ **ý định phát sự kiện**, không phải bảng lịch sử audit. Ghi outbox trong cùng transaction JPA/JDBC với reply/hide; rollback (kể cả optimistic conflict) phải rollback cả outbox.
+- Cột `event` chứa envelope `DomainEvent`: eventId/correlationId/eventType=`audit.recorded`/sourceService/occurredAt/payload. Payload có actorId/actorRole/storeId/action/targetType=`REVIEW`/targetId/before/after; hide chỉ ghi status VISIBLE→HIDDEN, reply chỉ ghi replyId. ID và store lấy từ backend, không từ body/header tự khai.
+- **Giới hạn bàn giao:** chưa có dispatcher Kafka, consumer Audit hoặc API đọc outbox. INT-48 phải phát/retry giữ nguyên eventId, chỉ đánh dấu/xóa bản ghi sau broker ack bền vững, consumer dedup theo eventId và mở rộng allowlist status/replyId ở Audit. Không coi mutation pending trong outbox là đã xuất hiện tại `/api/audit-logs`; không tự xóa pending event khi chưa bàn giao.
+
 # AUDIT SERVICE — /api/audit-logs
 | Method & Path | Quyền | Mô tả |
 |---|---|---|

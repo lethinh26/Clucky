@@ -14,6 +14,8 @@ import com.clucky.reviewreportservice.exception.ErrorCode;
 import com.clucky.reviewreportservice.exception.ForbiddenException;
 import com.clucky.reviewreportservice.mapper.DomainMapper;
 import com.clucky.reviewreportservice.repository.ReviewRepository;
+import com.clucky.reviewreportservice.repository.ReviewReplyRepository;
+import com.clucky.reviewreportservice.service.ReviewAuditOutbox;
 import com.clucky.reviewreportservice.service.ReviewService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -111,7 +113,8 @@ class ReviewSafetyTest {
     void rejectsInvalidOrderEvidenceBeforeWriting() {
         ReviewRepository repository = mock(ReviewRepository.class);
         OrderServiceClient orders = mock(OrderServiceClient.class);
-        ReviewService service = new ReviewService(repository, orders);
+        ReviewService service = new ReviewService(repository, orders,
+                mock(ReviewReplyRepository.class), mock(ReviewAuditOutbox.class));
         for (OrderVerificationDto order : List.of(
                 new OrderVerificationDto(10L, "ORD-10", 8L, "COMPLETED", List.of(20L)),
                 new OrderVerificationDto(11L, "ORD-11", 7L, "COMPLETED", List.of(20L)),
@@ -135,7 +138,8 @@ class ReviewSafetyTest {
     void createsVerifiedReviewAndRejectsDuplicates() {
         ReviewRepository repository = mock(ReviewRepository.class);
         OrderServiceClient orders = mock(OrderServiceClient.class);
-        ReviewService service = new ReviewService(repository, orders);
+        ReviewService service = new ReviewService(repository, orders,
+                mock(ReviewReplyRepository.class), mock(ReviewAuditOutbox.class));
         when(orders.getOrderForReview(10L, 7L))
                 .thenReturn(new OrderVerificationDto(10L, "ORD-10", 7L, "COMPLETED", List.of(20L)));
         when(repository.save(any(Review.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -149,7 +153,8 @@ class ReviewSafetyTest {
     @Test
     void preservesOwnershipVisibilityAndLegacyMapping() {
         ReviewRepository repository = mock(ReviewRepository.class);
-        ReviewService service = new ReviewService(repository, mock(OrderServiceClient.class));
+        ReviewService service = new ReviewService(repository, mock(OrderServiceClient.class),
+                mock(ReviewReplyRepository.class), mock(ReviewAuditOutbox.class));
         Review review = new Review(7L, 20L, 10L, 5, "Great food");
         review.setId(1L);
         when(repository.findById(1L)).thenReturn(Optional.of(review));
