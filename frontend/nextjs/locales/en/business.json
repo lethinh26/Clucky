@@ -227,6 +227,8 @@
     "allStores": "All stores",
     "cluckyStoresInHoChiMinhCity": "Clucky stores in Ho Chi Minh City",
     "openNow": "● Open now",
+    "underMaintenance": "○ Under maintenance",
+    "closed": "✕ Closed",
     "temporarilyClosed": "Temporarily closed",
     "openingHours": "Opening hours:",
     "delivery": "Delivery:",

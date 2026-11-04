@@ -29,21 +29,15 @@ import { AdminTable } from '../../components/ui/AdminTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AdminModal } from '../../components/ui/AdminModal';
 import { useAuth } from '../../context/AuthContext';
-import {
-  Store,
-  StoreStatus,
-  getStoreStatusMeta,
-  normalizeStoreStatus,
-  mockStores,
-  mockManagers,
-} from '../../mocks/catalogData';
-import { storesApi, getErrorMessage } from '../../lib/api';
+import { getStoreStatusMeta, normalizeStoreStatus, type StoreStatus } from '../../types/store';
+import { storesApi, usersApi, getErrorMessage, type AdminUser, type Store } from '../../lib/api';
 
 export const StoresPage: React.FC = () => {
   const { t } = useTranslation();
 
   const { user, isAdmin } = useAuth();
-  const [stores, setStores] = useState<Store[]>(mockStores);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [managers, setManagers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -54,16 +48,21 @@ export const StoresPage: React.FC = () => {
   const fetchStores = useCallback(async () => {
     try {
       setLoading(true);
-      const list = await storesApi.list(false);
-      if (list && list.length > 0) {
-        setStores(list);
-      }
+      const [list, managerList] = await Promise.all([
+        storesApi.list(false),
+        isAdmin ? usersApi.list({ role: 'STORE_MANAGER' }) : Promise.resolve([]),
+      ]);
+      setManagers(managerList);
+      setStores(list.map((store) => {
+        const manager = managerList.find((candidate) => candidate.storeId === store.id);
+        return { ...store, managerId: manager?.id, managerName: manager?.fullName };
+      }));
     } catch (err) {
-      console.warn('API error, using cached stores', err);
+      message.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     fetchStores();
@@ -72,9 +71,7 @@ export const StoresPage: React.FC = () => {
   // Role-based store isolation: Store Manager only sees their assigned branch
   const scopedStores = useMemo(() => {
     if (isAdmin) return stores;
-    return stores.filter(
-      (s) => s.id === user.storeId || s.name.toLowerCase().includes(user.storeName?.toLowerCase() || 'lê lợi')
-    );
+    return stores.filter((store) => store.id === user.storeId);
   }, [stores, isAdmin, user.storeId, user.storeName]);
 
   const filteredStores = useMemo(() => {
@@ -84,7 +81,7 @@ export const StoresPage: React.FC = () => {
       const matchSearch =
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.district.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.district?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
         s.phone.includes(searchTerm);
       return matchStatus && matchSearch;
     });
@@ -93,12 +90,6 @@ export const StoresPage: React.FC = () => {
   const handleOpenCreateModal = () => {
     setEditingStore(null);
     form.resetFields();
-    form.setFieldsValue({
-      status: 'OPEN',
-      openTime: dayjs('09:00', 'HH:mm'),
-      closeTime: dayjs('22:00', 'HH:mm'),
-      city: 'TP. Hồ Chí Minh',
-    });
     setModalOpen(true);
   };
 
@@ -122,30 +113,34 @@ export const StoresPage: React.FC = () => {
   const handleFormSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const manager = mockManagers.find((m) => m.id === values.managerId);
       const storePayload: Partial<Store> = {
         name: values.name,
         address: values.address,
+        district: values.district,
+        city: values.city,
         phone: values.phone,
-        openTime: values.openTime ? values.openTime.format('HH:mm') : '09:00',
-        closeTime: values.closeTime ? values.closeTime.format('HH:mm') : '22:00',
+        openTime: values.openTime.format('HH:mm'),
+        closeTime: values.closeTime.format('HH:mm'),
         deliveryArea: values.deliveryArea,
         status: values.status,
       };
 
       if (editingStore) {
         const updated = await storesApi.update(editingStore.id, storePayload);
-        setStores((prev) =>
-          prev.map((s) => (s.id === editingStore.id ? { ...updated, managerId: values.managerId, managerName: manager?.fullName } : s))
-        );
+        if (values.managerId) await usersApi.assignStore(values.managerId, updated.id);
+        setStores((prev) => prev.map((store) => store.id === updated.id ? updated : store));
         message.success(`Đã cập nhật thông tin chi nhánh "${updated.name}".`);
       } else {
         const created = await storesApi.create(storePayload);
-        setStores((prev) => [{ ...created, managerId: values.managerId, managerName: manager?.fullName }, ...prev]);
+        setEditingStore(created);
+        if (values.managerId) await usersApi.assignStore(values.managerId, created.id);
+        setStores((prev) => [created, ...prev]);
         message.success(`Đã tạo mới chi nhánh "${created.name}" thành công.`);
       }
 
+      await fetchStores();
       setModalOpen(false);
+      setEditingStore(null);
     } catch (err) {
       message.error(getErrorMessage(err, 'Vui lòng kiểm tra lại các trường thông tin chi nhánh.'));
     }
@@ -380,7 +375,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.fullAddressHouseNumberStreetWard")}
               rules={[{ required: true, message: t("business:stores.enterFullAddress") }]}
             >
-              <Input placeholder="128 Lê Lợi, Phường Bến Nghé" style={{ height: 40 }} />
+              <Input placeholder="Nhập địa chỉ đầy đủ" style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -388,7 +383,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:account.district")}
               rules={[{ required: true, message: t("business:stores.enterDistrict") }]}
             >
-              <Input placeholder="Quận 1" style={{ height: 40 }} />
+              <Input placeholder="Nhập quận/huyện" style={{ height: 40 }} />
             </Form.Item>
           </div>
 
@@ -398,7 +393,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.storeHotline")}
               rules={[{ required: true, message: t("business:stores.enterHotline") }]}
             >
-              <Input placeholder="028 7300 1234" style={{ height: 40 }} />
+              <Input placeholder="Nhập số điện thoại" style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -419,6 +414,14 @@ export const StoresPage: React.FC = () => {
           </div>
 
           <Form.Item
+            name="city"
+            label={t("business:account.city")}
+            rules={[{ required: true, message: t("business:account.enterCity") }]}
+          >
+            <Input placeholder="Nhập tỉnh/thành phố" style={{ height: 40 }} />
+          </Form.Item>
+
+          <Form.Item
             name="deliveryArea"
             label={t("business:stores.supportedDeliveryAreaRadiusNearbyDistricts")}
             rules={[{ required: true, message: t("business:stores.pleaseDescribeTheDeliveryArea") }]}
@@ -434,9 +437,9 @@ export const StoresPage: React.FC = () => {
               <Select
                 placeholder={t("business:stores.chooseTheResponsibleManager")}
                 style={{ height: 40 }}
-                options={mockManagers.map((m) => ({
-                  value: m.id,
-                  label: `${m.fullName} (${m.phone})`,
+                options={managers.map((manager) => ({
+                  value: manager.id,
+                  label: manager.phone ? `${manager.fullName} (${manager.phone})` : manager.fullName,
                 }))}
               />
             </Form.Item>

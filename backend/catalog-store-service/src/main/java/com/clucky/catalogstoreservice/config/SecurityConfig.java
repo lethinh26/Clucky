@@ -69,13 +69,16 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
                     if (docsEnabled) {
                         auth.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
                     }
                     auth.requestMatchers(HttpMethod.GET, "/api/stores", "/api/stores/{id}",
-                            "/api/catalog/categories", "/api/catalog/products", "/api/catalog/products/{id}",
-                            "/api/catalog/combos", "/api/promotions/banners", "/api/reviews/products/{id}").permitAll();
+                            "/api/catalog/categories", "/api/catalog/categories/{id}",
+                            "/api/catalog/products", "/api/catalog/products/{id}",
+                            "/api/catalog/combos", "/api/catalog/combos/{id}",
+                            "/api/promotions/banners", "/api/reviews/products/{id}").permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll();

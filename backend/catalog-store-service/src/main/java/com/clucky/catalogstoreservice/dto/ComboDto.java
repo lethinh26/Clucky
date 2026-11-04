@@ -2,6 +2,8 @@ package com.clucky.catalogstoreservice.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -10,8 +12,10 @@ import java.util.List;
 public class ComboDto {
 
     public static class ItemDto {
+        @NotNull
         private Long productId;
         private String productName;
+        @Min(1)
         private Integer quantity = 1;
         private Long optionId;
 
@@ -100,8 +104,9 @@ public class ComboDto {
         private String imagePublicId;
         private OffsetDateTime startAt;
         private OffsetDateTime endAt;
-        private Boolean isActive = true;
-        private List<ItemDto> items = new ArrayList<>();
+        private Boolean isActive;
+        @Valid
+        private List<ItemDto> items;
 
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }

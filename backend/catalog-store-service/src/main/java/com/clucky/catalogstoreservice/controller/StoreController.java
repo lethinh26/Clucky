@@ -1,12 +1,12 @@
 package com.clucky.catalogstoreservice.controller;
 
-import com.clucky.catalogstoreservice.config.RbacHelper;
+import com.clucky.catalogstoreservice.config.AccessGuard;
 import com.clucky.catalogstoreservice.dto.StoreDto;
 import com.clucky.catalogstoreservice.service.StoreService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,9 +16,11 @@ import java.util.List;
 public class StoreController {
 
     private final StoreService storeService;
+    private final AccessGuard accessGuard;
 
-    public StoreController(StoreService storeService) {
+    public StoreController(StoreService storeService, AccessGuard accessGuard) {
         this.storeService = storeService;
+        this.accessGuard = accessGuard;
     }
 
     @GetMapping
@@ -33,27 +35,30 @@ public class StoreController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<StoreDto.Response> createStore(@Valid @RequestBody StoreDto.Request request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(storeService.createStore(request));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<StoreDto.Response> updateStore(@PathVariable Long id,
                                                          @Valid @RequestBody StoreDto.Request request) {
         return ResponseEntity.ok(storeService.updateStore(id, request));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteStore(@PathVariable Long id) {
         storeService.deleteStore(id);
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/operation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
     public ResponseEntity<StoreDto.Response> updateOperation(@PathVariable Long id,
-                                                             @RequestBody StoreDto.OperationRequest request,
-                                                             HttpServletRequest httpRequest) {
-        RbacHelper.checkStoreAccess(httpRequest, id);
+                                                             @Valid @RequestBody StoreDto.OperationRequest request) {
+        accessGuard.requireStore(id);
         return ResponseEntity.ok(storeService.updateOperation(id, request));
     }
 }

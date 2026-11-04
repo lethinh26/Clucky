@@ -5,7 +5,6 @@ spring:
     name: catalog-store-service
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${DB_NAME:clucky}?currentSchema=catalog_service
-  jpa:
     hikari:
       schema: catalog_service
   jpa:

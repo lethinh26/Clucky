@@ -1,5 +1,7 @@
 package com.clucky.catalogstoreservice.dto;
 
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import java.math.BigDecimal;
 
 public class InventoryDto {
@@ -7,6 +9,7 @@ public class InventoryDto {
     public static class AvailabilityUpdateRequest {
         private Boolean isAvailable;
         private Boolean isSoldOut;
+        @DecimalMin(value = "0.0")
         private BigDecimal storePrice;
 
         public Boolean getIsAvailable() { return isAvailable; }
@@ -78,7 +81,9 @@ public class InventoryDto {
     }
 
     public static class InventoryUpdateRequest {
+        @Min(0)
         private Integer quantityAvailable;
+        @Min(0)
         private Integer lowStockThreshold;
         private Boolean isSoldOut;
 

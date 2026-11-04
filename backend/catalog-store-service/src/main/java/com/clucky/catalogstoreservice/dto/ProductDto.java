@@ -2,6 +2,9 @@ package com.clucky.catalogstoreservice.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -102,11 +105,11 @@ public class ProductDto {
         private Integer kcal;
         private Integer spicyLevel;
         private Boolean isActive;
-        private Boolean isAvailable = true;
-        private Boolean isSoldOut = false;
-        private Boolean isBestSeller = false;
-        private Double rating = 4.8;
-        private Integer reviewCount = 120;
+        private Boolean isAvailable;
+        private Boolean isSoldOut;
+        private Boolean isBestSeller;
+        private Double rating;
+        private Integer reviewCount;
         private List<OptionGroupDto> options = new ArrayList<>();
         private List<ToppingDto> toppings = new ArrayList<>();
 
@@ -202,16 +205,20 @@ public class ProductDto {
         private String description;
 
         @NotNull(message = "Giá gốc không được để trống")
+        @DecimalMin(value = "0.0")
         private BigDecimal basePrice;
 
         private String imageUrl;
         private String imagePublicId;
-        private Integer kcal = 500;
-        private Integer spicyLevel = 0;
-        private Boolean isActive = true;
+        @Min(0)
+        private Integer kcal;
+        @Min(0)
+        @Max(3)
+        private Integer spicyLevel;
+        private Boolean isActive;
 
-        private List<OptionGroupDto> options = new ArrayList<>();
-        private List<ToppingDto> toppings = new ArrayList<>();
+        private List<OptionGroupDto> options;
+        private List<ToppingDto> toppings;
 
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }

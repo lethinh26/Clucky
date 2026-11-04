@@ -8,8 +8,7 @@ import Link from '@/components/ui-loader/navigation-link';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
 import { StyledSelect } from '@/components/styled-select';
-import { products as fallbackProducts, categories as fallbackCategories, type Product } from '@/lib/products';
-import { catalogApi } from '@/lib/api';
+import { catalogApi, type CategoryItem, type ProductItem } from '@/lib/api';
 import {
   Search,
   X,
@@ -24,72 +23,94 @@ function MenuContent() {
   const searchParams = useSearchParams();
   const initialCategory = Number(searchParams.get('cat')) || 0;
   const storeIdParam = searchParams.get('storeId');
+  const parsedStoreId = Number(storeIdParam);
+  const storeId = Number.isSafeInteger(parsedStoreId) && parsedStoreId > 0
+    ? parsedStoreId
+    : undefined;
+  const hasInvalidStoreId = storeIdParam !== null && storeId === undefined;
 
-  const [products, setProducts] = useState<Product[]>(fallbackProducts);
-  const [categories, setCategories] = useState(fallbackCategories);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [categories, setCategories] = useState<{ id: number; name: string; messageKey?: string }[]>([
+    { id: 0, name: 'Tất cả', messageKey: 'menu.categories.all' },
+  ]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<number>(initialCategory);
   const [searchTerm, setSearchTerm] = useState('');
   const [spicyFilter, setSpicyFilter] = useState<'ALL' | '0' | '1' | '2'>('ALL');
-  const [sortOption, setSortOption] = useState<'POPULAR' | 'PRICE_ASC' | 'PRICE_DESC'>('POPULAR');
+  const [sortOption, setSortOption] = useState<'DEFAULT' | 'PRICE_ASC' | 'PRICE_DESC'>('DEFAULT');
 
   useEffect(() => {
     let active = true;
     const fetchCatalog = async () => {
+      setLoading(true);
+      setLoadError(null);
+      setProducts([]);
+      if (hasInvalidStoreId) {
+        setCategories([{ id: 0, name: 'Tất cả', messageKey: 'menu.categories.all' }]);
+        setLoading(false);
+        return;
+      }
+
       try {
         const [liveProds, liveCats] = await Promise.all([
-          catalogApi.getProducts({ storeId: storeIdParam ? Number(storeIdParam) : undefined, activeOnly: true }),
+          catalogApi.getProducts({ storeId, activeOnly: true }),
           catalogApi.getCategories(true),
         ]);
         if (active) {
-          if (liveProds && liveProds.length > 0) {
-            setProducts(liveProds as unknown as Product[]);
-          }
-          if (liveCats && liveCats.length > 0) {
-            setCategories([
-              { id: 0, name: 'Tất cả' },
-              ...liveCats.map((c) => ({ id: Number(c.id), name: c.name })),
-            ]);
-          }
+          setProducts(liveProds);
+          setCategories([
+            { id: 0, name: 'Tất cả', messageKey: 'menu.categories.all' },
+            ...liveCats.map((c: CategoryItem) => ({ id: c.id, name: c.name })),
+          ]);
         }
       } catch (err) {
-        console.warn('Catalog API offline, using fallback catalog', err);
+        if (active) setLoadError(err instanceof Error ? err.message : 'Không thể tải thực đơn.');
+      } finally {
+        if (active) setLoading(false);
       }
     };
     fetchCatalog();
     return () => { active = false; };
-  }, [storeIdParam]);
+  }, [storeId, hasInvalidStoreId]);
 
   // Filter & Sort Logic
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
         // Category Filter
-        const matchCat = selectedCategory === 0 || p.categoryId === selectedCategory;
+        const selectedCategoryName = categories.find((category) => category.id === selectedCategory)?.name;
+        const matchCat =
+          selectedCategory === 0 ||
+          p.categoryId === selectedCategory ||
+          (selectedCategoryName?.toLocaleLowerCase() === 'combo' &&
+            p.categoryName?.toLocaleLowerCase() === 'combo');
         // Search Term
         const matchSearch =
           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+          (p.categoryName ?? p.category ?? '').toLowerCase().includes(searchTerm.toLowerCase());
         // Spicy Filter
         const matchSpicy =
-          spicyFilter === 'ALL' || p.spicyLevel.toString() === spicyFilter;
+          spicyFilter === 'ALL' || p.spicyLevel?.toString() === spicyFilter;
 
         return matchCat && matchSearch && matchSpicy;
       })
       .sort((a, b) => {
         if (sortOption === 'PRICE_ASC') return (a.basePrice || a.price) - (b.basePrice || b.price);
         if (sortOption === 'PRICE_DESC') return (b.basePrice || b.price) - (a.basePrice || a.price);
-        // Default popular: Best seller first
-        return (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0);
+        return 0;
       });
-  }, [selectedCategory, searchTerm, spicyFilter, sortOption]);
+  }, [products, categories, selectedCategory, searchTerm, spicyFilter, sortOption]);
 
   const handleResetFilters = () => {
     setSelectedCategory(0);
     setSearchTerm('');
     setSpicyFilter('ALL');
-    setSortOption('POPULAR');
+    setSortOption('DEFAULT');
   };
+
+  const errorMessage = hasInvalidStoreId ? t("menu.errors.invalidStoreId") : loadError;
 
   return (
     <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 24px 80px' }}>
@@ -122,7 +143,7 @@ function MenuContent() {
         >
           {t("menu.description")}{" "}</p>
 
-        {storeIdParam && (
+        {storeId && (
           <div
             style={{
               display: 'inline-flex',
@@ -138,7 +159,7 @@ function MenuContent() {
               color: '#946C00',
             }}
           >
-            <span>{t("menu.storePrefix")}{storeIdParam}</span>
+            <span>{t("menu.storePrefix")}{storeId}</span>
           </div>
         )}
       </div>
@@ -249,7 +270,7 @@ function MenuContent() {
                 onChange={(v) => setSortOption(v as any)}
                 ariaLabel={t("menu.sort.accessibleLabel")}
                 options={[
-                  { value: 'POPULAR', label: t("menu.sort.popular") },
+                  { value: 'DEFAULT', label: t("menu.sort.default") },
                   { value: 'PRICE_ASC', label: t("menu.sort.priceAscending") },
                   { value: 'PRICE_DESC', label: t("menu.sort.priceDescending") },
                 ]}
@@ -293,21 +314,27 @@ function MenuContent() {
                 }}
               >
                 <CategoryIcon id={cat.id} size={18} active={isActive} />
-                <span>{t(cat.messageKey)}</span>
+                <span>{cat.messageKey ? t(cat.messageKey) : cat.name}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Product Grid or Empty State */}
-      {filteredProducts.length > 0 ? (
+      {errorMessage && (
+        <p role="alert" style={{ color: '#B42318', textAlign: 'center' }}>
+          {errorMessage}
+        </p>
+      )}
+      {loading ? (
+        <p aria-live="polite" style={{ textAlign: 'center' }}>Đang tải thực đơn...</p>
+      ) : errorMessage ? null : filteredProducts.length > 0 ? (
         <div>
           <div style={{ marginBottom: 16, fontSize: 13, color: '#6B6259', fontWeight: 600 }}>
             {t("menu.results.prefix")}{" "}<strong>{filteredProducts.length}</strong> {" "}{t("menu.results.suffix")}{" "}</div>
           <div className="product-grid">
             {filteredProducts.map((product) => (
-              <ProductCard key={product.slug} product={product} />
+              <ProductCard key={product.slug} product={product} storeId={storeId} />
             ))}
           </div>
         </div>

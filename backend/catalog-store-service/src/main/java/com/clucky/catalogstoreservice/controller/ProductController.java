@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -44,17 +45,20 @@ public class ProductController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDto.Response> createProduct(@Valid @RequestBody ProductDto.Request request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(request));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDto.Response> updateProduct(@PathVariable Long id,
-                                                             @RequestBody ProductDto.Request request) {
+                                                             @Valid @RequestBody ProductDto.Request request) {
         return ResponseEntity.ok(productService.updateProduct(id, request));
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDto.Response> updateStatus(
             @PathVariable Long id,
             @RequestParam(name = "active", required = false) Boolean activeParam,
@@ -69,12 +73,14 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/image")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDto.Response> uploadImage(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file) {

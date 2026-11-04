@@ -14,8 +14,8 @@ export interface HeroProps {
   titleBottom: React.ReactNode;
   description: string;
   actions?: HeroAction[];
-  imageSrc: string;
-  imageAlt: string;
+  imageSrc?: string;
+  imageAlt?: string;
 }
 
 /**
@@ -60,20 +60,21 @@ export function Hero({
           )}
         </div>
 
-        <div className="hero-food">
-          <Image
-            src={imageSrc}
-            alt={imageAlt}
-            width={560}
-            height={440}
-            priority
-            style={{ width: '100%', height: 'auto', borderRadius: 28, objectFit: 'cover' }}
-          />
-        </div>
+        {imageSrc && (
+          <div className="hero-food">
+            <Image
+              src={imageSrc}
+              alt={imageAlt ?? ''}
+              width={560}
+              height={440}
+              priority
+              style={{ width: '100%', height: 'auto', borderRadius: 28, objectFit: 'cover' }}
+            />
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
 export default Hero;
-

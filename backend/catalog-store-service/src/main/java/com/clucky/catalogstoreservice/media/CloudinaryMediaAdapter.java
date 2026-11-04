@@ -60,12 +60,7 @@ public class CloudinaryMediaAdapter {
         validateImageFile(file);
 
         if (cloudinary == null || !properties.isEnabled()) {
-            // Graceful fallback for local development without real Cloudinary credentials
-            String publicId = (properties.getFolder() != null ? properties.getFolder() : "clucky")
-                    + "/" + subfolder + "/mock-" + UUID.randomUUID();
-            String fallbackUrl = "https://images.unsplash.com/photo-1562967916-eb82221dfb92?w=800";
-            log.info("Cloudinary disabled; generated fallback media asset: {}", publicId);
-            return new MediaDto.UploadResponse(fallbackUrl, publicId, "jpg", file.getSize(), 800, 600);
+            throw new IllegalStateException("Cloudinary is disabled; configure CLOUDINARY_ENABLED and credentials before uploading images");
         }
 
         try {

@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -36,17 +37,20 @@ public class ComboController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ComboDto.Response> createCombo(@Valid @RequestBody ComboDto.Request request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(comboService.createCombo(request));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ComboDto.Response> updateCombo(@PathVariable Long id,
-                                                         @RequestBody ComboDto.Request request) {
+                                                         @Valid @RequestBody ComboDto.Request request) {
         return ResponseEntity.ok(comboService.updateCombo(id, request));
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ComboDto.Response> updateStatus(
             @PathVariable Long id,
             @RequestParam(name = "active", required = false) Boolean activeParam,
@@ -61,12 +65,14 @@ public class ComboController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteCombo(@PathVariable Long id) {
         comboService.deleteCombo(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/image")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ComboDto.Response> uploadImage(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file) {

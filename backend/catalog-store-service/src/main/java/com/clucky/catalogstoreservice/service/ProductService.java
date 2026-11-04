@@ -61,6 +61,8 @@ public class ProductService {
         Map<Long, StoreProduct> storeProductMap = new HashMap<>();
         Map<Long, StoreInventory> storeInventoryMap = new HashMap<>();
         if (storeId != null) {
+            storeRepository.findById(storeId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + storeId));
             List<StoreProduct> spList = storeProductRepository.findByStoreId(storeId);
             for (StoreProduct sp : spList) {
                 storeProductMap.put(sp.getProduct().getId(), sp);
@@ -84,7 +86,7 @@ public class ProductService {
                     boolean soldOut = Boolean.TRUE.equals(sp.getIsSoldOut()) || (si != null && si.getQuantityAvailable() <= 0);
                     resp.setIsSoldOut(soldOut);
                     resp.setIsAvailable(Boolean.TRUE.equals(sp.getIsAvailable()) && !soldOut);
-                } else if (si != null && si.getQuantityAvailable() <= 0) {
+                } else {
                     resp.setIsSoldOut(true);
                     resp.setIsAvailable(false);
                 }
@@ -100,9 +102,12 @@ public class ProductService {
 
         ProductDto.Response resp = toResponse(p);
         if (storeId != null) {
+            storeRepository.findById(storeId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + storeId));
             Optional<StoreProduct> spOpt = storeProductRepository.findByStoreIdAndProductId(storeId, id);
             Optional<StoreInventory> siOpt = storeInventoryRepository.findByStoreIdAndProductId(storeId, id);
-            boolean soldOut = spOpt.map(sp -> Boolean.TRUE.equals(sp.getIsSoldOut())).orElse(false)
+            boolean soldOut = spOpt.isEmpty() || siOpt.isEmpty()
+                    || spOpt.map(sp -> Boolean.TRUE.equals(sp.getIsSoldOut())).orElse(false)
                     || siOpt.map(si -> si.getQuantityAvailable() <= 0).orElse(false);
 
             spOpt.ifPresent(sp -> {
@@ -112,6 +117,9 @@ public class ProductService {
                 }
                 resp.setIsAvailable(Boolean.TRUE.equals(sp.getIsAvailable()) && !soldOut);
             });
+            if (spOpt.isEmpty()) {
+                resp.setIsAvailable(false);
+            }
             resp.setIsSoldOut(soldOut);
         }
         return resp;
@@ -129,7 +137,7 @@ public class ProductService {
         product.setImageUrl(request.getImageUrl());
         product.setImagePublicId(request.getImagePublicId());
         product.setKcal(request.getKcal());
-        product.setSpicyLevel(request.getSpicyLevel());
+        product.setSpicyLevel(request.getSpicyLevel() != null ? request.getSpicyLevel() : 0);
         product.setIsActive(request.getIsActive() != null ? request.getIsActive() : true);
 
         applyOptionsAndToppings(product, request.getOptions(), request.getToppings());
@@ -142,7 +150,7 @@ public class ProductService {
             StoreProduct sp = new StoreProduct(null, s, saved, saved.getBasePrice(), true, false);
             storeProductRepository.save(sp);
 
-            StoreInventory si = new StoreInventory(null, s, saved, 50, 10, 1L);
+            StoreInventory si = new StoreInventory(null, s, saved, 0, 10, null);
             storeInventoryRepository.save(si);
         }
 
@@ -169,7 +177,7 @@ public class ProductService {
         if (request.getSpicyLevel() != null) product.setSpicyLevel(request.getSpicyLevel());
         if (request.getIsActive() != null) product.setIsActive(request.getIsActive());
 
-        if (request.getOptions() != null && !request.getOptions().isEmpty()) {
+        if (request.getOptions() != null || request.getToppings() != null) {
             applyOptionsAndToppings(product, request.getOptions(), request.getToppings());
         }
 
@@ -259,12 +267,9 @@ public class ProductService {
         r.setImageUrl(p.getImageUrl());
         r.setImagePublicId(p.getImagePublicId());
         r.setAlt(p.getName() + " - Clucky");
-        r.setKcal(p.getKcal() != null ? p.getKcal() : 500);
-        r.setSpicyLevel(p.getSpicyLevel() != null ? p.getSpicyLevel() : 0);
+        r.setKcal(p.getKcal());
+        r.setSpicyLevel(p.getSpicyLevel());
         r.setIsActive(p.getIsActive());
-        r.setIsAvailable(true);
-        r.setIsSoldOut(false);
-        r.setIsBestSeller(p.getId() <= 3);
 
         // Group options by groupName
         Map<String, List<ProductDto.OptionChoiceDto>> groupMap = new LinkedHashMap<>();

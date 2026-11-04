@@ -1,6 +1,81 @@
 import axios, { AxiosError } from 'axios';
-import type { Product, Combo, Store, InventoryItem } from '../mocks/catalogData';
 import { getBrowserLocale, getErrorMessage as resolveError } from '../i18n/core';
+import type { StoreStatus } from '../types/store';
+
+export interface ProductOptionGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  choices: { id: string; name: string; priceAdjustment: number }[];
+}
+
+export interface ProductTopping {
+  id: string;
+  name: string;
+  price: number;
+}
+
+export interface Product {
+  id: number;
+  slug: string;
+  name: string;
+  categoryId: number;
+  categoryName: string;
+  description: string;
+  basePrice: number;
+  imageUrl?: string | null;
+  kcal?: number | null;
+  spicyLevel?: number | null;
+  isActive: boolean;
+  isAvailable?: boolean | null;
+  isSoldOut?: boolean | null;
+  isBestSeller?: boolean | null;
+  rating?: number | null;
+  reviewCount?: number | null;
+  options?: ProductOptionGroup[];
+  toppings?: ProductTopping[];
+}
+
+export interface Combo {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  comboPrice: number;
+  imageUrl?: string | null;
+  startAt?: string | null;
+  endAt?: string | null;
+  isActive: boolean;
+  items: { productId: number; productName: string; quantity: number; optionId?: number }[];
+}
+
+export interface Store {
+  id: number;
+  name: string;
+  address: string;
+  district?: string | null;
+  city?: string | null;
+  phone: string;
+  openTime: string;
+  closeTime: string;
+  status: StoreStatus;
+  deliveryArea?: string | null;
+  managerId?: number;
+  managerName?: string;
+}
+
+export interface InventoryItem {
+  storeId: number;
+  productId: number;
+  productName: string;
+  categoryName: string;
+  imageUrl?: string | null;
+  quantityAvailable: number;
+  lowStockThreshold: number;
+  isSoldOut: boolean;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
 
 /**
  * Axios client for the Clucky staff/admin app.
@@ -47,6 +122,14 @@ export interface AdminUser {
   status: 'ACTIVE' | 'LOCKED';
 }
 
+export interface CatalogCategory {
+  id: number;
+  name: string;
+  imageUrl?: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export const usersApi = {
   list: (params?: { role?: string; storeId?: number; keyword?: string }, signal?: AbortSignal) =>
     api.get<AdminUser[]>('/api/users', { params, signal }).then((r) => r.data),
@@ -84,7 +167,7 @@ export const catalogApi = {
     }).then((r) => r.data);
   },
   listCategories: () =>
-    api.get<any[]>('/api/catalog/categories').then((r) => r.data),
+    api.get<CatalogCategory[]>('/api/catalog/categories').then((r) => r.data),
   listCombos: (activeOnly?: boolean) =>
     api.get<Combo[]>('/api/catalog/combos', { params: { activeOnly } }).then((r) => r.data),
   createCombo: (data: Partial<Combo>) =>
@@ -137,4 +220,3 @@ export const inventoryApi = {
 };
 
 export default api;
-

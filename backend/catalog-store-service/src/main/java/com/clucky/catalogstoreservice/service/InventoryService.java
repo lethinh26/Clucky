@@ -42,7 +42,6 @@ public class InventoryService {
         this.cacheService = cacheService;
     }
 
-    @Transactional(readOnly = true)
     public List<InventoryDto.InventoryResponse> getStoreInventory(Long storeId) {
         Store store = storeRepository.findById(storeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + storeId));
@@ -55,7 +54,7 @@ public class InventoryService {
             for (Product p : allProducts) {
                 boolean exists = inventoryList.stream().anyMatch(i -> i.getProduct().getId().equals(p.getId()));
                 if (!exists) {
-                    StoreInventory newInv = new StoreInventory(null, store, p, 50, 10, 1L);
+                    StoreInventory newInv = new StoreInventory(null, store, p, 0, 10, null);
                     storeInventoryRepository.save(newInv);
                 }
             }
@@ -67,7 +66,7 @@ public class InventoryService {
 
     public InventoryDto.InventoryResponse updateInventory(Long storeId, Long productId,
                                                          InventoryDto.InventoryUpdateRequest request,
-                                                         Long updatedBy, String actorName) {
+                                                         Long updatedBy) {
         StoreInventory inv = storeInventoryRepository.findByStoreIdAndProductId(storeId, productId)
                 .orElseGet(() -> {
                     Store s = storeRepository.findById(storeId)
@@ -83,15 +82,18 @@ public class InventoryService {
         if (request.getLowStockThreshold() != null) {
             inv.setLowStockThreshold(request.getLowStockThreshold());
         }
-        inv.setUpdatedBy(updatedBy != null ? updatedBy : 1L);
+        inv.setUpdatedBy(updatedBy);
         inv.setUpdatedAt(OffsetDateTime.now());
 
         StoreInventory saved = storeInventoryRepository.save(inv);
 
         // Sync with store_products is_sold_out
         storeProductRepository.findByStoreIdAndProductId(storeId, productId).ifPresent(sp -> {
-            boolean isSoldOut = Boolean.TRUE.equals(request.getIsSoldOut()) || saved.getQuantityAvailable() <= 0;
-            sp.setIsSoldOut(isSoldOut);
+            if (saved.getQuantityAvailable() <= 0) {
+                sp.setIsSoldOut(true);
+            } else if (request.getIsSoldOut() != null) {
+                sp.setIsSoldOut(request.getIsSoldOut());
+            }
             storeProductRepository.save(sp);
         });
 
@@ -134,9 +136,10 @@ public class InventoryService {
 
     private InventoryDto.InventoryResponse toResponse(StoreInventory inv, Long storeId) {
         Product p = inv.getProduct();
-        boolean isSoldOut = storeProductRepository.findByStoreIdAndProductId(storeId, p.getId())
-                .map(StoreProduct::getIsSoldOut)
-                .orElse(inv.getQuantityAvailable() <= 0);
+        boolean isSoldOut = inv.getQuantityAvailable() <= 0
+                || storeProductRepository.findByStoreIdAndProductId(storeId, p.getId())
+                        .map(StoreProduct::getIsSoldOut)
+                        .orElse(false);
 
         String updatedByName = inv.getUpdatedBy() != null
                 ? (inv.getUpdatedBy() == 1L ? "Quản trị viên (Admin)" : "Nhân viên ca trực #" + inv.getUpdatedBy())

@@ -2,6 +2,7 @@ package com.clucky.catalogstoreservice.controller;
 
 import com.clucky.catalogstoreservice.media.CloudinaryMediaAdapter;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,6 +16,7 @@ public class MediaController {
     }
 
     @DeleteMapping("/{publicId}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteMedia(@PathVariable String publicId) {
         mediaAdapter.deleteAsset(publicId);
         return ResponseEntity.noContent().build();

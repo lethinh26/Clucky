@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from "next-intl";
 import Link from '@/components/ui-loader/navigation-link';
-import { stores as fallbackStores, type Store, getStoreStatusMeta } from '@/lib/products';
+import type { StoreItem } from '@/lib/api';
+import { getStoreStatusMeta } from '@/lib/types/store';
 import { catalogApi } from '@/lib/api';
 import {
   MapPin,
@@ -18,7 +19,9 @@ import {
 } from 'lucide-react';
 
 export default function StoresPage() {
-  const [storeList, setStoreList] = useState<Store[]>(fallbackStores);
+  const [storeList, setStoreList] = useState<StoreItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const t = useTranslations();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,20 +29,22 @@ export default function StoresPage() {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
     catalogApi.getStores(false)
       .then((data) => {
-        if (active && data && data.length > 0) {
-          setStoreList(data as unknown as Store[]);
-        }
+        if (active) setStoreList(data);
       })
       .catch((err) => {
-        console.warn('Stores API offline, using fallback stores', err);
+        if (active) setLoadError(err instanceof Error ? err.message : 'Không thể tải danh sách chi nhánh.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => { active = false; };
   }, []);
 
   const districts = useMemo(() => {
-    return ['ALL', ...Array.from(new Set(storeList.map((s) => s.district || 'Khác')))];
+    return ['ALL', ...Array.from(new Set(storeList.flatMap((s) => s.district ? [s.district] : [])))];
   }, [storeList]);
 
   const filteredStores = useMemo(() => {
@@ -48,7 +53,7 @@ export default function StoresPage() {
       const matchSearch =
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (s.district && s.district.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (s.district?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
         s.phone.includes(searchTerm);
       return matchDistrict && matchSearch;
     });
@@ -164,8 +169,14 @@ export default function StoresPage() {
           </div>
         </div>
 
-        {/* Store Cards Grid or Empty State */}
-        {filteredStores.length > 0 ? (
+        {loadError && (
+          <p role="alert" style={{ color: '#B42318', textAlign: 'center' }}>
+            {loadError}
+          </p>
+        )}
+        {loading ? (
+          <p aria-live="polite" style={{ textAlign: 'center' }}>Đang tải danh sách chi nhánh...</p>
+        ) : loadError ? null : filteredStores.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 24 }}>
             {filteredStores.map((store) => {
               const meta = getStoreStatusMeta(store.status);
@@ -211,7 +222,11 @@ export default function StoresPage() {
                         >
                           {store.name}
                         </h2>
-                        <span style={{ fontSize: 12, color: '#C9A227', fontWeight: 700 }}> {t("business.stores.cluckyStoresInHoChiMinhCity")} </span>
+                        {(store.district || store.city) && (
+                          <span style={{ fontSize: 12, color: '#C9A227', fontWeight: 700 }}>
+                            {[store.district, store.city].filter(Boolean).join(', ')}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -227,8 +242,11 @@ export default function StoresPage() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {meta.badgeLabel}
-                      {isOpen ? t("business.stores.openNow") : t("business.stores.temporarilyClosed")}
+                      {store.status === 'OPEN'
+                        ? t("business.stores.openNow")
+                        : store.status === 'CLOSED_TEMP'
+                          ? t("business.stores.underMaintenance")
+                          : t("business.stores.closed")}
                     </span>
                   </div>
 
@@ -294,9 +312,6 @@ export default function StoresPage() {
                           cursor: 'not-allowed',
                           border: 'none',
                         }}
-                        title={meta.description}
-                      >
-                        <span>{meta.actionText}</span>
                         title={t("business.stores.thisStoreIsTemporarilyClosed")}
                       >
                         <span>{t("business.stores.serviceUnavailable")}</span>

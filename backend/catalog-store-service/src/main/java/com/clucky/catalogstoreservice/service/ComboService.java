@@ -87,7 +87,7 @@ public class ComboService {
         if (request.getEndAt() != null) combo.setEndAt(request.getEndAt());
         if (request.getIsActive() != null) combo.setIsActive(request.getIsActive());
 
-        if (request.getItems() != null && !request.getItems().isEmpty()) {
+        if (request.getItems() != null) {
             applyItems(combo, request.getItems());
         }
 
@@ -141,12 +141,11 @@ public class ComboService {
         if (itemsDto != null) {
             combo.getItems().clear();
             for (ComboDto.ItemDto it : itemsDto) {
-                if (it.getProductId() != null) {
-                    productRepository.findById(it.getProductId()).ifPresent(p -> {
-                        ComboItem item = new ComboItem(null, combo, p, it.getQuantity(), it.getOptionId());
-                        combo.getItems().add(item);
-                    });
-                }
+                Product product = productRepository.findById(it.getProductId())
+                        .orElseThrow(() -> new ResourceNotFoundException(
+                                "Không tìm thấy món ăn với mã: " + it.getProductId()));
+                ComboItem item = new ComboItem(null, combo, product, it.getQuantity(), it.getOptionId());
+                combo.getItems().add(item);
             }
         }
     }

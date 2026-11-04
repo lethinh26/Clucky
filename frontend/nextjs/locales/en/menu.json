@@ -11,6 +11,9 @@
   "title": "Clucky menu",
   "description": "Choose your favourites, from crispy pressure-fried chicken and brioche burgers to great-value combos.",
   "storePrefix": "📍 Viewing the delivery menu from store #",
+  "errors": {
+    "invalidStoreId": "Invalid store ID. Please select a store again."
+  },
   "search": {
     "placeholder": "Search dishes, spice levels, ingredients...",
     "clear": "Clear search"
@@ -27,7 +30,7 @@
   "sort": {
     "label": "Sort:",
     "accessibleLabel": "Sort dishes",
-    "popular": "Best sellers",
+    "default": "Default order",
     "priceAscending": "Price: low to high",
     "priceDescending": "Price: high to low"
   },

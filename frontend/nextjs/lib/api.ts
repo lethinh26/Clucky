@@ -112,8 +112,8 @@ export interface StoreItem {
   id: number;
   name: string;
   address: string;
-  district: string;
-  city: string;
+  district?: string | null;
+  city?: string | null;
   phone: string;
   openTime: string;
   closeTime: string;
@@ -134,30 +134,31 @@ export interface ProductItem {
   id: number;
   slug: string;
   name: string;
-  categoryId: number;
-  categoryName: string;
+  categoryId?: number;
+  categoryName?: string;
   category?: string;
   description: string;
   basePrice: number;
   price: number;
-  imageUrl: string;
-  image: string;
-  alt: string;
-  kcal: number;
-  spicyLevel: number;
+  imageUrl?: string | null;
+  image?: string | null;
+  alt?: string;
+  kcal?: number | null;
+  spicyLevel?: number | null;
   isActive: boolean;
-  isAvailable: boolean;
-  isSoldOut: boolean;
-  isBestSeller?: boolean;
-  rating?: number;
-  reviewCount?: number;
-  options: {
+  isAvailable?: boolean | null;
+  isSoldOut?: boolean | null;
+  isBestSeller?: boolean | null;
+  rating?: number | null;
+  reviewCount?: number | null;
+  options?: {
     id: string;
     name: string;
     required: boolean;
     choices: { id: string; name: string; priceAdjustment: number }[];
   }[];
-  toppings: { id: string; name: string; price: number }[];
+  toppings?: { id: string; name: string; price: number }[];
+  comboItems?: ComboItem['items'];
 }
 
 export interface ComboItem {
@@ -166,11 +167,31 @@ export interface ComboItem {
   slug: string;
   description: string;
   comboPrice: number;
-  imageUrl: string;
+  imageUrl?: string | null;
   startAt?: string;
   endAt?: string;
   isActive: boolean;
   items: { productId: number; productName: string; quantity: number; optionId?: number }[];
+}
+
+function comboAsProduct(combo: ComboItem): ProductItem {
+  return {
+    id: combo.id,
+    slug: combo.slug || `combo-${combo.id}`,
+    name: combo.name,
+    categoryName: 'Combo',
+    category: 'Combo',
+    description: combo.description,
+    basePrice: combo.comboPrice,
+    price: combo.comboPrice,
+    imageUrl: combo.imageUrl,
+    image: combo.imageUrl,
+    alt: combo.name,
+    isActive: combo.isActive,
+    options: [],
+    toppings: [],
+    comboItems: combo.items,
+  };
 }
 
 export const catalogApi = {
@@ -181,98 +202,34 @@ export const catalogApi = {
   getCategories: (activeOnly = true) =>
     request<CategoryItem[]>(`/api/catalog/categories?activeOnly=${activeOnly}`),
   getProducts: async (params?: { storeId?: number; categoryId?: number; keyword?: string; spicyLevel?: number; activeOnly?: boolean }): Promise<ProductItem[]> => {
-    const isComboOnly = params?.categoryId === 3;
-    const isProductOnly = params?.categoryId && params.categoryId !== 3;
-
     const query = new URLSearchParams();
     if (params?.storeId) query.set('storeId', String(params.storeId));
-    if (params?.categoryId && params.categoryId !== 3) query.set('categoryId', String(params.categoryId));
+    if (params?.categoryId) query.set('categoryId', String(params.categoryId));
     if (params?.keyword) query.set('keyword', params.keyword);
     if (params?.spicyLevel !== undefined) query.set('spicyLevel', String(params.spicyLevel));
     if (params?.activeOnly !== undefined) query.set('activeOnly', String(params.activeOnly));
     const qs = query.toString();
 
-    let prods: ProductItem[] = [];
-    if (!isComboOnly) {
-      try {
-        prods = await request<ProductItem[]>(`/api/catalog/products${qs ? `?${qs}` : ''}`);
-      } catch (e) {
-        console.warn("Failed to fetch products from backend:", e);
-      }
-    }
+    const products = await request<ProductItem[]>(`/api/catalog/products${qs ? `?${qs}` : ''}`);
+    if (params?.categoryId !== undefined) return products;
 
-    let mappedCombos: ProductItem[] = [];
-    if (!isProductOnly) {
-      try {
-        const combos = await request<ComboItem[]>(`/api/catalog/combos?activeOnly=${params?.activeOnly ?? true}`);
-        mappedCombos = (combos || []).map((combo) => ({
-          id: 10000 + combo.id,
-          slug: combo.slug || `combo-${combo.id}`,
-          name: combo.name,
-          categoryId: 3,
-          categoryName: 'Combo',
-          category: 'Combo',
-          description: combo.description,
-          basePrice: combo.comboPrice,
-          price: combo.comboPrice,
-          imageUrl: combo.imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?auto=format&fit=crop&w=900&q=85',
-          image: combo.imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?auto=format&fit=crop&w=900&q=85',
-          alt: combo.name,
-          kcal: 850,
-          spicyLevel: 1,
-          isActive: combo.isActive,
-          isAvailable: combo.isActive,
-          isSoldOut: !combo.isActive,
-          isBestSeller: true,
-          rating: 4.9,
-          reviewCount: 95,
-          options: [],
-          toppings: [],
-        }));
-        if (params?.keyword) {
-          const kw = params.keyword.toLowerCase();
-          mappedCombos = mappedCombos.filter(
-            (c) => c.name.toLowerCase().includes(kw) || (c.description && c.description.toLowerCase().includes(kw))
-          );
-        }
-      } catch (e) {
-        console.warn("Failed to fetch combos from backend:", e);
-      }
-    }
+    const activeOnly = params?.activeOnly ?? true;
+    const combos = await request<ComboItem[]>(`/api/catalog/combos?activeOnly=${activeOnly}`);
+    const mappedCombos = combos.map(comboAsProduct);
+    const keyword = params?.keyword?.toLocaleLowerCase();
+    const filteredCombos = keyword
+      ? mappedCombos.filter((combo) =>
+          `${combo.name} ${combo.description}`.toLocaleLowerCase().includes(keyword)
+        )
+      : mappedCombos;
 
-    return [...prods, ...mappedCombos];
+    return [...products, ...filteredCombos];
   },
   getProductById: async (id: number, storeId?: number): Promise<ProductItem> => {
-    if (id >= 10000) {
-      const comboId = id - 10000;
-      const combo = await request<ComboItem>(`/api/catalog/combos/${comboId}`);
-      return {
-        id: 10000 + combo.id,
-        slug: combo.slug || `combo-${combo.id}`,
-        name: combo.name,
-        categoryId: 3,
-        categoryName: 'Combo',
-        category: 'Combo',
-        description: combo.description,
-        basePrice: combo.comboPrice,
-        price: combo.comboPrice,
-        imageUrl: combo.imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?auto=format&fit=crop&w=900&q=85',
-        image: combo.imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?auto=format&fit=crop&w=900&q=85',
-        alt: combo.name,
-        kcal: 850,
-        spicyLevel: 1,
-        isActive: combo.isActive,
-        isAvailable: combo.isActive,
-        isSoldOut: !combo.isActive,
-        isBestSeller: true,
-        rating: 4.9,
-        reviewCount: 95,
-        options: [],
-        toppings: [],
-      };
-    }
     return request<ProductItem>(`/api/catalog/products/${id}${storeId ? `?storeId=${storeId}` : ''}`);
   },
+  getComboProductById: async (id: number): Promise<ProductItem> =>
+    comboAsProduct(await request<ComboItem>(`/api/catalog/combos/${id}`)),
   getCombos: (activeOnly = true) =>
     request<ComboItem[]>(`/api/catalog/combos?activeOnly=${activeOnly}`),
   getComboById: (id: number) =>

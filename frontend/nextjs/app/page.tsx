@@ -1,39 +1,28 @@
-"use client";
-import { useTranslations } from "next-intl";
-
-
+import { getTranslations } from "next-intl/server";
 import Link from "@/components/ui-loader/navigation-link";
 import { Hero } from "@/components/hero";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";
-import { products as fallbackProducts, categories as fallbackCategories } from "@/lib/products";
 import { catalogApi } from "@/lib/api";
 import { Flame, Award, Truck } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
-export default async function Home() {
-  let displayProducts = fallbackProducts;
-  let displayCategories = fallbackCategories;
-  const t = useTranslations();
+type DisplayCategory = { id: number; name: string };
 
-  try {
-    const [liveProds, liveCats] = await Promise.all([
-      catalogApi.getProducts({ activeOnly: true }),
-      catalogApi.getCategories(true),
-    ]);
-    if (liveProds && liveProds.length > 0) {
-      displayProducts = liveProds as unknown as typeof fallbackProducts;
-    }
-    if (liveCats && liveCats.length > 0) {
-      displayCategories = [
-        { id: 0, name: 'Tất cả' },
-        ...liveCats.map((c) => ({ id: Number(c.id), name: c.name })),
-      ];
-    }
-  } catch (err) {
-    // Keep fallback
-  }
+export default async function Home() {
+  const t = await getTranslations();
+  const [displayProducts, liveCategories] = await Promise.all([
+    catalogApi.getProducts({ activeOnly: true }),
+    catalogApi.getCategories(true),
+  ]);
+  const displayCategories: DisplayCategory[] = [
+    { id: 0, name: t("menu.categories.all") },
+    ...liveCategories.map((category) => ({
+      id: category.id,
+      name: category.name,
+    })),
+  ];
 
   const featuredProducts = displayProducts
     .filter((p) => p.isActive !== false)
@@ -60,7 +49,7 @@ export default async function Home() {
             { href: "/menu", label: t("home.hero.order"), variant: "primary" },
             { href: "/menu", label: t("home.hero.menu"), variant: "secondary" },
           ]}
-          imageSrc="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=1000&q=85"
+          imageSrc="/images/hero-img.avif"
           imageAlt={t("home.hero.imageAlt")}
         />
 
@@ -74,7 +63,7 @@ export default async function Home() {
                 className={`category-pill ${cat.id === 0 ? "active" : ""}`}
               >
                 <CategoryIcon id={cat.id} size={18} active={cat.id === 0} />
-                <span>{t(cat.messageKey)}</span>
+                <span>{cat.name}</span>
               </Link>
             ))}
           </div>
@@ -103,7 +92,7 @@ export default async function Home() {
                 textTransform: "uppercase",
               }}
             >
-              {t("home.bestSellers")}{" "}</span>
+              {t("menu.title")}{" "}</span>
             <h2
               style={{
                 fontFamily: "Baloo 2, sans-serif",

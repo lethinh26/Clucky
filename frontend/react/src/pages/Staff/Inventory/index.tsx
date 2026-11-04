@@ -29,42 +29,49 @@ import { AdminTable } from '../../../components/ui/AdminTable';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { AdminModal } from '../../../components/ui/AdminModal';
 import { useAuth } from '../../../context/AuthContext';
-import { InventoryItem, mockInventory, mockStores } from '../../../mocks/catalogData';
-import { inventoryApi, storesApi, getErrorMessage } from '../../../lib/api';
+import { inventoryApi, storesApi, getErrorMessage, type InventoryItem, type Store } from '../../../lib/api';
 
 export const StaffInventoryPage: React.FC = () => {
   const { t } = useTranslation();
 
   const { user, isAdmin } = useAuth();
-  const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
-  const [stores, setStores] = useState(mockStores);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'LOW_STOCK' | 'SOLD_OUT'>('ALL');
-  const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId || 1);
+  const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId ?? 0);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [form] = Form.useForm();
 
-  const activeStoreId = isAdmin ? adminSelectedStoreId : (user.storeId || 1);
+  const activeStoreId = isAdmin ? adminSelectedStoreId || stores[0]?.id : user.storeId;
   const currentStore = stores.find((s) => s.id === activeStoreId);
-  const currentStoreName = currentStore?.name || user.storeName || 'Chi nhánh Clucky Lê Lợi (Q.1)';
+  const currentStoreName = currentStore?.name || user.storeName;
 
   const fetchInventory = useCallback(async () => {
     try {
       setLoading(true);
-      const [invList, storeList] = await Promise.all([
-        inventoryApi.getStoreInventory(activeStoreId),
-        storesApi.list(false),
-      ]);
-      if (invList && invList.length > 0) setInventory(invList);
-      if (storeList && storeList.length > 0) setStores(storeList);
+      const storeList = await storesApi.list(false);
+      const selectedStoreId = isAdmin
+        ? (storeList.some((store) => store.id === adminSelectedStoreId)
+          ? adminSelectedStoreId
+          : storeList[0]?.id)
+        : user.storeId;
+      const invList = selectedStoreId
+        ? await inventoryApi.getStoreInventory(selectedStoreId)
+        : [];
+      setStores(storeList);
+      setInventory(invList);
+      if (isAdmin && selectedStoreId && selectedStoreId !== adminSelectedStoreId) {
+        setAdminSelectedStoreId(selectedStoreId);
+      }
     } catch (err) {
-      console.warn('API error, using cached inventory', err);
+      message.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [activeStoreId]);
+  }, [activeStoreId, adminSelectedStoreId, isAdmin, user.storeId]);
 
   useEffect(() => {
     fetchInventory();
@@ -106,20 +113,9 @@ export const StaffInventoryPage: React.FC = () => {
   // Toggle "Hết món trong ca" (Local branch switch)
   const handleToggleSoldOut = async (item: InventoryItem, checked: boolean) => {
     try {
+      if (!activeStoreId) return;
       await inventoryApi.updateAvailability(activeStoreId, item.productId, { isSoldOut: checked });
-      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-      setInventory((prev) =>
-        prev.map((i) =>
-          i.productId === item.productId
-            ? {
-                ...i,
-                isSoldOut: checked,
-                updatedAt: now,
-                updatedBy: `${user.fullName} (${user.role})`,
-              }
-            : i
-        )
-      );
+      await fetchInventory();
       if (checked) {
         message.warning(
           `Đã đánh dấu "Hết món trong ca" cho "${item.productName}". Khách tại chi nhánh sẽ không thể đặt món này.`
@@ -144,7 +140,7 @@ export const StaffInventoryPage: React.FC = () => {
   const handleUpdateStockSubmit = async () => {
     try {
       const values = await form.validateFields();
-      if (editingItem) {
+      if (editingItem && activeStoreId) {
         const updated = await inventoryApi.updateInventory(activeStoreId, editingItem.productId, {
           quantityAvailable: values.quantityAvailable,
           lowStockThreshold: values.lowStockThreshold,
@@ -169,12 +165,11 @@ export const StaffInventoryPage: React.FC = () => {
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Image
-            src={record.imageUrl}
+            src={record.imageUrl ?? undefined}
             alt={record.productName}
             width={52}
             height={52}
             style={{ borderRadius: 12, objectFit: 'cover', border: '1px solid #E8E2D9' }}
-            fallback="https://images.unsplash.com/photo-1562967916-eb82221dfb92?w=100"
           />
           <div>
             <div
@@ -332,7 +327,7 @@ export const StaffInventoryPage: React.FC = () => {
                 value={adminSelectedStoreId}
                 onChange={setAdminSelectedStoreId}
                 style={{ width: 280, fontFamily: 'Quicksand, sans-serif' }}
-                options={mockStores.map((s) => ({
+                options={stores.map((s) => ({
                   value: s.id,
                   label: `🏪 ${s.name}`,
                 }))}

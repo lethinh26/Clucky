@@ -18,6 +18,12 @@ public class Store {
     @Column(nullable = false, length = 255)
     private String address;
 
+    @Column(length = 120)
+    private String district;
+
+    @Column(length = 120)
+    private String city;
+
     @Column(nullable = false, length = 30)
     private String phone;
 
@@ -62,6 +68,12 @@ public class Store {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public String getDistrict() { return district; }
+    public void setDistrict(String district) { this.district = district; }
+
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }

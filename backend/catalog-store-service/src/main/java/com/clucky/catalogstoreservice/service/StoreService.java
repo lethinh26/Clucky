@@ -62,10 +62,12 @@ public class StoreService {
         Store store = new Store();
         store.setName(request.getName());
         store.setAddress(request.getAddress());
+        store.setDistrict(request.getDistrict());
+        store.setCity(request.getCity());
         store.setPhone(request.getPhone());
-        store.setOpenTime(parseTime(request.getOpenTime(), "09:00"));
-        store.setCloseTime(parseTime(request.getCloseTime(), "22:00"));
-        store.setStatus(request.getStatus() != null ? StoreStatus.fromString(request.getStatus()) : StoreStatus.OPEN);
+        store.setOpenTime(parseTime(request.getOpenTime()));
+        store.setCloseTime(parseTime(request.getCloseTime()));
+        if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
         store.setDeliveryArea(request.getDeliveryArea());
 
         Store saved = storeRepository.save(store);
@@ -76,7 +78,7 @@ public class StoreService {
             StoreProduct sp = new StoreProduct(null, saved, p, p.getBasePrice(), true, false);
             storeProductRepository.save(sp);
 
-            StoreInventory si = new StoreInventory(null, saved, p, 50, 10, 1L);
+            StoreInventory si = new StoreInventory(null, saved, p, 0, 10, null);
             storeInventoryRepository.save(si);
         }
 
@@ -89,9 +91,11 @@ public class StoreService {
 
         store.setName(request.getName());
         store.setAddress(request.getAddress());
+        store.setDistrict(request.getDistrict());
+        store.setCity(request.getCity());
         store.setPhone(request.getPhone());
-        if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime(), "09:00"));
-        if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime(), "22:00"));
+        store.setOpenTime(parseTime(request.getOpenTime()));
+        store.setCloseTime(parseTime(request.getCloseTime()));
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
         if (request.getDeliveryArea() != null) store.setDeliveryArea(request.getDeliveryArea());
 
@@ -104,8 +108,8 @@ public class StoreService {
         Store store = storeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + id));
 
-        if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime(), "09:00"));
-        if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime(), "22:00"));
+        if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime()));
+        if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime()));
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
 
         Store saved = storeRepository.save(store);
@@ -127,6 +131,8 @@ public class StoreService {
                 store.getId(),
                 store.getName(),
                 store.getAddress(),
+                store.getDistrict(),
+                store.getCity(),
                 store.getPhone(),
                 store.getOpenTime(),
                 store.getCloseTime(),
@@ -135,14 +141,7 @@ public class StoreService {
         );
     }
 
-    private LocalTime parseTime(String timeStr, String fallback) {
-        try {
-            if (timeStr == null || timeStr.isBlank()) {
-                return LocalTime.parse(fallback, TIME_FORMAT);
-            }
-            return LocalTime.parse(timeStr.trim(), TIME_FORMAT);
-        } catch (Exception ex) {
-            return LocalTime.parse(fallback, TIME_FORMAT);
-        }
+    private LocalTime parseTime(String timeStr) {
+        return LocalTime.parse(timeStr.trim(), TIME_FORMAT);
     }
 }
