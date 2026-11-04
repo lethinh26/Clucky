@@ -129,20 +129,20 @@ export const StoresPage: React.FC = () => {
         const updated = await storesApi.update(editingStore.id, storePayload);
         if (values.managerId) await usersApi.assignStore(values.managerId, updated.id);
         setStores((prev) => prev.map((store) => store.id === updated.id ? updated : store));
-        message.success(`Đã cập nhật thông tin chi nhánh "${updated.name}".`);
+        message.success(t("business:stores.storeDetailsUpdatedFor", { value1: updated.name }));
       } else {
         const created = await storesApi.create(storePayload);
         setEditingStore(created);
         if (values.managerId) await usersApi.assignStore(values.managerId, created.id);
         setStores((prev) => [created, ...prev]);
-        message.success(`Đã tạo mới chi nhánh "${created.name}" thành công.`);
+        message.success(t("business:stores.storeCreatedSuccessfully", { value1: created.name }));
       }
 
       await fetchStores();
       setModalOpen(false);
       setEditingStore(null);
     } catch (err) {
-      message.error(getErrorMessage(err, 'Vui lòng kiểm tra lại các trường thông tin chi nhánh.'));
+      message.error(getErrorMessage(err, t("business:stores.pleaseCheckTheStoreInformationFields")));
     }
   };
 
@@ -152,10 +152,15 @@ export const StoresPage: React.FC = () => {
       setStores((prev) =>
         prev.map((s) => (s.id === store.id ? { ...s, status: newStatus } : s))
       );
-      const meta = getStoreStatusMeta(newStatus);
-      message.success(`Đã chuyển trạng thái chi nhánh "${store.name}" sang ${meta.label}.`);
+      const label =
+        newStatus === 'OPEN'
+          ? t("business:stores.open")
+          : newStatus === 'CLOSED_TEMP'
+            ? t("business:stores.temporarilyClosed")
+            : t("business:stores.inactive");
+      message.success(t("business:stores.changedStoreTo", { value1: store.name, value2: label }));
     } catch (err) {
-      message.error(getErrorMessage(err, 'Lỗi cập nhật trạng thái chi nhánh!'));
+      message.error(getErrorMessage(err));
     }
   };
 
@@ -234,7 +239,13 @@ export const StoresPage: React.FC = () => {
       width: 160,
       render: (status: Store['status']) => {
         const meta = getStoreStatusMeta(status);
-        return <StatusBadge status={meta.badgeStatus} text={meta.label} />;
+        const text =
+          meta.key === 'OPEN'
+            ? t("business:stores.open")
+            : meta.key === 'CLOSED_TEMP'
+              ? t("business:stores.temporarilyClosed")
+              : t("business:stores.inactive");
+        return <StatusBadge status={meta.badgeStatus} text={text} />;
       },
     },
     {
@@ -340,10 +351,10 @@ export const StoresPage: React.FC = () => {
             onChange={setStatusFilter}
             style={{ width: 180, fontFamily: 'Quicksand, sans-serif' }}
             options={[
-              { value: 'ALL', label: 'Tất cả trạng thái' },
-              { value: 'OPEN', label: '🟢 Mở cửa' },
-              { value: 'CLOSED_TEMP', label: '🟡 Tạm đóng' },
-              { value: 'INACTIVE', label: '🔴 Ngừng bán' },
+              { value: 'ALL', label: t("business:stores.allStores") },
+              { value: 'OPEN', label: t("business:stores.openLabel") },
+              { value: 'CLOSED_TEMP', label: t("business:stores.temporarilyClosedIndicator") },
+              { value: 'INACTIVE', label: t("business:stores.inactiveLabel") },
             ]}
           />
         }
@@ -375,7 +386,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.fullAddressHouseNumberStreetWard")}
               rules={[{ required: true, message: t("business:stores.enterFullAddress") }]}
             >
-              <Input placeholder="Nhập địa chỉ đầy đủ" style={{ height: 40 }} />
+              <Input placeholder={t("business:stores.enterFullAddress")} style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -383,7 +394,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:account.district")}
               rules={[{ required: true, message: t("business:stores.enterDistrict") }]}
             >
-              <Input placeholder="Nhập quận/huyện" style={{ height: 40 }} />
+              <Input placeholder={t("business:stores.enterDistrict")} style={{ height: 40 }} />
             </Form.Item>
           </div>
 
@@ -393,7 +404,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.storeHotline")}
               rules={[{ required: true, message: t("business:stores.enterHotline") }]}
             >
-              <Input placeholder="Nhập số điện thoại" style={{ height: 40 }} />
+              <Input placeholder={t("business:stores.enterHotline")} style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -415,10 +426,10 @@ export const StoresPage: React.FC = () => {
 
           <Form.Item
             name="city"
-            label={t("business:account.city")}
-            rules={[{ required: true, message: t("business:account.enterCity") }]}
+            label={t("business:stores.city")}
+            rules={[{ required: true, message: t("business:stores.enterCity") }]}
           >
-            <Input placeholder="Nhập tỉnh/thành phố" style={{ height: 40 }} />
+            <Input placeholder={t("business:stores.enterCity")} style={{ height: 40 }} />
           </Form.Item>
 
           <Form.Item

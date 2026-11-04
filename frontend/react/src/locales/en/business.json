@@ -84,7 +84,9 @@
     "chooseTheResponsibleManager": "Choose the responsible manager",
     "activityStatus": "Activity status",
     "salesStopped": "Sales stopped",
-    "temporarilyClosedIndicator": "🟡 Temporarily closed"
+    "temporarilyClosedIndicator": "🟡 Temporarily closed",
+    "city": "City / Province",
+    "enterCity": "Enter city / province"
   },
   "demoordercontrols": {
     "orderProgress": "Order progress",
