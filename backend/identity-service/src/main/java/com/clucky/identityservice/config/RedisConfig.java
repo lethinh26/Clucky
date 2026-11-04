@@ -3,6 +3,7 @@ package com.clucky.identityservice.config;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -27,9 +28,14 @@ public class RedisConfig {
         }
     }
 
+    private static final Set<String> ALLOWED_PREFIXES = Set.of(
+            "cart", "cart:guest", "menu:store", "otp",
+            "auth:google:pending", "payment:pending", "rate-limit",
+            "auth:revoked:sid", "auth:revoked:user"
+    );
+
     public static String key(String prefix, String identifier) {
-        if (prefix == null || !java.util.Set.of("cart", "cart:guest", "menu:store", "otp",
-                "auth:google:pending", "payment:pending", "rate-limit").contains(prefix)
+        if (prefix == null || !ALLOWED_PREFIXES.contains(prefix)
                 || identifier == null || identifier.isBlank() || identifier.length() > 255
                 || identifier.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("Invalid Redis key");

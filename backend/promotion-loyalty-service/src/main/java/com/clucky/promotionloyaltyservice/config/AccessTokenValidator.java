@@ -14,6 +14,10 @@ public final class AccessTokenValidator implements OAuth2TokenValidator<Jwt> {
     @Override
     public OAuth2TokenValidatorResult validate(Jwt token) {
         try {
+            // A refresh-purpose JWT must never authenticate a protected resource as a Bearer token.
+            if ("refresh".equalsIgnoreCase(token.getClaimAsString("typ"))) {
+                return invalid();
+            }
             Role role = Role.valueOf(token.getClaimAsString("role"));
             Object store = token.getClaim("storeId");
             boolean needsStore = role == Role.STAFF || role == Role.STORE_MANAGER;

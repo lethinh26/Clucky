@@ -1,10 +1,12 @@
 package com.clucky.identityservice.config;
 
 import com.clucky.identityservice.dto.ApiError;
+import com.clucky.identityservice.service.SessionRevocationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -28,10 +30,10 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
-@EnableConfigurationProperties(JwtSettings.class)
+@EnableConfigurationProperties({JwtSettings.class, AuthProperties.class})
 public class SecurityConfig {
     @Bean
-    JwtDecoder jwtDecoder(JwtSettings settings) {
+    JwtDecoder jwtDecoder(JwtSettings settings, @Autowired(required = false) SessionRevocationService sessionRevocationService) {
         byte[] key = settings.secret() == null ? new byte[0] : settings.secret().getBytes(StandardCharsets.UTF_8);
         if (key.length < 32 || settings.secret().startsWith("change-") || settings.secret().contains("replace-")) {
             throw new IllegalStateException("Configure a strong JWT_SECRET with at least 32 bytes");
@@ -39,7 +41,8 @@ public class SecurityConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(new SecretKeySpec(key, "HmacSHA256"))
                 .macAlgorithm(MacAlgorithm.HS256).build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(settings.issuer()), new AccessTokenValidator(settings.audience())));
+                JwtValidators.createDefaultWithIssuer(settings.issuer()),
+                new AccessTokenValidator(settings.audience(), sessionRevocationService)));
         return decoder;
     }
 
@@ -77,7 +80,7 @@ public class SecurityConfig {
                             "/api/catalog/categories", "/api/catalog/products", "/api/catalog/products/{id}",
                             "/api/catalog/combos", "/api/promotions/banners", "/api/reviews/products/{id}").permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
-                            "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
+                            "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll();
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();

@@ -69,7 +69,7 @@ function VerifyOtpForm() {
       if (!task.isCurrent()) return;
       if (typeof window !== "undefined") {
         localStorage.setItem("clucky_access_token", tokens.accessToken);
-        localStorage.setItem("clucky_refresh_token", tokens.refreshToken);
+        // refresh token stored in HttpOnly cookie
       }
       setSuccess("auth.otp.verified");
       task.schedule(() => router.push("/account"), 800);

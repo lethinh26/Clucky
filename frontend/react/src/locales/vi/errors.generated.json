@@ -21,5 +21,11 @@
   "VOUCHER_SCOPE_MISMATCH": "Mã giảm giá không áp dụng tại cửa hàng này.",
   "MIN_ORDER_NOT_MET": "Đơn hàng chưa đạt giá trị tối thiểu để dùng mã giảm giá.",
   "INSUFFICIENT_POINTS": "Bạn không đủ điểm để thực hiện thao tác này.",
-  "EMAIL_EXISTS": "Email này đã được đăng ký."
+  "EMAIL_EXISTS": "Email này đã được đăng ký.",
+  "ACCOUNT_LOCKED": "Tài khoản đã bị khóa.",
+  "INVALID_CREDENTIALS": "Email hoặc mật khẩu không chính xác.",
+  "EMAIL_NOT_VERIFIED": "Vui lòng xác thực email trước khi đăng nhập.",
+  "INVALID_OTP": "Mã OTP không hợp lệ hoặc đã được sử dụng.",
+  "OTP_EXPIRED": "Mã OTP đã hết hạn.",
+  "TOKEN_REVOKED": "Phiên đăng nhập đã hết hạn hoặc bị thu hồi."
 }

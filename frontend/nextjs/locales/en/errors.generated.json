@@ -21,5 +21,11 @@
   "VOUCHER_SCOPE_MISMATCH": "This voucher cannot be used at this store.",
   "MIN_ORDER_NOT_MET": "Your order does not meet the minimum voucher value.",
   "INSUFFICIENT_POINTS": "You do not have enough points for this operation.",
-  "EMAIL_EXISTS": "This email is already registered."
+  "EMAIL_EXISTS": "This email is already registered.",
+  "ACCOUNT_LOCKED": "This account has been locked.",
+  "INVALID_CREDENTIALS": "Invalid email or password.",
+  "EMAIL_NOT_VERIFIED": "Please verify your email before signing in.",
+  "INVALID_OTP": "The OTP is invalid or has already been used.",
+  "OTP_EXPIRED": "The OTP has expired.",
+  "TOKEN_REVOKED": "The session has expired or been revoked."
 }
