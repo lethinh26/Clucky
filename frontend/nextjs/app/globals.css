@@ -646,6 +646,7 @@ select option:hover {
 
 .footer-links {
   display: flex;
+  flex-wrap: wrap;
   gap: 28px;
   font-weight: 600;
 }

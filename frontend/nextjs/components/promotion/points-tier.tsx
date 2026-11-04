@@ -1,9 +1,11 @@
 'use client';
 
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
 import React from 'react';
 import { Award, Crown, Star, CheckCircle, RefreshCw, LogIn } from 'lucide-react';
 import { LoyaltyTier, MemberPoints } from '@/lib/types/promotion';
-import { calculateTierProgress, LOYALTY_TIER_CONFIG } from '@/lib/promotion';
+import { calculateTierProgress, getLoyaltyTierConfig } from '@/lib/promotion';
 import styles from './promotion-shared.module.css';
 
 export interface PointsTierProps {
@@ -43,6 +45,11 @@ export function PointsTier({
   onLoginClick,
   className = '',
 }: PointsTierProps) {
+  const t = useTranslations();
+  const { locale } = useLocaleTools();
+  const LOYALTY_TIER_CONFIG = getLoyaltyTierConfig(locale);
+
+
   // Loading skeleton state
   if (loading) {
     if (variant === 'compact' || variant === 'badge') {
@@ -51,7 +58,7 @@ export function PointsTier({
           className={`${styles.promotionScope} ${styles.shimmerSkeleton} ${className}`}
           style={{ display: 'inline-block', width: 90, height: 24 }}
           aria-busy="true"
-          aria-label="Đang tải điểm thành viên..."
+          aria-label={t("business.promotionUi.loadingPoints")}
         />
       );
     }
@@ -59,7 +66,7 @@ export function PointsTier({
       <div
         className={`${styles.promotionScope} ${styles.pointsCard} ${className}`}
         aria-busy="true"
-        aria-label="Đang tải thông tin điểm thành viên..."
+        aria-label={t("business.promotionUi.loadingMember")}
       >
         <div className={styles.shimmerSkeleton} style={{ width: '40%', height: 16, marginBottom: 12 }} />
         <div className={styles.shimmerSkeleton} style={{ width: '60%', height: 28, marginBottom: 16 }} />
@@ -81,10 +88,10 @@ export function PointsTier({
             type="button"
             className={styles.retryBtn}
             onClick={onRetry}
-            aria-label="Thử tải lại điểm tích lũy"
+            aria-label={t("business.promotionUi.retryPoints")}
           >
             <RefreshCw size={12} style={{ display: 'inline', marginRight: 4 }} aria-hidden="true" />
-            Thử lại
+            {t("business.promotionUi.retry")}
           </button>
         )}
       </div>
@@ -100,7 +107,7 @@ export function PointsTier({
           style={{ background: '#F3F4F6', color: '#6B7280', borderColor: '#E5E7EB' }}
         >
           <Star size={13} aria-hidden="true" />
-          <span>Tích điểm Clucky</span>
+          <span>{t("business.promotionUi.earnClucky")}</span>
         </span>
       );
     }
@@ -108,9 +115,9 @@ export function PointsTier({
       <div className={`${styles.promotionScope} ${styles.pointsCard} ${className}`}>
         <div className={styles.pointsHeader}>
           <div>
-            <span className={styles.pointsAmountLabel}>Điểm thành viên</span>
+            <span className={styles.pointsAmountLabel}>{t("business.promotionUi.memberPoints")}</span>
             <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#4B5563' }}>
-              Đăng nhập để tích điểm thưởng và hưởng ưu đãi hạng thành viên!
+              {t("business.promotionUi.guestBenefits")}
             </p>
           </div>
           {onLoginClick && (
@@ -120,7 +127,7 @@ export function PointsTier({
               onClick={onLoginClick}
             >
               <LogIn size={13} style={{ display: 'inline', marginRight: 4 }} aria-hidden="true" />
-              Đăng nhập
+              {t("business.promotionUi.signIn")}
             </button>
           )}
         </div>
@@ -130,7 +137,7 @@ export function PointsTier({
 
   // Calculate tier & progress
   const numericPoints = typeof rawPoints === 'number' ? rawPoints : rawPoints?.totalPoints ?? 0;
-  const progressData = calculateTierProgress(numericPoints);
+  const progressData = calculateTierProgress(numericPoints, locale);
   const activeTier = propTier ?? progressData.tier;
   const activeTierInfo = LOYALTY_TIER_CONFIG[activeTier];
 
@@ -139,7 +146,7 @@ export function PointsTier({
     return (
       <span
         className={`${styles.promotionScope} ${styles.tierPill} ${TIER_PILL_CLASS[activeTier]} ${className}`}
-        aria-label={`Hạng ${activeTierInfo.label}`}
+        aria-label={t("business.promotionUi.tierLabel", { tier: activeTierInfo.label })}
       >
         {TIER_ICONS[activeTier]}
         <span>{activeTierInfo.label}</span>
@@ -152,11 +159,11 @@ export function PointsTier({
     return (
       <span
         className={`${styles.promotionScope} ${styles.pointsCompact} ${className}`}
-        title={`${activeTierInfo.label}: ${numericPoints.toLocaleString('vi-VN')} điểm`}
-        aria-label={`${activeTierInfo.label}, ${numericPoints} điểm`}
+        title={t("business.promotionUi.tierPointsTitle", { tier: activeTierInfo.label, points: numericPoints.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN')) })}
+        aria-label={t("business.promotionUi.tierPointsLabel", { tier: activeTierInfo.label, points: numericPoints })}
       >
         {TIER_ICONS[activeTier]}
-        <span>{numericPoints.toLocaleString('vi-VN')} điểm</span>
+        <span>{numericPoints.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN'))} {t("business.promotionUi.points")}</span>
       </span>
     );
   }
@@ -166,14 +173,14 @@ export function PointsTier({
     <div
       className={`${styles.promotionScope} ${styles.pointsCard} ${className}`}
       role="region"
-      aria-label="Thông tin điểm và hạng thành viên"
+      aria-label={t("business.promotionUi.pointsAndTier")}
     >
       <div className={styles.pointsHeader}>
         <div className={styles.pointsAmountWrap}>
-          <span className={styles.pointsAmountLabel}>Điểm tích lũy</span>
+          <span className={styles.pointsAmountLabel}>{t("business.promotionUi.rewardPoints")}</span>
           <span className={styles.pointsAmountVal}>
-            {numericPoints.toLocaleString('vi-VN')}{' '}
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>điểm</span>
+            {numericPoints.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN'))}{' '}
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>{t("business.promotionUi.points")}</span>
           </span>
         </div>
 
@@ -191,7 +198,7 @@ export function PointsTier({
           aria-valuenow={progressData.progressPercent}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`Tiến độ lên hạng: ${progressData.progressPercent}%`}
+          aria-label={t("business.promotionUi.tierPercent", { percent: progressData.progressPercent })}
         >
           <div
             className={styles.progressFill}
@@ -203,17 +210,17 @@ export function PointsTier({
           <span>{activeTierInfo.label}</span>
           <span>
             {progressData.isMaxTier
-              ? 'Hạng cao nhất'
-              : `Cần thêm ${progressData.pointsToNextTier.toLocaleString(
-                  'vi-VN'
-                )} điểm lên ${LOYALTY_TIER_CONFIG[progressData.nextTier!].label}`}
+              ? t("business.promotionUi.maxTier")
+              : t("business.promotionUi.tierRemaining", { points: progressData.pointsToNextTier.toLocaleString(
+                  (locale === 'en' ? 'en-US' : 'vi-VN')
+                ), tier: LOYALTY_TIER_CONFIG[progressData.nextTier!].label })}
           </span>
         </div>
       </div>
 
       {/* Benefits List */}
       {showBenefits && activeTierInfo.benefits?.length > 0 && (
-        <ul className={styles.benefitsList} aria-label="Đặc quyền hạng thành viên">
+        <ul className={styles.benefitsList} aria-label={t("business.promotionUi.memberBenefits")}>
           {activeTierInfo.benefits.map((benefit, idx) => (
             <li key={idx} className={styles.benefitItem}>
               <CheckCircle size={14} className={styles.benefitCheck} aria-hidden="true" />

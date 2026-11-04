@@ -1,3 +1,5 @@
+import { getTranslator } from "./i18n/translator.ts";
+import { getBrowserLocale, type Locale } from "./i18n/locale.ts";
 import type {
   Voucher,
   VoucherStatus,
@@ -12,7 +14,7 @@ import {
   MOCK_MEMBER_POINTS,
   MOCK_POINT_TRANSACTIONS,
   MOCK_LOYALTY_CONFIG,
-} from './mock/promotion-mock-data';
+} from './mock/promotion-mock-data.ts';
 
 export {
   MOCK_AVAILABLE_VOUCHERS,
@@ -21,50 +23,55 @@ export {
   MOCK_LOYALTY_CONFIG,
 };
 
-export const LOYALTY_TIER_CONFIG: Record<LoyaltyTier, LoyaltyTierInfo> = {
+export function getLoyaltyTierConfig(locale: Locale = getBrowserLocale()): Record<LoyaltyTier, LoyaltyTierInfo> {
+  const t = getTranslator(locale);
+  return {
   MEMBER: {
     tier: 'MEMBER',
-    label: 'Thành viên Clucky',
+    label: t("business.promotionUi.memberLabel"),
     minPoints: 0,
     discountPercent: 0,
     badgeColor: '#A16207', // Warm Bronze / Amber
     benefits: [
-      'Tích điểm mỗi đơn hàng (10.000đ = 1 điểm)',
-      'Đổi điểm giảm trừ trực tiếp khi thanh toán',
-      'Nhận thông báo ưu đãi độc quyền theo tuần',
+      t("business.promotionUi.earnBenefit"),
+      t("business.promotionUi.redeemBenefit"),
+      t("business.promotionUi.weeklyBenefit"),
     ],
     nextTier: 'SILVER',
     nextTierPoints: 1000,
   },
   SILVER: {
     tier: 'SILVER',
-    label: 'Thành viên Bạc',
+    label: t("business.promotionUi.silverLabel"),
     minPoints: 1000,
     discountPercent: 3,
     badgeColor: '#64748B', // Silver slate
     benefits: [
-      'Giảm trực tiếp 3% trên toàn bộ hóa đơn',
-      'Nhân đôi điểm tích lũy vào tuần lễ sinh nhật',
-      'Ưu tiên xử lý khi đặt món vào giờ cao điểm',
+      t("business.promotionUi.silverBill"),
+      t("business.promotionUi.birthdayBenefit"),
+      t("business.promotionUi.priorityBenefit"),
     ],
     nextTier: 'GOLD',
     nextTierPoints: 5000,
   },
   GOLD: {
     tier: 'GOLD',
-    label: 'Thành viên Vàng',
+    label: t("business.promotionUi.goldLabel"),
     minPoints: 5000,
     discountPercent: 5,
     badgeColor: '#D97706', // Radiant Gold
     benefits: [
-      'Giảm trực tiếp 5% trên toàn bộ hóa đơn',
-      'Ưu tiên đặc quyền CSKH và giao hàng nhanh',
-      'Quà tặng combo sinh nhật và mã freeship hàng tháng',
+      t("business.promotionUi.goldBill"),
+      t("business.promotionUi.supportBenefit"),
+      t("business.promotionUi.giftBenefit"),
     ],
     nextTier: null,
     nextTierPoints: null,
   },
-};
+  };
+}
+
+export const LOYALTY_TIER_CONFIG = getLoyaltyTierConfig("vi");
 
 export function getVoucherStatus(voucher: Partial<Voucher>, now = new Date()): VoucherStatus {
   if (!voucher) return 'DISABLED';
@@ -92,35 +99,39 @@ export function getVoucherStatus(voucher: Partial<Voucher>, now = new Date()): V
 export function formatVoucherDiscount(
   type: VoucherType,
   value: number,
-  maxDiscount?: number | null
+  maxDiscount?: number | null,
+  locale: Locale = getBrowserLocale()
 ): string {
+  const t = getTranslator(locale);
   const safeValue = Math.max(0, Number(value) || 0);
   if (type === 'PERCENT') {
-    const percentText = `Giảm ${safeValue}%`;
+    const percentText = t("business.promotionUi.discountPercent", { value: safeValue });
     if (maxDiscount && maxDiscount > 0) {
-      return `${percentText} (tối đa ${maxDiscount.toLocaleString('vi-VN')}đ)`;
+      return t("business.promotionUi.discountCapped", { discount: percentText, amount: maxDiscount.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN')) });
     }
     return percentText;
   }
-  return `Giảm ${safeValue.toLocaleString('vi-VN')}đ`;
+  return t("business.promotionUi.discountAmount", { amount: safeValue.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN')) });
 }
 
 export function formatVoucherCondition(
   minOrderAmount: number,
   maxDiscount?: number | null,
-  type?: VoucherType
+  type?: VoucherType,
+  locale: Locale = getBrowserLocale()
 ): string {
+  const t = getTranslator(locale);
   const safeMin = Math.max(0, Number(minOrderAmount) || 0);
   const parts: string[] = [];
 
   if (safeMin > 0) {
-    parts.push(`Đơn từ ${safeMin.toLocaleString('vi-VN')}đ`);
+    parts.push(t("business.promotionUi.minimumOrder", { amount: safeMin.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN')) }));
   } else {
-    parts.push('Mọi giá trị đơn');
+    parts.push(t("business.promotionUi.anyAmount"));
   }
 
   if (type === 'PERCENT' && maxDiscount && maxDiscount > 0) {
-    parts.push(`tối đa ${maxDiscount.toLocaleString('vi-VN')}đ`);
+    parts.push(t("business.promotionUi.maximumDiscount", { amount: maxDiscount.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN')) }));
   }
 
   return parts.join(' • ');
@@ -137,35 +148,37 @@ export function validateVoucherForOrder(
   voucher: Voucher,
   orderAmount: number,
   storeId?: string | number | null,
-  now = new Date()
+  now = new Date(),
+  locale: Locale = getBrowserLocale()
 ): VoucherValidationResult {
+  const t = getTranslator(locale);
   if (!voucher || !voucher.code) {
-    return { valid: false, discountAmount: 0, reason: 'Mã voucher không tồn tại.' };
+    return { valid: false, discountAmount: 0, reason: t("business.promotionUi.unknownVoucher") };
   }
 
   const status = getVoucherStatus(voucher, now);
   if (status === 'EXPIRED') {
-    return { valid: false, discountAmount: 0, reason: 'Voucher đã hết hạn sử dụng.' };
+    return { valid: false, discountAmount: 0, reason: t("business.promotionUi.expiredVoucher") };
   }
   if (status === 'UPCOMING') {
-    return { valid: false, discountAmount: 0, reason: 'Voucher chưa đến thời gian áp dụng.' };
+    return { valid: false, discountAmount: 0, reason: t("business.promotionUi.upcomingVoucher") };
   }
   if (status === 'EXHAUSTED') {
-    return { valid: false, discountAmount: 0, reason: 'Voucher đã hết lượt sử dụng.' };
+    return { valid: false, discountAmount: 0, reason: t("business.promotionUi.exhaustedVoucher") };
   }
   if (status === 'DISABLED') {
-    return { valid: false, discountAmount: 0, reason: 'Voucher hiện đang tạm khóa.' };
+    return { valid: false, discountAmount: 0, reason: t("business.promotionUi.disabledVoucher") };
   }
 
   // Validate Store Scope
   if (voucher.scope === 'STORE') {
     if (!voucher.storeId) {
-      return { valid: false, discountAmount: 0, reason: 'Voucher chi nhánh không hợp lệ.' };
+      return { valid: false, discountAmount: 0, reason: t("business.promotionUi.invalidStoreVoucher") };
     }
     if (storeId && String(voucher.storeId) !== String(storeId)) {
       const storeNotice = voucher.storeName
-        ? `chỉ áp dụng tại chi nhánh ${voucher.storeName}.`
-        : 'không áp dụng cho chi nhánh này.';
+        ? t("business.promotionUi.storeOnly", { store: voucher.storeName })
+        : t("business.promotionUi.wrongStore");
       return { valid: false, discountAmount: 0, reason: `Voucher ${storeNotice}` };
     }
   }
@@ -178,9 +191,9 @@ export function validateVoucherForOrder(
     return {
       valid: false,
       discountAmount: 0,
-      reason: `Đơn hàng chưa đạt mức tối thiểu ${minRequired.toLocaleString(
-        'vi-VN'
-      )}đ (còn thiếu ${missing.toLocaleString('vi-VN')}đ).`,
+      reason: t("business.promotionUi.minimumMissing", { minimum: minRequired.toLocaleString(
+        (locale === 'en' ? 'en-US' : 'vi-VN')
+      ), missing: missing.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN')) }),
     };
   }
 
@@ -216,7 +229,8 @@ export interface TierProgressResult {
   isMaxTier: boolean;
 }
 
-export function calculateTierProgress(pointsInput: number): TierProgressResult {
+export function calculateTierProgress(pointsInput: number, locale: Locale = getBrowserLocale()): TierProgressResult {
+  const LOYALTY_TIER_CONFIG = getLoyaltyTierConfig(locale);
   const points = Math.max(0, Math.floor(Number(pointsInput) || 0));
 
   let tier: LoyaltyTier = 'MEMBER';

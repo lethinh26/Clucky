@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { useLocaleTools } from "../../i18n/hooks";
 import React from 'react';
 import type { AdminNotification, NotificationType } from '../../types/notification';
 
@@ -7,21 +9,25 @@ export interface AdminNotificationItemProps {
   onClick?: (notification: AdminNotification) => void;
 }
 
-const typeConfig: Record<
-  NotificationType,
-  { label: string; bg: string; color: string; border: string }
-> = {
-  ORDER: { label: 'Đơn hàng', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
-  PAYMENT: { label: 'Thanh toán', bg: '#DCFCE7', color: '#166534', border: '#BBF7D0' },
-  PROMOTION: { label: 'Khuyến mãi', bg: '#FEE2E2', color: '#991B1B', border: '#FECACA' },
-  SYSTEM: { label: 'Hệ thống', bg: '#E0F2FE', color: '#075985', border: '#BAE6FD' },
-};
+
 
 export const NotificationItem: React.FC<AdminNotificationItemProps> = ({
   notification,
   onMarkRead,
   onClick,
 }) => {
+  const { t } = useTranslation();
+  const { locale } = useLocaleTools();
+  const typeConfig: Record<
+    NotificationType,
+    { label: string; bg: string; color: string; border: string }
+  > = {
+    ORDER: { label: t("business:promotionUi.order"), bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
+    PAYMENT: { label: t("business:promotionUi.payment"), bg: '#DCFCE7', color: '#166534', border: '#BBF7D0' },
+    PROMOTION: { label: t("business:promotionUi.promotion"), bg: '#FEE2E2', color: '#991B1B', border: '#FECACA' },
+    SYSTEM: { label: t("business:promotionUi.system"), bg: '#E0F2FE', color: '#075985', border: '#BAE6FD' },
+  };
+
   const { id, title, content, type, isRead, createdAt, refId } = notification;
   const config = typeConfig[type] || typeConfig.SYSTEM;
 
@@ -80,7 +86,7 @@ export const NotificationItem: React.FC<AdminNotificationItemProps> = ({
           )}
         </div>
         <span style={{ fontSize: 11, color: '#6B7280' }}>
-          {new Date(createdAt).toLocaleDateString('vi-VN')}
+          {new Date(createdAt).toLocaleDateString((locale === 'en' ? 'en-US' : 'vi-VN'))}
         </span>
       </div>
       <p style={{ margin: 0, fontSize: 12, color: '#4B5563', lineHeight: 1.4 }}>
@@ -104,7 +110,7 @@ export const NotificationItem: React.FC<AdminNotificationItemProps> = ({
               padding: 0,
             }}
           >
-            Đánh dấu đã đọc
+            {t("business:promotionUi.markRead")}
           </button>
         </div>
       )}

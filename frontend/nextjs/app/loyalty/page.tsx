@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Crown,
@@ -28,9 +30,8 @@ import {
   calculateTierProgress,
   calculateEarnPoints,
   calculatePointsDiscount,
-  LOYALTY_TIER_CONFIG,
+  getLoyaltyTierConfig,
 } from '@/lib/promotion';
-import { formatPrice } from '@/lib/products';
 import styles from './loyalty.module.css';
 
 const TIER_ICONS: Record<LoyaltyTier, React.ReactNode> = {
@@ -48,6 +49,11 @@ const TIER_BADGE_CLASS: Record<LoyaltyTier, string> = {
 type TxFilter = 'ALL' | 'EARN' | 'REDEEM' | 'ADJUST';
 
 export default function LoyaltyPage() {
+  const t = useTranslations();
+  const { locale, money: formatPrice } = useLocaleTools();
+  const LOYALTY_TIER_CONFIG = getLoyaltyTierConfig(locale);
+
+
   const [memberPoints, setMemberPoints] = useState<MemberPoints | null>(null);
   const [transactions, setTransactions] = useState<PointTransaction[]>([]);
   const [isGuest, setIsGuest] = useState(false);
@@ -71,7 +77,7 @@ export default function LoyaltyPage() {
       setTransactions(data.transactions);
       setIsGuest(data.isGuest);
     } catch {
-      setError('Không thể tải thông tin điểm Clucky Club. Vui lòng thử lại sau.');
+      setError(t("business.promotionUi.loyaltyLoadError"));
     } finally {
       setLoading(false);
     }
@@ -84,8 +90,8 @@ export default function LoyaltyPage() {
   // Calculate current tier progress
   const currentPoints = memberPoints?.totalPoints ?? (isGuest ? 0 : 1450);
   const progressData = useMemo(() => {
-    return calculateTierProgress(currentPoints);
-  }, [currentPoints]);
+    return calculateTierProgress(currentPoints, locale);
+  }, [currentPoints, locale]);
 
   const currentTier = progressData.tier;
   const currentTierInfo = LOYALTY_TIER_CONFIG[currentTier];
@@ -140,36 +146,35 @@ export default function LoyaltyPage() {
           <span>Clucky Club</span>
         </div>
         <h1 id="loyalty-hero-heading" className={styles.heroTitle}>
-          Tích Điểm Thả Ga, Đổi Quà Cực Đã
+          {t("business.promotionUi.loyaltyHero")}
         </h1>
         <p className={styles.heroDesc}>
-          Mỗi bữa ăn tại Clucky là một niềm vui nhân đôi! Tích lũy điểm thưởng theo từng đơn
-          hàng để nâng hạng và hưởng đặc quyền chiết khấu trực tiếp tới 5% trên toàn thực đơn.
+          {t("business.promotionUi.loyaltyIntro")}
         </p>
       </section>
 
       {/* 2. Guest Banner OR Member Overview Card */}
       {isGuest ? (
-        <section className={styles.guestBanner} aria-label="Đăng nhập để nhận điểm thưởng">
+        <section className={styles.guestBanner} aria-label={t("business.promotionUi.signInRewards")}>
           <div className={styles.guestLeft}>
             <div className={styles.guestIconWrap}>
               <Gift size={26} aria-hidden="true" />
             </div>
             <div>
-              <h2 className={styles.guestTitle}>Gia Nhập Clucky Club Ngay Hôm Nay</h2>
+              <h2 className={styles.guestTitle}>{t("business.promotionUi.joinClub")}</h2>
               <p className={styles.guestDesc}>
-                Đăng nhập hoặc đăng ký tài khoản để nhận ngay{' '}
-                <strong>100 điểm thưởng chào mừng</strong> và bắt đầu tích điểm trên mọi đơn hàng!
+                {t("business.promotionUi.welcomeStart")}{' '}
+                <strong>{t("business.promotionUi.welcomePoints")}</strong> {t("business.promotionUi.welcomeEnd")}
               </p>
             </div>
           </div>
           <div className={styles.guestActions}>
             <Link href="/login" className={styles.loginBtn}>
               <LogIn size={15} aria-hidden="true" />
-              <span>Đăng nhập</span>
+              <span>{t("business.promotionUi.signIn")}</span>
             </Link>
             <Link href="/register" className={styles.registerBtn}>
-              <span>Đăng ký thành viên</span>
+              <span>{t("business.promotionUi.register")}</span>
             </Link>
           </div>
         </section>
@@ -177,15 +182,15 @@ export default function LoyaltyPage() {
         <section className={styles.statusCard} aria-labelledby="loyalty-status-title">
           <div className={styles.statusHeader}>
             <div className={styles.pointsBigWrap}>
-              <span className={styles.pointsLabel}>Điểm Tích Lũy Clucky</span>
+              <span className={styles.pointsLabel}>{t("business.promotionUi.cluckyBalance")}</span>
               <div className={styles.pointsBigVal}>
-                {currentPoints.toLocaleString('vi-VN')}
-                <span className={styles.pointsUnit}>điểm</span>
+                {currentPoints.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN'))}
+                <span className={styles.pointsUnit}>{t("business.promotionUi.points")}</span>
               </div>
               <div className={styles.equivalentVal}>
                 <CheckCircle2 size={14} aria-hidden="true" />
                 <span>
-                  Tương đương <strong>{formatPrice(calculatePointsDiscount(currentPoints))}</strong> giảm trực tiếp khi checkout
+                  {t("business.promotionUi.equivalent")} <strong>{formatPrice(calculatePointsDiscount(currentPoints))}</strong> {t("business.promotionUi.checkoutDiscount")}
                 </span>
               </div>
             </div>
@@ -199,13 +204,13 @@ export default function LoyaltyPage() {
           {/* Tier Progress Bar */}
           <div className={styles.progressSection}>
             <div className={styles.progressLabelRow}>
-              <span>Tiến độ thăng hạng</span>
+              <span>{t("business.promotionUi.tierProgress")}</span>
               <span>
                 {progressData.isMaxTier
-                  ? 'Đã đạt hạng cao nhất!'
-                  : `Cần thêm ${progressData.pointsToNextTier.toLocaleString(
-                      'vi-VN'
-                    )} điểm lên ${LOYALTY_TIER_CONFIG[progressData.nextTier!].label}`}
+                  ? t("business.promotionUi.maxTierReached")
+                  : t("business.promotionUi.tierRemaining", { points: progressData.pointsToNextTier.toLocaleString(
+                      (locale === 'en' ? 'en-US' : 'vi-VN')
+                    ), tier: LOYALTY_TIER_CONFIG[progressData.nextTier!].label })}
               </span>
             </div>
             <div
@@ -224,20 +229,20 @@ export default function LoyaltyPage() {
 
           <div className={styles.statusBarFooter}>
             <div style={{ fontSize: 13, color: '#75675e' }}>
-              Quy đổi: <strong>10.000đ = 1 điểm</strong> • <strong>1 điểm = 1.000đ</strong> giảm trừ
+              {t("business.promotionUi.conversion")} <strong>{t("business.promotionUi.earnRate")}</strong> • <strong>{t("business.promotionUi.redeemRate")}</strong> {t("business.promotionUi.deduction")}
             </div>
             <div className={styles.statusActions}>
               <button
                 type="button"
                 onClick={scrollToHistory}
                 className={styles.historyJumpBtn}
-                aria-label="Xem lịch sử điểm"
+                aria-label={t("business.promotionUi.viewHistory")}
               >
                 <History size={14} aria-hidden="true" />
-                <span>Lịch sử điểm</span>
+                <span>{t("business.promotionUi.history")}</span>
               </button>
-              <Link href="/menu" className={styles.orderNowBtn} aria-label="Đặt món để tích điểm">
-                <span>Đặt món tích điểm</span>
+              <Link href="/menu" className={styles.orderNowBtn} aria-label={t("business.promotionUi.orderToEarn")}>
+                <span>{t("business.promotionUi.earnWithOrder")}</span>
                 <ArrowRight size={14} aria-hidden="true" />
               </Link>
             </div>
@@ -249,10 +254,10 @@ export default function LoyaltyPage() {
       <section aria-labelledby="tier-comparison-title" style={{ marginBottom: 48 }}>
         <div className={styles.sectionTitleRow}>
           <h2 id="tier-comparison-title" className={styles.sectionTitle}>
-            Bảng Đặc Quyền Hạng Thành Viên
+            {t("business.promotionUi.tierBenefitsTitle")}
           </h2>
           <p className={styles.sectionSub}>
-            Tích lũy càng nhiều điểm, bậc xếp hạng càng cao cùng hàng loạt ưu đãi độc quyền.
+            {t("business.promotionUi.tierBenefitsIntro")}
           </p>
         </div>
 
@@ -264,17 +269,17 @@ export default function LoyaltyPage() {
             }`}
           >
             {currentTier === 'MEMBER' && !isGuest && (
-              <span className={styles.currentBadge}>Hạng hiện tại</span>
+              <span className={styles.currentBadge}>{t("business.promotionUi.currentTier")}</span>
             )}
             <div className={styles.tierHeader}>
-              <h3 className={styles.tierTitle}>Thành viên Clucky</h3>
+              <h3 className={styles.tierTitle}>{t("business.promotionUi.memberLabel")}</h3>
               <span className={`${styles.tierBadgeHero} ${styles.tierBadgeMember}`}>
                 <Star size={13} aria-hidden="true" />
                 Member
               </span>
             </div>
-            <div className={styles.tierPointsReq}>Từ 0 đến 999 điểm tích lũy</div>
-            <div className={styles.tierDiscountCallout}>Tích 1 điểm cho mỗi 10.000đ</div>
+            <div className={styles.tierPointsReq}>{t("business.promotionUi.memberRange")}</div>
+            <div className={styles.tierDiscountCallout}>{t("business.promotionUi.memberEarn")}</div>
             <ul className={styles.tierBenefitsList}>
               {LOYALTY_TIER_CONFIG.MEMBER.benefits.map((b, i) => (
                 <li key={i} className={styles.tierBenefitItem}>
@@ -292,21 +297,21 @@ export default function LoyaltyPage() {
             }`}
           >
             {currentTier === 'SILVER' && !isGuest && (
-              <span className={styles.currentBadge}>Hạng hiện tại</span>
+              <span className={styles.currentBadge}>{t("business.promotionUi.currentTier")}</span>
             )}
             <div className={styles.tierHeader}>
-              <h3 className={styles.tierTitle}>Thành viên Bạc</h3>
+              <h3 className={styles.tierTitle}>{t("business.promotionUi.silverLabel")}</h3>
               <span className={`${styles.tierBadgeHero} ${styles.tierBadgeSilver}`}>
                 <Award size={13} aria-hidden="true" />
                 Silver
               </span>
             </div>
-            <div className={styles.tierPointsReq}>Từ 1.000 đến 4.999 điểm tích lũy</div>
+            <div className={styles.tierPointsReq}>{t("business.promotionUi.silverRange")}</div>
             <div
               className={styles.tierDiscountCallout}
               style={{ color: '#0369a1', borderColor: '#bae6fd', background: '#f0f9ff' }}
             >
-              Giảm trực tiếp 3% trên toàn bộ đơn
+              {t("business.promotionUi.silverDiscount")}
             </div>
             <ul className={styles.tierBenefitsList}>
               {LOYALTY_TIER_CONFIG.SILVER.benefits.map((b, i) => (
@@ -325,21 +330,21 @@ export default function LoyaltyPage() {
             }`}
           >
             {currentTier === 'GOLD' && !isGuest && (
-              <span className={styles.currentBadge}>Hạng hiện tại</span>
+              <span className={styles.currentBadge}>{t("business.promotionUi.currentTier")}</span>
             )}
             <div className={styles.tierHeader}>
-              <h3 className={styles.tierTitle}>Thành viên Vàng</h3>
+              <h3 className={styles.tierTitle}>{t("business.promotionUi.goldLabel")}</h3>
               <span className={`${styles.tierBadgeHero} ${styles.tierBadgeGold}`}>
                 <Crown size={13} aria-hidden="true" />
                 Gold VIP
               </span>
             </div>
-            <div className={styles.tierPointsReq}>Từ 5.000 điểm tích lũy trở lên</div>
+            <div className={styles.tierPointsReq}>{t("business.promotionUi.goldRange")}</div>
             <div
               className={styles.tierDiscountCallout}
               style={{ color: '#b45309', borderColor: '#fde68a', background: '#fffbeb' }}
             >
-              Giảm trực tiếp 5% trên toàn bộ đơn
+              {t("business.promotionUi.goldDiscount")}
             </div>
             <ul className={styles.tierBenefitsList}>
               {LOYALTY_TIER_CONFIG.GOLD.benefits.map((b, i) => (
@@ -357,36 +362,33 @@ export default function LoyaltyPage() {
       <section aria-labelledby="how-it-works-title" style={{ marginBottom: 48 }}>
         <div className={styles.sectionTitleRow}>
           <h2 id="how-it-works-title" className={styles.sectionTitle}>
-            Cơ Chế Hoạt Động Của Clucky Club
+            {t("business.promotionUi.howClubWorks")}
           </h2>
-          <p className={styles.sectionSub}>3 bước đơn giản để tận hưởng trọn vẹn đặc quyền ẩm thực.</p>
+          <p className={styles.sectionSub}>{t("business.promotionUi.threeSteps")}</p>
         </div>
 
         <div className={styles.stepsGrid}>
           <div className={styles.stepCard}>
             <div className={styles.stepNumber}>1</div>
-            <h3 className={styles.stepTitle}>Đặt Món & Thưởng Thức</h3>
+            <h3 className={styles.stepTitle}>{t("business.promotionUi.orderEnjoy")}</h3>
             <p className={styles.stepDesc}>
-              Đặt gà rán giòn rụm hoặc combo yêu thích qua website hoặc tại chi nhánh. Mỗi 10.000đ
-              chi tiêu được tự động cộng 1 điểm vào tài khoản Clucky.
+              {t("business.promotionUi.orderEnjoyBody")}
             </p>
           </div>
 
           <div className={styles.stepCard}>
             <div className={styles.stepNumber}>2</div>
-            <h3 className={styles.stepTitle}>Thăng Hạng Tự Động</h3>
+            <h3 className={styles.stepTitle}>{t("business.promotionUi.automaticTier")}</h3>
             <p className={styles.stepDesc}>
-              Điểm tích lũy tăng dần giúp bạn mở khóa hạng Bạc và Vàng, hưởng chiết khấu tự động từ 3%
-              đến 5% trên toàn hóa đơn mà không cần nhập mã.
+              {t("business.promotionUi.automaticTierBody")}
             </p>
           </div>
 
           <div className={styles.stepCard}>
             <div className={styles.stepNumber}>3</div>
-            <h3 className={styles.stepTitle}>Đổi Điểm Trừ Tiền</h3>
+            <h3 className={styles.stepTitle}>{t("business.promotionUi.redeemTitle")}</h3>
             <p className={styles.stepDesc}>
-              Tại trang thanh toán, chọn &ldquo;Dùng điểm tích lũy&rdquo; để giảm trừ trực tiếp (1 điểm
-              = 1.000đ). Có thể áp dụng đồng thời với 01 voucher ưu đãi!
+              {t("business.promotionUi.redeemBody")}
             </p>
           </div>
         </div>
@@ -400,10 +402,10 @@ export default function LoyaltyPage() {
           </div>
           <div>
             <h2 id="points-calculator-title" className={styles.sectionTitle} style={{ fontSize: 20 }}>
-              Công Cụ Tính Điểm & Quyền Lợi Dự Kiến
+              {t("business.promotionUi.calculatorTitle")}
             </h2>
             <p className={styles.sectionSub}>
-              Mô phỏng số điểm bạn sẽ nhận được và quyền lợi chiết khấu theo hạng hiện tại.
+              {t("business.promotionUi.calculatorBody")}
             </p>
           </div>
         </div>
@@ -411,7 +413,7 @@ export default function LoyaltyPage() {
         <div className={styles.calcGrid}>
           <div className={styles.calcInputWrap}>
             <label htmlFor="calc-spend-input" style={{ fontSize: 13, fontWeight: 700, color: '#4b3e36' }}>
-              Giá trị hóa đơn dự kiến (VNĐ)
+              {t("business.promotionUi.estimatedBill")}
             </label>
             <input
               id="calc-spend-input"
@@ -457,25 +459,25 @@ export default function LoyaltyPage() {
 
           <div className={styles.calcOutputBox}>
             <div className={styles.calcStatItem}>
-              <span className={styles.calcStatLabel}>Điểm tích lũy nhận được</span>
+              <span className={styles.calcStatLabel}>{t("business.promotionUi.pointsEarned")}</span>
               <span className={styles.calcStatVal}>
                 +{estimatedEarn}{' '}
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#c9a227' }}>điểm</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#c9a227' }}>{t("business.promotionUi.points")}</span>
               </span>
               <span style={{ fontSize: 11, color: '#75675e', marginTop: 2 }}>
-                (Quy đổi thành {formatPrice(estimatedRedeemValue)})
+                {t("business.promotionUi.convertedTo")} {formatPrice(estimatedRedeemValue)})
               </span>
             </div>
 
             <div className={styles.calcStatItem}>
               <span className={styles.calcStatLabel}>
-                Chiết khấu hạng {currentTierInfo.label} ({tierDiscountPercent}%)
+                {t("business.promotionUi.tierDiscount")} {currentTierInfo.label} ({tierDiscountPercent}%)
               </span>
               <span className={styles.calcStatVal} style={{ color: '#16a34a' }}>
                 {formatPrice(estimatedTierDiscount)}
               </span>
               <span style={{ fontSize: 11, color: '#75675e', marginTop: 2 }}>
-                Tổng thanh toán: <strong>{formatPrice(Math.max(0, calcSpend - estimatedTierDiscount))}</strong>
+                {t("business.promotionUi.totalPayment")} <strong>{formatPrice(Math.max(0, calcSpend - estimatedTierDiscount))}</strong>
               </span>
             </div>
           </div>
@@ -491,12 +493,12 @@ export default function LoyaltyPage() {
         <div className={styles.historyToolbar}>
           <div>
             <h2 id="loyalty-history-title" className={styles.sectionTitle} style={{ fontSize: 20 }}>
-              Lịch Sử Biến Động Điểm
+              {t("business.promotionUi.transactionTitle")}
             </h2>
-            <p className={styles.sectionSub}>Ghi nhận chi tiết mọi giao dịch tích và đổi điểm của bạn.</p>
+            <p className={styles.sectionSub}>{t("business.promotionUi.transactionIntro")}</p>
           </div>
 
-          <div className={styles.txFilterList} role="tablist" aria-label="Lọc giao dịch điểm">
+          <div className={styles.txFilterList} role="tablist" aria-label={t("business.promotionUi.filterTransactions")}>
             <button
               type="button"
               role="tab"
@@ -504,7 +506,7 @@ export default function LoyaltyPage() {
               onClick={() => setTxFilter('ALL')}
               className={`${styles.txFilterBtn} ${txFilter === 'ALL' ? styles.txFilterBtnActive : ''}`}
             >
-              Tất cả
+              {t("business.promotionUi.all")}
             </button>
             <button
               type="button"
@@ -513,7 +515,7 @@ export default function LoyaltyPage() {
               onClick={() => setTxFilter('EARN')}
               className={`${styles.txFilterBtn} ${txFilter === 'EARN' ? styles.txFilterBtnActive : ''}`}
             >
-              Tích điểm (+)
+              {t("business.promotionUi.earnedFilter")}
             </button>
             <button
               type="button"
@@ -522,7 +524,7 @@ export default function LoyaltyPage() {
               onClick={() => setTxFilter('REDEEM')}
               className={`${styles.txFilterBtn} ${txFilter === 'REDEEM' ? styles.txFilterBtnActive : ''}`}
             >
-              Đổi điểm (-)
+              {t("business.promotionUi.redeemedFilter")}
             </button>
             <button
               type="button"
@@ -531,7 +533,7 @@ export default function LoyaltyPage() {
               onClick={() => setTxFilter('ADJUST')}
               className={`${styles.txFilterBtn} ${txFilter === 'ADJUST' ? styles.txFilterBtnActive : ''}`}
             >
-              Thưởng / Điều chỉnh
+              {t("business.promotionUi.adjustedFilter")}
             </button>
           </div>
         </div>
@@ -539,7 +541,7 @@ export default function LoyaltyPage() {
         {filteredTransactions.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '36px 16px', color: '#75675e' }}>
             <History size={36} color="#d97706" style={{ margin: '0 auto 8px' }} aria-hidden="true" />
-            <p style={{ margin: 0, fontWeight: 600 }}>Chưa có giao dịch điểm nào trong danh mục này.</p>
+            <p style={{ margin: 0, fontWeight: 600 }}>{t("business.promotionUi.emptyTransactions")}</p>
           </div>
         ) : (
           <div className={styles.txList}>
@@ -567,7 +569,7 @@ export default function LoyaltyPage() {
 
                     <div className={styles.txDetails}>
                       <span className={styles.txReason}>
-                        {tx.reason || (isEarn ? 'Tích điểm đơn hàng' : 'Đổi điểm thanh toán')}
+                        {tx.reason || (isEarn ? t("business.promotionUi.earnedOrder") : t("business.promotionUi.redeemedOrder"))}
                       </span>
                       <span className={styles.txTime}>
                         <Clock
@@ -576,7 +578,7 @@ export default function LoyaltyPage() {
                           aria-hidden="true"
                         />
                         {formatTxTime(tx.createdAt)}
-                        {tx.orderId && ` • Mã đơn: ${tx.orderId}`}
+                        {tx.orderId && t("business.promotionUi.orderReference", { order: tx.orderId })}
                       </span>
                     </div>
                   </div>
@@ -591,10 +593,10 @@ export default function LoyaltyPage() {
                           : styles.txChangeAdjust
                       }
                     >
-                      {tx.change > 0 ? `+${tx.change}` : tx.change} điểm
+                      {tx.change > 0 ? `+${tx.change}` : tx.change} {t("business.promotionUi.points")}
                     </span>
                     <span className={styles.txBalanceAfter}>
-                      Số dư sau GD: {tx.balanceAfter.toLocaleString('vi-VN')} điểm
+                      {t("business.promotionUi.balanceAfter")} {tx.balanceAfter.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN'))} {t("business.promotionUi.points")}
                     </span>
                   </div>
                 </div>

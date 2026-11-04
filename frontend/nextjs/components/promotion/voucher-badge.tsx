@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
 import React, { useState } from 'react';
 import { Tag, Copy, Check, Sparkles } from 'lucide-react';
 import { Voucher, VoucherType, VoucherStatus, VoucherScope } from '@/lib/types/promotion';
@@ -29,13 +31,7 @@ export interface VoucherBadgeProps {
   className?: string;
 }
 
-const STATUS_LABEL: Record<VoucherStatus, string> = {
-  ACTIVE: 'Khả dụng',
-  EXPIRED: 'Hết hạn',
-  UPCOMING: 'Sắp diễn ra',
-  EXHAUSTED: 'Hết lượt',
-  DISABLED: 'Tạm khóa',
-};
+
 
 const STATUS_CLASS_MAP: Record<VoucherStatus, string> = {
   ACTIVE: styles.statusActive,
@@ -63,6 +59,16 @@ export function VoucherBadge({
   showCondition = true,
   className = '',
 }: VoucherBadgeProps) {
+  const t = useTranslations();
+  const { locale } = useLocaleTools();
+  const STATUS_LABEL: Record<VoucherStatus, string> = {
+    ACTIVE: t("business.promotionUi.available"),
+    EXPIRED: t("business.promotionUi.expired"),
+    UPCOMING: t("business.promotionUi.upcoming"),
+    EXHAUSTED: t("business.promotionUi.exhausted"),
+    DISABLED: t("business.promotionUi.disabled"),
+  };
+
   const [copied, setCopied] = useState(false);
 
   // Normalize data between voucher object and direct props
@@ -91,8 +97,8 @@ export function VoucherBadge({
   };
 
   const status = getVoucherStatus(currentVoucher);
-  const discountText = formatVoucherDiscount(type, value, maxDiscount);
-  const conditionText = formatVoucherCondition(minOrderAmount, maxDiscount, type);
+  const discountText = formatVoucherDiscount(type, value, maxDiscount, locale);
+  const conditionText = formatVoucherCondition(minOrderAmount, maxDiscount, type, locale);
   const isUsable = status === 'ACTIVE';
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -110,7 +116,7 @@ export function VoucherBadge({
       <span
         className={`${styles.promotionScope} ${styles.voucherBadge} ${STATUS_CLASS_MAP[status]} ${className}`}
         title={`${code}: ${discountText} (${conditionText})`}
-        aria-label={`Voucher ${code}: ${discountText}, trạng thái ${STATUS_LABEL[status]}`}
+        aria-label={t("business.promotionUi.voucherAccessible", { code: code, discount: discountText, status: STATUS_LABEL[status] })}
       >
         <span className={styles.voucherDot} aria-hidden="true" />
         <span>{code}</span>
@@ -143,8 +149,8 @@ export function VoucherBadge({
             type="button"
             className={styles.couponCodeBadge}
             onClick={handleCopy}
-            title="Nhấn để sao chép mã"
-            aria-label={`Sao chép mã voucher ${code}`}
+            title={t("business.promotionUi.clickCopy")}
+            aria-label={t("business.promotionUi.copyVoucher", { code: code })}
           >
             <span>{code}</span>
             {copied ? (
@@ -159,7 +165,7 @@ export function VoucherBadge({
           <div className={styles.couponCondition}>
             {conditionText}
             {scope === 'STORE' && storeName && (
-              <span> • Áp dụng tại {storeName}</span>
+              <span> {t("business.promotionUi.appliesAt")} {storeName}</span>
             )}
           </div>
         )}
@@ -175,9 +181,9 @@ export function VoucherBadge({
               type="button"
               className={styles.couponApplyBtn}
               onClick={() => onApply(code)}
-              aria-label={`Áp dụng mã ${code}`}
+              aria-label={t("business.promotionUi.applyCode", { code: code })}
             >
-              Áp dụng
+              {t("business.promotionUi.apply")}
             </button>
           )}
         </div>

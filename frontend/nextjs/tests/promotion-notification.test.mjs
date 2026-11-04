@@ -6,6 +6,7 @@ import {
   formatVoucherCondition,
   validateVoucherForOrder,
   calculateTierProgress,
+  getLoyaltyTierConfig,
   LOYALTY_TIER_CONFIG,
 } from '../lib/promotion.ts';
 import {
@@ -19,6 +20,16 @@ import {
 // -------------------------------------------------------------
 // VOUCHER TESTS
 // -------------------------------------------------------------
+test('promotion and notification helpers follow the requested locale', () => {
+  const now = new Date('2026-10-30T12:00:00Z');
+  assert.equal(formatVoucherDiscount('PERCENT', 15, 50000, 'en'), 'Save 15% (up to VND 50,000)');
+  assert.equal(formatVoucherCondition(150000, 50000, 'PERCENT', 'en'), 'Orders from VND 150,000 • up to VND 50,000');
+  assert.equal(formatRelativeTime('2026-10-30T11:45:00Z', now, 'en'), '15 minutes ago');
+  assert.equal(getLoyaltyTierConfig('en').SILVER.label, 'Silver Member');
+  assert.equal(getLoyaltyTierConfig('vi').SILVER.label, 'Thành viên Bạc');
+  assert.equal(calculateTierProgress(1000, 'en').tierInfo.label, 'Silver Member');
+});
+
 test('formatVoucherDiscount formats percentage and amount correctly', () => {
   assert.equal(formatVoucherDiscount('PERCENT', 20), 'Giảm 20%');
   assert.equal(

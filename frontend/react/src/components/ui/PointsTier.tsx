@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { useLocaleTools } from "../../i18n/hooks";
 import React from 'react';
 import { Tag } from 'antd';
 import type { LoyaltyTier } from '../../types/promotion';
@@ -8,38 +10,42 @@ export interface PointsTierProps {
   size?: 'small' | 'medium';
 }
 
-const tierConfig: Record<
-  LoyaltyTier,
-  { label: string; color: string; bg: string; border: string; dotColor: string }
-> = {
-  MEMBER: {
-    label: 'Thành viên',
-    color: '#92400E',
-    bg: '#FEF3C7',
-    border: '#FDE68A',
-    dotColor: '#D97706',
-  },
-  SILVER: {
-    label: 'Bạc (Silver)',
-    color: '#334155',
-    bg: '#F1F5F9',
-    border: '#CBD5E1',
-    dotColor: '#64748B',
-  },
-  GOLD: {
-    label: 'Vàng (Gold)',
-    color: '#78350F',
-    bg: '#FEF08A',
-    border: '#FBBF24',
-    dotColor: '#D97706',
-  },
-};
+
 
 export const PointsTier: React.FC<PointsTierProps> = ({
   tier = 'MEMBER',
   points,
   size = 'medium',
 }) => {
+  const { t } = useTranslation();
+  const { locale } = useLocaleTools();
+  const tierConfig: Record<
+    LoyaltyTier,
+    { label: string; color: string; bg: string; border: string; dotColor: string }
+  > = {
+    MEMBER: {
+      label: t("business:promotionUi.member"),
+      color: '#92400E',
+      bg: '#FEF3C7',
+      border: '#FDE68A',
+      dotColor: '#D97706',
+    },
+    SILVER: {
+      label: t("business:promotionUi.silver"),
+      color: '#334155',
+      bg: '#F1F5F9',
+      border: '#CBD5E1',
+      dotColor: '#64748B',
+    },
+    GOLD: {
+      label: t("business:promotionUi.gold"),
+      color: '#78350F',
+      bg: '#FEF08A',
+      border: '#FBBF24',
+      dotColor: '#D97706',
+    },
+  };
+
   const config = tierConfig[tier] || tierConfig.MEMBER;
 
   return (
@@ -72,7 +78,7 @@ export const PointsTier: React.FC<PointsTierProps> = ({
       <span>{config.label}</span>
       {typeof points === 'number' && (
         <span style={{ opacity: 0.9, fontWeight: 800 }}>
-          ({points.toLocaleString('vi-VN')} điểm)
+          ({points.toLocaleString((locale === 'en' ? 'en-US' : 'vi-VN'))} {t("business:promotionUi.pointsClose")}
         </span>
       )}
     </Tag>

@@ -659,5 +659,16 @@
     "codCollectionConfirmed": "COD collection confirmed.",
     "cannotReviewThisRequestCheckYourPermissionsAndDecisionNote": "Cannot review this request. Check your permissions and decision note.",
     "refundRequest": "{{value1}} refund request. {{value2}}"
+  },
+  "promotionUi": {
+    "order": "Order",
+    "payment": "Payment",
+    "system": "System",
+    "markRead": "Mark as read",
+    "promotion": "Promotion",
+    "member": "Member",
+    "silver": "Silver",
+    "gold": "Gold",
+    "pointsClose": "points)"
   }
 }

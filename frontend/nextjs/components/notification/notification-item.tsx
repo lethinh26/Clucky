@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from "next-intl";
+import { useLocaleTools } from "@/lib/i18n/hooks";
 import React from 'react';
 import {
   ShoppingBag,
@@ -38,12 +40,7 @@ const TYPE_ICONS: Record<NotificationType, React.ReactNode> = {
   SYSTEM: <Bell size={18} aria-hidden="true" />,
 };
 
-const TYPE_LABELS: Record<NotificationType, string> = {
-  ORDER: 'Đơn hàng',
-  PAYMENT: 'Thanh toán',
-  PROMOTION: 'Ưu đãi',
-  SYSTEM: 'Hệ thống',
-};
+
 
 const ICON_CLASS_MAP: Record<NotificationType, string> = {
   ORDER: styles.iconOrder,
@@ -75,13 +72,22 @@ export function NotificationItem({
   onDelete,
   className = '',
 }: NotificationItemProps) {
+  const t = useTranslations();
+  const { locale } = useLocaleTools();
+  const TYPE_LABELS: Record<NotificationType, string> = {
+    ORDER: t("business.promotionUi.order"),
+    PAYMENT: t("business.promotionUi.payment"),
+    PROMOTION: t("business.promotionUi.offers"),
+    SYSTEM: t("business.promotionUi.system"),
+  };
+
   // Skeleton loading state
   if (loading) {
     return (
       <div
         className={`${styles.notificationScope} ${styles.skeletonItem} ${className}`}
         aria-busy="true"
-        aria-label="Đang tải thông báo..."
+        aria-label={t("business.promotionUi.loadingNotifications")}
       >
         <div className={styles.skeletonIcon} />
         <div style={{ flex: 1 }}>
@@ -114,8 +120,8 @@ export function NotificationItem({
     link,
   };
 
-  const timeText = formatRelativeTime(createdAt);
-  const typeLabel = TYPE_LABELS[type] ?? 'Thông báo';
+  const timeText = formatRelativeTime(createdAt, new Date(), locale);
+  const typeLabel = TYPE_LABELS[type] ?? t("business.promotionUi.notification");
 
   const handleClick = () => {
     onClick?.(currentItem);
@@ -150,7 +156,7 @@ export function NotificationItem({
       tabIndex={0}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      aria-label={`${typeLabel}: ${title}. ${!isRead ? 'Chưa đọc.' : 'Đã đọc.'} Thời gian: ${timeText}`}
+      aria-label={t("business.promotionUi.notificationAccessible", { type: typeLabel, title: title, status: !isRead ? t("business.promotionUi.unread") : t("business.promotionUi.read"), time: timeText })}
     >
       {/* Icon Box */}
       <div className={`${styles.iconBox} ${ICON_CLASS_MAP[type]}`}>
@@ -181,7 +187,7 @@ export function NotificationItem({
           {link && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#D97706' }}>
               <ExternalLink size={10} aria-hidden="true" />
-              <span>Chi tiết</span>
+              <span>{t("business.promotionUi.details")}</span>
             </span>
           )}
         </div>
@@ -194,8 +200,8 @@ export function NotificationItem({
             type="button"
             className={styles.actionBtn}
             onClick={handleMarkReadClick}
-            title="Đánh dấu đã đọc"
-            aria-label={`Đánh dấu đã đọc thông báo ${title}`}
+            title={t("business.promotionUi.markRead")}
+            aria-label={t("business.promotionUi.markNotification", { title: title })}
           >
             <Check size={14} aria-hidden="true" />
           </button>
@@ -205,8 +211,8 @@ export function NotificationItem({
             type="button"
             className={`${styles.actionBtn} ${styles.deleteBtn}`}
             onClick={handleDeleteClick}
-            title="Xóa thông báo"
-            aria-label={`Xóa thông báo ${title}`}
+            title={t("business.promotionUi.deleteNotification")}
+            aria-label={t("business.promotionUi.deleteNamedNotification", { title: title })}
           >
             <Trash2 size={14} aria-hidden="true" />
           </button>
