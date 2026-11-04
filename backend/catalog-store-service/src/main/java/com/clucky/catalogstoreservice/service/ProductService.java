@@ -4,6 +4,8 @@ import com.clucky.catalogstoreservice.dto.MediaDto;
 import com.clucky.catalogstoreservice.dto.ProductDto;
 import com.clucky.catalogstoreservice.entity.*;
 import com.clucky.catalogstoreservice.exception.ResourceNotFoundException;
+import com.clucky.catalogstoreservice.exception.ApiException;
+import com.clucky.catalogstoreservice.exception.ErrorCode;
 import com.clucky.catalogstoreservice.media.CloudinaryMediaAdapter;
 import com.clucky.catalogstoreservice.repository.*;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final ProductOptionRepository optionRepository;
     private final ProductToppingRepository toppingRepository;
+    private final ComboItemRepository comboItemRepository;
     private final StoreRepository storeRepository;
     private final StoreProductRepository storeProductRepository;
     private final StoreInventoryRepository storeInventoryRepository;
@@ -32,6 +35,7 @@ public class ProductService {
                           CategoryRepository categoryRepository,
                           ProductOptionRepository optionRepository,
                           ProductToppingRepository toppingRepository,
+                          ComboItemRepository comboItemRepository,
                           StoreRepository storeRepository,
                           StoreProductRepository storeProductRepository,
                           StoreInventoryRepository storeInventoryRepository,
@@ -41,6 +45,7 @@ public class ProductService {
         this.categoryRepository = categoryRepository;
         this.optionRepository = optionRepository;
         this.toppingRepository = toppingRepository;
+        this.comboItemRepository = comboItemRepository;
         this.storeRepository = storeRepository;
         this.storeProductRepository = storeProductRepository;
         this.storeInventoryRepository = storeInventoryRepository;
@@ -233,23 +238,64 @@ public class ProductService {
                                          List<ProductDto.OptionGroupDto> optionsDto,
                                          List<ProductDto.ToppingDto> toppingsDto) {
         if (optionsDto != null) {
-            product.getOptions().clear();
-            for (ProductDto.OptionGroupDto g : optionsDto) {
-                if (g.getChoices() != null) {
-                    for (ProductDto.OptionChoiceDto c : g.getChoices()) {
-                        ProductOption opt = new ProductOption(null, product, g.getName(), c.getName(), c.getPriceAdjustment());
-                        product.getOptions().add(opt);
+            Map<Long, ProductOption> remainingOptions = product.getOptions().stream()
+                    .collect(Collectors.toMap(ProductOption::getId, option -> option));
+            List<ProductOption> retainedOptions = new ArrayList<>();
+            for (ProductDto.OptionGroupDto group : optionsDto) {
+                if (group.getChoices() != null) {
+                    for (ProductDto.OptionChoiceDto choice : group.getChoices()) {
+                        Long optionId = persistedItemId(choice.getId(), "opt-");
+                        ProductOption option = optionId == null
+                                ? new ProductOption(null, product, group.getName(), choice.getName(), choice.getPriceAdjustment())
+                                : remainingOptions.remove(optionId);
+                        if (option == null) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+                        option.setGroupName(group.getName());
+                        option.setName(choice.getName());
+                        option.setExtraPrice(choice.getPriceAdjustment());
+                        retainedOptions.add(option);
                     }
                 }
+            }
+            if (!remainingOptions.isEmpty()
+                    && comboItemRepository.existsByOptionIdIn(new ArrayList<>(remainingOptions.keySet()))) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            }
+            product.getOptions().removeIf(option -> !retainedOptions.contains(option));
+            for (ProductOption option : retainedOptions) {
+                if (!product.getOptions().contains(option)) product.getOptions().add(option);
             }
         }
 
         if (toppingsDto != null) {
-            product.getToppings().clear();
-            for (ProductDto.ToppingDto t : toppingsDto) {
-                ProductTopping top = new ProductTopping(null, product, t.getName(), t.getPrice());
-                product.getToppings().add(top);
+            Map<Long, ProductTopping> remainingToppings = product.getToppings().stream()
+                    .collect(Collectors.toMap(ProductTopping::getId, topping -> topping));
+            List<ProductTopping> retainedToppings = new ArrayList<>();
+            for (ProductDto.ToppingDto toppingDto : toppingsDto) {
+                Long toppingId = persistedItemId(toppingDto.getId(), "top-");
+                ProductTopping topping = toppingId == null
+                        ? new ProductTopping(null, product, toppingDto.getName(), toppingDto.getPrice())
+                        : remainingToppings.remove(toppingId);
+                if (topping == null) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+                topping.setToppingName(toppingDto.getName());
+                topping.setExtraPrice(toppingDto.getPrice());
+                retainedToppings.add(topping);
             }
+            product.getToppings().removeIf(topping -> !retainedToppings.contains(topping));
+            for (ProductTopping topping : retainedToppings) {
+                if (!product.getToppings().contains(topping)) product.getToppings().add(topping);
+            }
+        }
+    }
+
+    private Long persistedItemId(String value, String prefix) {
+        if (value == null || value.startsWith("new-")) return null;
+        if (!value.startsWith(prefix)) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        try {
+            long itemId = Long.parseLong(value.substring(prefix.length()));
+            if (itemId <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+            return itemId;
+        } catch (NumberFormatException failure) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
     }
 

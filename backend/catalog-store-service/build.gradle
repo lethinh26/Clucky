@@ -20,3 +20,9 @@ dependencies {
 
 bootJar { archiveFileName = 'catalog-store-service-0.1.0-SNAPSHOT.jar' }
 jar { enabled = false }
+
+tasks.register('catalogSelfCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.clucky.catalogstoreservice.config.CatalogSelfCheck'
+}

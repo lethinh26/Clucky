@@ -10,4 +10,5 @@ import java.util.List;
 public interface ComboItemRepository extends JpaRepository<ComboItem, Long> {
     List<ComboItem> findByComboId(Long comboId);
     void deleteByComboId(Long comboId);
+    boolean existsByOptionIdIn(List<Long> optionIds);
 }

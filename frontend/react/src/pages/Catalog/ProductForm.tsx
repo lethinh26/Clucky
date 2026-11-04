@@ -150,7 +150,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const addOptionChoice = (groupIndex: number) => {
     const updated = [...optionGroups];
     updated[groupIndex].choices.push({
-      id: `choice-${Date.now()}`,
+      id: `new-${crypto.randomUUID()}`,
       name: '',
       priceAdjustment: 0,
     });
@@ -170,7 +170,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         id: `opt-${Date.now()}`,
         name: t("business:productform.newOptionGroup"),
         required: true,
-        choices: [{ id: `choice-${Date.now()}-1`, name: t("business:account.default"), priceAdjustment: 0 }],
+        choices: [{ id: `new-${crypto.randomUUID()}`, name: t("business:account.default"), priceAdjustment: 0 }],
       },
     ]);
   };
@@ -185,7 +185,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const addTopping = () => {
     setToppings([
       ...toppings,
-      { id: `top-${Date.now()}`, name: '', price: 0 },
+      { id: `new-${crypto.randomUUID()}`, name: '', price: 0 },
     ]);
   };
 

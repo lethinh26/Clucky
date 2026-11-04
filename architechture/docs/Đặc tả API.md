@@ -49,6 +49,11 @@ Quy ước chung:
 | PUT /api/stores/{storeId}/products/{productId}/availability | STF/MGR/ADM | Bật/tắt còn/hết món tại chi nhánh (Staff chỉ quán mình, trong ca) |
 | GET/PUT /api/stores/{storeId}/inventory | STF/MGR/ADM | Xem/cập nhật kho cơ bản của quán |
 
+### Contract cập nhật tùy chọn và xác thực Catalog nội bộ
+
+- Khi cập nhật sản phẩm, giữ `options[].choices[].id` dạng `opt-<id>` và `toppings[].id` dạng `top-<id>` nhận từ API. Mục mới gửi `id: null`/bỏ `id`, hoặc ID tạm `new-<uuid>`; ID đã lưu phải thuộc sản phẩm và không được lặp lại trong payload. Bỏ trường `options`/`toppings` giữ nguyên collection; gửi `[]` yêu cầu xóa. Xóa option đang được combo tham chiếu trả `409 RESOURCE_CONFLICT`; cần sửa combo trước.
+- `POST /api/catalog/internal/validate-items` chỉ gọi nội bộ tới Catalog qua service discovery, không công bố qua Gateway. Endpoint nhận Bearer JWT với role `INTERNAL_SERVICE` hoặc `ADMIN`. `INTERNAL_SERVICE` là quyền kỹ thuật, không phải vai trò tài khoản đăng nhập; JWT vẫn phải có chữ ký hợp lệ, issuer/audience theo cấu hình, thời hạn hợp lệ và `sub` là số nguyên dương theo validator hiện có. Không tin header `X-User-*` và không dùng token ADMIN của người dùng thay cho credential của service.
+
 # 3. CART & ORDER SERVICE — /api/cart, /api/orders
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
