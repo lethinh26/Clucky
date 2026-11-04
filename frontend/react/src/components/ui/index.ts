@@ -4,3 +4,6 @@ export * from './AdminModal';
 export * from './AdminDrawer';
 export * from './FormField';
 export * from './CategoryIcon';
+export * from './VoucherBadge';
+export * from './PointsTier';
+export * from './NotificationItem';

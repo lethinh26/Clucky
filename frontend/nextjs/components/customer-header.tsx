@@ -17,6 +17,8 @@ const links = [
   ["/", "common.nav.home"],
   ["/menu", "common.nav.menu"],
   ["/stores", "common.nav.stores"],
+  ["/vouchers", "common.nav.vouchers"],
+  ["/loyalty", "common.nav.loyalty"],
   ["/party", "common.nav.party"],
   ["/orders", "common.nav.orders"],
   ["/account", "common.nav.account"],

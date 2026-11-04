@@ -32,7 +32,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(failure.getCode().httpStatus()).body(ApiError.of(failure.getCode(), request.getRequestURI()));
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,
+    @ExceptionHandler(ResourceNotFoundException.class)
+    ResponseEntity<ApiError> notFound(ResourceNotFoundException failure, HttpServletRequest request) {
+        return respond(HttpStatus.NOT_FOUND, request);
+    }
+
+    @ExceptionHandler({BadRequestException.class, MethodArgumentNotValidException.class, ConstraintViolationException.class,
             HttpMessageNotReadableException.class, HandlerMethodValidationException.class,
             MethodArgumentTypeMismatchException.class})
     ResponseEntity<ApiError> invalid(Exception failure, HttpServletRequest request) {
@@ -49,7 +54,7 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.FORBIDDEN, request);
     }
 
-    @ExceptionHandler({DataIntegrityViolationException.class, OptimisticLockingFailureException.class})
+    @ExceptionHandler({ConflictException.class, DataIntegrityViolationException.class, OptimisticLockingFailureException.class})
     ResponseEntity<ApiError> conflict(Exception failure, HttpServletRequest request) {
         return respond(HttpStatus.CONFLICT, request);
     }
