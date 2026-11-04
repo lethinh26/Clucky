@@ -14,19 +14,19 @@ public final class DomainMapper {
                 entity.getOrderId(),
                 entity.getRating(),
                 entity.getComment(),
-                entity.getStatus(),
-                entity.getCreatedAt()
+                entity.getStatus().name(),
+                entity.getCreatedAt().toInstant()
         );
     }
 
     public static ReviewReplyResponse toResponse(ReviewReply entity) {
         return new ReviewReplyResponse(
                 entity.getId(),
-                entity.getReviewId(),
+                entity.getReview().getId(),
                 entity.getResponderId(),
                 entity.getResponderRole(),
                 entity.getContent(),
-                entity.getCreatedAt()
+                entity.getCreatedAt().toInstant()
         );
     }
 

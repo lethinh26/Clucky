@@ -663,5 +663,16 @@
     "codCollectionConfirmed": "Đã xác nhận thu tiền COD.",
     "cannotReviewThisRequestCheckYourPermissionsAndDecisionNote": "Không thể duyệt yêu cầu này. Kiểm tra quyền và ghi chú quyết định.",
     "refundRequest": "{{value1}} yêu cầu hoàn tiền. {{value2}}"
+  },
+  "promotionUi": {
+    "order": "Đơn hàng",
+    "payment": "Thanh toán",
+    "system": "Hệ thống",
+    "markRead": "Đánh dấu đã đọc",
+    "promotion": "Khuyến mãi",
+    "member": "Thành viên",
+    "silver": "Bạc (Silver)",
+    "gold": "Vàng (Gold)",
+    "pointsClose": "điểm)"
   }
 }

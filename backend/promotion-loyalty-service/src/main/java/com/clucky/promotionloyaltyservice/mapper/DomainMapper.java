@@ -2,26 +2,13 @@ package com.clucky.promotionloyaltyservice.mapper;
 
 import com.clucky.promotionloyaltyservice.dto.*;
 import com.clucky.promotionloyaltyservice.entity.*;
+import com.clucky.promotionloyaltyservice.model.Voucher;
 
 public final class DomainMapper {
     private DomainMapper() {}
 
     public static VoucherResponse toResponse(Voucher entity) {
-        return new VoucherResponse(
-                entity.getId(),
-                entity.getCode(),
-                entity.getType(),
-                entity.getValue(),
-                entity.getMinOrderAmount(),
-                entity.getMaxDiscount(),
-                entity.getTotalLimit(),
-                entity.getUsedCount(),
-                entity.getStartAt(),
-                entity.getEndAt(),
-                entity.getScope(),
-                entity.getStoreId(),
-                entity.getStatus()
-        );
+        return VoucherResponse.fromEntity(entity);
     }
 
     public static VoucherUsageResponse toResponse(VoucherUsage entity) {
