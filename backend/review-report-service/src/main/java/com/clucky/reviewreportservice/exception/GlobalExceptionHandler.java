@@ -32,6 +32,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(failure.getCode().httpStatus()).body(ApiError.of(failure.getCode(), request.getRequestURI()));
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    ResponseEntity<ApiError> notFound(ResourceNotFoundException failure, HttpServletRequest request) {
+        return respond(HttpStatus.NOT_FOUND, request);
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    ResponseEntity<ApiError> forbiddenCustom(ForbiddenException failure, HttpServletRequest request) {
+        return respond(HttpStatus.FORBIDDEN, request);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ApiError> badArgument(IllegalArgumentException failure, HttpServletRequest request) {
+        return respond(HttpStatus.BAD_REQUEST, request);
+    }
+
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,
             HttpMessageNotReadableException.class, HandlerMethodValidationException.class,
             MethodArgumentTypeMismatchException.class})

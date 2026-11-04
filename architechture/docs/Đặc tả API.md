@@ -118,6 +118,7 @@ Quy ước chung:
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
 | GET /api/reviews/products/{productId} | PUB | Đánh giá công khai của món |
+| GET /api/reviews/my | CUS | Đánh giá của khách hàng trong JWT đã xác thực |
 | POST /api/reviews | CUS | Tạo đánh giá (đơn phải COMPLETED và chứa món đó) |
 | PUT/DELETE /api/reviews/{id} | CUS | Sửa/xóa đánh giá của mình |
 | POST /api/reviews/{id}/replies | STF/MGR/ADM | Phản hồi đánh giá |
@@ -125,6 +126,15 @@ Quy ước chung:
 | GET /api/reports/dashboard | STF/MGR/ADM | Dashboard theo phạm vi role (ca / quán / toàn chuỗi) |
 | GET /api/reports/revenue?storeId=&from=&to= | MGR/ADM | Báo cáo doanh thu (Manager bị ép storeId) |
 | GET /api/reports/export?format=xlsx/pdf | MGR/ADM | Xuất báo cáo Excel/PDF |
+
+### Contract xác minh đơn cho BE-40
+
+- Review Report gọi `GET /api/internal/orders/{orderId}/verification?customerId={customerId}` của Cart Order qua Eureka (`cart-order-service`), chuyển tiếp Bearer JWT của khách và `X-Correlation-ID`. Gateway không công bố route nội bộ này; không dùng header `X-User-*` để xác định danh tính.
+- Cart Order xác thực JWT/role CUSTOMER, buộc `customerId` khớp subject, và chỉ đọc đơn thuộc khách đó. Sai customerId trả 403; không tìm thấy đơn thuộc khách trả 404 theo error contract chung.
+- Response: `{id, orderCode, customerId, status, productIds}`. `productIds` là danh sách ID khác nhau từ order item loại PRODUCT, không null; không suy diễn món thành phần của COMBO.
+- Review chỉ tạo khi ID đơn/chủ sở hữu khớp, trạng thái COMPLETED và danh sách chứa productId yêu cầu. Response thiếu/sai contract trả 502; timeout/mất kết nối hoặc không có instance trả 503. Không có fallback cho phép tạo review khi chưa xác minh được đơn.
+- Mỗi `(customer_id, order_id, product_id)` có tối đa một review đang lưu, kể cả review HIDDEN. Review trùng trả 409. Migration V4 thêm UNIQUE; nếu dữ liệu cũ đã trùng, migration dừng để xử lý thủ công, không tự xóa review/phản hồi.
+- Audit vẫn thuộc Audit Service; không tạo entity/bảng audit trong Review Report. Producer audit thuộc phạm vi tích hợp riêng.
 
 # AUDIT SERVICE — /api/audit-logs
 | Method & Path | Quyền | Mô tả |
