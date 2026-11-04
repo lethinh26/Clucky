@@ -4,13 +4,16 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 public record CreateReviewRequest(
     @NotNull(message = "Mã đơn hàng không được để trống")
+    @Positive
     Long orderId,
 
     @NotNull(message = "Mã món ăn không được để trống")
+    @Positive
     Long productId,
 
     @NotNull(message = "Số sao đánh giá không được để trống")

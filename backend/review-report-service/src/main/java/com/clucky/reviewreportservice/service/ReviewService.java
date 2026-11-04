@@ -3,8 +3,9 @@ package com.clucky.reviewreportservice.service;
 import com.clucky.reviewreportservice.client.OrderServiceClient;
 import com.clucky.reviewreportservice.dto.*;
 import com.clucky.reviewreportservice.entity.Review;
-import com.clucky.reviewreportservice.entity.ReviewReply;
 import com.clucky.reviewreportservice.entity.ReviewStatus;
+import com.clucky.reviewreportservice.exception.ApiException;
+import com.clucky.reviewreportservice.exception.ErrorCode;
 import com.clucky.reviewreportservice.exception.ForbiddenException;
 import com.clucky.reviewreportservice.exception.ResourceNotFoundException;
 import com.clucky.reviewreportservice.repository.ReviewRepository;
@@ -13,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -57,17 +57,22 @@ public class ReviewService {
             throw new ResourceNotFoundException("Đơn hàng #" + request.orderId() + " không tồn tại hoặc không thuộc về bạn!");
         }
 
+        if (!request.orderId().equals(order.id()) || !customerId.equals(order.customerId())
+                || order.status() == null || order.productIds() == null) {
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+        }
+
         if (!"COMPLETED".equalsIgnoreCase(order.status())) {
             throw new IllegalArgumentException("Chỉ có thể đánh giá món ăn khi đơn hàng đã ở trạng thái HOÀN THÀNH (COMPLETED)!");
         }
 
-        if (order.productIds() != null && !order.productIds().isEmpty() && !order.productIds().contains(request.productId())) {
+        if (!order.productIds().contains(request.productId())) {
             throw new IllegalArgumentException("Món ăn #" + request.productId() + " không có trong đơn hàng #" + request.orderId() + "!");
         }
 
         // 2. Kiểm tra xem khách đã đánh giá món này trong đơn này chưa
         if (reviewRepository.existsByCustomerIdAndOrderIdAndProductId(customerId, request.orderId(), request.productId())) {
-            throw new IllegalArgumentException("Bạn đã đánh giá món ăn này cho đơn hàng #" + request.orderId() + " rồi!");
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
         Review review = new Review(customerId, request.productId(), request.orderId(), request.rating(), request.comment());

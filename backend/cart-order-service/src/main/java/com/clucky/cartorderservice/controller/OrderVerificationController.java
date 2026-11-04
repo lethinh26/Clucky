@@ -1,0 +1,50 @@
+package com.clucky.cartorderservice.controller;
+
+import com.clucky.cartorderservice.config.CurrentActor;
+import com.clucky.cartorderservice.entity.OrderItem;
+import com.clucky.cartorderservice.exception.ApiException;
+import com.clucky.cartorderservice.exception.ErrorCode;
+import com.clucky.cartorderservice.repository.OrderItemRepository;
+import com.clucky.cartorderservice.repository.OrderRepository;
+import jakarta.validation.constraints.Positive;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Objects;
+
+@RestController
+public class OrderVerificationController {
+    private final OrderRepository orders;
+    private final OrderItemRepository items;
+
+    public OrderVerificationController(OrderRepository orders, OrderItemRepository items) {
+        this.orders = orders;
+        this.items = items;
+    }
+
+    @GetMapping("/api/internal/orders/{orderId}/verification")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Transactional(readOnly = true)
+    public OrderVerificationResponse verify(@PathVariable @Positive Long orderId,
+            @RequestParam @Positive Long customerId) {
+        Long actorId = CurrentActor.require().userId();
+        if (!actorId.equals(customerId)) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+        var order = orders.findByIdAndCustomerId(orderId, actorId)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        List<Long> productIds = items.findByOrderId(orderId).stream()
+                .filter(item -> "PRODUCT".equals(item.getItemType()))
+                .map(OrderItem::getProductId).filter(Objects::nonNull).distinct().toList();
+        return new OrderVerificationResponse(order.getId(), order.getOrderCode(), order.getCustomerId(),
+                order.getStatus(), productIds);
+    }
+
+    public record OrderVerificationResponse(Long id, String orderCode, Long customerId,
+            String status, List<Long> productIds) {}
+}

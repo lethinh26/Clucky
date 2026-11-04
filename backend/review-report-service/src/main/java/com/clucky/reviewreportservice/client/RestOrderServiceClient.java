@@ -1,47 +1,56 @@
 package com.clucky.reviewreportservice.client;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import com.clucky.reviewreportservice.exception.ApiException;
+import com.clucky.reviewreportservice.exception.ErrorCode;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-
-import java.time.Duration;
 
 @Component
 public class RestOrderServiceClient implements OrderServiceClient {
 
-    private static final Logger log = LoggerFactory.getLogger(RestOrderServiceClient.class);
     private final RestTemplate restTemplate;
 
-    @Value("${order.service.url:http://cart-order-service}")
-    private String orderServiceUrl;
-
-    public RestOrderServiceClient(RestTemplateBuilder builder) {
-        this.restTemplate = builder
-                .setConnectTimeout(Duration.ofMillis(2000))
-                .setReadTimeout(Duration.ofMillis(3000))
-                .build();
+    public RestOrderServiceClient(@Qualifier("orderRestTemplate") RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
     @Override
     public OrderVerificationDto getOrderForReview(Long orderId, Long customerId) {
-        String url = orderServiceUrl + "/api/internal/orders/" + orderId + "/verification?customerId=" + customerId;
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication instanceof JwtAuthenticationToken token) || !token.isAuthenticated()) {
+            throw new AuthenticationCredentialsNotFoundException("Authentication required");
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token.getToken().getTokenValue());
         try {
-            return restTemplate.getForObject(url, OrderVerificationDto.class);
-        } catch (HttpClientErrorException.NotFound e) {
-            log.warn("Order {} not found for customer {} in order-service", orderId, customerId);
+            OrderVerificationDto order = restTemplate.exchange(
+                    "http://cart-order-service/api/internal/orders/{orderId}/verification?customerId={customerId}",
+                    HttpMethod.GET, new HttpEntity<>(headers), OrderVerificationDto.class, orderId, customerId).getBody();
+            if (order == null) {
+                throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+            }
+            return order;
+        } catch (HttpClientErrorException.NotFound failure) {
             return null;
-        } catch (HttpClientErrorException | ResourceAccessException e) {
-            log.warn("Cannot connect to order-service at {}: {}. Falling back to permissive validation.", url, e.getMessage());
-            // Fallback for independent development/mocking when order-service is not running yet
-            return new OrderVerificationDto(orderId, "ORD-" + orderId, customerId, "COMPLETED", null);
-        } catch (Exception e) {
-            log.error("Unexpected error validating order with order-service: {}", e.getMessage());
-            return new OrderVerificationDto(orderId, "ORD-" + orderId, customerId, "COMPLETED", null);
+        } catch (HttpClientErrorException.Unauthorized failure) {
+            throw new ApiException(ErrorCode.UNAUTHENTICATED);
+        } catch (HttpClientErrorException.Forbidden failure) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        } catch (ResourceAccessException | HttpServerErrorException.ServiceUnavailable | IllegalStateException failure) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        } catch (RestClientException failure) {
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
         }
     }
 }
