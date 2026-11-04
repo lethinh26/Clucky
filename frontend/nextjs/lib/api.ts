@@ -240,6 +240,8 @@ export const catalogApi = {
     request<ComboItem[]>(`/api/catalog/combos?activeOnly=${activeOnly}${storeId ? `&storeId=${storeId}` : ''}`),
   getComboById: (id: number, storeId?: number) =>
     request<ComboItem>(`/api/catalog/combos/${id}${storeId ? `?storeId=${storeId}` : ''}`),
+}
+
 /* ---------- Promotions & Loyalty ---------- */
 export const promotionApi = {
   getAvailableVouchers: () =>
