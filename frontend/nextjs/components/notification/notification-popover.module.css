@@ -1,0 +1,319 @@
+/* Notification Popover Styles - Clucky Customer App */
+
+.container {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-quicksand, 'Quicksand', system-ui, sans-serif);
+}
+
+.bellButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid #e5dacc;
+  background: #fffaf3;
+  color: #8f1216;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bellButton:hover {
+  background: #f5ede0;
+  border-color: #8f1216;
+  transform: translateY(-1px);
+}
+
+.bellButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #8f1216;
+}
+
+.badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #8f1216;
+  color: #fffaf3;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fffaf3;
+  box-shadow: 0 2px 4px rgba(143, 18, 22, 0.3);
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(390px, calc(100vw - 24px));
+  max-height: 520px;
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 18px;
+  box-shadow: 0 12px 36px rgba(22, 16, 13, 0.12);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeIn 0.18s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #fffaf3;
+  border-bottom: 1px solid #f0e8dc;
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-weight: 700;
+  font-size: 17px;
+  color: #16100d;
+  margin: 0;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.markAllBtn {
+  background: none;
+  border: none;
+  color: #8f1216;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.markAllBtn:hover {
+  background: #f7e5df;
+}
+
+.markAllBtn:focus-visible {
+  outline: 2px solid #8f1216;
+  outline-offset: 1px;
+}
+
+.tabsRow {
+  display: flex;
+  border-bottom: 1px solid #f0e8dc;
+  background: #fbf7f0;
+  padding: 0 16px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tabBtn {
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #6b6259;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.tabBtn:hover {
+  color: #8f1216;
+}
+
+.tabBtn:focus-visible {
+  outline: 2px solid #8f1216;
+  outline-offset: 1px;
+}
+
+.tabActive {
+  color: #8f1216 !important;
+}
+
+.tabActive::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #8f1216;
+  border-radius: 2px 2px 0 0;
+}
+
+.listArea {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.errorBanner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 16px;
+  text-align: center;
+  color: #78716c;
+}
+
+.emptyIcon {
+  color: #c9a227;
+  margin-bottom: 8px;
+}
+
+.emptyTitle {
+  font-weight: 700;
+  color: #16100d;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.emptyDesc {
+  font-size: 12px;
+  color: #6b6259;
+}
+
+.footer {
+  padding: 10px 16px;
+  background: #fbf7f0;
+  border-top: 1px solid #f0e8dc;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.viewAllLink {
+  color: #8f1216;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+}
+
+.viewAllLink:hover {
+  text-decoration: underline;
+}
+
+.viewAllLink:focus-visible {
+  outline: 2px solid #8f1216;
+  outline-offset: 1px;
+}
+
+/* Fallback Modal for Invalid Targets / System Notices (AC-04) */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 16, 13, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modalBox {
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 20px;
+  width: min(440px, 100%);
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(22, 16, 13, 0.16);
+  animation: fadeIn 0.15s ease-out;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.modalTitle {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: #16100d;
+  margin: 0;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b6259;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.modalContent {
+  font-size: 13.5px;
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.modalReason {
+  background: #fffbe8;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #92400e;
+  margin-bottom: 18px;
+}
+

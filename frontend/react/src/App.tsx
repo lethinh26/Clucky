@@ -16,6 +16,7 @@ import { StaffOrdersPage } from "./pages/Staff/StaffOrdersPage";
 import { ReviewsPage } from "./pages/Reviews";
 import { ReportsPage } from "./pages/Reports";
 import { PaymentsPage } from "./pages/Payments";
+import { PromotionsPage } from "./pages/Promotions";
 import { UsersPage } from "./pages/Users";
 import { LoginPage } from "./pages/Auth/LoginPage";
 import { ForgotPasswordPage } from "./pages/Auth/ForgotPasswordPage";
@@ -178,6 +179,16 @@ export const App: React.FC = () => {
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
                           <PaymentsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="promotions"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                        >
+                          <PromotionsPage />
                         </ProtectedRoute>
                       }
                     />
