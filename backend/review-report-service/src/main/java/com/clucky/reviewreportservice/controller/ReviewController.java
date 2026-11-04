@@ -1,12 +1,19 @@
 package com.clucky.reviewreportservice.controller;
 
-import com.clucky.reviewreportservice.config.SecurityContextHelper;
-import com.clucky.reviewreportservice.dto.*;
+import com.clucky.reviewreportservice.config.CurrentActor;
+import com.clucky.reviewreportservice.dto.CreateReviewRequest;
+import com.clucky.reviewreportservice.dto.CreateReplyRequest;
+import com.clucky.reviewreportservice.dto.HideReviewRequest;
+import com.clucky.reviewreportservice.dto.ReviewReplyDto;
+import com.clucky.reviewreportservice.dto.ProductReviewSummaryDto;
+import com.clucky.reviewreportservice.dto.ReviewDto;
+import com.clucky.reviewreportservice.dto.UpdateReviewRequest;
 import com.clucky.reviewreportservice.service.ReviewService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,7 +33,7 @@ public class ReviewController {
      * Quyền: PUB (Công khai) - Lấy danh sách đánh giá hiển thị (VISIBLE) của món ăn
      */
     @GetMapping("/products/{productId}")
-    public ResponseEntity<ProductReviewSummaryDto> getProductReviews(@PathVariable Long productId) {
+    public ResponseEntity<ProductReviewSummaryDto> getProductReviews(@PathVariable @Positive Long productId) {
         return ResponseEntity.ok(reviewService.getProductReviews(productId));
     }
 
@@ -35,9 +42,9 @@ public class ReviewController {
      * Quyền: CUS (Khách hàng) - Lấy lịch sử đánh giá của chính mình
      */
     @GetMapping("/my")
-    public ResponseEntity<List<ReviewDto>> getMyReviews(HttpServletRequest request) {
-        SecurityContextHelper.requireRole(request, "CUSTOMER", "STAFF", "STORE_MANAGER", "ADMIN");
-        Long customerId = SecurityContextHelper.getCurrentUserId(request);
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<List<ReviewDto>> getMyReviews() {
+        Long customerId = CurrentActor.require().userId();
         return ResponseEntity.ok(reviewService.getMyReviews(customerId));
     }
 
@@ -46,12 +53,11 @@ public class ReviewController {
      * Quyền: CUS (Khách hàng) - Tạo đánh giá cho món thuộc đơn COMPLETED
      */
     @PostMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ReviewDto> createReview(
-            @Valid @RequestBody CreateReviewRequest createRequest,
-            HttpServletRequest request
+            @Valid @RequestBody CreateReviewRequest createRequest
     ) {
-        SecurityContextHelper.requireRole(request, "CUSTOMER", "STAFF", "STORE_MANAGER", "ADMIN");
-        Long customerId = SecurityContextHelper.getCurrentUserId(request);
+        Long customerId = CurrentActor.require().userId();
         ReviewDto created = reviewService.createReview(customerId, createRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -61,13 +67,12 @@ public class ReviewController {
      * Quyền: CUS (Khách hàng) - Sửa đánh giá của chính mình
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ReviewDto> updateReview(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateReviewRequest updateRequest,
-            HttpServletRequest request
+            @PathVariable @Positive Long id,
+            @Valid @RequestBody UpdateReviewRequest updateRequest
     ) {
-        SecurityContextHelper.requireRole(request, "CUSTOMER", "STAFF", "STORE_MANAGER", "ADMIN");
-        Long customerId = SecurityContextHelper.getCurrentUserId(request);
+        Long customerId = CurrentActor.require().userId();
         ReviewDto updated = reviewService.updateReview(id, customerId, updateRequest);
         return ResponseEntity.ok(updated);
     }
@@ -77,51 +82,26 @@ public class ReviewController {
      * Quyền: CUS (Khách hàng) - Xóa đánh giá của chính mình
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<Void> deleteReview(
-            @PathVariable Long id,
-            HttpServletRequest request
+            @PathVariable @Positive Long id
     ) {
-        SecurityContextHelper.requireRole(request, "CUSTOMER", "STAFF", "STORE_MANAGER", "ADMIN");
-        Long customerId = SecurityContextHelper.getCurrentUserId(request);
+        Long customerId = CurrentActor.require().userId();
         reviewService.deleteReview(id, customerId);
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * BE-41: POST /api/reviews/{id}/replies
-     * Quyền: STF/MGR đúng quán, ADM toàn hệ thống
-     */
     @PostMapping("/{id}/replies")
-    public ResponseEntity<ReviewReplyDto> replyReview(
-            @PathVariable Long id,
-            @Valid @RequestBody CreateReplyRequest replyRequest,
-            HttpServletRequest request
-    ) {
-        SecurityContextHelper.requireRole(request, "STAFF", "STORE_MANAGER", "ADMIN");
-        Long responderId = SecurityContextHelper.getCurrentUserId(request);
-        String responderRole = SecurityContextHelper.getCurrentUserRole(request);
-        Long storeId = SecurityContextHelper.getCurrentStoreId(request);
-
-        ReviewReplyDto replyDto = reviewService.addReply(id, responderId, responderRole, storeId, replyRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(replyDto);
+    @PreAuthorize("hasAnyRole('STAFF', 'STORE_MANAGER', 'ADMIN')")
+    public ResponseEntity<ReviewReplyDto> replyReview(@PathVariable @Positive Long id,
+            @Valid @RequestBody CreateReplyRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(reviewService.addReply(id, request));
     }
 
-    /**
-     * BE-41: PUT /api/reviews/{id}/hide
-     * Quyền: MGR đúng quán hoặc ADM (STAFF bị chặn)
-     */
     @PutMapping("/{id}/hide")
-    public ResponseEntity<ReviewDto> hideReview(
-            @PathVariable Long id,
-            @RequestBody(required = false) HideReviewRequest hideRequest,
-            HttpServletRequest request
-    ) {
-        SecurityContextHelper.requireRole(request, "STORE_MANAGER", "ADMIN");
-        Long actorId = SecurityContextHelper.getCurrentUserId(request);
-        String actorRole = SecurityContextHelper.getCurrentUserRole(request);
-        Long storeId = SecurityContextHelper.getCurrentStoreId(request);
-
-        ReviewDto reviewDto = reviewService.hideReview(id, actorId, actorRole, storeId, hideRequest);
-        return ResponseEntity.ok(reviewDto);
+    @PreAuthorize("hasAnyRole('STORE_MANAGER', 'ADMIN')")
+    public ResponseEntity<ReviewDto> hideReview(@PathVariable @Positive Long id,
+            @Valid @RequestBody(required = false) HideReviewRequest request) {
+        return ResponseEntity.ok(reviewService.hideReview(id, request));
     }
 }

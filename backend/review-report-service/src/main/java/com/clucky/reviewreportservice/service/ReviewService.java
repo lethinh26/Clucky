@@ -2,13 +2,14 @@ package com.clucky.reviewreportservice.service;
 
 import com.clucky.reviewreportservice.client.OrderServiceClient;
 import com.clucky.reviewreportservice.dto.*;
-import com.clucky.reviewreportservice.entity.AuditLog;
+import com.clucky.reviewreportservice.config.CurrentActor;
 import com.clucky.reviewreportservice.entity.Review;
-import com.clucky.reviewreportservice.entity.ReviewReply;
 import com.clucky.reviewreportservice.entity.ReviewStatus;
+import com.clucky.reviewreportservice.exception.ApiException;
+import com.clucky.reviewreportservice.exception.ErrorCode;
 import com.clucky.reviewreportservice.exception.ForbiddenException;
 import com.clucky.reviewreportservice.exception.ResourceNotFoundException;
-import com.clucky.reviewreportservice.repository.AuditLogRepository;
+import com.clucky.reviewreportservice.entity.ReviewReply;
 import com.clucky.reviewreportservice.repository.ReviewReplyRepository;
 import com.clucky.reviewreportservice.repository.ReviewRepository;
 import org.slf4j.Logger;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ReviewService {
@@ -25,19 +27,15 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final ReviewReplyRepository reviewReplyRepository;
-    private final AuditLogRepository auditLogRepository;
+    private final ReviewAuditOutbox auditOutbox;
     private final OrderServiceClient orderServiceClient;
 
-    public ReviewService(
-            ReviewRepository reviewRepository,
-            ReviewReplyRepository reviewReplyRepository,
-            AuditLogRepository auditLogRepository,
-            OrderServiceClient orderServiceClient
-    ) {
+    public ReviewService(ReviewRepository reviewRepository, OrderServiceClient orderServiceClient,
+            ReviewReplyRepository reviewReplyRepository, ReviewAuditOutbox auditOutbox) {
         this.reviewRepository = reviewRepository;
-        this.reviewReplyRepository = reviewReplyRepository;
-        this.auditLogRepository = auditLogRepository;
         this.orderServiceClient = orderServiceClient;
+        this.reviewReplyRepository = reviewReplyRepository;
+        this.auditOutbox = auditOutbox;
     }
 
     @Transactional(readOnly = true)
@@ -66,16 +64,21 @@ public class ReviewService {
             throw new ResourceNotFoundException("Đơn hàng #" + request.orderId() + " không tồn tại hoặc không thuộc về bạn!");
         }
 
+        if (!request.orderId().equals(order.id()) || !customerId.equals(order.customerId())
+                || order.status() == null || order.productIds() == null) {
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+        }
+
         if (!"COMPLETED".equalsIgnoreCase(order.status())) {
             throw new IllegalArgumentException("Chỉ có thể đánh giá món ăn khi đơn hàng đã ở trạng thái HOÀN THÀNH (COMPLETED)!");
         }
 
-        if (order.productIds() != null && !order.productIds().isEmpty() && !order.productIds().contains(request.productId())) {
+        if (!order.productIds().contains(request.productId())) {
             throw new IllegalArgumentException("Món ăn #" + request.productId() + " không có trong đơn hàng #" + request.orderId() + "!");
         }
 
         if (reviewRepository.existsByCustomerIdAndOrderIdAndProductId(customerId, request.orderId(), request.productId())) {
-            throw new IllegalArgumentException("Bạn đã đánh giá món ăn này cho đơn hàng #" + request.orderId() + " rồi!");
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
         Review review = new Review(customerId, request.productId(), request.orderId(), request.rating(), request.comment());
@@ -114,97 +117,50 @@ public class ReviewService {
         log.info("Deleted review #{} by customer #{}", reviewId, customerId);
     }
 
-    /**
-     * BE-41: Thêm phản hồi cho đánh giá (Staff/Store Manager đúng quán, Admin toàn hệ thống)
-     */
     @Transactional
-    public ReviewReplyDto addReply(Long reviewId, Long responderId, String responderRole, Long storeId, CreateReplyRequest request) {
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đánh giá #" + reviewId + " không tồn tại!"));
-
-        // Phân quyền theo quán nếu là STAFF hoặc STORE_MANAGER
-        if (!"ADMIN".equalsIgnoreCase(responderRole)) {
-            Long orderStoreId = orderServiceClient.getOrderStoreId(review.getOrderId());
-            if (orderStoreId == null) {
-                throw new ForbiddenException("Không thể xác định cửa hàng của đơn hàng hoặc dịch vụ đơn hàng chưa sẵn sàng!");
-            }
-            if (storeId == null || !storeId.equals(orderStoreId)) {
-                throw new ForbiddenException("Bạn chỉ có quyền phản hồi đánh giá thuộc cửa hàng của mình (Quán #" + orderStoreId + ")!");
-            }
+    public ReviewReplyDto addReply(Long reviewId, CreateReplyRequest request) {
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() != Role.STAFF && actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
+            throw new ForbiddenException("Access denied");
         }
-
-        ReviewReply reply = new ReviewReply(review, responderId, responderRole, request.content().trim());
-        review.addReply(reply);
-        ReviewReply savedReply = reviewReplyRepository.save(reply);
-
-        // Lưu audit log
-        auditLogRepository.save(new AuditLog(
-                responderId,
-                responderRole,
-                storeId,
-                "REPLY_REVIEW",
-                "REVIEW",
-                reviewId,
-                "Nhân sự #" + responderId + " (" + responderRole + ") đã phản hồi đánh giá #" + reviewId
-        ));
-
-        log.info("Added reply #{} to review #{} by responder #{} ({})", savedReply.getId(), reviewId, responderId, responderRole);
-
-        return new ReviewReplyDto(
-                savedReply.getId(),
-                savedReply.getResponderId(),
-                savedReply.getResponderRole(),
-                savedReply.getContent(),
-                savedReply.getCreatedAt()
-        );
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        Long storeId = requireReviewStore(review, actor);
+        ReviewReply reply = reviewReplyRepository.save(
+                new ReviewReply(review, actor.userId(), actor.role().name(), request.content().trim()));
+        auditOutbox.record(actor, storeId, "REPLY_REVIEW", reviewId,
+                Map.of(), Map.of("replyId", reply.getId()));
+        return new ReviewReplyDto(reply.getId(), reply.getResponderId(), reply.getResponderRole(),
+                reply.getContent(), reply.getCreatedAt());
     }
 
-    /**
-     * BE-41: Ẩn đánh giá vi phạm (Store Manager đúng quán, Admin toàn hệ thống. Staff bị chặn)
-     */
     @Transactional
-    public ReviewDto hideReview(Long reviewId, Long actorId, String actorRole, Long storeId, HideReviewRequest request) {
-        if ("STAFF".equalsIgnoreCase(actorRole)) {
-            throw new ForbiddenException("Nhân viên (Staff) không có quyền ẩn đánh giá!");
+    public ReviewDto hideReview(Long reviewId, HideReviewRequest request) {
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
+            throw new ForbiddenException("Access denied");
         }
-
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đánh giá #" + reviewId + " không tồn tại!"));
-
-        // Phân quyền theo quán nếu là STORE_MANAGER
-        if (!"ADMIN".equalsIgnoreCase(actorRole)) {
-            Long orderStoreId = orderServiceClient.getOrderStoreId(review.getOrderId());
-            if (orderStoreId == null) {
-                throw new ForbiddenException("Không thể xác định cửa hàng của đơn hàng hoặc dịch vụ đơn hàng chưa sẵn sàng!");
-            }
-            if (storeId == null || !storeId.equals(orderStoreId)) {
-                throw new ForbiddenException("Bạn chỉ có quyền ẩn đánh giá thuộc cửa hàng của mình (Quán #" + orderStoreId + ")!");
-            }
-        }
-
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        Long storeId = requireReviewStore(review, actor);
         if (review.getStatus() != ReviewStatus.HIDDEN) {
+            ReviewStatus previousStatus = review.getStatus();
             review.setStatus(ReviewStatus.HIDDEN);
-            reviewRepository.save(review);
-
-            String reason = (request != null && request.reason() != null && !request.reason().isBlank())
-                    ? request.reason().trim()
-                    : "Đánh giá vi phạm chính sách cộng đồng";
-
-            // Lưu audit log
-            auditLogRepository.save(new AuditLog(
-                    actorId,
-                    actorRole,
-                    storeId,
-                    "HIDE_REVIEW",
-                    "REVIEW",
-                    reviewId,
-                    "Ẩn đánh giá #" + reviewId + " bởi " + actorRole + " #" + actorId + ". Lý do: " + reason
-            ));
-
-            log.info("Review #{} has been hidden by {} #{}", reviewId, actorRole, actorId);
+            auditOutbox.record(actor, storeId, "HIDE_REVIEW", reviewId,
+                    Map.of("status", previousStatus.name()), Map.of("status", ReviewStatus.HIDDEN.name()));
         }
-
         return toDto(review);
+    }
+
+    private Long requireReviewStore(Review review, CurrentActor actor) {
+        Long storeId = orderServiceClient.getOrderStoreId(review.getOrderId());
+        if (storeId == null || storeId <= 0) {
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+        }
+        if (actor.role() != Role.ADMIN && !storeId.equals(actor.storeId())) {
+            throw new ForbiddenException("Access denied");
+        }
+        return storeId;
     }
 
     private ReviewDto toDto(Review review) {

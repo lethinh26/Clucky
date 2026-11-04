@@ -1,65 +1,71 @@
 package com.clucky.reviewreportservice.client;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.web.client.RestTemplateBuilder;
+import com.clucky.reviewreportservice.exception.ApiException;
+import com.clucky.reviewreportservice.exception.ErrorCode;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-
-import java.time.Duration;
 
 @Component
 public class RestOrderServiceClient implements OrderServiceClient {
-
-    private static final Logger log = LoggerFactory.getLogger(RestOrderServiceClient.class);
     private final RestTemplate restTemplate;
 
-    @Value("${order.service.url:http://cart-order-service}")
-    private String orderServiceUrl;
-
-    public RestOrderServiceClient(RestTemplateBuilder builder) {
-        this.restTemplate = builder
-                .setConnectTimeout(Duration.ofMillis(2000))
-                .setReadTimeout(Duration.ofMillis(3000))
-                .build();
+    public RestOrderServiceClient(@Qualifier("orderRestTemplate") RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
     @Override
     public OrderVerificationDto getOrderForReview(Long orderId, Long customerId) {
-        String url = orderServiceUrl + "/api/internal/orders/" + orderId + "/verification?customerId=" + customerId;
-        try {
-            return restTemplate.getForObject(url, OrderVerificationDto.class);
-        } catch (HttpClientErrorException.NotFound e) {
-            log.warn("Order {} not found for customer {} in order-service", orderId, customerId);
-            return null;
-        } catch (HttpClientErrorException | ResourceAccessException e) {
-            log.warn("Cannot connect to order-service at {}: {}. Falling back to mock verification.", url, e.getMessage());
-            return new OrderVerificationDto(orderId, "ORD-" + orderId, customerId, 1L, "COMPLETED", null);
-        } catch (Exception e) {
-            log.error("Unexpected error validating order with order-service: {}", e.getMessage());
-            return new OrderVerificationDto(orderId, "ORD-" + orderId, customerId, 1L, "COMPLETED", null);
-        }
+        return get("/api/internal/orders/{orderId}/verification?customerId={customerId}",
+                OrderVerificationDto.class, orderId, customerId);
     }
 
     @Override
     public Long getOrderStoreId(Long orderId) {
-        String url = orderServiceUrl + "/api/internal/orders/" + orderId + "/store";
+        OrderStoreDto order = get("/api/internal/orders/{orderId}/store", OrderStoreDto.class, orderId);
+        if (order == null) {
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        if (!orderId.equals(order.orderId()) || order.storeId() == null || order.storeId() <= 0) {
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+        }
+        return order.storeId();
+    }
+
+    private <Response> Response get(String path, Class<Response> responseType, Object... parameters) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication instanceof JwtAuthenticationToken token) || !token.isAuthenticated()) {
+            throw new AuthenticationCredentialsNotFoundException("Authentication required");
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token.getToken().getTokenValue());
         try {
-            OrderStoreDto dto = restTemplate.getForObject(url, OrderStoreDto.class);
-            return dto != null ? dto.storeId() : null;
-        } catch (HttpClientErrorException.NotFound e) {
-            log.warn("Store for order {} not found in order-service", orderId);
+            Response response = restTemplate.exchange("http://cart-order-service" + path,
+                    HttpMethod.GET, new HttpEntity<>(headers), responseType, parameters).getBody();
+            if (response == null) {
+                throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+            }
+            return response;
+        } catch (HttpClientErrorException.NotFound failure) {
             return null;
-        } catch (HttpClientErrorException | ResourceAccessException e) {
-            log.warn("Cannot connect to order-service at {}: {}. Using fallback storeId.", url, e.getMessage());
-            // Fallback for independent development/mocking when order-service is not running
-            return 1L;
-        } catch (Exception e) {
-            log.error("Unexpected error fetching store for order {}: {}", orderId, e.getMessage());
-            return 1L;
+        } catch (HttpClientErrorException.Unauthorized failure) {
+            throw new ApiException(ErrorCode.UNAUTHENTICATED);
+        } catch (HttpClientErrorException.Forbidden failure) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        } catch (ResourceAccessException | HttpServerErrorException.ServiceUnavailable | IllegalStateException failure) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        } catch (RestClientException failure) {
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
         }
     }
 }

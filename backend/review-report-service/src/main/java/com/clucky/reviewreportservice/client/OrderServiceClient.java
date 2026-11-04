@@ -8,7 +8,6 @@ public interface OrderServiceClient {
         Long id,
         String orderCode,
         Long customerId,
-        Long storeId,
         String status,
         List<Long> productIds
     ) {}
