@@ -19,7 +19,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   headers.set("Accept-Language", getBrowserLocale());
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    res = await fetch(`${API_URL}${path}`, {
+      credentials: "include",
+      ...options,
+      headers,
+    });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw error;
     throw { code: "NETWORK_ERROR" };
@@ -60,9 +64,11 @@ export interface ResetPasswordPayload {
 }
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   role?: string;
   storeId?: number;
+  email?: string;
+  fullName?: string;
 }
 export type GoogleAuthResult =
   AuthTokens | { status: "REQUIRES_PASSWORD"; pendingToken: string };
@@ -92,6 +98,14 @@ export const authApi = {
     request<AuthTokens>("/api/auth/verify-otp", {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  refresh: () =>
+    request<AuthTokens>("/api/auth/refresh", {
+      method: "POST",
+    }),
+  logout: () =>
+    request<{ message?: string }>("/api/auth/logout", {
+      method: "POST",
     }),
   forgotPassword: (body: ForgotPasswordPayload) =>
     request<{ message?: string }>("/api/auth/forgot-password", {

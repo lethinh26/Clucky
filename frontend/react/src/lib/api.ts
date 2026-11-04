@@ -8,12 +8,14 @@ import { getBrowserLocale, getErrorMessage as resolveError } from '../i18n/core'
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8080',
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
   timeout: 15000,
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('clucky_admin_access_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (config.url?.startsWith('/api/auth/')) config.headers.delete('Authorization');
+  else if (token) config.headers.Authorization = `Bearer ${token}`;
   config.headers['Accept-Language'] = getBrowserLocale();
   return config;
 });
@@ -26,10 +28,19 @@ export function getErrorMessage(err: unknown, _fallback?: string): string {
 export interface LoginPayload { email: string; password: string }
 export interface ForgotPasswordPayload { email: string }
 export interface ResetPasswordPayload { email: string; otp: string; newPassword: string }
-export interface AuthTokens { accessToken: string; refreshToken: string; role?: string; storeId?: number }
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken?: string;
+  role?: string;
+  storeId?: number;
+  email?: string;
+  fullName?: string;
+}
 
 export const authApi = {
   login: (body: LoginPayload) => api.post<AuthTokens>('/api/auth/login', body).then((r) => r.data),
+  refresh: () => api.post<AuthTokens>('/api/auth/refresh').then((r) => r.data),
+  logout: () => api.post<{ message: string }>('/api/auth/logout').then((r) => r.data),
   forgotPassword: (body: ForgotPasswordPayload) => api.post('/api/auth/forgot-password', body).then((r) => r.data),
   resetPassword: (body: ResetPasswordPayload) => api.post('/api/auth/reset-password', body).then((r) => r.data),
 };
@@ -56,4 +67,3 @@ export const usersApi = {
 };
 
 export default api;
-

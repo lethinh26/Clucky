@@ -17,9 +17,9 @@ Quy ước chung:
 |---|---|---|
 | POST /api/auth/register | PUB | Đăng ký khách hàng, gửi OTP |
 | POST /api/auth/verify-otp | PUB | Xác thực OTP đăng ký |
-| POST /api/auth/login | PUB | Đăng nhập, trả access + refresh token (JWT chứa role, storeId) |
-| POST /api/auth/refresh | PUB | Làm mới access token |
-| POST /api/auth/logout | CUS/STF/MGR/ADM | Đăng xuất, thu hồi refresh token |
+| POST /api/auth/login | PUB | Trả access token trong JSON; refresh token trong cookie HttpOnly |
+| POST /api/auth/refresh | Cookie refresh | Rotate refresh token, trả access token mới; không cần Bearer |
+| POST /api/auth/logout | Cookie refresh | Thu hồi phiên hiện tại và xóa cookie; không cần Bearer |
 | POST /api/auth/forgot-password | PUB | Gửi OTP đặt lại mật khẩu |
 | POST /api/auth/reset-password | PUB | Đặt lại mật khẩu bằng OTP |
 | POST /api/auth/google | PUB | Đăng nhập Google bằng Firebase ID token — trả JWT nếu user đã tồn tại/link được, hoặc `{status: "REQUIRES_PASSWORD", pendingToken}` nếu là user mới |
@@ -31,6 +31,17 @@ Quy ước chung:
 | PUT /api/users/{id}/assign-store | ADM | Gán/đổi chi nhánh cho Staff/Manager/Shipper |
 | PUT /api/users/{id}/lock, /unlock | ADM/MGR | Khóa/mở tài khoản (Manager chỉ khóa Staff quán mình) |
 | GET/POST /api/schedules | MGR/STF | Xem lịch ca / Manager xếp ca cho Staff |
+
+## 1.1. Auth transport và kiểm soát phiên (BE-16/BE-17)
+
+- Cookie `clucky_refresh_token`: HttpOnly, SameSite=Lax, Path=/api/auth; bật `AUTH_COOKIE_SECURE=true` khi triển khai HTTPS. Không trả refresh token trong JSON hoặc lưu localStorage.
+- Login, verify-otp, refresh, logout và reset-password yêu cầu Origin hoặc Referer cùng origin/thuộc `AUTH_ALLOWED_ORIGINS`. Client dùng credentials/include; không gắn Bearer cũ cho `/api/auth/**`.
+- Gateway cho phép request logout/refresh tới Identity không cần Bearer; Identity xác thực refresh cookie và kiểm tra CSRF. API nghiệp vụ vẫn yêu cầu Bearer và RBAC/ownership/store scope.
+- Gateway và mọi business service kiểm tra Redis `auth:revoked:sid:<sid>` và `auth:revoked:user:<userId>` trước khi chấp nhận access token. Token phải có `sid` và `iat`. Redis lỗi thì không cho qua xác thực; ghi thu hồi thất bại trả `DEPENDENCY_UNAVAILABLE`, không báo logout/reset thành công.
+- Refresh cũng kiểm tra revocation. Marker được giữ trong refresh TTL + access TTL + 1 phút để bao phủ token đã rotate và clock skew; logout một thiết bị không thu hồi thiết bị khác.
+- OTP: tối đa 5 lần cấp và 5 lần xác minh cho mỗi email/purpose trong một cửa sổ bằng `AUTH_OTP_TTL` (mặc định 5 phút). Bộ đếm Redis tăng nguyên tử, không rollback theo transaction SQL; cấp mã mới không reset quota xác minh. Vượt quota trả `TOO_MANY_REQUESTS`; Redis lỗi trả `DEPENDENCY_UNAVAILABLE`.
+- Register/forgot chỉ thành công sau khi Kafka xác nhận nhận email event với `acks=all`; lỗi/timeout publish trả `DEPENDENCY_UNAVAILABLE` và rollback transaction tạo user/OTP. Xác nhận Kafka không đồng nghĩa SMTP đã gửi. Đây chưa phải transaction nguyên tử SQL–Kafka: email có thể tới sau timeout hoặc trước một DB commit thất bại; không dùng email làm bằng chứng đăng ký thành công. Outbox cần bổ sung nếu yêu cầu atomic delivery giữa hai hệ thống được chốt.
+- Test hồi quy: `cd backend; .\gradlew.bat :identity-service:test :api-gateway:test :catalog-store-service:test`; frontend: `cd frontend/react; npm test`. Các test này được bổ sung nhưng chưa chạy trong lượt sửa PR #32.
 
 # 2. CATALOG & STORE SERVICE — /api/stores, /api/catalog
 | Method & Path | Quyền | Mô tả |
