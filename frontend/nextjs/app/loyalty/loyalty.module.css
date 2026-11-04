@@ -1,0 +1,763 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 36px 20px 80px;
+  font-family: var(--font-quicksand, 'Quicksand', system-ui, sans-serif);
+  color: #16100d;
+}
+
+/* -------------------------------------------------------------
+ * HERO SECTION
+ * ----------------------------------------------------------- */
+.hero {
+  position: relative;
+  background: linear-gradient(135deg, #16100d 0%, #261611 60%, #3e1b12 100%);
+  border-radius: 24px;
+  padding: 44px 36px;
+  color: #fffaf3;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(22, 16, 13, 0.25);
+  margin-bottom: 32px;
+  border: 1px solid rgba(201, 162, 39, 0.2);
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(201, 162, 39, 0.28) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.heroTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  background: rgba(201, 162, 39, 0.2);
+  border: 1px solid rgba(201, 162, 39, 0.4);
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fcd34d;
+  margin-bottom: 12px;
+}
+
+.heroTitle {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: clamp(28px, 4.2vw, 44px);
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 10px;
+  color: #ffffff;
+}
+
+.heroDesc {
+  font-size: 15px;
+  color: #ebd9c8;
+  line-height: 1.6;
+  max-width: 640px;
+  margin: 0;
+}
+
+/* -------------------------------------------------------------
+ * MEMBER OVERVIEW CARD
+ * ----------------------------------------------------------- */
+.statusCard {
+  background: #ffffff;
+  border: 1px solid #ebd9c8;
+  border-radius: 22px;
+  padding: 28px 32px;
+  box-shadow: 0 8px 30px rgba(22, 16, 13, 0.05);
+  margin-bottom: 36px;
+  position: relative;
+  overflow: hidden;
+}
+
+.guestBanner {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1.5px solid #fde68a;
+  border-radius: 20px;
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 36px;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.08);
+}
+
+.guestLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.guestIconWrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #f59e0b;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.guestTitle {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: #78350f;
+  margin: 0 0 4px;
+}
+
+.guestDesc {
+  font-size: 13px;
+  color: #92400e;
+  margin: 0;
+}
+
+.guestActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.loginBtn {
+  padding: 10px 20px;
+  background: #8f1216;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.loginBtn:hover {
+  background: #730e11;
+  color: #ffffff;
+}
+
+.registerBtn {
+  padding: 10px 18px;
+  background: #ffffff;
+  border: 1.5px solid #d97706;
+  color: #b45309;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.registerBtn:hover {
+  background: #fef3c7;
+}
+
+.statusHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.pointsBigWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.pointsLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #75675e;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.pointsBigVal {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: clamp(34px, 4.5vw, 46px);
+  font-weight: 800;
+  color: #8f1216;
+  line-height: 1;
+}
+
+.pointsUnit {
+  font-size: 16px;
+  font-weight: 700;
+  color: #c9a227;
+  margin-left: 6px;
+}
+
+.equivalentVal {
+  font-size: 13px;
+  font-weight: 600;
+  color: #15803d;
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tierBadgeHero {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tierBadgeMember {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1.5px solid #fde68a;
+}
+
+.tierBadgeSilver {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1.5px solid #cbd5e1;
+}
+
+.tierBadgeGold {
+  background: linear-gradient(135deg, #fef08a 0%, #f59e0b 100%);
+  color: #78350f;
+  border: 1.5px solid #fbbf24;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
+}
+
+/* Progress bar section */
+.progressSection {
+  background: #fffaf3;
+  border: 1px solid #f0ebe4;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 22px;
+}
+
+.progressLabelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #4b3e36;
+  margin-bottom: 8px;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 10px;
+  background: #ebd9c8;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #c9a227 0%, #d97706 100%);
+  transition: width 0.5s ease-out;
+}
+
+.statusBarFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f0ebe4;
+}
+
+.statusActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.orderNowBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  background: #8f1216;
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.orderNowBtn:hover {
+  background: #730e11;
+  color: #ffffff;
+}
+
+.historyJumpBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background: #fffaf3;
+  border: 1px solid #e5dbce;
+  color: #62564e;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.historyJumpBtn:hover {
+  background: #f7ebe1;
+  color: #16100d;
+}
+
+/* -------------------------------------------------------------
+ * TIER COMPARISON CARDS
+ * ----------------------------------------------------------- */
+.sectionTitleRow {
+  margin-bottom: 22px;
+}
+
+.sectionTitle {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 26px;
+  font-weight: 700;
+  color: #16100d;
+  margin: 0 0 6px;
+}
+
+.sectionSub {
+  font-size: 14px;
+  color: #75675e;
+  margin: 0;
+}
+
+.tierGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 48px;
+}
+
+.tierCard {
+  background: #ffffff;
+  border: 1.5px solid #ebd9c8;
+  border-radius: 18px;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tierCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(22, 16, 13, 0.08);
+}
+
+.tierCardCurrent {
+  border-color: #8f1216;
+  box-shadow: 0 0 0 2px #8f1216;
+}
+
+.currentBadge {
+  position: absolute;
+  top: -12px;
+  left: 20px;
+  background: #8f1216;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.tierHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tierTitle {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: #16100d;
+  margin: 0;
+}
+
+.tierPointsReq {
+  font-size: 12px;
+  font-weight: 700;
+  color: #75675e;
+  margin-bottom: 16px;
+}
+
+.tierDiscountCallout {
+  padding: 10px 14px;
+  background: #fffaf3;
+  border: 1px dashed #ebd9c8;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #8f1216;
+  margin-bottom: 16px;
+}
+
+.tierBenefitsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.tierBenefitItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: #4b3e36;
+  line-height: 1.4;
+}
+
+.tierCheckIcon {
+  color: #10b981;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* -------------------------------------------------------------
+ * HOW IT WORKS (3 STEPS)
+ * ----------------------------------------------------------- */
+.stepsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 48px;
+}
+
+.stepCard {
+  background: #fffaf3;
+  border: 1px solid #ebd9c8;
+  border-radius: 18px;
+  padding: 24px;
+  position: relative;
+}
+
+.stepNumber {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #8f1216;
+  color: #ffffff;
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.stepTitle {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: #16100d;
+  margin: 0 0 6px;
+}
+
+.stepDesc {
+  font-size: 13px;
+  color: #62564e;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* -------------------------------------------------------------
+ * POINTS CALCULATOR
+ * ----------------------------------------------------------- */
+.calcCard {
+  background: #ffffff;
+  border: 1px solid #ebd9c8;
+  border-radius: 20px;
+  padding: 28px 32px;
+  margin-bottom: 48px;
+  box-shadow: 0 6px 20px rgba(22, 16, 13, 0.04);
+}
+
+.calcHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.calcIconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #fff8eb;
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calcGrid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 28px;
+  align-items: center;
+}
+
+.calcInputWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calcOutputBox {
+  background: #fffaf3;
+  border: 1.5px solid #ebd9c8;
+  border-radius: 14px;
+  padding: 18px 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.calcStatItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.calcStatLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #75675e;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.calcStatVal {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 22px;
+  font-weight: 800;
+  color: #8f1216;
+}
+
+/* -------------------------------------------------------------
+ * POINT TRANSACTIONS HISTORY
+ * ----------------------------------------------------------- */
+.historyCard {
+  background: #ffffff;
+  border: 1px solid #ebd9c8;
+  border-radius: 22px;
+  padding: 28px 32px;
+  box-shadow: 0 8px 30px rgba(22, 16, 13, 0.04);
+}
+
+.historyToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.txFilterList {
+  display: flex;
+  gap: 8px;
+}
+
+.txFilterBtn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #ebd9c8;
+  background: #fffaf3;
+  color: #62564e;
+  transition: all 0.15s ease;
+}
+
+.txFilterBtn:hover {
+  background: #f7ebe1;
+}
+
+.txFilterBtnActive {
+  background: #8f1216;
+  border-color: #8f1216;
+  color: #ffffff;
+}
+
+.txList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.txItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: #fffdfa;
+  border: 1px solid #f0ebe4;
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+
+.txItem:hover {
+  background: #fffaf3;
+}
+
+.txLeft {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.txTypeIconWrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.txEarnIcon {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.txRedeemIcon {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.txAdjustIcon {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.txDetails {
+  display: flex;
+  flex-direction: column;
+}
+
+.txReason {
+  font-size: 14px;
+  font-weight: 700;
+  color: #16100d;
+  margin-bottom: 2px;
+}
+
+.txTime {
+  font-size: 12px;
+  color: #75675e;
+}
+
+.txRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.txChangeEarn {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 18px;
+  font-weight: 800;
+  color: #16a34a;
+}
+
+.txChangeRedeem {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 18px;
+  font-weight: 800;
+  color: #dc2626;
+}
+
+.txChangeAdjust {
+  font-family: var(--font-heading, 'Baloo 2', sans-serif);
+  font-size: 18px;
+  font-weight: 800;
+  color: #d97706;
+}
+
+.txBalanceAfter {
+  font-size: 11px;
+  color: #75675e;
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------
+ * RESPONSIVE
+ * ----------------------------------------------------------- */
+@media (max-width: 900px) {
+  .tierGrid {
+    grid-template-columns: 1fr;
+  }
+  .stepsGrid {
+    grid-template-columns: 1fr;
+  }
+  .calcGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 32px 20px;
+  }
+  .guestBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .statusHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .statusBarFooter {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .calcOutputBox {
+    grid-template-columns: 1fr;
+  }
+}
+

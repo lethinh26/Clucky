@@ -24,6 +24,8 @@ export function CustomerFooter() {
         <nav className="footer-links" aria-label={t("common.footer.links")}>
           <Link href="/menu">{t("common.nav.menu")}</Link>
           <Link href="/stores">{t("common.nav.stores")}</Link>
+          <Link href="/vouchers">{t("common.nav.vouchers")}</Link>
+          <Link href="/loyalty">{t("common.nav.loyalty")}</Link>
           <Link href="/orders">{t("common.nav.trackOrders")}</Link>
           <Link href="/account">{t("common.nav.account")}</Link>
         </nav>
