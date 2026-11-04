@@ -41,10 +41,11 @@ public final class AccessTokenValidator implements OAuth2TokenValidator<Jwt> {
 
             if (sessionRevocationService != null) {
                 String sid = token.getClaimAsString("sid");
-                if (sid != null && sessionRevocationService.isSessionRevoked(sid)) {
+                if (sid == null || sid.isBlank() || token.getIssuedAt() == null
+                        || sessionRevocationService.isSessionRevoked(sid)) {
                     return invalid();
                 }
-                if (token.getIssuedAt() != null && sessionRevocationService.isUserRevoked(userId, token.getIssuedAt())) {
+                if (sessionRevocationService.isUserRevoked(userId, token.getIssuedAt())) {
                     return invalid();
                 }
             }

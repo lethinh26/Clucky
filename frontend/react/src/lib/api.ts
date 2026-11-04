@@ -14,7 +14,8 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('clucky_admin_access_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (config.url?.startsWith('/api/auth/')) config.headers.delete('Authorization');
+  else if (token) config.headers.Authorization = `Bearer ${token}`;
   config.headers['Accept-Language'] = getBrowserLocale();
   return config;
 });

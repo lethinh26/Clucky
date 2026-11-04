@@ -17,6 +17,12 @@ spring:
     schemas: identity_service
     create-schemas: true
     baseline-on-migrate: false
+  kafka:
+    producer:
+      properties:
+        max.block.ms: 3000
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}

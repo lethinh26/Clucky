@@ -52,6 +52,7 @@ public class AuthService {
     @Transactional
     public MessageResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
+        otpService.limitIssuance(email, OtpService.PURPOSE_REGISTER);
 
         if (userRepository.existsByEmail(email)) {
             throw new ApiException(ErrorCode.EMAIL_EXISTS);
@@ -154,6 +155,7 @@ public class AuthService {
     @Transactional
     public MessageResponse forgotPassword(ForgotPasswordRequest request) {
         String email = normalizeEmail(request.email());
+        otpService.limitIssuance(email, OtpService.PURPOSE_RESET);
 
         userRepository.findByEmail(email).ifPresent(user -> {
             if (STATUS_ACTIVE.equals(user.getStatus())) {

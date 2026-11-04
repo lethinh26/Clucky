@@ -5,11 +5,16 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 public final class AccessTokenValidator implements OAuth2TokenValidator<Jwt> {
     private final String audience;
+    private final StringRedisTemplate redis;
 
-    public AccessTokenValidator(String audience) { this.audience = audience; }
+    public AccessTokenValidator(String audience, StringRedisTemplate redis) {
+        this.audience = audience;
+        this.redis = redis;
+    }
 
     @Override
     public OAuth2TokenValidatorResult validate(Jwt token) {
@@ -25,6 +30,15 @@ public final class AccessTokenValidator implements OAuth2TokenValidator<Jwt> {
                     || token.getAudience() == null || !token.getAudience().contains(audience)
                     || (needsStore && store == null)
                     || (store != null && Long.parseLong(store.toString()) <= 0)) {
+                return invalid();
+            }
+            String sid = token.getClaimAsString("sid");
+            if (sid == null || sid.isBlank() || token.getIssuedAt() == null
+                    || Boolean.TRUE.equals(redis.hasKey("auth:revoked:sid:" + sid))) {
+                return invalid();
+            }
+            String revokedAt = redis.opsForValue().get("auth:revoked:user:" + token.getSubject());
+            if (revokedAt != null && token.getIssuedAt().toEpochMilli() <= Long.parseLong(revokedAt)) {
                 return invalid();
             }
             return OAuth2TokenValidatorResult.success();
