@@ -1,10 +1,7 @@
 package com.clucky.reviewreportservice.controller;
 
 import com.clucky.reviewreportservice.config.SecurityContextHelper;
-import com.clucky.reviewreportservice.dto.CreateReviewRequest;
-import com.clucky.reviewreportservice.dto.ProductReviewSummaryDto;
-import com.clucky.reviewreportservice.dto.ReviewDto;
-import com.clucky.reviewreportservice.dto.UpdateReviewRequest;
+import com.clucky.reviewreportservice.dto.*;
 import com.clucky.reviewreportservice.service.ReviewService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -88,5 +85,43 @@ public class ReviewController {
         Long customerId = SecurityContextHelper.getCurrentUserId(request);
         reviewService.deleteReview(id, customerId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * BE-41: POST /api/reviews/{id}/replies
+     * Quyền: STF/MGR đúng quán, ADM toàn hệ thống
+     */
+    @PostMapping("/{id}/replies")
+    public ResponseEntity<ReviewReplyDto> replyReview(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateReplyRequest replyRequest,
+            HttpServletRequest request
+    ) {
+        SecurityContextHelper.requireRole(request, "STAFF", "STORE_MANAGER", "ADMIN");
+        Long responderId = SecurityContextHelper.getCurrentUserId(request);
+        String responderRole = SecurityContextHelper.getCurrentUserRole(request);
+        Long storeId = SecurityContextHelper.getCurrentStoreId(request);
+
+        ReviewReplyDto replyDto = reviewService.addReply(id, responderId, responderRole, storeId, replyRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(replyDto);
+    }
+
+    /**
+     * BE-41: PUT /api/reviews/{id}/hide
+     * Quyền: MGR đúng quán hoặc ADM (STAFF bị chặn)
+     */
+    @PutMapping("/{id}/hide")
+    public ResponseEntity<ReviewDto> hideReview(
+            @PathVariable Long id,
+            @RequestBody(required = false) HideReviewRequest hideRequest,
+            HttpServletRequest request
+    ) {
+        SecurityContextHelper.requireRole(request, "STORE_MANAGER", "ADMIN");
+        Long actorId = SecurityContextHelper.getCurrentUserId(request);
+        String actorRole = SecurityContextHelper.getCurrentUserRole(request);
+        Long storeId = SecurityContextHelper.getCurrentStoreId(request);
+
+        ReviewDto reviewDto = reviewService.hideReview(id, actorId, actorRole, storeId, hideRequest);
+        return ResponseEntity.ok(reviewDto);
     }
 }

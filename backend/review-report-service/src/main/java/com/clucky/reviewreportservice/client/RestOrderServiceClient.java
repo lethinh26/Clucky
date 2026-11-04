@@ -36,12 +36,30 @@ public class RestOrderServiceClient implements OrderServiceClient {
             log.warn("Order {} not found for customer {} in order-service", orderId, customerId);
             return null;
         } catch (HttpClientErrorException | ResourceAccessException e) {
-            log.warn("Cannot connect to order-service at {}: {}. Falling back to permissive validation.", url, e.getMessage());
-            // Fallback for independent development/mocking when order-service is not running yet
-            return new OrderVerificationDto(orderId, "ORD-" + orderId, customerId, "COMPLETED", null);
+            log.warn("Cannot connect to order-service at {}: {}. Falling back to mock verification.", url, e.getMessage());
+            return new OrderVerificationDto(orderId, "ORD-" + orderId, customerId, 1L, "COMPLETED", null);
         } catch (Exception e) {
             log.error("Unexpected error validating order with order-service: {}", e.getMessage());
-            return new OrderVerificationDto(orderId, "ORD-" + orderId, customerId, "COMPLETED", null);
+            return new OrderVerificationDto(orderId, "ORD-" + orderId, customerId, 1L, "COMPLETED", null);
+        }
+    }
+
+    @Override
+    public Long getOrderStoreId(Long orderId) {
+        String url = orderServiceUrl + "/api/internal/orders/" + orderId + "/store";
+        try {
+            OrderStoreDto dto = restTemplate.getForObject(url, OrderStoreDto.class);
+            return dto != null ? dto.storeId() : null;
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("Store for order {} not found in order-service", orderId);
+            return null;
+        } catch (HttpClientErrorException | ResourceAccessException e) {
+            log.warn("Cannot connect to order-service at {}: {}. Using fallback storeId.", url, e.getMessage());
+            // Fallback for independent development/mocking when order-service is not running
+            return 1L;
+        } catch (Exception e) {
+            log.error("Unexpected error fetching store for order {}: {}", orderId, e.getMessage());
+            return 1L;
         }
     }
 }
