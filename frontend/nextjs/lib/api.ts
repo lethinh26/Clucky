@@ -4,7 +4,18 @@
  * All requests go through the API Gateway (`NEXT_PUBLIC_API_URL`,
  * default http://localhost:8080) — never directly to a business service.
  */
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+function getBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return (
+      process.env.API_URL ||
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:8080"
+    );
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+}
+
 export { getErrorMessage } from "./i18n/core";
 import { getBrowserLocale } from "./i18n/core";
 
@@ -19,7 +30,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   headers.set("Accept-Language", getBrowserLocale());
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    res = await fetch(`${getBaseUrl()}${path}`, { ...options, headers });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw error;
     throw { code: "NETWORK_ERROR" };

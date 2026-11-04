@@ -28,6 +28,8 @@ export default defineConfig({
       url: "http://127.0.0.1:4174",
       reuseExistingServer: false,
       env: {
+        API_URL: "http://127.0.0.1:4175",
+        INTERNAL_API_URL: "http://127.0.0.1:4175",
         NEXT_PUBLIC_API_URL: "http://127.0.0.1:4175",
       },
     },
