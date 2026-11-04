@@ -68,6 +68,24 @@ export const errorCatalog = {
   },
   "EMAIL_EXISTS": {
     "httpStatus": 409
+  },
+  "ACCOUNT_LOCKED": {
+    "httpStatus": 403
+  },
+  "INVALID_CREDENTIALS": {
+    "httpStatus": 401
+  },
+  "EMAIL_NOT_VERIFIED": {
+    "httpStatus": 401
+  },
+  "INVALID_OTP": {
+    "httpStatus": 400
+  },
+  "OTP_EXPIRED": {
+    "httpStatus": 400
+  },
+  "TOKEN_REVOKED": {
+    "httpStatus": 401
   }
 } as const;
 export type ErrorCode = keyof typeof errorCatalog;

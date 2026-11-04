@@ -24,10 +24,10 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
   const [error, setError] = useState<unknown>(null);
 
   function finish(tokens: AuthTokens) {
-    if (!tokens.accessToken || !tokens.refreshToken)
+    if (!tokens.accessToken)
       throw new Error(t("business.googleauthflow.invalidSignInResponsePleaseTryAgain"));
     localStorage.setItem("clucky_access_token", tokens.accessToken);
-    localStorage.setItem("clucky_refresh_token", tokens.refreshToken);
+    // refresh token stored in HttpOnly cookie
     router.push("/account");
   }
 

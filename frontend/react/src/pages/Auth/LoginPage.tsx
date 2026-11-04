@@ -27,7 +27,7 @@ export const LoginPage: React.FC = () => {
       const tokens = await authApi.login(values);
       if (!task.isCurrent()) return;
       localStorage.setItem("clucky_admin_access_token", tokens.accessToken);
-      localStorage.setItem("clucky_admin_refresh_token", tokens.refreshToken);
+      // refresh token stored in HttpOnly cookie
       // Map API role → UI role for mock RBAC
       if (
         tokens.role === "ADMIN" ||

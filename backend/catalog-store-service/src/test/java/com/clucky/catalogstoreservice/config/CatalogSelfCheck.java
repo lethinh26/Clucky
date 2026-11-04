@@ -15,12 +15,16 @@ import com.clucky.catalogstoreservice.service.ProductService;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -34,7 +38,18 @@ public final class CatalogSelfCheck {
 
     private static void checkTokens() {
         String secret = UUID.randomUUID().toString();
-        JwtDecoder decoder = new SecurityConfig().jwtDecoder(new JwtSettings(secret, "clucky", "catalog"));
+        Map<String, String> revoked = new HashMap<>();
+        StringRedisTemplate redis = new StringRedisTemplate() {
+            @Override
+            public Boolean hasKey(String key) { return revoked.containsKey(key); }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public ValueOperations<String, String> opsForValue() {
+                return stub(ValueOperations.class, (method, arguments) -> revoked.get(arguments[0]));
+            }
+        };
+        JwtDecoder decoder = new SecurityConfig().jwtDecoder(new JwtSettings(secret, "clucky", "catalog"), redis);
         Instant expiry = Instant.now().plusSeconds(300);
         for (String role : List.of("INTERNAL_SERVICE", "ADMIN", "CUSTOMER")) {
             decoder.decode(token(secret, role, "1", "clucky", "catalog", expiry, null));
@@ -47,12 +62,31 @@ public final class CatalogSelfCheck {
         rejected(() -> decoder.decode(token(secret, "INTERNAL_SERVICE", "1", "clucky", "wrong", expiry, null)));
         rejected(() -> decoder.decode(token(secret, "INTERNAL_SERVICE", "1", "clucky", "catalog", Instant.now().minusSeconds(300), null)));
         rejected(() -> decoder.decode(token(UUID.randomUUID().toString(), "INTERNAL_SERVICE", "1", "clucky", "catalog", expiry, null)));
+        String serviceToken = token(secret, "INTERNAL_SERVICE", "1", "clucky", "catalog", expiry, null);
+        Jwt accepted = decoder.decode(serviceToken);
+        AccessTokenValidator validator = new AccessTokenValidator("catalog", redis);
+        for (String claim : List.of("sid", "iat")) {
+            Jwt missingClaim = Jwt.withTokenValue("check").headers(headers -> headers.putAll(accepted.getHeaders()))
+                    .claims(claims -> { claims.putAll(accepted.getClaims()); claims.remove(claim); }).build();
+            require(validator.validate(missingClaim).hasErrors(), "Missing " + claim + " was accepted");
+        }
+        Jwt refresh = Jwt.withTokenValue("check").headers(headers -> headers.putAll(accepted.getHeaders()))
+                .claims(claims -> { claims.putAll(accepted.getClaims()); claims.put("typ", "refresh"); }).build();
+        require(validator.validate(refresh).hasErrors(), "Refresh token accepted as access token");
+        revoked.put("auth:revoked:sid:self-check", "1");
+        rejected(() -> decoder.decode(serviceToken));
+        revoked.clear();
+        revoked.put("auth:revoked:user:1", Long.toString(Instant.now().toEpochMilli()));
+        rejected(() -> decoder.decode(serviceToken));
+        revoked.clear();
+        decoder.decode(serviceToken);
     }
 
     private static String token(String secret, String role, String subject, String issuer,
                                 String audience, Instant expiry, Long storeId) {
         JwtClaimsSet.Builder claims = JwtClaimsSet.builder().issuer(issuer).subject(subject)
-                .audience(List.of(audience)).expiresAt(expiry).claim("role", role);
+                .audience(List.of(audience)).expiresAt(expiry).claim("role", role)
+                .issuedAt(expiry.minusSeconds(600)).claim("sid", "self-check").claim("typ", "access");
         if (storeId != null) claims.claim("storeId", storeId);
         NimbusJwtEncoder encoder = new NimbusJwtEncoder(new ImmutableSecret<>(secret.getBytes(StandardCharsets.UTF_8)));
         return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims.build()))
