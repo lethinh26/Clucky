@@ -65,7 +65,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                                 "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/auth/forgot-password",
                                 "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll()
-                        .pathMatchers("/internal/**", "/api/payments/webhook/**").denyAll()
+                        .pathMatchers("/internal/**", "/api/catalog/internal/**", "/api/*/internal/**", "/api/payments/webhook/**").denyAll()
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.jwtAuthenticationConverter(
                                 new ReactiveJwtAuthenticationConverterAdapter(converter)))

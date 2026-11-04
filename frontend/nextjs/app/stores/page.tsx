@@ -1,9 +1,11 @@
 'use client';
 
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from "next-intl";
-import React, { useState, useMemo } from 'react';
 import Link from '@/components/ui-loader/navigation-link';
-import { stores, type Store } from '@/lib/products';
+import type { StoreItem } from '@/lib/api';
+import { getStoreStatusMeta } from '@/lib/types/store';
+import { catalogApi } from '@/lib/api';
 import {
   MapPin,
   Clock,
@@ -17,26 +19,45 @@ import {
 } from 'lucide-react';
 
 export default function StoresPage() {
+  const [storeList, setStoreList] = useState<StoreItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const t = useTranslations();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('ALL');
 
-  const districts = useMemo(() => {
-    return ['ALL', ...Array.from(new Set(stores.map((s) => s.district)))];
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    catalogApi.getStores(false)
+      .then((data) => {
+        if (active) setStoreList(data);
+      })
+      .catch((err) => {
+        if (active) setLoadError(err instanceof Error ? err.message : t("business.stores.noMatchingStoresFound"));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
+  const districts = useMemo(() => {
+    return ['ALL', ...Array.from(new Set(storeList.flatMap((s) => s.district ? [s.district] : [])))];
+  }, [storeList]);
+
   const filteredStores = useMemo(() => {
-    return stores.filter((s) => {
+    return storeList.filter((s) => {
       const matchDistrict = selectedDistrict === 'ALL' || s.district === selectedDistrict;
       const matchSearch =
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.district.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.district?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
         s.phone.includes(searchTerm);
       return matchDistrict && matchSearch;
     });
-  }, [searchTerm, selectedDistrict]);
+  }, [storeList, searchTerm, selectedDistrict]);
 
   return (
     <>
@@ -45,7 +66,7 @@ export default function StoresPage() {
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <span className="eyebrow">
             <Sparkles size={16} className="inline mr-1 text-[#C9A227]" />
-            Find your Clucky
+            {t("business.stores.eyebrow")}
           </span>
           <h1
             style={{
@@ -148,11 +169,17 @@ export default function StoresPage() {
           </div>
         </div>
 
-        {/* Store Cards Grid or Empty State */}
-        {filteredStores.length > 0 ? (
+        {loadError && (
+          <p role="alert" style={{ color: '#B42318', textAlign: 'center' }}>
+            {loadError}
+          </p>
+        )}
+        {loading ? (
+          <p aria-live="polite" style={{ textAlign: 'center' }}>{t("business.stores.loading")}</p>
+        ) : loadError ? null : filteredStores.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 24 }}>
             {filteredStores.map((store) => {
-              const isOpen = store.status === 'OPEN';
+              const meta = getStoreStatusMeta(store.status);
               return (
                 <article
                   key={store.id}
@@ -195,7 +222,11 @@ export default function StoresPage() {
                         >
                           {store.name}
                         </h2>
-                        <span style={{ fontSize: 12, color: '#C9A227', fontWeight: 700 }}> {t("business.stores.cluckyStoresInHoChiMinhCity")} </span>
+                        {(store.district || store.city) && (
+                          <span style={{ fontSize: 12, color: '#C9A227', fontWeight: 700 }}>
+                            {[store.district, store.city].filter(Boolean).join(', ')}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -205,13 +236,17 @@ export default function StoresPage() {
                         borderRadius: 999,
                         fontSize: 12,
                         fontWeight: 700,
-                        backgroundColor: isOpen ? '#EAF6EE' : '#FEF3C7',
-                        color: isOpen ? '#1E7A46' : '#D97706',
-                        border: `1px solid ${isOpen ? '#A7F3D0' : '#FDE68A'}`,
+                        backgroundColor: meta.bgColor,
+                        color: meta.color,
+                        border: `1px solid ${meta.borderColor}`,
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {isOpen ? t("business.stores.openNow") : t("business.stores.temporarilyClosed")}
+                      {store.status === 'OPEN'
+                        ? t("business.stores.openNow")
+                        : store.status === 'CLOSED_TEMP'
+                          ? t("business.stores.underMaintenance")
+                          : t("business.stores.closed")}
                     </span>
                   </div>
 
@@ -249,7 +284,7 @@ export default function StoresPage() {
                       gap: 12,
                     }}
                   >
-                    {isOpen ? (
+                    {meta.canOrder ? (
                       <Link
                         href={`/menu?storeId=${store.id}`}
                         className="btn-primary"

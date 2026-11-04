@@ -1,5 +1,5 @@
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
-import React, { useState, useMemo } from 'react';
 import {
   Button,
   Space,
@@ -29,34 +29,59 @@ import { AdminTable } from '../../components/ui/AdminTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AdminModal } from '../../components/ui/AdminModal';
 import { useAuth } from '../../context/AuthContext';
-import { Store, mockStores, mockManagers } from '../../mocks/catalogData';
+import { getStoreStatusMeta, normalizeStoreStatus, type StoreStatus } from '../../types/store';
+import { storesApi, usersApi, getErrorMessage, type AdminUser, type Store } from '../../lib/api';
 
 export const StoresPage: React.FC = () => {
   const { t } = useTranslation();
 
   const { user, isAdmin } = useAuth();
-  const [stores, setStores] = useState<Store[]>(mockStores);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [managers, setManagers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [form] = Form.useForm();
 
+  const fetchStores = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [list, managerList] = await Promise.all([
+        storesApi.list(false),
+        isAdmin ? usersApi.list({ role: 'STORE_MANAGER' }) : Promise.resolve([]),
+      ]);
+      setManagers(managerList);
+      setStores(list.map((store) => {
+        const manager = managerList.find((candidate) => candidate.storeId === store.id);
+        return { ...store, managerId: manager?.id, managerName: manager?.fullName };
+      }));
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    fetchStores();
+  }, [fetchStores]);
+
   // Role-based store isolation: Store Manager only sees their assigned branch
   const scopedStores = useMemo(() => {
     if (isAdmin) return stores;
-    return stores.filter(
-      (s) => s.id === user.storeId || s.name.toLowerCase().includes(user.storeName?.toLowerCase() || 'lê lợi')
-    );
+    return stores.filter((store) => store.id === user.storeId);
   }, [stores, isAdmin, user.storeId, user.storeName]);
 
   const filteredStores = useMemo(() => {
     return scopedStores.filter((s) => {
-      const matchStatus = statusFilter === 'ALL' ? true : s.status === statusFilter;
+      const currentStatus = normalizeStoreStatus(s.status);
+      const matchStatus = statusFilter === 'ALL' ? true : currentStatus === statusFilter;
       const matchSearch =
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.district.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (s.district?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
         s.phone.includes(searchTerm);
       return matchStatus && matchSearch;
     });
@@ -65,12 +90,6 @@ export const StoresPage: React.FC = () => {
   const handleOpenCreateModal = () => {
     setEditingStore(null);
     form.resetFields();
-    form.setFieldsValue({
-      status: 'OPEN',
-      openTime: dayjs('09:00', 'HH:mm'),
-      closeTime: dayjs('22:00', 'HH:mm'),
-      city: 'TP. Hồ Chí Minh',
-    });
     setModalOpen(true);
   };
 
@@ -94,49 +113,55 @@ export const StoresPage: React.FC = () => {
   const handleFormSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const manager = mockManagers.find((m) => m.id === values.managerId);
-      const storePayload: Store = {
-        id: editingStore ? editingStore.id : Date.now(),
+      const storePayload: Partial<Store> = {
         name: values.name,
         address: values.address,
         district: values.district,
         city: values.city,
         phone: values.phone,
-        openTime: values.openTime ? values.openTime.format('HH:mm') : '09:00',
-        closeTime: values.closeTime ? values.closeTime.format('HH:mm') : '22:00',
+        openTime: values.openTime.format('HH:mm'),
+        closeTime: values.closeTime.format('HH:mm'),
         deliveryArea: values.deliveryArea,
         status: values.status,
-        managerId: values.managerId,
-        managerName: manager?.fullName || values.managerName,
       };
 
       if (editingStore) {
-        setStores((prev) =>
-          prev.map((s) => (s.id === editingStore.id ? storePayload : s))
-        );
-        message.success(t("business:stores.storeDetailsUpdatedFor", { value1: storePayload.name }));
+        const updated = await storesApi.update(editingStore.id, storePayload);
+        if (values.managerId) await usersApi.assignStore(values.managerId, updated.id);
+        setStores((prev) => prev.map((store) => store.id === updated.id ? updated : store));
+        message.success(t("business:stores.storeDetailsUpdatedFor", { value1: updated.name }));
       } else {
-        setStores((prev) => [storePayload, ...prev]);
-        message.success(t("business:stores.storeCreatedSuccessfully", { value1: storePayload.name }));
+        const created = await storesApi.create(storePayload);
+        setEditingStore(created);
+        if (values.managerId) await usersApi.assignStore(values.managerId, created.id);
+        setStores((prev) => [created, ...prev]);
+        message.success(t("business:stores.storeCreatedSuccessfully", { value1: created.name }));
       }
 
+      await fetchStores();
       setModalOpen(false);
-    } catch {
-      message.error(t("business:stores.pleaseCheckTheStoreInformationFields"));
+      setEditingStore(null);
+    } catch (err) {
+      message.error(getErrorMessage(err, t("business:stores.pleaseCheckTheStoreInformationFields")));
     }
   };
 
-  const handleQuickStatusChange = (store: Store, newStatus: Store['status']) => {
-    setStores((prev) =>
-      prev.map((s) => (s.id === store.id ? { ...s, status: newStatus } : s))
-    );
-    const label =
-      newStatus === 'OPEN'
-        ? t("business:stores.open")
-        : newStatus === 'CLOSED_TEMP'
-        ? t("business:stores.temporarilyClosed")
-        : t("business:stores.inactive");
-    message.success(t("business:stores.changedStoreTo", { value1: store.name, value2: label }));
+  const handleQuickStatusChange = async (store: Store, newStatus: StoreStatus) => {
+    try {
+      await storesApi.updateOperation(store.id, { status: newStatus });
+      setStores((prev) =>
+        prev.map((s) => (s.id === store.id ? { ...s, status: newStatus } : s))
+      );
+      const label =
+        newStatus === 'OPEN'
+          ? t("business:stores.open")
+          : newStatus === 'CLOSED_TEMP'
+            ? t("business:stores.temporarilyClosed")
+            : t("business:stores.inactive");
+      message.success(t("business:stores.changedStoreTo", { value1: store.name, value2: label }));
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    }
   };
 
   const columns: TableColumnsType<Store> = [
@@ -213,9 +238,14 @@ export const StoresPage: React.FC = () => {
       key: 'status',
       width: 160,
       render: (status: Store['status']) => {
-        if (status === 'OPEN') return <StatusBadge status="success" text={t("business:stores.open")} />;
-        if (status === 'CLOSED_TEMP') return <StatusBadge status="warning" text={t("business:stores.temporarilyClosed")} />;
-        return <StatusBadge status="error" text={t("business:stores.inactive")} />;
+        const meta = getStoreStatusMeta(status);
+        const text =
+          meta.key === 'OPEN'
+            ? t("business:stores.open")
+            : meta.key === 'CLOSED_TEMP'
+              ? t("business:stores.temporarilyClosed")
+              : t("business:stores.inactive");
+        return <StatusBadge status={meta.badgeStatus} text={text} />;
       },
     },
     {
@@ -321,7 +351,7 @@ export const StoresPage: React.FC = () => {
             onChange={setStatusFilter}
             style={{ width: 180, fontFamily: 'Quicksand, sans-serif' }}
             options={[
-              { value: 'ALL', label: t("business:paymentspage.allStatuses") },
+              { value: 'ALL', label: t("business:stores.allStores") },
               { value: 'OPEN', label: t("business:stores.openLabel") },
               { value: 'CLOSED_TEMP', label: t("business:stores.temporarilyClosedIndicator") },
               { value: 'INACTIVE', label: t("business:stores.inactiveLabel") },
@@ -356,7 +386,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.fullAddressHouseNumberStreetWard")}
               rules={[{ required: true, message: t("business:stores.enterFullAddress") }]}
             >
-              <Input placeholder="128 Lê Lợi, Phường Bến Nghé" style={{ height: 40 }} />
+              <Input placeholder={t("business:stores.enterFullAddress")} style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -364,7 +394,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:account.district")}
               rules={[{ required: true, message: t("business:stores.enterDistrict") }]}
             >
-              <Input placeholder="Quận 1" style={{ height: 40 }} />
+              <Input placeholder={t("business:stores.enterDistrict")} style={{ height: 40 }} />
             </Form.Item>
           </div>
 
@@ -374,7 +404,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.storeHotline")}
               rules={[{ required: true, message: t("business:stores.enterHotline") }]}
             >
-              <Input placeholder="028 7300 1234" style={{ height: 40 }} />
+              <Input placeholder={t("business:stores.enterHotline")} style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -395,6 +425,14 @@ export const StoresPage: React.FC = () => {
           </div>
 
           <Form.Item
+            name="city"
+            label={t("business:stores.city")}
+            rules={[{ required: true, message: t("business:stores.enterCity") }]}
+          >
+            <Input placeholder={t("business:stores.enterCity")} style={{ height: 40 }} />
+          </Form.Item>
+
+          <Form.Item
             name="deliveryArea"
             label={t("business:stores.supportedDeliveryAreaRadiusNearbyDistricts")}
             rules={[{ required: true, message: t("business:stores.pleaseDescribeTheDeliveryArea") }]}
@@ -410,9 +448,9 @@ export const StoresPage: React.FC = () => {
               <Select
                 placeholder={t("business:stores.chooseTheResponsibleManager")}
                 style={{ height: 40 }}
-                options={mockManagers.map((m) => ({
-                  value: m.id,
-                  label: `${m.fullName} (${m.phone})`,
+                options={managers.map((manager) => ({
+                  value: manager.id,
+                  label: manager.phone ? `${manager.fullName} (${manager.phone})` : manager.fullName,
                 }))}
               />
             </Form.Item>

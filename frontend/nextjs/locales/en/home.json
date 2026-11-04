@@ -1,8 +1,11 @@
 {
   "hero": {
     "description": "Traditionally seasoned crispy chicken, handcrafted from fresh chicken every day. Golden, piping-hot bites bring joy to you and your loved ones.",
+    "eyebrow": "Fresh from the fryer",
     "order": "Order now",
     "menu": "View menu",
+    "titleTop": "Crispy outside.",
+    "titleBottom": "Happy inside.",
     "imageAlt": "Clucky golden crispy fried chicken"
   },
   "bestSellers": "Best sellers",

@@ -105,6 +105,9 @@ jobs:
 
       - name: UI tests
         run: npm run test:ui
+        env:
+          API_URL: "http://127.0.0.1:4175"
+          INTERNAL_API_URL: "http://127.0.0.1:4175"
 
       - name: Upload Playwright report and failure traces
         if: ${{ !cancelled() }}

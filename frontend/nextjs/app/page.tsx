@@ -1,56 +1,72 @@
-"use client";
-import { useTranslations } from "next-intl";
-
-
+import { getTranslations } from "next-intl/server";
 import Link from "@/components/ui-loader/navigation-link";
 import { Hero } from "@/components/hero";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";
-import { products, categories } from "@/lib/products";
+import { catalogApi } from "@/lib/api";
 import { Flame, Award, Truck } from "lucide-react";
 
-export default function Home() {
-  const t = useTranslations();
-  const featuredProducts = products
-    .filter((p) => p.isBestSeller || p.id <= 6)
-    .slice(0, 6);
+export const dynamic = 'force-dynamic';
+
+type DisplayCategory = { id: number; name: string };
+
+export default async function Home() {
+  const t = await getTranslations();
+  let displayProducts: any[] = [];
+  let liveCategories: { id: number; name: string }[] = [];
+
+  try {
+    const [prods, cats] = await Promise.all([
+      catalogApi.getProducts({ activeOnly: true }),
+      catalogApi.getCategories(true),
+    ]);
+    displayProducts = prods;
+    liveCategories = cats;
+  } catch {
+    displayProducts = [];
+    liveCategories = [];
+  }
+
+  const displayCategories: DisplayCategory[] = [
+    { id: 0, name: t("menu.categories.all") },
+    ...liveCategories.map((category) => ({
+      id: category.id,
+      name: category.name,
+    })),
+  ];
+
+  const featuredProducts = displayProducts
+    .filter((p) => p.isActive !== false)
+    .slice(0, 8);
 
   return (
     <>
       <main>
         {/* Hero Section */}
         <Hero
-          eyebrow="Fresh from the fryer"
-          titleTop={
-            <>
-              Crispy <strong>outside.</strong>
-            </>
-          }
-          titleBottom={
-            <>
-              Happy <strong>inside.</strong>
-            </>
-          }
+          eyebrow={t("home.hero.eyebrow")}
+          titleTop={t("home.hero.titleTop")}
+          titleBottom={t("home.hero.titleBottom")}
           description={t("home.hero.description")}
           actions={[
             { href: "/menu", label: t("home.hero.order"), variant: "primary" },
             { href: "/menu", label: t("home.hero.menu"), variant: "secondary" },
           ]}
-          imageSrc="https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=1000&q=85"
+          imageSrc="/images/hero-img.avif"
           imageAlt={t("home.hero.imageAlt")}
         />
 
         {/* Floating Category Dock */}
         <section className="category-row-section" aria-label={t("menu.categories.label")}>
           <div className="category-dock">
-            {categories.map((cat) => (
+            {displayCategories.map((cat) => (
               <Link
                 key={cat.id}
                 href={cat.id === 0 ? "/menu" : `/menu?cat=${cat.id}`}
                 className={`category-pill ${cat.id === 0 ? "active" : ""}`}
               >
                 <CategoryIcon id={cat.id} size={18} active={cat.id === 0} />
-                <span>{t(cat.messageKey)}</span>
+                <span>{cat.name}</span>
               </Link>
             ))}
           </div>
@@ -79,7 +95,7 @@ export default function Home() {
                 textTransform: "uppercase",
               }}
             >
-              {t("home.bestSellers")}{" "}</span>
+              {t("menu.title")}{" "}</span>
             <h2
               style={{
                 fontFamily: "Baloo 2, sans-serif",

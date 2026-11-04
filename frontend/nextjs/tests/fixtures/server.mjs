@@ -6,6 +6,42 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const server = await createServer({
   configFile: false,
   root: here,
+  plugins: [
+    {
+      name: "catalog-mock-api",
+      configureServer(s) {
+        s.middlewares.use((req, res, next) => {
+          if (req.url && req.url.startsWith("/api/catalog/categories")) {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify([
+              { id: 1, name: "Gà rán", sortOrder: 1, isActive: true },
+              { id: 2, name: "Burger", sortOrder: 2, isActive: true },
+              { id: 3, name: "Combo", sortOrder: 3, isActive: true },
+              { id: 4, name: "Món phụ", sortOrder: 4, isActive: true },
+              { id: 5, name: "Đồ uống", sortOrder: 5, isActive: true },
+            ]));
+            return;
+          }
+          if (req.url && req.url.startsWith("/api/catalog/products")) {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify([]));
+            return;
+          }
+          if (req.url && req.url.startsWith("/api/catalog/combos")) {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify([]));
+            return;
+          }
+          if (req.url && req.url.startsWith("/api/stores")) {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify([]));
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
   resolve: {
     alias: [
       { find: "@/lib/google-auth", replacement: `${here}google-identity.ts` },

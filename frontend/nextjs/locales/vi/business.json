@@ -221,12 +221,16 @@
     "backToForm": "Quay lại biểu mẫu"
   },
   "stores": {
+    "eyebrow": "Tìm cửa hàng Clucky gần bạn",
     "cluckyStores": "Hệ thống Cửa hàng Clucky",
     "pickUpAHotCrispyMealAtAStoreOrChooseYour": "Ghé lấy món nóng giòn trực tiếp tại cửa hàng hoặc chọn chi nhánh gần bạn nhất để nhận đơn giao siêu tốc.",
     "searchByStoreNameStreetDistrict": "Tìm theo tên chi nhánh, đường, quận...",
     "allStores": "Tất cả chi nhánh",
     "cluckyStoresInHoChiMinhCity": "Chi nhánh Clucky TP.HCM",
     "openNow": "● Đang mở cửa",
+    "loading": "Đang tải danh sách chi nhánh...",
+    "underMaintenance": "○ Đang bảo trì",
+    "closed": "✕ Đóng cửa",
     "temporarilyClosed": "Tạm đóng",
     "openingHours": "Giờ phục vụ:",
     "delivery": "Giao hàng:",
@@ -357,6 +361,7 @@
     "scanWithAVietqrCompatibleBankingAppKeepTheAmountAndTransfer": "Quét bằng ứng dụng ngân hàng hỗ trợ VietQR. Giữ đúng số tiền và nội dung chuyển khoản để hệ thống đối chiếu thanh toán."
   },
   "productdetailclient": {
+    "comboItems": "Sản phẩm trong combo",
     "backToTheCluckyMenu": "Quay lại Thực đơn Clucky",
     "soldOutToday": "Tạm hết hôm nay",
     "crispy": "Giòn tan",
