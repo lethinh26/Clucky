@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ValidationDto {
+    public record OptionSnapshot(Long id, String groupName, String name, BigDecimal extraPrice) {}
+    public record ToppingSnapshot(Long id, String name, BigDecimal extraPrice) {}
 
     public static class ValidateItemRequest {
         private Long productId;
@@ -41,6 +43,11 @@ public class ValidationDto {
     }
 
     public static class ValidatedItem {
+        private final List<OptionSnapshot> optionsSnapshot = new ArrayList<>();
+        private final List<ToppingSnapshot> toppingsSnapshot = new ArrayList<>();
+
+        public List<OptionSnapshot> getOptionsSnapshot() { return optionsSnapshot; }
+        public List<ToppingSnapshot> getToppingsSnapshot() { return toppingsSnapshot; }
         private Long productId;
         private Long comboId;
         private String name;

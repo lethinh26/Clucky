@@ -135,22 +135,23 @@ export function StaffOrdersPage() {
         ),
     [orders, query, date, sort, filter],
   );
-  const changeStatus = (
+  const changeStatus = async (
     id: string,
     status: AdminOrderStatus,
     reason?: string,
   ) => {
-    const result = updateStatus(id, status, reason);
+    const result = await updateStatus(id, status, reason);
     if (result) message.success(t("business:stafforderspage.demoOrderProgressUpdated"));
     else
       message.warning(
-        t("business:stafforderspage.unableToPerformThisActionCheckTheStatusStoreAndPayment"),
+        actionError || t("business:stafforderspage.unableToPerformThisActionCheckTheStatusStoreAndPayment"),
       );
     return result;
   };
-  const collect = (id: string) => {
-    if (confirmCOD(id)) message.success(t("business:orderdetaildrawer.codCollectionConfirmedInTheDemo"));
-    else message.warning(t("business:orderdetaildrawer.thisOrderNoLongerHasACodPaymentToConfirm"));
+  const collect = async (id: string) => {
+    const ok = await confirmCOD(id);
+    if (ok) message.success(t("business:orderdetaildrawer.codCollectionConfirmedInTheDemo"));
+    else message.warning(actionError || t("business:orderdetaildrawer.thisOrderNoLongerHasACodPaymentToConfirm"));
   };
   return (
     <div className={`${styles.staffContainer} m3-admin-page`}>

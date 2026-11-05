@@ -34,7 +34,7 @@ interface Props {
     id: string,
     status: AdminOrder["status"],
     reason?: string,
-  ) => boolean;
+  ) => Promise<boolean> | boolean;
   onOpenRefundModal?: (order: AdminOrder) => void;
 }
 
@@ -55,8 +55,9 @@ export function OrderDetailDrawer({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
   if (!order) return null;
-  const collect = () => {
-    if (confirmCOD(order.id))
+  const collect = async () => {
+    const ok = await confirmCOD(order.id);
+    if (ok)
       message.success(t("business:orderdetaildrawer.codCollectionConfirmedInTheDemo"));
     else message.warning(t("business:orderdetaildrawer.thisOrderNoLongerHasACodPaymentToConfirm"));
   };

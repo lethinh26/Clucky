@@ -10,7 +10,7 @@ import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
-import { authApi } from "@/lib/api";
+import { authApi, cartApi } from "@/lib/api";
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -42,8 +42,18 @@ export default function LoginPage() {
       if (typeof window !== "undefined") {
         localStorage.setItem("clucky_access_token", tokens.accessToken);
         // refresh token stored in HttpOnly cookie
+        const guestSession = localStorage.getItem("clucky_guest_session_id");
+        if (guestSession) {
+          try {
+            await cartApi.mergeCart(guestSession);
+          } catch {
+            // merge failure is non-blocking
+          }
+        }
       }
-      router.push("/account");
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const redirect = params?.get("redirect") || "/account";
+      router.push(redirect);
     } catch (err) {
       if (!task.isCurrent()) return;
 

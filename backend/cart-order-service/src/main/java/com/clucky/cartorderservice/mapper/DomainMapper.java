@@ -3,10 +3,24 @@ package com.clucky.cartorderservice.mapper;
 import com.clucky.cartorderservice.dto.*;
 import com.clucky.cartorderservice.entity.*;
 
+import java.util.List;
+
 public final class DomainMapper {
     private DomainMapper() {}
 
     public static OrderResponse toResponse(Order entity) {
+        return toResponse(entity, List.of(), List.of());
+    }
+
+    public static OrderResponse toResponse(Order entity, List<OrderItem> items) {
+        return toResponse(entity, items, List.of());
+    }
+
+    public static OrderResponse toResponse(Order entity, List<OrderItem> items, List<OrderStatusHistory> history) {
+        List<OrderItemResponse> itemResponses = items == null ? List.of() :
+                items.stream().map(DomainMapper::toResponse).toList();
+        List<OrderStatusHistoryResponse> historyResponses = history == null ? List.of() :
+                history.stream().map(DomainMapper::toResponse).toList();
         return new OrderResponse(
                 entity.getId(),
                 entity.getOrderCode(),
@@ -27,7 +41,10 @@ public final class DomainMapper {
                 entity.getNote(),
                 entity.getScheduledAt(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getPaymentMethod(),
+                itemResponses,
+                historyResponses
         );
     }
 

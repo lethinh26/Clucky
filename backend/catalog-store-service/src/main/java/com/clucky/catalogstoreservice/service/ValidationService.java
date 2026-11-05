@@ -177,6 +177,8 @@ public class ValidationService {
                             break;
                         }
                         optionExtras = optionExtras.add(opt.getExtraPrice());
+                        itemResult.getOptionsSnapshot().add(new ValidationDto.OptionSnapshot(
+                                opt.getId(), opt.getGroupName(), opt.getName(), opt.getExtraPrice()));
                     }
 
                     if (optionsValid) {
@@ -209,6 +211,8 @@ public class ValidationService {
                             break;
                         }
                         toppingExtras = toppingExtras.add(top.getExtraPrice());
+                        itemResult.getToppingsSnapshot().add(new ValidationDto.ToppingSnapshot(
+                                top.getId(), top.getToppingName(), top.getExtraPrice()));
                     }
 
                     if (optionsValid && toppingsValid && itemResult.isAvailable()) {

@@ -1,6 +1,39 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addCartItem, cartTotals } from "../lib/cart.ts";
+import { addCartItem, cartTotals, mapBackendCart, toCartPayload } from "../lib/cart.ts";
+
+test("checkout preserves combo and selection IDs without guessing IDs from a slug", () => {
+  const combo = { id: "uuid", slug: "combo-999", comboId: 1, name: "Combo", quantity: 2, unitPrice: 100 };
+  assert.deepEqual(toCartPayload(combo), {
+    productId: undefined, comboId: 1, itemName: "Combo", quantity: 2,
+    unitPrice: 100, optionIds: [], toppingIds: [], note: undefined,
+  });
+  assert.throws(() => toCartPayload({ ...combo, productId: 1 }));
+  assert.throws(() => toCartPayload({ ...combo, comboId: undefined }));
+  assert.throws(() => toCartPayload({ ...combo, quantity: 0 }));
+  const product = { ...combo, comboId: undefined, productId: 7, optionIds: [11], toppingIds: [22] };
+  assert.deepEqual(toCartPayload(product).optionIds, [11]);
+  assert.deepEqual(toCartPayload(product).toppingIds, [22]);
+});
+
+test("server cart keys replace local UUIDs without losing variant images or labels", () => {
+  const previous = [
+    { id: "uuid-a", productId: 1, optionIds: [11], toppingIds: [22], image: "/a.png", options: [{ id: 11, name: "Hot" }] },
+    { id: "uuid-b", productId: 1, optionIds: [12], toppingIds: [], image: "/b.png" },
+  ];
+  const items = [
+    { itemKey: "server-b", productId: 1, optionIds: [12], toppingIds: [], itemName: "Chicken", unitPrice: 100, quantity: 1 },
+    { itemKey: "server-a", productId: 1, comboId: null, optionIds: [11], toppingIds: [22], itemName: "Chicken", unitPrice: 120, quantity: 3 },
+  ];
+  const mapped = mapBackendCart({ items }, previous);
+  assert.equal(mapped[0].id, "server-b");
+  assert.equal(mapped[1].itemKey, "server-a");
+  assert.equal(mapped[0].image, "/b.png");
+  assert.equal(mapped[1].image, "/a.png");
+  assert.deepEqual(mapped[1].options, previous[0].options);
+  assert.equal(mapped[1].quantity, 3);
+  assert.deepEqual(mapBackendCart({ items: [] }, previous), []);
+});
 
 const portion = {
   id: "chicken-1",

@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 import { ArrowUpRight, Menu, ShoppingBag, UserRound, X } from "lucide-react";
 import { CartBadge } from "@/components/order";
 import { useOrder } from "@/components/order/order-provider";
+import { NotificationPopover } from "@/components/notification";
 import styles from "./customer-header.module.css";
 
 const links = [
@@ -108,6 +109,9 @@ export function CustomerHeader() {
           >
             {t("auth.register.action")}{" "}<ArrowUpRight size={16} aria-hidden="true" />
           </Link>
+          <div className={styles.notification}>
+            <NotificationPopover />
+          </div>
           <CartBadge count={count}>
             <Link
               href="/cart"

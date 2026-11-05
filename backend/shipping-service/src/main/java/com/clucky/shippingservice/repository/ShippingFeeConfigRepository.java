@@ -6,4 +6,5 @@ import java.util.Optional;
 
 public interface ShippingFeeConfigRepository extends JpaRepository<ShippingFeeConfig, Long> {
     Optional<ShippingFeeConfig> findByIdAndStoreId(Long id, Long storeId);
+    Optional<ShippingFeeConfig> findByStoreId(Long storeId);
 }

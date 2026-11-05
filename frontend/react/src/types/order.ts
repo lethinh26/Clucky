@@ -42,6 +42,7 @@ export interface AdminOrder {
   time: string;
   createdAt: string;
   hasRefundRequest?: boolean;
+  refundRequestId?: number;
   refundReason?: string;
   refundAmount?: number;
   refundStatus?: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED";

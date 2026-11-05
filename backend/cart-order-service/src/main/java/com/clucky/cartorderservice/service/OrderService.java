@@ -1,0 +1,706 @@
+package com.clucky.cartorderservice.service;
+
+import com.clucky.cartorderservice.cart.CartDto;
+import com.clucky.cartorderservice.cart.CartItemDto;
+import com.clucky.cartorderservice.cart.CartService;
+import com.clucky.cartorderservice.config.AccessGuard;
+import com.clucky.cartorderservice.config.CurrentActor;
+import com.clucky.cartorderservice.config.RedisConfig;
+import com.clucky.cartorderservice.dto.*;
+import com.clucky.cartorderservice.entity.Order;
+import com.clucky.cartorderservice.entity.OrderItem;
+import com.clucky.cartorderservice.entity.OrderStatusHistory;
+import com.clucky.cartorderservice.exception.ApiException;
+import com.clucky.cartorderservice.exception.ErrorCode;
+import com.clucky.cartorderservice.mapper.DomainMapper;
+import com.clucky.cartorderservice.repository.OrderItemRepository;
+import com.clucky.cartorderservice.repository.OrderRepository;
+import com.clucky.cartorderservice.repository.OrderStatusHistoryRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+public class OrderService {
+    private static final Logger LOG = LoggerFactory.getLogger(OrderService.class);
+
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    private final CartService cartService;
+    private final AccessGuard accessGuard;
+    private final ObjectMapper objectMapper;
+    private final OrderEventPublisher orderEventPublisher;
+    private final CatalogClient catalogClient;
+    private final PromotionClient promotionClient;
+    private final ShippingClient shippingClient;
+    private final Random random = new SecureRandom();
+
+    public OrderService(
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            OrderStatusHistoryRepository orderStatusHistoryRepository,
+            CartService cartService,
+            AccessGuard accessGuard,
+            ObjectMapper objectMapper,
+            OrderEventPublisher orderEventPublisher,
+            CatalogClient catalogClient,
+            PromotionClient promotionClient,
+            ShippingClient shippingClient
+    ) {
+        this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.orderStatusHistoryRepository = orderStatusHistoryRepository;
+        this.cartService = cartService;
+        this.accessGuard = accessGuard;
+        this.objectMapper = objectMapper;
+        this.orderEventPublisher = orderEventPublisher;
+        this.catalogClient = catalogClient;
+        this.promotionClient = promotionClient;
+        this.shippingClient = shippingClient;
+    }
+
+    public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
+        List<CartItemDto> items = resolvePreviewItems(request, httpRequest);
+        if (items.isEmpty()) {
+            return new OrderPreviewResponse(
+                    BigDecimal.ZERO, BigDecimal.ZERO, 0, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO, false, null, List.of()
+            );
+        }
+
+        Long storeId = request.storeId();
+        if (storeId == null) {
+            for (CartItemDto it : items) {
+                if (it.getStoreId() != null) {
+                    storeId = it.getStoreId();
+                    break;
+                }
+            }
+        }
+        if (storeId == null) {
+            storeId = 1L;
+        }
+
+        // Validate items with Catalog Service (P1-01)
+        CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(storeId, items);
+        if (!catalogValidation.valid() || !catalogValidation.storeOpen()) {
+            return new OrderPreviewResponse(
+                    BigDecimal.ZERO, BigDecimal.ZERO, 0, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO, false,
+                    catalogValidation.message() != null ? catalogValidation.message() : "Sản phẩm hoặc cửa hàng không khả dụng",
+                    items
+            );
+        }
+
+        BigDecimal subtotal = catalogValidation.subtotal();
+
+        String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
+        // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
+        ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
+                type, storeId, request.receiverAddress(), subtotal
+        );
+        if (!shippingResult.available() && !"PICKUP".equalsIgnoreCase(type)) {
+            LOG.warn("Shipping service calculate-fee unavailable during preview storeId={} address={}",
+                    storeId, request.receiverAddress());
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
+        BigDecimal shippingFee = shippingResult.fee() != null ? shippingResult.fee() : BigDecimal.ZERO;
+
+        // Validate voucher with Promotion Service (P1-02)
+        PromotionClient.VoucherResult voucherCalc = promotionClient.validateVoucher(request.voucherCode(), storeId, subtotal);
+        BigDecimal discountAmount = voucherCalc.discountAmount();
+
+        // Validate loyalty points with Promotion Service (P1-02)
+        PromotionClient.LoyaltyResult loyaltyCalc = promotionClient.validateLoyalty(
+                request.pointsUsed(),
+                subtotal.subtract(discountAmount).add(shippingFee)
+        );
+        int pointsUsed = loyaltyCalc.pointsUsed();
+        BigDecimal pointsAmount = loyaltyCalc.pointsAmount();
+
+        BigDecimal beforePoints = subtotal.subtract(discountAmount).add(shippingFee);
+        if (beforePoints.compareTo(BigDecimal.ZERO) < 0) {
+            beforePoints = BigDecimal.ZERO;
+        }
+
+        if (pointsAmount.compareTo(beforePoints) > 0) {
+            pointsAmount = beforePoints;
+        }
+
+        BigDecimal totalAmount = beforePoints.subtract(pointsAmount);
+        if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
+            totalAmount = BigDecimal.ZERO;
+        }
+
+        return new OrderPreviewResponse(
+                subtotal,
+                discountAmount,
+                pointsUsed,
+                pointsAmount,
+                shippingFee,
+                totalAmount,
+                voucherCalc.valid(),
+                voucherCalc.message(),
+                items
+        );
+    }
+
+    @Transactional
+    public OrderResponse createOrder(CreateOrderRequest request) {
+        Long customerId = CurrentActor.require().userId();
+
+        String userCartKey = RedisConfig.key("cart", customerId.toString());
+        CartDto cart = cartService.getCart(userCartKey);
+
+        List<CartItemDto> items = (cart != null && cart.getItems() != null) ? cart.getItems() : List.of();
+        if (items.isEmpty() && request.items() != null && !request.items().isEmpty()) {
+            items = request.items();
+        }
+        if (items.isEmpty()) {
+            LOG.warn("event=order_create_failed reason=cart_empty customerId={}", customerId);
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+
+        for (CartItemDto it : items) {
+            if (it.getStoreId() != null && !it.getStoreId().equals(request.storeId())) {
+                LOG.warn("event=order_create_failed reason=store_mismatch itemStoreId={} requestStoreId={}",
+                        it.getStoreId(), request.storeId());
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            }
+        }
+
+        // Validate items with Catalog Service (P1-01: Client price is NEVER trusted)
+        CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(request.storeId(), items);
+        if (!catalogValidation.valid()) {
+            LOG.warn("event=order_create_failed reason=catalog_items_invalid message={}", catalogValidation.message());
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+        if (!catalogValidation.storeOpen()) {
+            LOG.warn("event=order_create_failed reason=store_closed message={}", catalogValidation.message());
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+
+        BigDecimal subtotal = catalogValidation.subtotal();
+
+        String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
+        // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
+        ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
+                type, request.storeId(), request.deliveryAddress(), subtotal
+        );
+        if (!shippingResult.available() && !"PICKUP".equalsIgnoreCase(type)) {
+            LOG.warn("Shipping service calculate-fee unavailable during createOrder storeId={} address={}",
+                    request.storeId(), request.deliveryAddress());
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
+        BigDecimal shippingFee = shippingResult.fee() != null ? shippingResult.fee() : BigDecimal.ZERO;
+
+        // Validate voucher with Promotion Service (P1-02: No hardcoded voucher strings)
+        PromotionClient.VoucherResult voucherCalc = promotionClient.validateVoucher(request.voucherCode(), request.storeId(), subtotal);
+        if (request.voucherCode() != null && !request.voucherCode().isBlank() && !voucherCalc.valid()) {
+            throw new ApiException(ErrorCode.VOUCHER_INACTIVE);
+        }
+        BigDecimal discountAmount = voucherCalc.discountAmount();
+
+        // Validate loyalty points with Promotion Service (P1-02: Verified reservation)
+        PromotionClient.LoyaltyResult loyaltyCalc = promotionClient.validateLoyalty(
+                request.pointsUsed(),
+                subtotal.subtract(discountAmount).add(shippingFee)
+        );
+        int pointsUsed = loyaltyCalc.pointsUsed();
+        BigDecimal pointsAmount = loyaltyCalc.pointsAmount();
+
+        BigDecimal beforePoints = subtotal.subtract(discountAmount).add(shippingFee);
+        if (beforePoints.compareTo(BigDecimal.ZERO) < 0) {
+            beforePoints = BigDecimal.ZERO;
+        }
+
+        if (pointsAmount.compareTo(beforePoints) > 0) {
+            pointsAmount = beforePoints;
+        }
+
+        BigDecimal totalAmount = beforePoints.subtract(pointsAmount);
+        if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
+            totalAmount = BigDecimal.ZERO;
+        }
+
+        String paymentMethod = request.paymentMethod() != null ? request.paymentMethod().trim().toUpperCase() : "COD";
+        String initialStatus = "COD".equalsIgnoreCase(paymentMethod)
+                ? OrderStatus.CONFIRMED.name()
+                : OrderStatus.PENDING_PAYMENT.name();
+
+        Order order = new Order();
+        order.setOrderCode(generateOrderCode());
+        order.setCustomerId(customerId);
+        order.setStoreId(request.storeId());
+        order.setType(type);
+        order.setStatus(initialStatus);
+        order.setSubtotal(subtotal);
+        order.setDiscountAmount(discountAmount);
+        order.setPointsUsed(pointsUsed);
+        order.setPointsAmount(pointsAmount);
+        order.setShippingFee(shippingFee);
+        order.setTotalAmount(totalAmount);
+        order.setPaymentMethod(paymentMethod);
+        order.setVoucherCode(voucherCalc.valid() ? request.voucherCode().trim() : null);
+        order.setReceiverName(request.receiverName().trim());
+        order.setReceiverPhone(request.receiverPhone().trim());
+        order.setDeliveryAddress(request.deliveryAddress());
+        order.setNote(request.note());
+        order.setScheduledAt(request.scheduledAt());
+        order = orderRepository.save(order);
+
+        List<OrderItem> savedItems = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            CartItemDto it = items.get(i);
+            CatalogClient.ValidatedCatalogItem validated = catalogValidation.items().get(i);
+            BigDecimal unitPrice = validated.unitPrice();
+            BigDecimal extraPrice = validated.extraPrice() != null ? validated.extraPrice() : BigDecimal.ZERO;
+            String itemName = validated.name();
+
+            OrderItem item = new OrderItem();
+            item.setOrderId(order.getId());
+            item.setItemType(it.getProductId() != null ? "PRODUCT" : "COMBO");
+            item.setProductId(it.getProductId());
+            item.setComboId(it.getComboId());
+            item.setItemName(itemName);
+            item.setUnitPrice(unitPrice.add(extraPrice));
+            item.setQuantity(it.getQuantity());
+            item.setNote(it.getNote());
+            item.setLineTotal(unitPrice.add(extraPrice).multiply(BigDecimal.valueOf(it.getQuantity())));
+
+            item.setOptionsSnapshot(objectMapper.valueToTree(validated.optionsSnapshot()));
+            item.setToppingsSnapshot(objectMapper.valueToTree(validated.toppingsSnapshot()));
+            savedItems.add(orderItemRepository.save(item));
+        }
+
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrderId(order.getId());
+        history.setFromStatus(null);
+        history.setToStatus(initialStatus);
+        history.setChangedBy(customerId);
+        history.setChangedRole("CUSTOMER");
+        history.setReason("Order created with payment method: " + paymentMethod);
+        history.setCreatedAt(Instant.now());
+        orderStatusHistoryRepository.save(history);
+
+        // Clear user cart in Redis only when order is successfully created
+        cartService.clearCart(userCartKey);
+
+        LOG.info("event=order_created orderId={} orderCode={} customerId={} storeId={} total={} paymentMethod={}",
+                order.getId(), order.getOrderCode(), customerId, order.getStoreId(), order.getTotalAmount(), paymentMethod);
+
+        // Transactional Outbox: Saves outbox event in the same DB transaction
+        orderEventPublisher.publishOrderCreated(order, savedItems);
+
+        return DomainMapper.toResponse(order, savedItems, List.of(history));
+    }
+
+    @Transactional
+    public OrderResponse cancelOrder(Long id, CancelOrderRequest request) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        accessGuard.requireOwner(order.getCustomerId());
+
+        String currentStatus = order.getStatus();
+        if (!OrderStatus.PENDING_PAYMENT.name().equalsIgnoreCase(currentStatus)
+                && !OrderStatus.CONFIRMED.name().equalsIgnoreCase(currentStatus)) {
+            LOG.warn("event=order_cancel_conflict orderId={} status={}", order.getId(), currentStatus);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+
+        order.setStatus(OrderStatus.CANCELLED.name());
+        order = orderRepository.save(order);
+
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrderId(order.getId());
+        history.setFromStatus(currentStatus);
+        history.setToStatus(OrderStatus.CANCELLED.name());
+        history.setChangedBy(CurrentActor.require().userId());
+        history.setChangedRole("CUSTOMER");
+        history.setReason(request != null && request.reason() != null && !request.reason().isBlank()
+                ? request.reason().trim() : "Cancelled by customer");
+        history.setCreatedAt(Instant.now());
+        orderStatusHistoryRepository.save(history);
+
+        List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
+        List<OrderStatusHistory> histories = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
+
+        LOG.info("event=order_cancelled orderId={} orderCode={} by=CUSTOMER", order.getId(), order.getOrderCode());
+
+        // P1.1: Release voucher and loyalty points if applied
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+        }
+        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
+            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
+        }
+
+        // Publish order.cancelled Kafka event via Transactional Outbox
+        orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
+
+        return DomainMapper.toResponse(order, items, histories);
+    }
+
+    @Transactional
+    public OrderResponse rejectOrder(Long id, CancelOrderRequest request) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        accessGuard.requireStore(order.getStoreId());
+
+        String currentStatus = order.getStatus();
+        if (OrderStatus.COMPLETED.name().equalsIgnoreCase(currentStatus)
+                || OrderStatus.CANCELLED.name().equalsIgnoreCase(currentStatus)) {
+            LOG.warn("event=order_reject_conflict orderId={} status={}", order.getId(), currentStatus);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+
+        CurrentActor actor = CurrentActor.require();
+        order.setStatus(OrderStatus.CANCELLED.name());
+        order = orderRepository.save(order);
+
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrderId(order.getId());
+        history.setFromStatus(currentStatus);
+        history.setToStatus(OrderStatus.CANCELLED.name());
+        history.setChangedBy(actor.userId());
+        history.setChangedRole(actor.role().name());
+        history.setReason(request != null && request.reason() != null && !request.reason().isBlank()
+                ? request.reason().trim() : "Order rejected by store");
+        history.setCreatedAt(Instant.now());
+        orderStatusHistoryRepository.save(history);
+
+        List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
+        List<OrderStatusHistory> histories = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
+
+        LOG.info("event=order_rejected orderId={} orderCode={} by={}", order.getId(), order.getOrderCode(), actor.role());
+
+        // P1.1: Release voucher and loyalty points if applied
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+        }
+        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
+            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
+        }
+
+        // Publish order.cancelled Kafka event via Transactional Outbox
+        orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
+
+        return DomainMapper.toResponse(order, items, histories);
+    }
+
+    @Transactional
+    public OrderResponse updateStatus(Long id, UpdateOrderStatusRequest request) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        accessGuard.requireStore(order.getStoreId());
+
+        String current = order.getStatus().toUpperCase();
+        String target = request.status().trim().toUpperCase();
+
+        if (current.equals(target)) {
+            List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
+            List<OrderStatusHistory> histories = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
+            return DomainMapper.toResponse(order, items, histories);
+        }
+
+        boolean valid = switch (current) {
+            case "PENDING_PAYMENT" -> "CONFIRMED".equals(target) || "CANCELLED".equals(target);
+            case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target);
+            case "PREPARING" -> "READY".equals(target);
+            case "READY" -> "SHIPPING".equals(target) || "COMPLETED".equals(target);
+            case "SHIPPING" -> "COMPLETED".equals(target);
+            default -> false;
+        };
+
+        if (!valid) {
+            LOG.warn("event=invalid_status_transition orderId={} from={} to={}", order.getId(), current, target);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+
+        order.setStatus(target);
+        order = orderRepository.save(order);
+
+        CurrentActor actor = CurrentActor.require();
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrderId(order.getId());
+        history.setFromStatus(current);
+        history.setToStatus(target);
+        history.setChangedBy(actor.userId());
+        history.setChangedRole(actor.role().name());
+        history.setReason(request.note() != null && !request.note().isBlank()
+                ? request.note().trim() : ("Status updated to " + target));
+        history.setCreatedAt(Instant.now());
+        orderStatusHistoryRepository.save(history);
+
+        List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
+        List<OrderStatusHistory> histories = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
+
+        LOG.info("event=order_status_updated orderId={} orderCode={} from={} to={}",
+                order.getId(), order.getOrderCode(), current, target);
+
+        // Publish Kafka event via Transactional Outbox
+        if (OrderStatus.COMPLETED.name().equals(target)) {
+            orderEventPublisher.publishOrderCompleted(order, items);
+        } else if (OrderStatus.CANCELLED.name().equals(target)) {
+            if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+                promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            }
+            if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
+                promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
+            }
+            orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
+        } else {
+            orderEventPublisher.publishOrderStatusChanged(order, items, current);
+        }
+
+        return DomainMapper.toResponse(order, items, histories);
+    }
+
+    @Transactional
+    public void compensateFailedPayment(Long orderId, String orderCode, String reason) {
+        Optional<Order> orderOpt = Optional.empty();
+        if (orderId != null) {
+            orderOpt = orderRepository.findById(orderId);
+        }
+        if (orderOpt.isEmpty() && orderCode != null && !orderCode.isBlank()) {
+            orderOpt = orderRepository.findByOrderCode(orderCode);
+        }
+
+        if (orderOpt.isEmpty()) {
+            LOG.warn("event=saga_order_not_found orderId={} orderCode={}", orderId, orderCode);
+            return;
+        }
+
+        Order order = orderOpt.get();
+        String currentStatus = order.getStatus();
+
+        // Idempotency: Do not compensate already cancelled orders
+        if (OrderStatus.CANCELLED.name().equalsIgnoreCase(currentStatus)) {
+            LOG.info("event=saga_order_already_cancelled orderId={} orderCode={}", order.getId(), order.getOrderCode());
+            return;
+        }
+
+        if (!OrderStatus.PENDING_PAYMENT.name().equalsIgnoreCase(currentStatus)
+                && !OrderStatus.CONFIRMED.name().equalsIgnoreCase(currentStatus)) {
+            LOG.warn("event=saga_invalid_order_state orderId={} orderCode={} status={}",
+                    order.getId(), order.getOrderCode(), currentStatus);
+            return;
+        }
+
+        order.setStatus(OrderStatus.CANCELLED.name());
+        order = orderRepository.save(order);
+
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrderId(order.getId());
+        history.setFromStatus(currentStatus);
+        history.setToStatus(OrderStatus.CANCELLED.name());
+        history.setChangedBy(null);
+        history.setChangedRole("SYSTEM_SAGA");
+        history.setReason(reason != null && !reason.isBlank()
+                ? reason.trim() : "Payment failed / cancelled by saga compensation");
+        history.setCreatedAt(Instant.now());
+        orderStatusHistoryRepository.save(history);
+
+        List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
+
+        LOG.info("event=saga_order_cancelled orderId={} orderCode={} fromStatus={}",
+                order.getId(), order.getOrderCode(), currentStatus);
+
+        // P1.1: Compensate voucher and loyalty points if applied
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+        }
+        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
+            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
+        }
+
+        // Publish order.cancelled compensation event via Transactional Outbox
+        orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
+    }
+
+    public CartDto reorder(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        accessGuard.requireOwner(order.getCustomerId());
+
+        List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(id);
+        if (items.isEmpty()) {
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        String cartKey = RedisConfig.key("cart", order.getCustomerId().toString());
+
+        for (OrderItem it : items) {
+            List<Long> optionIds = new ArrayList<>();
+            if (it.getOptionsSnapshot() != null && it.getOptionsSnapshot().isArray()) {
+                for (JsonNode n : it.getOptionsSnapshot()) {
+                    optionIds.add(n.isObject() ? n.path("id").asLong() : n.asLong());
+                }
+            }
+            List<Long> toppingIds = new ArrayList<>();
+            if (it.getToppingsSnapshot() != null && it.getToppingsSnapshot().isArray()) {
+                for (JsonNode n : it.getToppingsSnapshot()) {
+                    toppingIds.add(n.isObject() ? n.path("id").asLong() : n.asLong());
+                }
+            }
+            CartItemDto cartItem = new CartItemDto(
+                    it.getProductId(),
+                    it.getComboId(),
+                    it.getItemName(),
+                    it.getQuantity(),
+                    it.getUnitPrice(),
+                    optionIds,
+                    toppingIds,
+                    it.getNote(),
+                    order.getStoreId()
+            );
+            cartService.addItem(cartKey, cartItem, CartService.CUSTOMER_CART_TTL);
+        }
+
+        return cartService.getCart(cartKey);
+    }
+
+    public PageResponse<OrderResponse> getMyOrders(String status, Pageable pageable) {
+        Long customerId = CurrentActor.require().userId();
+        String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
+
+        Page<Order> orderPage = orderRepository.findCustomerOrders(customerId, cleanStatus, pageable);
+        return mapToOrderResponsePage(orderPage);
+    }
+
+    public PageResponse<OrderResponse> getOrders(Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+        Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
+        String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
+        String cleanOrderCode = (orderCode != null && !orderCode.isBlank()) ? orderCode.trim() : null;
+
+        Page<Order> orderPage = orderRepository.findOrders(effectiveStoreId, cleanStatus, cleanOrderCode, pageable);
+        return mapToOrderResponsePage(orderPage);
+    }
+
+    // P2.3: Extracted common lookup and security verification for order details
+    public OrderResponse getOrderDetails(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        return buildOrderDetailsResponse(order);
+    }
+
+    // P2.3: Extracted common lookup and security verification for order details
+    public OrderResponse getOrderByCode(String orderCode) {
+        if (orderCode == null || orderCode.isBlank()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        Order order = orderRepository.findByOrderCode(orderCode.trim())
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        return buildOrderDetailsResponse(order);
+    }
+
+    private OrderResponse buildOrderDetailsResponse(Order order) {
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() == Role.CUSTOMER) {
+            accessGuard.requireOwner(order.getCustomerId());
+        } else if (actor.role() == Role.STAFF || actor.role() == Role.STORE_MANAGER) {
+            accessGuard.requireStore(order.getStoreId());
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
+        List<OrderStatusHistory> history = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
+        return DomainMapper.toResponse(order, items, history);
+    }
+
+    private PageResponse<OrderResponse> mapToOrderResponsePage(Page<Order> orderPage) {
+        List<Long> orderIds = orderPage.getContent().stream().map(Order::getId).toList();
+        if (orderIds.isEmpty()) {
+            return PageResponse.from(orderPage.map(DomainMapper::toResponse));
+        }
+
+        Map<Long, List<OrderItem>> itemsByOrderId =
+                orderItemRepository.findByOrderIdIn(orderIds).stream()
+                        .collect(Collectors.groupingBy(OrderItem::getOrderId));
+
+        Page<OrderResponse> responsePage = orderPage.map(o ->
+                DomainMapper.toResponse(o, itemsByOrderId.getOrDefault(o.getId(), List.of()))
+        );
+        return PageResponse.from(responsePage);
+    }
+
+    private List<CartItemDto> resolvePreviewItems(OrderPreviewRequest request, HttpServletRequest httpRequest) {
+        if (request.items() != null && !request.items().isEmpty()) {
+            return request.items();
+        }
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtToken && jwtToken.isAuthenticated()) {
+            String sub = jwtToken.getToken().getSubject();
+            if (sub != null && !sub.isBlank()) {
+                String userCartKey = RedisConfig.key("cart", sub);
+                CartDto cart = cartService.getCart(userCartKey);
+                if (cart != null && cart.getItems() != null && !cart.getItems().isEmpty()) {
+                    return cart.getItems();
+                }
+            }
+        }
+
+        if (httpRequest != null) {
+            String sessionId = httpRequest.getHeader("X-Guest-Session-Id");
+            if (sessionId == null || sessionId.isBlank()) {
+                Cookie[] cookies = httpRequest.getCookies();
+                if (cookies != null) {
+                    for (Cookie c : cookies) {
+                        if ("clucky_guest_session".equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
+                            sessionId = c.getValue();
+                            break;
+                        }
+                    }
+                }
+            }
+            if (sessionId != null && !sessionId.isBlank()) {
+                String guestCartKey = RedisConfig.key("cart:guest", sessionId);
+                CartDto cart = cartService.getCart(guestCartKey);
+                if (cart != null && cart.getItems() != null && !cart.getItems().isEmpty()) {
+                    return cart.getItems();
+                }
+            }
+        }
+
+        return List.of();
+    }
+
+    private String generateOrderCode() {
+        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDate.now());
+        String chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        for (int attempt = 0; attempt < 20; attempt++) {
+            StringBuilder sb = new StringBuilder(4);
+            for (int i = 0; i < 4; i++) {
+                sb.append(chars.charAt(random.nextInt(chars.length())));
+            }
+            String candidate = "CLU-" + dateStr + "-" + sb;
+            if (!orderRepository.existsByOrderCode(candidate)) {
+                return candidate;
+            }
+        }
+        return "CLU-" + dateStr + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 4).toUpperCase();
+    }
+}

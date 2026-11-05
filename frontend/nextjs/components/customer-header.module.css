@@ -124,6 +124,10 @@
 .cart:hover {
   background: #f5ede0;
 }
+.notification {
+  display: inline-flex;
+  align-items: center;
+}
 .toggle {
   display: none;
   width: 42px;
@@ -229,7 +233,8 @@
     gap: 9px;
   }
   .register,
-  .login {
+  .login,
+  .notification {
     display: none;
   }
   .login {
