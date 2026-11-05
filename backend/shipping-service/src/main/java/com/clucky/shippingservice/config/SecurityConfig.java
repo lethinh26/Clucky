@@ -79,7 +79,8 @@ public class SecurityConfig {
                             "/api/catalog/combos", "/api/promotions/banners", "/api/reviews/products/{id}").permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
-                            "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll();
+                            "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete",
+                            "/api/shipping/calculate-fee").permitAll();
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })

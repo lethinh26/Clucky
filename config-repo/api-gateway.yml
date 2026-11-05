@@ -25,6 +25,7 @@ spring:
             allowCredentials: true
             exposedHeaders:
               - X-Correlation-ID
+              - X-Guest-Session-Id
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
       routes:

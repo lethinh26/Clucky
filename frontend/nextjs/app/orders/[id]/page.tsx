@@ -2,8 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
-
-import { useState, use } from "react";
+import { useState, useEffect, use } from "react";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import Link from "@/components/ui-loader/navigation-link";
 import {
@@ -20,9 +19,11 @@ import {
   History,
   MessageSquare,
   CircleAlert,
+  MailCheck,
+  Mail,
 } from "lucide-react";
 import { displayOrderTime } from "@/lib/order-demo";
-import { useOrder } from "@/components/order/order-provider";
+import { useOrder, mapBackendOrderToOrder } from "@/components/order/order-provider";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import { OrderDialog } from "@/components/order/order-dialog";
@@ -35,6 +36,8 @@ import {
   OrderItemCard,
   OrderSummaryCard,
 } from "@/components/order";
+import { orderApi } from "@/lib/api";
+import type { Order } from "@/lib/types/order";
 import styles from "./tracking.module.css";
 
 export default function OrderTrackingPage({
@@ -47,15 +50,57 @@ export default function OrderTrackingPage({
   const { locale, money: formatPrice } = useLocaleTools();
   const { id } = use(params);
   const router = useRouter();
-  const { orders, ready, cancelOrder, reorder, demoEnabled } =
-    useOrder();
+  const { orders, ready, cancelOrder, reorder, demoEnabled } = useOrder();
   useNavigationTask(!ready);
-  const order = orders.find(
+
+  const localOrder = orders.find(
     (entry) => entry.id === id || entry.orderCode === id,
   );
+  const [serverOrder, setServerOrder] = useState<Order | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [feedback, setFeedback] = useState("");
+
+  // INT-68: 5-second polling interval for order status until terminal status
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    let isMounted = true;
+
+    const fetchCurrentOrder = async () => {
+      try {
+        const isNumeric = /^\d+$/.test(id);
+        const beOrder = isNumeric ? await orderApi.getById(id) : await orderApi.getByCode(id);
+        if (!isMounted || !beOrder) return;
+        const mapped = mapBackendOrderToOrder(beOrder);
+        setServerOrder(mapped);
+
+        if (["COMPLETED", "CANCELLED"].includes(mapped.status)) {
+          if (timer) {
+            clearInterval(timer);
+            timer = null;
+          }
+          setIsPolling(false);
+        } else {
+          setIsPolling(true);
+        }
+      } catch {
+        // Fallback gracefully to local mock if server is offline or order is local
+        setIsPolling(false);
+      }
+    };
+
+    fetchCurrentOrder();
+    timer = setInterval(fetchCurrentOrder, 5000);
+
+    return () => {
+      isMounted = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [id]);
+
+  const order = serverOrder || localOrder;
+
   if (!ready || !order)
     return (
       <>
@@ -67,12 +112,15 @@ export default function OrderTrackingPage({
               <PackageCheck size={44} />
               <h1>{t("business.id.orderNotFound")}</h1>
               <p>{t("business.id.checkTheOrderCodeOrReturnToYourPurchaseHistory")}</p>
-              <Link href="/orders" className="btn-primary"> {t("business.id.viewMyOrders")} </Link>
+              <Link href="/orders" className="btn-primary">
+                {t("business.id.viewMyOrders")}
+              </Link>
             </div>
           )}
         </main>
       </>
     );
+
   const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
   const awaitingPayment =
     order.paymentMethod === "BANK_TRANSFER" &&
@@ -87,9 +135,10 @@ export default function OrderTrackingPage({
     },
     PENDING: {
       label: t("business.id.amountDue"),
-      message: order.paymentMethod === "COD"
-        ? t("business.id.payInCashWhenYouReceiveYourMeal")
-        : t("business.id.scanTheCodeBelowToCompletePayment"),
+      message:
+        order.paymentMethod === "COD"
+          ? t("business.id.payInCashWhenYouReceiveYourMeal")
+          : t("business.id.scanTheCodeBelowToCompletePayment"),
       icon: Wallet,
     },
     FAILED: {
@@ -104,18 +153,30 @@ export default function OrderTrackingPage({
     },
   }[order.paymentStatus];
   const PaymentIcon = paymentCopy.icon;
-  const handleCancel = () => {
+
+  const handleCancel = async () => {
     if (!cancelReason.trim()) return;
-    cancelOrder(order.id, cancelReason.trim());
-    setCancelOpen(false);
-    setFeedback(t("business.id.yourOrderHasBeenCancelled"));
+    try {
+      await cancelOrder(order.id, cancelReason.trim());
+      setCancelOpen(false);
+      setFeedback(t("business.id.yourOrderHasBeenCancelled"));
+      try {
+        const updated = await orderApi.getById(id);
+        if (updated) setServerOrder(mapBackendOrderToOrder(updated));
+      } catch {}
+    } catch (err: any) {
+      setCancelOpen(false);
+      setFeedback(err?.message || t("business.orderprovider.orderNotFound"));
+    }
   };
+
   return (
     <>
       <main className={`${styles.trackingContainer} m3-page`}>
         <nav className={styles.breadcrumb} aria-label={t("business.id.breadcrumb")}>
           <Link href="/orders">
-            <ArrowLeft size={15} /> {t("business.orders.myOrders")} </Link>
+            <ArrowLeft size={15} /> {t("business.orders.myOrders")}
+          </Link>
           <span>/</span>
           <span>{order.orderCode}</span>
         </nav>
@@ -124,13 +185,75 @@ export default function OrderTrackingPage({
             <span className={styles.eyebrow}>{t("business.cart.yourMeal")}</span>
             <h1>{t("business.id.orderDetails")}</h1>
             <p>
-              <Clock3 size={14} /> {t("business.id.placedAt")} {displayOrderTime(order.createdAt, locale)}
+              <Clock3 size={14} /> {t("business.id.placedAt")}{" "}
+              {displayOrderTime(order.createdAt, locale)}
               <span>·</span>
               {order.storeName}
             </p>
           </div>
           <OrderStatusChip status={order.status} />
         </header>
+
+        {/* P3.2: Order status notification: differentiates COD vs Bank Transfer and avoids false email claims */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+            padding: "12px 18px",
+            marginBottom: "16px",
+            color: "#334155",
+            fontSize: "14px",
+            fontWeight: 500,
+          }}
+        >
+          <Mail size={20} style={{ flexShrink: 0, color: "#64748b" }} />
+          <div>
+            <strong>{order.orderCode}:</strong>{" "}
+            {order.status === "CANCELLED"
+              ? t("business.orderprogress.orderCancelledProgressHasStopped")
+              : order.status === "COMPLETED"
+                ? t("business.demoordercontrols.yourOrderIsCompleteThankYouForChoosingClucky")
+                : order.status === "CONFIRMED"
+                  ? (order.paymentMethod === "COD"
+                      ? t("business.checkout.yourCashOnDeliveryOrderHasBeenConfirmed")
+                      : t("business.checkout.orderConfirmed"))
+                  : order.status === "PENDING_PAYMENT"
+                    ? (order.paymentMethod === "BANK_TRANSFER"
+                        ? t("business.checkout.pleaseCompletePaymentSoCluckyCanPrepareYourMeal")
+                        : t("business.checkout.yourCashOnDeliveryOrderHasBeenConfirmed"))
+                    : order.status}
+          </div>
+        </div>
+
+        {/* Realtime polling status indicator */}
+        {isPolling && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "12px",
+              color: "#6b6259",
+              marginBottom: "16px",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                backgroundColor: "#16a34a",
+              }}
+            />
+            Live Status ({order.status}) · 5s
+          </div>
+        )}
+
         <OrderProgress
           orderCode={order.orderCode}
           status={order.status}
@@ -151,14 +274,19 @@ export default function OrderTrackingPage({
           </details>
         )}
         <div
-          className={`${styles.detailGrid} ${awaitingPayment ? styles.awaitingPayment : ""}`}
+          className={`${styles.detailGrid} ${
+            awaitingPayment ? styles.awaitingPayment : ""
+          }`}
         >
           <div className={styles.detailMain}>
             <section className={styles.detailCard}>
               <div className={styles.sectionHeading}>
                 <h2>
-                  <ShoppingBag size={19} /> {t("business.id.orderedItems")} </h2>
-                <span>{itemCount} {t("business.cart.servings")}</span>
+                  <ShoppingBag size={19} /> {t("business.id.orderedItems")}
+                </h2>
+                <span>
+                  {itemCount} {t("business.cart.servings")}
+                </span>
               </div>
               <div className={styles.detailItems}>
                 {order.items.map((item) => (
@@ -201,15 +329,23 @@ export default function OrderTrackingPage({
                 <button
                   type="button"
                   className={`${styles.primaryButton} ${styles.exploreAction}`}
-                  onClick={() => {
-                    reorder(order);
+                  onClick={async () => {
+                    await reorder(order);
                     router.push("/cart");
                   }}
                 >
-                  <RotateCcw size={17} /> {t("business.id.reorderTheseItems")} </button>
+                  <RotateCcw size={17} /> {t("business.id.reorderTheseItems")}
+                </button>
               ) : (
-                <Link href="/menu" className={`${styles.primaryButton} ${styles.exploreAction}`}>
-                  <ShoppingBag size={19} aria-hidden="true" /> {t("business.id.exploreMoreDishes")} <span className={styles.actionArrow} aria-hidden="true"><ArrowRight size={17} /></span>
+                <Link
+                  href="/menu"
+                  className={`${styles.primaryButton} ${styles.exploreAction}`}
+                >
+                  <ShoppingBag size={19} aria-hidden="true" />{" "}
+                  {t("business.id.exploreMoreDishes")}{" "}
+                  <span className={styles.actionArrow} aria-hidden="true">
+                    <ArrowRight size={17} />
+                  </span>
                 </Link>
               )}
               {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
@@ -218,10 +354,14 @@ export default function OrderTrackingPage({
                   className={styles.cancelAction}
                   onClick={() => setCancelOpen(true)}
                 >
-                  <CircleX size={18} aria-hidden="true" /> {t("business.id.cancelThisOrder")} </button>
+                  <CircleX size={18} aria-hidden="true" />{" "}
+                  {t("business.id.cancelThisOrder")}
+                </button>
               )}
               <Link href="/orders" className={styles.textButton}>
-                <History size={18} aria-hidden="true" /> {t("business.id.backToOrderHistory")} </Link>
+                <History size={18} aria-hidden="true" />{" "}
+                {t("business.id.backToOrderHistory")}
+              </Link>
             </div>
           </div>
           <aside className={styles.detailAside}>
@@ -232,7 +372,8 @@ export default function OrderTrackingPage({
             >
               <div className={styles.paymentHeading}>
                 <h2>
-                  <Wallet size={19} /> {t("business.cart.checkout")} </h2>
+                  <Wallet size={19} /> {t("business.cart.checkout")}
+                </h2>
                 <PaymentStatusBadge status={order.paymentStatus} />
               </div>
               {!awaitingPayment && (
@@ -240,20 +381,36 @@ export default function OrderTrackingPage({
                   <span className={styles.paymentEmblem} aria-hidden="true">
                     <PaymentIcon size={30} strokeWidth={1.8} />
                   </span>
-                  <span className={styles.paymentAmountLabel}>{paymentCopy.label}</span>
-                  <strong className={styles.paymentAmount}>{formatPrice(order.totalAmount)}</strong>
+                  <span className={styles.paymentAmountLabel}>
+                    {paymentCopy.label}
+                  </span>
+                  <strong className={styles.paymentAmount}>
+                    {formatPrice(order.totalAmount)}
+                  </strong>
                   <p className={styles.paymentMessage}>{paymentCopy.message}</p>
                 </div>
               )}
               <div className={styles.paymentMethod}>
                 <span className={styles.paymentMethodIcon} aria-hidden="true">
-                  {order.paymentMethod === "COD" ? <Wallet size={23} /> : <CreditCard size={23} />}
+                  {order.paymentMethod === "COD" ? (
+                    <Wallet size={23} />
+                  ) : (
+                    <CreditCard size={23} />
+                  )}
                 </span>
                 <div>
-                  <span className={styles.paymentMethodLabel}>{t("business.checkout.paymentMethod")}</span>
-                  <strong>{order.paymentMethod === "COD" ? t("business.id.cashOnDelivery") : t("business.id.bankTransfer")}</strong>
+                  <span className={styles.paymentMethodLabel}>
+                    {t("business.checkout.paymentMethod")}
+                  </span>
+                  <strong>
+                    {order.paymentMethod === "COD"
+                      ? t("business.id.cashOnDelivery")
+                      : t("business.id.bankTransfer")}
+                  </strong>
                 </div>
-                <span className={styles.paymentNetwork}>{order.paymentMethod === "COD" ? "COD" : "VietQR"}</span>
+                <span className={styles.paymentNetwork}>
+                  {order.paymentMethod === "COD" ? "COD" : "VietQR"}
+                </span>
               </div>
               {awaitingPayment && (
                 <PaymentWidget
@@ -269,7 +426,9 @@ export default function OrderTrackingPage({
               )}
               {order.refundStatus === "PENDING" && (
                 <p className={styles.refundNotice}>
-                  <CircleAlert size={16} /> {t("business.id.yourRefundRequestIsAwaitingReview")} </p>
+                  <CircleAlert size={16} />{" "}
+                  {t("business.id.yourRefundRequestIsAwaitingReview")}
+                </p>
               )}
             </section>
             <ShipmentCard
@@ -289,8 +448,14 @@ export default function OrderTrackingPage({
         >
           <div className={styles.cancelDialog}>
             <h2 id="cancel-order-title">{t("business.id.cancelOrder")}</h2>
-            <p> {t("business.id.youCanOnlyCancelBeforePreparationBeginsIfYouHavePaidBy")} </p>
-            <label htmlFor="cancel-reason">{t("business.id.cancellationReason")}</label>
+            <p>
+              {t(
+                "business.id.youCanOnlyCancelBeforePreparationBeginsIfYouHavePaidBy",
+              )}
+            </p>
+            <label htmlFor="cancel-reason">
+              {t("business.id.cancellationReason")}
+            </label>
             <textarea
               id="cancel-reason"
               value={cancelReason}
@@ -303,13 +468,17 @@ export default function OrderTrackingPage({
                 type="button"
                 className={styles.outlineButton}
                 onClick={() => setCancelOpen(false)}
-              > {t("business.id.keepOrder")} </button>
+              >
+                {t("business.id.keepOrder")}
+              </button>
               <button
                 type="button"
                 className={styles.primaryButton}
                 disabled={!cancelReason.trim()}
                 onClick={handleCancel}
-              > {t("business.id.confirmCancellation")} </button>
+              >
+                {t("business.id.confirmCancellation")}
+              </button>
             </div>
           </div>
         </OrderDialog>

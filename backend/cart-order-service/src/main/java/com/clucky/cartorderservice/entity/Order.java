@@ -60,12 +60,16 @@ public class Order {
     @Column(name = "note", nullable = true, columnDefinition = "text")
     private String note;
 
+    @Column(name = "payment_method", nullable = false, length = 20)
+    private String paymentMethod = "COD";
+
     @Column(name = "scheduled_at", nullable = true)
     private Instant scheduledAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Version
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -120,6 +124,9 @@ public class Order {
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
 
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
     public Instant getScheduledAt() { return scheduledAt; }
     public void setScheduledAt(Instant scheduledAt) { this.scheduledAt = scheduledAt; }
 
@@ -128,7 +135,4 @@ public class Order {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
-
-    @PreUpdate
-    protected void touch() { updatedAt = Instant.now(); }
 }

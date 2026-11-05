@@ -11,6 +11,26 @@ const server = await createServer({
       name: "catalog-mock-api",
       configureServer(s) {
         s.middlewares.use((req, res, next) => {
+          if (req.url?.split("?")[0] === "/api/catalog/products/901") {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({
+              id: 901, slug: "chicken-901", name: "Regression Chicken", categoryName: "Chicken",
+              description: "Test product", basePrice: 50000, price: 50000,
+              imageUrl: "/images/food-placeholder.svg", isActive: true, isAvailable: true,
+              options: [{ id: "heat", name: "Heat", required: true,
+                choices: [{ id: "11", name: "Mild", priceAdjustment: 0 }, { id: "12", name: "Hot", priceAdjustment: 5000 }] }],
+              toppings: [{ id: "22", name: "Cheese", price: 10000 }],
+            }));
+            return;
+          }
+          if (req.url?.split("?")[0] === "/api/catalog/combos/901") {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({
+              id: 901, slug: "combo-901", name: "Regression Combo", description: "Test combo", comboPrice: 120000,
+              imageUrl: "/images/food-placeholder.svg", isActive: true, isAvailable: true, items: [],
+            }));
+            return;
+          }
           if (req.url && req.url.startsWith("/api/catalog/categories")) {
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify([
