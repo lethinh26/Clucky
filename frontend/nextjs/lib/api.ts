@@ -25,6 +25,36 @@ export interface ApiError {
   message?: string;
 }
 
+/* ---------- INT-05: 401 handling with single-flight refresh ---------- */
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const res = await fetch(`${getBaseUrl()}/api/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!res.ok) return false;
+        const data = (await res.json().catch(() => ({}))) as {
+          accessToken?: string;
+        };
+        if (typeof data.accessToken !== "string" || !data.accessToken) return false;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("clucky_access_token", data.accessToken);
+        }
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
+}
+
 export function getGuestSessionId(): string {
   if (typeof window === "undefined" || typeof localStorage === "undefined") return "ssr-session";
   let sessionId = localStorage.getItem("clucky_guest_session_id");
@@ -35,7 +65,7 @@ export function getGuestSessionId(): string {
   return sessionId;
 }
 
-export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   headers.set("Accept-Language", getBrowserLocale());
@@ -44,7 +74,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     const token = localStorage.getItem("clucky_access_token");
     const publicAuth = [
       "/api/auth/google", "/api/auth/google/complete", "/api/auth/login",
-      "/api/auth/register", "/api/auth/verify-otp", "/api/auth/refresh",
+      "/api/auth/register", "/api/auth/resend-otp", "/api/auth/verify-otp", "/api/auth/refresh",
       "/api/auth/logout", "/api/auth/forgot-password", "/api/auth/reset-password",
     ].includes(path);
     if (token && !publicAuth && !headers.has("Authorization")) {
@@ -74,6 +104,18 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
+    // INT-05: on 401 (except the auth endpoints themselves), try one refresh
+    // and replay the original request; concurrent callers share one refresh.
+    const isAuthPath = path.startsWith("/api/auth/");
+    if (res.status === 401 && retry && !isAuthPath && typeof window !== "undefined") {
+      if (await tryRefresh()) {
+        return request<T>(path, options, false);
+      }
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("clucky_access_token");
+        window.location.assign("/login");
+      }
+    }
     const err: ApiError = {
       status: res.status,
       code: typeof data?.code === "string" ? data.code : undefined,
@@ -139,6 +181,11 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  resendOtp: (email: string) =>
+    request<{ message?: string }>("/api/auth/resend-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
   verifyOtp: (body: VerifyOtpPayload) =>
     request<AuthTokens>("/api/auth/verify-otp", {
       method: "POST",
@@ -162,6 +209,61 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+};
+
+/* ---------- BE-18: self profile + address book ---------- */
+export interface ProfileResponse {
+  id: number;
+  email: string;
+  phone: string | null;
+  fullName: string;
+  avatarUrl: string | null;
+  role: string;
+  storeId: number | null;
+  status: string;
+  emailVerified: boolean;
+}
+export interface AddressResponse {
+  id: number;
+  userId: number;
+  receiverName: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detail: string;
+  isDefault: boolean;
+}
+export interface AddressPayload {
+  receiverName: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detail: string;
+  isDefault: boolean;
+}
+
+export const profileApi = {
+  get: () => request<ProfileResponse>("/api/users/me"),
+  update: (body: { fullName: string; phone: string }) =>
+    request<ProfileResponse>("/api/users/me", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  listAddresses: () => request<AddressResponse[]>("/api/users/me/addresses"),
+  createAddress: (body: AddressPayload) =>
+    request<AddressResponse>("/api/users/me/addresses", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateAddress: (id: number, body: AddressPayload) =>
+    request<AddressResponse>(`/api/users/me/addresses/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteAddress: (id: number) =>
+    request<void>(`/api/users/me/addresses/${id}`, { method: "DELETE" }),
 };
 
 /* ---------- Cart ---------- */

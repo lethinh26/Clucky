@@ -4,6 +4,40 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
+test('concurrent customer 401s share a refresh and replay with the new token', async () => {
+  const source = readFileSync(new URL('../lib/api.ts', import.meta.url), 'utf8');
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
+  const module = { exports: {} };
+  let token = 'expired';
+  let refreshes = 0;
+  let replays = 0;
+  vm.runInNewContext(outputText, {
+    module, exports: module.exports, Headers,
+    window: {}, process: { env: { NEXT_PUBLIC_API_URL: '' } },
+    localStorage: {
+      getItem: (key) => key === 'clucky_access_token' ? token : null,
+      setItem: (_key, value) => { token = value; },
+    },
+    require: (name) => name === './i18n/core' ? { getBrowserLocale: () => 'vi' } : {},
+    fetch: async (url, options) => {
+      if (url === '/api/auth/refresh') {
+        refreshes++;
+        assert.equal(options.credentials, 'include');
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return { ok: true, json: async () => ({ accessToken: 'fresh' }) };
+      }
+      const fresh = options.headers.get('Authorization') === 'Bearer fresh';
+      if (fresh) replays++;
+      return { ok: fresh, status: fresh ? 200 : 401, json: async () => ({}) };
+    },
+  });
+  await Promise.all([module.exports.request('/api/users/me'), module.exports.request('/api/users/me/addresses')]);
+  assert.equal(refreshes, 1);
+  assert.equal(replays, 2);
+});
+
 for (const mode of ['server', 'browser', 'same-origin']) {
   const server = mode === 'server';
   const publicUrl = mode === 'same-origin' ? '' : 'https://gateway-public';
