@@ -1,16 +1,11 @@
 package com.clucky.reviewreportservice.service;
 
 import com.clucky.reviewreportservice.dto.DomainEvent;
-import com.clucky.reviewreportservice.entity.DailyStoreStats;
-import com.clucky.reviewreportservice.entity.OrderProjectionTracker;
-import com.clucky.reviewreportservice.entity.ProcessedEvent;
 import com.clucky.reviewreportservice.repository.DailyStoreStatsRepository;
 import com.clucky.reviewreportservice.repository.OrderProjectionTrackerRepository;
 import com.clucky.reviewreportservice.repository.ProcessedEventRepository;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,217 +13,149 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Optional;
+import java.time.format.DateTimeParseException;
+import java.util.Set;
 
 @Service
 public class ReportProjectionService {
-
-    private static final Logger log = LoggerFactory.getLogger(ReportProjectionService.class);
-
     public static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
-
     private final DailyStoreStatsRepository statsRepository;
     private final OrderProjectionTrackerRepository trackerRepository;
     private final ProcessedEventRepository processedEventRepository;
+    private final String revenueEvent;
 
-    public ReportProjectionService(
-            DailyStoreStatsRepository statsRepository,
-            OrderProjectionTrackerRepository trackerRepository,
-            ProcessedEventRepository processedEventRepository
-    ) {
+    public ReportProjectionService(DailyStoreStatsRepository statsRepository,
+            OrderProjectionTrackerRepository trackerRepository, ProcessedEventRepository processedEventRepository,
+            @Value("${clucky.reports.revenue-event:false}") String revenueEvent) {
+        if (!Set.of("false", "order.completed", "payment.confirmed").contains(revenueEvent)) {
+            throw new IllegalArgumentException("Unsupported report revenue policy");
+        }
         this.statsRepository = statsRepository;
         this.trackerRepository = trackerRepository;
         this.processedEventRepository = processedEventRepository;
+        this.revenueEvent = revenueEvent;
     }
 
-    /**
-     * Processes order.completed and payment.confirmed projection events idempotently.
-     * Prevents double-counting revenue and handles event replays and out-of-order execution.
-     *
-     * @param event Validated domain event
-     * @return true if order revenue contributed to daily_store_stats; false if already contributed or skipped
-     */
     @Transactional
     public boolean processProjectionEvent(DomainEvent event) {
-        if (event == null || event.eventId() == null || event.payload() == null) {
-            log.warn("Discarding malformed projection event");
-            return false;
+        requireEnabled();
+        validateEvent(event);
+        if (!Set.of("order.completed", "payment.confirmed").contains(event.eventType())) {
+            throw new IllegalArgumentException("Unsupported projection event");
         }
-
-        // 1. Idempotency check at Kafka event level
-        if (processedEventRepository.existsByEventId(event.eventId())) {
-            log.info("event=kafka_event_already_processed eventId={} eventType={}",
-                    event.eventId(), event.eventType());
-            return false;
-        }
-
         JsonNode payload = event.payload();
-        Long orderId = payload.hasNonNull("orderId") ? payload.get("orderId").asLong() : null;
-        if (orderId == null) {
-            log.warn("Event {} missing orderId in payload, skipping projection", event.eventId());
-            processedEventRepository.save(new ProcessedEvent(event.eventId(), event.eventType(), null));
-            return false;
-        }
-
-        String orderCode = payload.hasNonNull("orderCode") ? payload.get("orderCode").asText() : null;
-        Long storeId = payload.hasNonNull("storeId") ? payload.get("storeId").asLong() : null;
-        BigDecimal amount = resolveAmount(payload);
-        String paymentMethod = resolvePaymentMethod(payload);
+        long orderId = positiveId(payload, "orderId");
+        Long storeId = payload.hasNonNull("storeId") ? positiveId(payload, "storeId") : null;
+        boolean authoritative = revenueEvent.equals(event.eventType());
         LocalDate statDate = resolveStatDate(event, payload);
-
-        boolean isOrderCompletedEvent = "order.completed".equalsIgnoreCase(event.eventType());
-        boolean isPaymentConfirmedEvent = "payment.confirmed".equalsIgnoreCase(event.eventType());
-
-        // 2. Check existing order contribution tracker
-        Optional<OrderProjectionTracker> existingTrackerOpt = trackerRepository.findByOrderId(orderId);
-        if (existingTrackerOpt.isPresent()) {
-            OrderProjectionTracker tracker = existingTrackerOpt.get();
-
-            if (isOrderCompletedEvent) {
-                tracker.setOrderCompleted(true);
-            }
-            if (isPaymentConfirmedEvent) {
-                tracker.setPaymentConfirmed(true);
-            }
-            if (storeId != null && tracker.getStoreId() == null) {
-                tracker.setStoreId(storeId);
-            }
-            tracker.setUpdatedAt(Instant.now());
-            trackerRepository.save(tracker);
-
-            // Record processed event
-            processedEventRepository.save(new ProcessedEvent(event.eventId(), event.eventType(), orderId));
-
-            log.info("event=order_already_contributed orderId={} eventId={} eventType={} storeId={}",
-                    orderId, event.eventId(), event.eventType(), tracker.getStoreId());
+        BigDecimal amount = authoritative ? resolveAmount(payload) : null;
+        String method = authoritative ? resolvePaymentMethod(payload) : null;
+        if (processedEventRepository.claim(event.eventId(), event.eventType(), orderId) == 0) {
             return false;
         }
-
-        // If storeId is missing and no existing tracker, we cannot attribute to daily_store_stats
-        if (storeId == null) {
-            log.warn("Order {} missing storeId and has no prior tracker; recording pending tracker", orderId);
-            OrderProjectionTracker pendingTracker = new OrderProjectionTracker(
-                    orderId, orderCode, 0L, statDate, paymentMethod, amount,
-                    BigDecimal.ZERO, BigDecimal.ZERO, isOrderCompletedEvent, isPaymentConfirmedEvent, false
-            );
-            trackerRepository.save(pendingTracker);
-            processedEventRepository.save(new ProcessedEvent(event.eventId(), event.eventType(), orderId));
-            return false;
-        }
-
-        // 3. Atomically record new contribution tracker
-        boolean isCod = isCodMethod(paymentMethod);
-        BigDecimal codAmount = isCod ? amount : BigDecimal.ZERO;
-        BigDecimal transferAmount = isCod ? BigDecimal.ZERO : amount;
-
-        OrderProjectionTracker tracker = new OrderProjectionTracker(
-                orderId, orderCode, storeId, statDate, paymentMethod, amount,
-                codAmount, transferAmount, isOrderCompletedEvent, isPaymentConfirmedEvent, true
-        );
-
-        try {
-            trackerRepository.saveAndFlush(tracker);
-        } catch (DataIntegrityViolationException ex) {
-            // Concurrent event for same order won the insert race
-            log.warn("Concurrent contribution race for orderId={}, updating flags only", orderId);
-            OrderProjectionTracker concurrentTracker = trackerRepository.findByOrderId(orderId).orElse(null);
-            if (concurrentTracker != null) {
-                if (isOrderCompletedEvent) {
-                    concurrentTracker.setOrderCompleted(true);
-                }
-                if (isPaymentConfirmedEvent) {
-                    concurrentTracker.setPaymentConfirmed(true);
-                }
-                concurrentTracker.setUpdatedAt(Instant.now());
-                trackerRepository.save(concurrentTracker);
+        trackerRepository.initialize(orderId, statDate);
+        var tracker = trackerRepository.findByOrderId(orderId).orElseThrow();
+        if (storeId != null) {
+            if (tracker.getStoreId() != 0 && !storeId.equals(tracker.getStoreId())) {
+                throw new IllegalArgumentException("Conflicting store for report order");
             }
-            processedEventRepository.save(new ProcessedEvent(event.eventId(), event.eventType(), orderId));
+            tracker.setStoreId(storeId);
+        }
+        if (authoritative) {
+            if (tracker.getPaymentMethod() != null &&
+                    (!method.equals(tracker.getPaymentMethod()) || !statDate.equals(tracker.getStatDate()) ||
+                            amount.compareTo(tracker.getRevenueAmount()) != 0)) {
+                throw new IllegalArgumentException("Report correction requires reconciliation");
+            }
+            tracker.setStatDate(statDate);
+            tracker.setPaymentMethod(method);
+            tracker.setRevenueAmount(amount);
+            tracker.setCodAmount("COD".equals(method) ? amount : BigDecimal.ZERO);
+            tracker.setTransferAmount("BANK_TRANSFER".equals(method) ? amount : BigDecimal.ZERO);
+        }
+        tracker.setOrderCompleted(tracker.isOrderCompleted() || "order.completed".equals(event.eventType()));
+        tracker.setPaymentConfirmed(tracker.isPaymentConfirmed() || "payment.confirmed".equals(event.eventType()));
+        tracker.setUpdatedAt(Instant.now());
+        if (tracker.isContributed() || tracker.getStoreId() == 0 || tracker.getPaymentMethod() == null) {
             return false;
         }
-
-        // 4. Update daily_store_stats projection atomically
-        try {
-            statsRepository.upsertStatsDelta(storeId, statDate, 1, amount, codAmount, transferAmount);
-        } catch (Exception ex) {
-            log.debug("Native upsert stats delta fallback to JPA save: {}", ex.getMessage());
-            DailyStoreStats stats = statsRepository.findByStoreIdAndStatDate(storeId, statDate)
-                    .orElseGet(() -> new DailyStoreStats(storeId, statDate));
-            stats.setOrderCount(stats.getOrderCount() + 1);
-            stats.setRevenue(stats.getRevenue().add(amount));
-            stats.setCodAmount(stats.getCodAmount().add(codAmount));
-            stats.setTransferAmount(stats.getTransferAmount().add(transferAmount));
-            statsRepository.save(stats);
-        }
-
-        // 5. Record processed event
-        processedEventRepository.save(new ProcessedEvent(event.eventId(), event.eventType(), orderId));
-
-        log.info("event=daily_store_stats_projected orderId={} storeId={} statDate={} revenue={} method={}",
-                orderId, storeId, statDate, amount, paymentMethod);
+        statsRepository.upsertStatsDelta(tracker.getStoreId(), tracker.getStatDate(), 1,
+                tracker.getRevenueAmount(), tracker.getCodAmount(), tracker.getTransferAmount());
+        tracker.setContributed(true);
         return true;
     }
 
-    /**
-     * Safely handles order.cancelled events according to policy rules.
-     */
     @Transactional
     public void handleOrderCancelled(DomainEvent event) {
-        if (event == null || event.eventId() == null) {
-            return;
+        requireEnabled();
+        validateEvent(event);
+        if (!"order.cancelled".equals(event.eventType())) {
+            throw new IllegalArgumentException("Expected cancellation event");
         }
-        if (processedEventRepository.existsByEventId(event.eventId())) {
-            return;
-        }
-
-        Long orderId = event.payload() != null && event.payload().hasNonNull("orderId")
-                ? event.payload().get("orderId").asLong() : null;
-
-        log.info("event=order_cancelled_received orderId={} eventId={}", orderId, event.eventId());
-        // INT-45 policy note: refund/cancellation adjustment policy is pending cross-team contract.
-        // We do not wipe or arbitrarily deduct production stats without approved policy.
-        processedEventRepository.save(new ProcessedEvent(event.eventId(), event.eventType(), orderId));
+        // ponytail: refund policy is unapproved; record only until an approved adjustment contract exists.
+        processedEventRepository.claim(event.eventId(), event.eventType(), positiveId(event.payload(), "orderId"));
     }
 
     public LocalDate resolveStatDate(DomainEvent event, JsonNode payload) {
-        if (payload != null && payload.hasNonNull("completedAt")) {
+        String field = "order.completed".equals(event.eventType()) ? "completedAt" : "paidAt";
+        Instant timestamp = event.occurredAt();
+        if (payload.hasNonNull(field)) {
             try {
-                return Instant.parse(payload.get("completedAt").asText()).atZone(VIETNAM_ZONE).toLocalDate();
-            } catch (Exception ignored) {
+                timestamp = Instant.parse(payload.get(field).asText());
+            } catch (DateTimeParseException failure) {
+                throw new IllegalArgumentException("Invalid business timestamp");
             }
         }
-        if (payload != null && payload.hasNonNull("paidAt")) {
-            try {
-                return Instant.parse(payload.get("paidAt").asText()).atZone(VIETNAM_ZONE).toLocalDate();
-            } catch (Exception ignored) {
-            }
+        if (timestamp == null) {
+            throw new IllegalArgumentException("Business timestamp required");
         }
-        if (event != null && event.occurredAt() != null) {
-            return event.occurredAt().atZone(VIETNAM_ZONE).toLocalDate();
+        return timestamp.atZone(VIETNAM_ZONE).toLocalDate();
+    }
+
+    private void requireEnabled() {
+        if ("false".equals(revenueEvent)) {
+            throw new IllegalStateException("Report revenue policy requires approval before enabling projection");
         }
-        return LocalDate.now(VIETNAM_ZONE);
+    }
+
+    private void validateEvent(DomainEvent event) {
+        if (event == null || event.eventId() == null || event.eventId().isBlank() || event.eventId().length() > 160 ||
+                event.eventType() == null || event.occurredAt() == null || event.payload() == null || !event.payload().isObject()) {
+            throw new IllegalArgumentException("Invalid report event");
+        }
+        String source = "payment.confirmed".equals(event.eventType()) ? "payment-service" : "cart-order-service";
+        if (!source.equals(event.sourceService())) {
+            throw new IllegalArgumentException("Unexpected report event source");
+        }
+    }
+
+    private long positiveId(JsonNode payload, String field) {
+        JsonNode value = payload.get(field);
+        if (value == null || !value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() <= 0) {
+            throw new IllegalArgumentException("Positive numeric " + field + " required");
+        }
+        return value.longValue();
     }
 
     private BigDecimal resolveAmount(JsonNode payload) {
-        if (payload.hasNonNull("totalAmount")) {
-            return new BigDecimal(payload.get("totalAmount").asText());
+        String field = "order.completed".equals(revenueEvent) ? "totalAmount" : "amount";
+        JsonNode value = payload.get(field);
+        if (value == null || !value.isNumber()) {
+            throw new IllegalArgumentException("Numeric revenue amount required");
         }
-        if (payload.hasNonNull("amount")) {
-            return new BigDecimal(payload.get("amount").asText());
+        BigDecimal amount = value.decimalValue();
+        if (amount.signum() < 0 || amount.stripTrailingZeros().scale() > 0 || amount.compareTo(new BigDecimal("999999999999")) > 0) {
+            throw new IllegalArgumentException("Revenue amount outside supported VND range");
         }
-        return BigDecimal.ZERO;
+        return amount;
     }
 
     private String resolvePaymentMethod(JsonNode payload) {
-        if (payload.hasNonNull("paymentMethod")) {
-            return payload.get("paymentMethod").asText().trim().toUpperCase();
+        String field = "order.completed".equals(revenueEvent) ? "paymentMethod" : "method";
+        String method = payload.path(field).asText();
+        if (!Set.of("COD", "BANK_TRANSFER").contains(method)) {
+            throw new IllegalArgumentException("Supported payment method required");
         }
-        if (payload.hasNonNull("method")) {
-            return payload.get("method").asText().trim().toUpperCase();
-        }
-        return "COD";
-    }
-
-    private boolean isCodMethod(String method) {
-        return "COD".equalsIgnoreCase(method);
+        return method;
     }
 }
