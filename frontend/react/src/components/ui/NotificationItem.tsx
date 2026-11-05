@@ -84,7 +84,7 @@ export const NotificationItem: React.FC<AdminNotificationItemProps> = ({
     <div
       role="article"
       tabIndex={0}
-      aria-label={`Thông báo ${config.label}: ${title}, ${isRead ? 'đã đọc' : 'chưa đọc'}`}
+      aria-label={"Thông báo " + config.label + ": " + title + ", " + (isRead ? "đã đọc" : "chưa đọc")}
       onClick={() => onClick?.(notification)}
       onFocus={() => setIsFocused(true)}
       onBlur={() => setIsFocused(false)}

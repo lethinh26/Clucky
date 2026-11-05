@@ -91,14 +91,14 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
 
         <Descriptions.Item label="Loại giảm giá">
           <Tag color={isPercent ? 'volcano' : 'gold'} style={{ fontWeight: 700 }}>
-            {isPercent ? `${voucher.value}%` : `${voucher.value.toLocaleString('vi-VN')} đ`}
+            {isPercent ? `${voucher.value}%` : voucher.value.toLocaleString('vi-VN') + ' đ'}
           </Tag>
         </Descriptions.Item>
 
         <Descriptions.Item label="Đơn hàng tối thiểu">
           <Text strong>
             {voucher.minOrderAmount && voucher.minOrderAmount > 0
-              ? `${voucher.minOrderAmount.toLocaleString('vi-VN')} đ`
+              ? voucher.minOrderAmount.toLocaleString('vi-VN') + ' đ'
               : '0 đ (Không giới hạn)'}
           </Text>
         </Descriptions.Item>
@@ -107,7 +107,7 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
           <Descriptions.Item label="Giảm tối đa">
             <Text>
               {voucher.maxDiscount
-                ? `${voucher.maxDiscount.toLocaleString('vi-VN')} đ`
+                ? voucher.maxDiscount.toLocaleString('vi-VN') + ' đ'
                 : 'Không giới hạn'}
             </Text>
           </Descriptions.Item>
@@ -116,7 +116,7 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
         <Descriptions.Item label="Phạm vi áp dụng">
           {voucher.scope === 'STORE' ? (
             <Tag icon={<ShopOutlined />} color="cyan" style={{ fontWeight: 600 }}>
-              {voucher.storeName ? voucher.storeName : `Chi nhánh #${voucher.storeId}`}
+              {voucher.storeName ? voucher.storeName : 'Chi nhánh #' + voucher.storeId}
             </Tag>
           ) : (
             <Tag color="purple" style={{ fontWeight: 600 }}>

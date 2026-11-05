@@ -640,6 +640,27 @@
     "minimumMissing": "Đơn hàng chưa đạt mức tối thiểu {minimum}đ (còn thiếu {missing}đ).",
     "minutesAgo": "{count} phút trước",
     "hoursAgo": "{count} giờ trước",
-    "daysAgo": "{count} ngày trước"
+    "daysAgo": "{count} ngày trước",
+    "yourNotifications": "Thông báo của bạn",
+    "yourNotificationsSub": "Theo dõi cập nhật đơn hàng, ưu đãi khuyến mãi và thông báo quan trọng.",
+    "markAllAsRead": "Đã đọc tất cả",
+    "markAllReadAction": "Đánh dấu tất cả là đã đọc",
+    "noUnreadNotifications": "Không có thông báo chưa đọc",
+    "noNotificationsYet": "Chưa có thông báo nào",
+    "notificationsIntro": "Các thông báo mới về đơn hàng và ưu đãi sẽ xuất hiện tại đây.",
+    "viewAllNotifications": "Xem thông tin tài khoản & thông báo",
+    "navigationNotice": "Lưu ý điều hướng:",
+    "understood": "Đã hiểu",
+    "close": "Đóng",
+    "inbox": "Hộp thư thông báo",
+    "allCategories": "Tất cả thể loại",
+    "viewedAll": "Bạn đã xem hết mọi thông báo trong mục này.",
+    "markReadError": "Lỗi kết nối: Không thể đánh dấu đã đọc. Đã hoàn tác trạng thái chưa đọc (AC-03).",
+    "targetUnavailable": "Trang liên kết hoặc mã tham chiếu không khả dụng.",
+    "targetUnavailableSystem": "Thông báo hệ thống chung, vui lòng xem chi tiết nội dung.",
+    "targetUnavailableOrder": "Đơn hàng hoặc trang liên kết tham chiếu không còn khả dụng trên hệ thống.",
+    "notificationUnreadCount": "Thông báo ({count} chưa đọc)",
+    "allWithCount": "Tất cả ({count})",
+    "unreadWithCount": "Chưa đọc ({count})"
   }
 }

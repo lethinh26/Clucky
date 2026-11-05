@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { useLocaleTools } from '@/lib/i18n/hooks';
 import { useRouter } from 'next/navigation';
 import {
   Bell,
@@ -19,6 +21,8 @@ import styles from '@/components/notification/notification-popover.module.css';
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const t = useTranslations();
+  const { locale } = useLocaleTools();
   const [tab, setTab] = useState<'all' | 'unread'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [notifications, setNotifications] = useState<NotificationItemData[]>(MOCK_CUSTOMER_NOTIFICATIONS);
@@ -55,7 +59,7 @@ export default function NotificationsPage() {
     if (String(id) === 'notif-err-test') {
       await new Promise((res) => setTimeout(res, 250));
       setNotifications(prevList);
-      setErrorMessage('Lỗi kết nối: Không thể đánh dấu đã đọc. Đã hoàn tác trạng thái chưa đọc (AC-03).');
+      setErrorMessage(t("business.promotionUi.markReadError"));
     }
   };
 
@@ -72,14 +76,14 @@ export default function NotificationsPage() {
       handleMarkRead(item.id);
     }
 
-    const target = resolveNotificationTarget(item);
+    const target = resolveNotificationTarget(item, locale);
     if (target.isValid && target.url) {
       router.push(target.url);
     } else {
       setFallbackModal({
         open: true,
         item,
-        reason: target.reason || 'Trang liên kết hoặc mã tham chiếu không khả dụng.',
+        reason: target.reason || t("business.promotionUi.targetUnavailable"),
       });
     }
   };
@@ -89,10 +93,10 @@ export default function NotificationsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 28, fontWeight: 700, margin: 0, color: '#16100D' }}>
-            Thông báo của bạn
+            {t("business.promotionUi.yourNotifications")}
           </h1>
           <p style={{ margin: '4px 0 0', color: '#6B6259', fontSize: 14 }}>
-            Theo dõi cập nhật đơn hàng, ưu đãi khuyến mãi và thông báo quan trọng.
+            {t("business.promotionUi.yourNotificationsSub")}
           </p>
         </div>
 
@@ -115,7 +119,7 @@ export default function NotificationsPage() {
             }}
           >
             <CheckCheck size={16} />
-            <span>Đánh dấu tất cả đã đọc</span>
+            <span>{t("business.promotionUi.markAllAsRead")}</span>
           </button>
         )}
       </div>
@@ -136,7 +140,7 @@ export default function NotificationsPage() {
             cursor: 'pointer',
           }}
         >
-          Tất cả ({notifications.length})
+          {t("business.promotionUi.allWithCount", { count: notifications.length })}
         </button>
         <button
           type="button"
@@ -152,7 +156,7 @@ export default function NotificationsPage() {
             cursor: 'pointer',
           }}
         >
-          Chưa đọc ({unreadCount})
+          {t("business.promotionUi.unreadWithCount", { count: unreadCount })}
         </button>
 
         <select
@@ -170,11 +174,11 @@ export default function NotificationsPage() {
             marginLeft: 'auto',
           }}
         >
-          <option value="ALL">Tất cả thể loại</option>
-          <option value="ORDER">🛍️ Đơn hàng</option>
-          <option value="PAYMENT">💳 Thanh toán</option>
-          <option value="PROMOTION">🏷️ Khuyến mãi</option>
-          <option value="SYSTEM">🔔 Hệ thống</option>
+          <option value="ALL">{t("business.promotionUi.allCategories")}</option>
+          <option value="ORDER">🛍️ {t("business.promotionUi.order")}</option>
+          <option value="PAYMENT">💳 {t("business.promotionUi.payment")}</option>
+          <option value="PROMOTION">🏷️ {t("business.promotionUi.offers")}</option>
+          <option value="SYSTEM">🔔 {t("business.promotionUi.system")}</option>
         </select>
       </div>
 
@@ -191,10 +195,10 @@ export default function NotificationsPage() {
           <div style={{ textAlign: 'center', padding: '60px 20px', background: '#FFFAF3', borderRadius: 16, border: '1px solid #E8E2D9' }}>
             <Inbox size={48} style={{ color: '#C9A227', marginBottom: 12 }} />
             <div style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 18, fontWeight: 700, color: '#16100D' }}>
-              Không có thông báo nào
+              {t("business.promotionUi.noNotificationsYet")}
             </div>
             <div style={{ color: '#6B6259', fontSize: 14, marginTop: 4 }}>
-              Bạn đã xem hết mọi thông báo trong mục này.
+              {t("business.promotionUi.viewedAll")}
             </div>
           </div>
         ) : (
@@ -222,7 +226,7 @@ export default function NotificationsPage() {
             </p>
             {fallbackModal.reason && (
               <div style={{ background: '#FFFBE8', border: '1px solid #FDE68A', padding: '10px 14px', borderRadius: 10, fontSize: 13, color: '#92400E', marginBottom: 20 }}>
-                <b>Lưu ý điều hướng:</b> {fallbackModal.reason}
+                <b>{t("business.promotionUi.navigationNotice")}</b> {fallbackModal.reason}
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -231,7 +235,7 @@ export default function NotificationsPage() {
                 onClick={() => setFallbackModal({ open: false, item: null })}
                 style={{ padding: '8px 20px', borderRadius: 999, border: 'none', background: '#8F1216', color: '#FFFAF3', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
               >
-                Đóng
+                {t("business.promotionUi.close")}
               </button>
             </div>
           </div>

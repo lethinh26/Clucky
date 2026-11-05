@@ -49,7 +49,7 @@ export const ProposalBacklogSection: React.FC = () => {
     setModalInfo({
       open: true,
       title: action === 'APPROVE' ? 'Minh họa duyệt đề xuất' : 'Minh họa từ chối đề xuất',
-      content: `Yêu cầu ${action === 'APPROVE' ? 'phê duyệt' : 'từ chối'} mã [${proposal.code}] của chi nhánh "${proposal.storeName}". Chức năng này thuộc lộ trình Phase 2 (Backlog BE-35/36), chưa tích hợp API duyệt thật. Giao diện ghi nhận trạng thái tạm thời trên bản demo.`,
+      content: 'Yêu cầu ' + (action === 'APPROVE' ? 'phê duyệt' : 'từ chối') + ' mã [' + proposal.code + '] của chi nhánh "' + proposal.storeName + '". Chức năng này thuộc lộ trình Phase 2 (Backlog BE-35/36), chưa tích hợp API duyệt thật. Giao diện ghi nhận trạng thái tạm thời trên bản demo.',
     });
 
     // Update local state for interactive demo experience
@@ -64,7 +64,7 @@ export const ProposalBacklogSection: React.FC = () => {
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard?.writeText(code);
-    message.success(`Đã sao chép mã đề xuất "${code}"`);
+    message.success('Đã sao chép mã đề xuất "' + code + '"');
   };
 
   // Status counts for KPI cards
@@ -239,7 +239,7 @@ export const ProposalBacklogSection: React.FC = () => {
                 border: `1px solid ${isPercent ? '#FECDD3' : '#FDE68A'}`,
               }}
             >
-              {isPercent ? `Giảm ${record.value}%` : `Giảm ${record.value.toLocaleString('vi-VN')} đ`}
+              {isPercent ? 'Giảm ' + record.value + '%' : 'Giảm ' + record.value.toLocaleString('vi-VN') + ' đ'}
             </Tag>
             <div style={{ fontSize: 11, color: '#6B6259', lineHeight: 1.4 }}>
               <div>Đơn từ: <b>{record.minOrderAmount.toLocaleString('vi-VN')} đ</b></div>

@@ -118,7 +118,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
       title={editingVoucher ? 'Chỉnh sửa mã Voucher' : 'Tạo mới mã Voucher'}
       subtitle={
         editingVoucher
-          ? `Cập nhật thông tin voucher #${editingVoucher.code}`
+          ? "Cập nhật thông tin voucher #" + editingVoucher.code
           : 'Thiết lập mã ưu đãi, điều kiện áp dụng và thời gian hiệu lực'
       }
       width={720}
@@ -217,7 +217,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
                 },
               ]}
             >
-              <InputNumber
+              <InputNumber<number>
                 style={{ width: '100%' }}
                 min={1}
                 max={selectedType === 'PERCENT' ? 100 : 10000000}
@@ -249,7 +249,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
               ]}
               extra="0 = Không yêu cầu mức đơn tối thiểu"
             >
-              <InputNumber
+              <InputNumber<number>
                 style={{ width: '100%' }}
                 min={0}
                 placeholder="VD: 150000"
@@ -274,7 +274,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
                 },
               ]}
             >
-              <InputNumber
+              <InputNumber<number>
                 style={{ width: '100%' }}
                 min={0}
                 placeholder="VD: 50000"
@@ -301,7 +301,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
                 },
               ]}
             >
-              <InputNumber
+              <InputNumber<number>
                 style={{ width: '100%' }}
                 min={1}
                 placeholder="VD: 500"

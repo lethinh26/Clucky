@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
+import { useLocaleTools } from '@/lib/i18n/hooks';
 import { useRouter } from 'next/navigation';
 import {
   Bell,
@@ -26,6 +28,8 @@ export function NotificationPopover({
   initialNotifications = MOCK_CUSTOMER_NOTIFICATIONS,
 }: NotificationPopoverProps) {
   const router = useRouter();
+  const t = useTranslations();
+  const { locale } = useLocaleTools();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'all' | 'unread'>('all');
   const [notifications, setNotifications] = useState<NotificationItemData[]>(initialNotifications);
@@ -87,7 +91,7 @@ export function NotificationPopover({
       await new Promise((res) => setTimeout(res, 300));
       // Rollback optimistic update
       setNotifications(prevList);
-      setErrorMessage('Lỗi kết nối: Không thể đánh dấu đã đọc. Đã hoàn tác trạng thái chưa đọc (AC-03).');
+      setErrorMessage(t("business.promotionUi.markReadError"));
       return;
     }
   };
@@ -113,7 +117,7 @@ export function NotificationPopover({
       handleMarkRead(item.id);
     }
 
-    const target = resolveNotificationTarget(item);
+    const target = resolveNotificationTarget(item, locale);
 
     // If target is valid, safely route
     if (target.isValid && target.url) {
@@ -124,7 +128,7 @@ export function NotificationPopover({
       setFallbackModal({
         open: true,
         item,
-        reason: target.reason || 'Trang liên kết hoặc mã tham chiếu không khả dụng.',
+        reason: target.reason || t("business.promotionUi.targetUnavailable"),
       });
     }
   };
@@ -136,7 +140,7 @@ export function NotificationPopover({
         type="button"
         className={styles.bellButton}
         onClick={() => setOpen(!open)}
-        aria-label={`Thông báo ${unreadCount > 0 ? `(${unreadCount} chưa đọc)` : ''}`}
+        aria-label={unreadCount > 0 ? t("business.promotionUi.notificationUnreadCount", { count: unreadCount }) : t("business.promotionUi.notification")}
         aria-expanded={open}
         aria-haspopup="true"
       >
@@ -151,10 +155,10 @@ export function NotificationPopover({
 
       {/* Dropdown Popover */}
       {open && (
-        <div className={styles.popover} role="dialog" aria-label="Hộp thư thông báo">
+        <div className={styles.popover} role="dialog" aria-label={t("business.promotionUi.inbox")}>
           <div className={styles.header}>
             <h3 className={styles.headerTitle}>
-              <span>Thông báo</span>
+              <span>{t("business.promotionUi.notification")}</span>
               {unreadCount > 0 && (
                 <span style={{ fontSize: 12, color: '#8F1216', fontWeight: 800 }}>
                   ({unreadCount})
@@ -168,10 +172,10 @@ export function NotificationPopover({
                   type="button"
                   className={styles.markAllBtn}
                   onClick={handleMarkAllRead}
-                  title="Đánh dấu tất cả là đã đọc"
+                  title={t("business.promotionUi.markAllReadAction")}
                 >
                   <CheckCheck size={14} aria-hidden="true" />
-                  <span>Đã đọc tất cả</span>
+                  <span>{t("business.promotionUi.markAllAsRead")}</span>
                 </button>
               )}
             </div>
@@ -184,14 +188,14 @@ export function NotificationPopover({
               className={`${styles.tabBtn} ${tab === 'all' ? styles.tabActive : ''}`}
               onClick={() => setTab('all')}
             >
-              Tất cả ({notifications.length})
+              {t("business.promotionUi.allWithCount", { count: notifications.length })}
             </button>
             <button
               type="button"
               className={`${styles.tabBtn} ${tab === 'unread' ? styles.tabActive : ''}`}
               onClick={() => setTab('unread')}
             >
-              Chưa đọc ({unreadCount})
+              {t("business.promotionUi.unreadWithCount", { count: unreadCount })}
             </button>
           </div>
 
@@ -209,10 +213,10 @@ export function NotificationPopover({
               <div className={styles.emptyState}>
                 <Inbox size={36} className={styles.emptyIcon} aria-hidden="true" />
                 <div className={styles.emptyTitle}>
-                  {tab === 'unread' ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}
+                  {tab === 'unread' ? t("business.promotionUi.noUnreadNotifications") : t("business.promotionUi.noNotificationsYet")}
                 </div>
                 <div className={styles.emptyDesc}>
-                  Các thông báo mới về đơn hàng và ưu đãi sẽ xuất hiện tại đây.
+                  {t("business.promotionUi.notificationsIntro")}
                 </div>
               </div>
             ) : (
@@ -235,7 +239,7 @@ export function NotificationPopover({
               className={styles.viewAllLink}
               onClick={() => setOpen(false)}
             >
-              <span>Xem thông tin tài khoản & thông báo</span>
+              <span>{t("business.promotionUi.viewAllNotifications")}</span>
               <ExternalLink size={12} aria-hidden="true" />
             </a>
           </div>
@@ -252,7 +256,7 @@ export function NotificationPopover({
                 type="button"
                 className={styles.modalClose}
                 onClick={() => setFallbackModal({ open: false, item: null })}
-                aria-label="Đóng"
+                aria-label={t("business.promotionUi.close")}
               >
                 <X size={18} />
               </button>
@@ -264,7 +268,7 @@ export function NotificationPopover({
 
             {fallbackModal.reason && (
               <div className={styles.modalReason}>
-                <b>Lưu ý điều hướng:</b> {fallbackModal.reason}
+                <b>{t("business.promotionUi.navigationNotice")}</b> {fallbackModal.reason}
               </div>
             )}
 
@@ -283,7 +287,7 @@ export function NotificationPopover({
                   cursor: 'pointer',
                 }}
               >
-                Đã hiểu
+                {t("business.promotionUi.understood")}
               </button>
             </div>
           </div>

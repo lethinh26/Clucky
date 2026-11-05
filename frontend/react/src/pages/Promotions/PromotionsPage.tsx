@@ -80,9 +80,9 @@ export const PromotionsPage: React.FC = () => {
     } catch {
       // Stores fallback if API offline
       setStores([
-        { id: 1, name: 'Clucky Lê Lợi (Q.1)', address: '12 Lê Lợi, Q.1', phone: '028 3822 1101', openTime: '08:00', closeTime: '22:00', status: 'ACTIVE' },
-        { id: 2, name: 'Clucky Nguyễn Trãi (Q.5)', address: '88 Nguyễn Trãi, Q.5', phone: '028 3833 2202', openTime: '08:00', closeTime: '22:00', status: 'ACTIVE' },
-        { id: 3, name: 'Clucky Phan Văn Trị (Gò Vấp)', address: '360 Phan Văn Trị, Gò Vấp', phone: '028 3844 3303', openTime: '08:00', closeTime: '22:00', status: 'ACTIVE' },
+        { id: 1, name: 'Clucky Lê Lợi (Q.1)', address: '12 Lê Lợi, Q.1', phone: '028 3822 1101', openTime: '08:00', closeTime: '22:00', status: 'OPEN' as const },
+        { id: 2, name: 'Clucky Nguyễn Trãi (Q.5)', address: '88 Nguyễn Trãi, Q.5', phone: '028 3833 2202', openTime: '08:00', closeTime: '22:00', status: 'OPEN' as const },
+        { id: 3, name: 'Clucky Phan Văn Trị (Gò Vấp)', address: '360 Phan Văn Trị, Gò Vấp', phone: '028 3844 3303', openTime: '08:00', closeTime: '22:00', status: 'OPEN' as const },
       ]);
     }
   }, []);
@@ -206,7 +206,7 @@ export const PromotionsPage: React.FC = () => {
   // Quick copy code
   const handleCopyCode = (code: string) => {
     navigator.clipboard?.writeText(code);
-    message.success(`Đã sao chép mã "${code}"`);
+    message.success('Đã sao chép mã "' + code + '"');
   };
 
   // Submit create or update
@@ -217,7 +217,7 @@ export const PromotionsPage: React.FC = () => {
       let storeName: string | null = null;
       if (payload.scope === 'STORE' && payload.storeId) {
         const found = stores.find((s) => s.id === payload.storeId);
-        storeName = found ? found.name : `Chi nhánh #${payload.storeId}`;
+        storeName = found ? found.name : 'Chi nhánh #' + payload.storeId;
       }
 
       if (editingVoucher) {
@@ -241,7 +241,7 @@ export const PromotionsPage: React.FC = () => {
               : v
           )
         );
-        message.success(`Đã cập nhật mã voucher "${payload.code}" thành công`);
+        message.success('Đã cập nhật mã voucher "' + payload.code + '" thành công');
       } else {
         let createdId: string | number = Date.now();
         try {
@@ -262,7 +262,7 @@ export const PromotionsPage: React.FC = () => {
         };
 
         setVouchers((prev) => [newVoucher, ...prev]);
-        message.success(`Đã tạo mới mã voucher "${payload.code}" thành công`);
+        message.success('Đã tạo mới mã voucher "' + payload.code + '" thành công');
       }
 
       setModalOpen(false);
@@ -316,8 +316,8 @@ export const PromotionsPage: React.FC = () => {
 
       message.success(
         newStatus === 'ACTIVE'
-          ? `Đã kích hoạt lại mã "${voucher.code}"`
-          : `Đã tạm vô hiệu hóa mã "${voucher.code}"`
+          ? 'Đã kích hoạt lại mã "' + voucher.code + '"'
+          : 'Đã tạm vô hiệu hóa mã "' + voucher.code + '"'
       );
     } catch (err) {
       message.error(getErrorMessage(err));
@@ -335,7 +335,7 @@ export const PromotionsPage: React.FC = () => {
 
       setVouchers((prev) => prev.filter((v) => v.id !== voucher.id));
       setDrawerOpen(false);
-      message.success(`Đã xóa mã voucher "${voucher.code}"`);
+      message.success('Đã xóa mã voucher "' + voucher.code + '"');
     } catch (err) {
       message.error(getErrorMessage(err));
     }
@@ -362,7 +362,7 @@ export const PromotionsPage: React.FC = () => {
               <Button
                 type="text"
                 size="small"
-                aria-label={`Sao chép mã ${record.code}`}
+                aria-label={'Sao chép mã ' + record.code}
                 icon={<CopyOutlined style={{ color: '#8F1216', fontSize: 13 }} />}
                 onClick={() => handleCopyCode(record.code)}
                 style={{ width: 24, height: 24, padding: 0 }}
@@ -446,10 +446,10 @@ export const PromotionsPage: React.FC = () => {
                 border: `1px solid ${isPercent ? '#FECDD3' : '#FDE68A'}`,
               }}
             >
-              {isPercent ? `Giảm ${record.value}%` : `Giảm ${record.value.toLocaleString('vi-VN')} đ`}
+              {isPercent ? 'Giảm ' + record.value + '%' : 'Giảm ' + record.value.toLocaleString('vi-VN') + ' đ'}
             </Tag>
             <div style={{ fontSize: 11, color: '#6B6259', marginTop: 2, lineHeight: 1.3 }}>
-              <span>Đơn tối thiểu: <b>{record.minOrderAmount ? `${record.minOrderAmount.toLocaleString('vi-VN')} đ` : '0 đ'}</b></span>
+              <span>Đơn tối thiểu: <b>{record.minOrderAmount ? record.minOrderAmount.toLocaleString('vi-VN') + ' đ' : '0 đ'}</b></span>
               {isPercent && record.maxDiscount ? (
                 <div>Tối đa: <b>{record.maxDiscount.toLocaleString('vi-VN')} đ</b></div>
               ) : null}
@@ -481,9 +481,9 @@ export const PromotionsPage: React.FC = () => {
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}
-              title={record.storeName || `Chi nhánh #${record.storeId}`}
+              title={record.storeName || 'Chi nhánh #' + record.storeId}
             >
-              {record.storeName || `Chi nhánh #${record.storeId}`}
+              {record.storeName || 'Chi nhánh #' + record.storeId}
             </Tag>
           );
         }
@@ -664,7 +664,7 @@ export const PromotionsPage: React.FC = () => {
           </Tooltip>
           <Popconfirm
             title="Xác nhận xóa voucher?"
-            description={`Bạn có chắc muốn xóa mã ưu đãi "${record.code}"?`}
+            description={'Bạn có chắc muốn xóa mã ưu đãi "' + record.code + '"?'}
             okText="Xóa"
             cancelText="Hủy"
             okButtonProps={{ danger: true }}

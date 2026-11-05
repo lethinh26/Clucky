@@ -291,7 +291,7 @@ export const AdminNotificationCenter: React.FC<AdminNotificationCenterProps> = (
             type="text"
             shape="circle"
             icon={<BellOutlined style={{ fontSize: 18, color: '#16100D' }} />}
-            aria-label={`Thông báo hệ thống ${unreadCount > 0 ? `(${unreadCount} chưa đọc)` : ''}`}
+            aria-label={unreadCount > 0 ? ("Thông báo hệ thống (" + unreadCount + " chưa đọc)") : "Thông báo hệ thống"}
             aria-expanded={open}
           />
         </Badge>
