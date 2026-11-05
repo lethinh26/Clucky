@@ -239,8 +239,10 @@ export interface OrderPreviewResult {
   shippingFee: number;
   totalAmount: number;
   voucherCode?: string;
-  valid: boolean;
+  valid?: boolean;
   message?: string;
+  voucherValid?: boolean;
+  voucherMessage?: string;
 }
 
 export interface CreateOrderPayload {
@@ -320,7 +322,11 @@ export const orderApi = {
     request<OrderPreviewResult>("/api/orders/preview", {
       method: "POST",
       body: JSON.stringify(payload),
-    }),
+    }).then((res) => ({
+      ...res,
+      valid: res.valid ?? res.voucherValid ?? false,
+      message: res.message ?? res.voucherMessage,
+    })),
   create: (payload: CreateOrderPayload) =>
     request<BackendOrder>("/api/orders", {
       method: "POST",

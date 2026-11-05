@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/catalog/internal")
-@PreAuthorize("hasAnyRole('INTERNAL_SERVICE', 'ADMIN')")
 public class InternalCatalogController {
 
     private final ValidationService validationService;

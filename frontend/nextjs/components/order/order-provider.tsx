@@ -19,7 +19,6 @@ import {
   DEMO_CONTROLS_ENABLED,
   type DemoAction,
 } from "@/lib/order-demo";
-import { MOCK_ORDERS } from "@/lib/mock/order-mock-data";
 import type { CartItem, Order } from "@/lib/types/order";
 import {
   cartApi,
@@ -251,7 +250,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [workspace, setSnapshot] = useState<{
     items: CartItem[];
     orders: Order[];
-  }>({ items: [], orders: MOCK_ORDERS });
+  }>({ items: [], orders: [] });
   const workspaceRef = useRef(workspace);
   const setWorkspace = useCallback(
     (
@@ -270,17 +269,12 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const refreshOrders = useCallback(async () => {
     try {
       const page = await orderApi.getMyOrders(0, 50);
-      if (page && page.content) {
+      if (page && Array.isArray(page.content)) {
         const serverOrders = page.content.map(mapBackendOrderToOrder);
-        setWorkspace((prev) => {
-          const merged = [...serverOrders];
-          for (const local of prev.orders) {
-            if (!merged.some((s) => s.orderCode === local.orderCode || s.id === local.id)) {
-              merged.push(local);
-            }
-          }
-          return { ...prev, orders: merged };
-        });
+        setWorkspace((prev) => ({
+          ...prev,
+          orders: serverOrders,
+        }));
       }
     } catch {
       // Offline/unauthenticated fallback
@@ -294,9 +288,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         const saved = JSON.parse(raw);
         const items = cartSchema.parse(saved.items) as CartItem[];
         const parsedOrders = savedOrdersSchema.safeParse(saved.orders);
-        const orders = parsedOrders.success
+        let orders = parsedOrders.success
           ? (parsedOrders.data as Order[]).map(ensureDemoShipment)
-          : MOCK_ORDERS;
+          : [];
+        orders = orders.filter((o) => !o.id.startsWith("demo-") && !o.orderCode.startsWith("DEMO-") && !o.orderCode.startsWith("CLU-24"));
         setWorkspace({ items, orders });
       } catch {
         setStorageError(true);
@@ -329,7 +324,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     const sync = (event: StorageEvent) => {
       if (event.key === storageKey) {
         if (event.newValue) restore(event.newValue);
-        else setWorkspace({ items: [], orders: MOCK_ORDERS });
+        else setWorkspace({ items: [], orders: [] });
       }
     };
     window.addEventListener("storage", sync);

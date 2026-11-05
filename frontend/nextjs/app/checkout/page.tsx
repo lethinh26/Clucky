@@ -16,6 +16,7 @@ import { OrderProgress } from "@/components/order/order-progress";
 import { ShippingFeeCard } from "@/components/shipping";
 import {
   orderApi,
+  getErrorMessage,
   type CartItemPayload,
   type CreateOrderPayload,
 } from "@/lib/api";
@@ -38,6 +39,12 @@ export default function CheckoutPage() {
   const submitLock = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("clucky_access_token") : null;
+    setIsAuthenticated(!!token);
+  }, []);
 
   // Form states
   const [orderType, setOrderType] = useState<OrderType>("DELIVERY");
@@ -187,9 +194,10 @@ export default function CheckoutPage() {
           setVoucherMsg(res?.message || "business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
         }
       })
-      .catch(() => {
+      .catch((err: any) => {
         setAppliedVoucher(null);
-        setVoucherMsg("business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
+        const msg = getErrorMessage(err);
+        setVoucherMsg(msg || "business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
       });
   };
 
@@ -199,6 +207,15 @@ export default function CheckoutPage() {
     submitLock.current = true;
     setSubmitting(true);
     setSubmitError(null);
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("clucky_access_token") : null;
+    if (!token) {
+      submitLock.current = false;
+      setSubmitting(false);
+      setSubmitError(t("errors.UNAUTHENTICATED") || "Vui lòng đăng nhập để tiến hành đặt hàng.");
+      router.push("/login?redirect=/checkout");
+      return;
+    }
 
     const payloadItems: CartItemPayload[] = items.map((it) => ({
       productId:
@@ -234,13 +251,15 @@ export default function CheckoutPage() {
       const targetId = String(backendOrder.id);
       router.push(`/orders/${targetId}`);
     } catch (err: any) {
-      console.error("Order creation failed:", err);
+      console.warn("Order creation failed:", err);
       submitLock.current = false;
       setSubmitting(false);
-      // AC-03 & AC-04: API error does not simulate success, keeps form and cart intact
-      const message =
-        err?.message ||
-        t("business.demoordercontrols.paymentFailedTheOrderWasCancelledYouCanReorderTheItems");
+      if (err?.status === 401 || err?.code === "UNAUTHENTICATED") {
+        setSubmitError(getErrorMessage(err) || "Vui lòng đăng nhập để tiến hành đặt hàng.");
+        router.push("/login?redirect=/checkout");
+        return;
+      }
+      const message = getErrorMessage(err);
       setSubmitError(message);
     }
   };
@@ -281,6 +300,38 @@ export default function CheckoutPage() {
             className={styles.checkoutGrid}
           >
             <div className={styles.formSections}>
+              {isAuthenticated === false && (
+                <div
+                  style={{
+                    padding: "14px 18px",
+                    borderRadius: "12px",
+                    backgroundColor: "#fffbeb",
+                    border: "1px solid #fde68a",
+                    color: "#92400e",
+                    marginBottom: "16px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                    {t("errors.UNAUTHENTICATED") || "Vui lòng đăng nhập để hoàn tất đặt hàng và tích điểm thành viên."}
+                  </span>
+                  <Link
+                    href="/login?redirect=/checkout"
+                    style={{
+                      fontWeight: 600,
+                      color: "#b45309",
+                      textDecoration: "underline",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {t("auth.login.action") || "Đăng nhập ngay"} &rarr;
+                  </Link>
+                </div>
+              )}
               {/* Section 1: Delivery Mode & Receiver Info */}
               <section className={styles.sectionCard}>
                 <div className={styles.sectionHeader}>
@@ -514,7 +565,7 @@ export default function CheckoutPage() {
                       color: appliedVoucher ? "#1e7a46" : "#b42318",
                     }}
                   >
-                    {t(voucherMsg)}
+                    {voucherMsg.includes(".") ? t(voucherMsg) : voucherMsg}
                   </p>
                 )}
 
@@ -687,7 +738,7 @@ export default function CheckoutPage() {
                     lineHeight: 1.4,
                   }}
                 >
-                  {submitError}
+                  {submitError.includes(".") ? t(submitError) : submitError}
                 </div>
               )}
 

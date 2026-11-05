@@ -11,7 +11,6 @@ import {
 } from "react";
 import { z } from "zod";
 import type { AdminOrder, AdminOrderStatus } from "../types/order";
-import { MOCK_ADMIN_ORDERS } from "../mocks/adminOrderData";
 import { mockProducts, mockCombos } from "../mocks/catalogData";
 import {
   applyAdminDemoAction,
@@ -190,22 +189,7 @@ function mapBackendOrderToAdminOrder(be: BackendOrder): AdminOrder {
 }
 
 function initialOrders(): AdminOrder[] {
-  return withCatalogImages(
-    MOCK_ADMIN_ORDERS.map((order) => ({
-      ...order,
-      updatedAt: order.createdAt,
-      timeline: [
-        {
-          status: order.status,
-          title: orderStatusLabels[order.status],
-          description: getTranslator(getBrowserLocale())(
-            "business:ordercontext.statusInTheInitialDemoData",
-          ),
-          time: order.createdAt,
-        },
-      ],
-    })),
-  );
+  return [];
 }
 
 interface OrderWorkspace {
@@ -245,7 +229,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         ordersApi.list({ storeId: storeIdParam }),
         refundsApi.list({ storeId: storeIdParam }).catch(() => [] as BackendRefund[]),
       ]);
-      if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
+      if (Array.isArray(remoteOrders)) {
         const refundByOrderId = new Map<number, BackendRefund>();
         if (Array.isArray(remoteRefunds)) {
           for (const ref of remoteRefunds) {
@@ -280,7 +264,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     const restore = (raw: string | null) => {
       if (!raw) return;
       try {
-        const saved = withCatalogImages(schema.parse(JSON.parse(raw)));
+        let saved = withCatalogImages(schema.parse(JSON.parse(raw)));
+        saved = saved.filter((o) => !o.orderCode.startsWith("CLU-24"));
         latest.current = saved;
         setOrders(saved);
       } catch {
