@@ -163,6 +163,7 @@ services:
       SHIPPING_SERVICE_URL: http://shipping-service
       PROMOTION_SERVICE_URL: http://promotion-loyalty-service
       CATALOG_SERVICE_TOKEN: ${CATALOG_SERVICE_TOKEN:-}
+      PROMOTION_SERVICE_TOKEN: ${PROMOTION_SERVICE_TOKEN:-}
 
   payment-service:
     <<: *java

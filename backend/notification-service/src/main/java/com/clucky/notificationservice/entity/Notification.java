@@ -29,6 +29,9 @@ public class Notification {
     @Column(name = "is_read", nullable = false)
     private Boolean isRead = false;
 
+    @Column(name = "operation_key", length = 180)
+    private String operationKey;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -52,6 +55,9 @@ public class Notification {
 
     public Boolean getIsRead() { return isRead; }
     public void setIsRead(Boolean isRead) { this.isRead = isRead; }
+
+    public String getOperationKey() { return operationKey; }
+    public void setOperationKey(String operationKey) { this.operationKey = operationKey; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

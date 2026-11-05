@@ -235,6 +235,8 @@
     "addOptionGroup": "Thêm nhóm Option",
     "groupNameEGSize": "Tên nhóm (VD: Kích thước)",
     "required": "Bắt buộc",
+    "requiredLabel": "Bắt buộc chọn",
+    "optional": "Tùy chọn",
     "optionNameEGLarge": "Tên lựa chọn (VD: Cỡ lớn)",
     "priceAdjustmentVnd": "Giá chênh lệch (+VNĐ)",
     "addOptionToGroup": "Thêm lựa chọn trong nhóm",

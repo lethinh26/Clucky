@@ -30,4 +30,5 @@ clucky:
   shipping:
     service-url: ${SHIPPING_SERVICE_URL:http://shipping-service}
   promotion:
+    service-token: ${PROMOTION_SERVICE_TOKEN:}
     service-url: ${PROMOTION_SERVICE_URL:http://promotion-loyalty-service}

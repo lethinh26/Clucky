@@ -24,14 +24,22 @@ public class ProductOption {
     @Column(name = "extra_price", nullable = false, precision = 12, scale = 0)
     private BigDecimal extraPrice = BigDecimal.ZERO;
 
+    @Column(name = "is_required", nullable = false)
+    private Boolean isRequired = true;
+
     public ProductOption() {}
 
     public ProductOption(Long id, Product product, String groupName, String name, BigDecimal extraPrice) {
+        this(id, product, groupName, name, extraPrice, true);
+    }
+
+    public ProductOption(Long id, Product product, String groupName, String name, BigDecimal extraPrice, Boolean isRequired) {
         this.id = id;
         this.product = product;
         this.groupName = groupName;
         this.name = name;
         this.extraPrice = extraPrice != null ? extraPrice : BigDecimal.ZERO;
+        this.isRequired = isRequired != null ? isRequired : true;
     }
 
     public Long getId() { return id; }
@@ -48,4 +56,7 @@ public class ProductOption {
 
     public BigDecimal getExtraPrice() { return extraPrice; }
     public void setExtraPrice(BigDecimal extraPrice) { this.extraPrice = extraPrice; }
+
+    public Boolean getIsRequired() { return isRequired; }
+    public void setIsRequired(Boolean isRequired) { this.isRequired = isRequired != null ? isRequired : true; }
 }
