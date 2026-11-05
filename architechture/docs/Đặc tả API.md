@@ -143,6 +143,14 @@ Quy ước chung:
 | GET /api/reports/revenue?storeId=&from=&to= | MGR/ADM | Báo cáo doanh thu (Manager bị ép storeId) |
 | GET /api/reports/export?format=xlsx/pdf | MGR/ADM | Xuất báo cáo Excel/PDF |
 
+### Bộ lọc và giới hạn báo cáo BE-42
+
+- Cả dashboard (Manager/Admin), revenue và export nhận `storeId`, `from`, `to` (ISO date, hai đầu mút được tính). Nếu thiếu `to`, dùng ngày hiện tại; nếu thiếu `from`, dùng ngày đầu tháng của `to`. `from > to` hoặc `storeId <= 0` trả 400.
+- Dashboard trả thêm `from`/`to` đã áp dụng; `periodRevenue`/`periodOrderCount` dùng cùng phép tính với revenue và file xuất cho cùng bộ lọc. Các trường `today*` luôn phản ánh hôm nay, độc lập với kỳ đã chọn.
+- Danh tính/role/store lấy từ JWT đã xác thực, không dùng header `X-User-*`. Manager bị ép quán trong JWT, yêu cầu quán khác hoặc không có quán trả 403; Admin có thể chọn quán hoặc toàn chuỗi. Tên file xuất phản ánh quán và kỳ thực tế.
+- STAFF chỉ được đọc `todayOrderCount` của quán mình, `scope=STORE_DAY`, `from=to=hôm nay`; các trường tiền và tổng kỳ trả `null`, không phải 0. Filter ngày khác hôm nay, truy cập revenue/export hoặc quán khác trả 403. CUSTOMER/SHIPPER không được truy cập cả ba API.
+- Giới hạn hiện tại: projection `daily_store_stats` chỉ có số liệu ngày/quán, chưa có nguồn tổng kết ca hoặc đơn đang chờ. Không coi `STORE_DAY` là báo cáo ca đã hoàn thành; FR-STF-02 vẫn cần projection/contract ca thật trước khi nghiệm thu đầy đủ. Không suy diễn doanh thu ca từ doanh thu ngày/tháng.
+
 ### Contract xác minh đơn cho BE-40
 
 - Review Report gọi `GET /api/internal/orders/{orderId}/verification?customerId={customerId}` của Cart Order qua Eureka (`cart-order-service`), chuyển tiếp Bearer JWT của khách và `X-Correlation-ID`. Gateway không công bố route nội bộ này; không dùng header `X-User-*` để xác định danh tính.
