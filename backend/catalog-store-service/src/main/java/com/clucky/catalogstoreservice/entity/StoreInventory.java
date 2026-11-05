@@ -1,21 +1,25 @@
 package com.clucky.catalogstoreservice.entity;
 
 import jakarta.persistence.*;
-import java.time.Instant;
+import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "store_inventory", schema = "catalog_service", uniqueConstraints = {@UniqueConstraint(columnNames = {"store_id", "product_id"})})
+@Table(name = "store_inventory", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"store_id", "product_id"})
+})
 public class StoreInventory {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id", nullable = false)
     private Long id;
 
-    @Column(name = "store_id", nullable = false)
-    private Long storeId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "store_id", nullable = false)
+    private Store store;
 
-    @Column(name = "product_id", nullable = false)
-    private Long productId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
     @Column(name = "quantity_available", nullable = false)
     private Integer quantityAvailable = 0;
@@ -23,20 +27,32 @@ public class StoreInventory {
     @Column(name = "low_stock_threshold", nullable = false)
     private Integer lowStockThreshold = 10;
 
-    @Column(name = "updated_by", nullable = true)
+    @Column(name = "updated_by")
     private Long updatedBy;
 
     @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt = Instant.now();
+    private OffsetDateTime updatedAt = OffsetDateTime.now();
+
+    public StoreInventory() {}
+
+    public StoreInventory(Long id, Store store, Product product, Integer quantityAvailable, Integer lowStockThreshold, Long updatedBy) {
+        this.id = id;
+        this.store = store;
+        this.product = product;
+        this.quantityAvailable = quantityAvailable != null ? quantityAvailable : 0;
+        this.lowStockThreshold = lowStockThreshold != null ? lowStockThreshold : 10;
+        this.updatedBy = updatedBy;
+        this.updatedAt = OffsetDateTime.now();
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public Long getStoreId() { return storeId; }
-    public void setStoreId(Long storeId) { this.storeId = storeId; }
+    public Store getStore() { return store; }
+    public void setStore(Store store) { this.store = store; }
 
-    public Long getProductId() { return productId; }
-    public void setProductId(Long productId) { this.productId = productId; }
+    public Product getProduct() { return product; }
+    public void setProduct(Product product) { this.product = product; }
 
     public Integer getQuantityAvailable() { return quantityAvailable; }
     public void setQuantityAvailable(Integer quantityAvailable) { this.quantityAvailable = quantityAvailable; }
@@ -47,9 +63,9 @@ public class StoreInventory {
     public Long getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(Long updatedBy) { this.updatedBy = updatedBy; }
 
-    public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
 
     @PreUpdate
-    protected void touch() { updatedAt = Instant.now(); }
+    protected void touch() { updatedAt = OffsetDateTime.now(); }
 }

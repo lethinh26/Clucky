@@ -1,0 +1,371 @@
+.promotionScope {
+  font-family: var(--font-quicksand, 'Quicksand', system-ui, sans-serif);
+}
+
+/* -------------------------------------------------------------
+ * VOUCHER BADGE & CHIP STYLES
+ * ----------------------------------------------------------- */
+.voucherBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  user-select: none;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.codeText {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
+}
+
+.voucherDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Status variants */
+.statusActive {
+  background-color: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+.statusActive .voucherDot {
+  background-color: #D97706;
+}
+
+.statusExpired {
+  background-color: #F3F4F6;
+  color: #6B7280;
+  border: 1px solid #E5E7EB;
+}
+.statusExpired .voucherDot {
+  background-color: #9CA3AF;
+}
+
+.statusUpcoming {
+  background-color: #E0F2FE;
+  color: #0369A1;
+  border: 1px solid #BAE6FD;
+}
+.statusUpcoming .voucherDot {
+  background-color: #0284C7;
+}
+
+.statusExhausted {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+}
+.statusExhausted .voucherDot {
+  background-color: #DC2626;
+}
+
+.statusDisabled {
+  background-color: #F5EDE0;
+  color: #78716C;
+  border: 1px solid #E7E5E4;
+}
+.statusDisabled .voucherDot {
+  background-color: #A8A29E;
+}
+
+/* Voucher Card / Coupon component */
+.couponCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #FFFFFF;
+  border: 1.5px dashed #F59E0B;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.08);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  overflow: hidden;
+}
+
+.couponCard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.14);
+}
+
+.couponCardDisabled {
+  opacity: 0.65;
+  filter: grayscale(0.5);
+  border-color: #D1D5DB;
+  box-shadow: none;
+}
+.couponCardDisabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.couponHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.couponValue {
+  font-size: 15px;
+  font-weight: 800;
+  color: #B45309;
+}
+
+.couponCodeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  color: #92400E;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.15s;
+  max-width: 150px;
+  min-width: 0;
+}
+.couponCodeBadge:hover {
+  background: #FEF3C7;
+}
+.couponCodeBadge:focus-visible {
+  outline: 2px solid #8F1216;
+  outline-offset: 1px;
+}
+
+.couponCondition {
+  font-size: 12px;
+  color: #4B5563;
+  margin-bottom: 4px;
+  line-height: 1.35;
+}
+
+.couponFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #F3F4F6;
+  font-size: 11px;
+  color: #6B7280;
+}
+
+.couponApplyBtn {
+  background: #EA580C;
+  color: #FFFFFF;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.couponApplyBtn:hover:not(:disabled) {
+  background: #C2410C;
+}
+.couponApplyBtn:focus-visible {
+  outline: 2px solid #8F1216;
+  outline-offset: 1px;
+}
+.couponApplyBtn:disabled {
+  background: #D1D5DB;
+  cursor: not-allowed;
+}
+
+/* -------------------------------------------------------------
+ * POINTS & TIER COMPONENT STYLES
+ * ----------------------------------------------------------- */
+.pointsCard {
+  background: #FFFFFF;
+  border: 1px solid #F3EDE4;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(38, 20, 10, 0.04);
+}
+
+.pointsCompact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400E;
+}
+
+.tierPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.tierPillMember {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+.tierPillSilver {
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+}
+
+.tierPillGold {
+  background: linear-gradient(135deg, #FEF08A 0%, #F59E0B 100%);
+  color: #78350F;
+  border: 1px solid #FBBF24;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.2);
+}
+
+.pointsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pointsAmountWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.pointsAmountLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pointsAmountVal {
+  font-size: 24px;
+  font-weight: 900;
+  color: #B45309;
+  line-height: 1.2;
+}
+
+/* Progress Bar */
+.progressWrap {
+  margin: 12px 0 8px 0;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 8px;
+  background: #F3F4F6;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #F59E0B 0%, #D97706 100%);
+  transition: width 0.4s ease-in-out;
+}
+
+.progressLabelRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #6B7280;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.benefitsList {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #F3F4F6;
+  list-style: none;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.benefitItem {
+  font-size: 12px;
+  color: #4B5563;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.benefitCheck {
+  color: #10B981;
+  flex-shrink: 0;
+}
+
+/* Loading & Error States */
+.shimmerSkeleton {
+  background: linear-gradient(90deg, #F3F4F6 25%, #E5E7EB 50%, #F3F4F6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.errorBox {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  padding: 12px;
+  color: #991B1B;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.retryBtn {
+  background: #EF4444;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.retryBtn:hover {
+  background: #DC2626;
+}
+

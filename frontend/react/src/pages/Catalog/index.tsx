@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../i18n/hooks";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Button,
   Space,
@@ -24,14 +24,18 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ConfirmModal } from '../../components/ui/AdminModal';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { ProductForm } from './ProductForm';
-import { Product, Combo, mockProducts, mockCombos, } from '../../mocks/catalogData';
+import { CatalogCategory, catalogApi, getErrorMessage, type Product, type Combo } from '../../lib/api';
 
 export const CatalogPage: React.FC = () => {
   const { t } = useTranslation();
 
   const { money: formatVND } = useLocaleTools();
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [combos, setCombos] = useState<Combo[]>(mockCombos);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [combos, setCombos] = useState<Combo[]>([]);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [pendingProductUpload, setPendingProductUpload] = useState<Product | null>(null);
+  const [pendingComboUpload, setPendingComboUpload] = useState<Combo | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,6 +43,28 @@ export const CatalogPage: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+
+  const fetchCatalogData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [prods, cmbs, categoryList] = await Promise.all([
+        catalogApi.listProducts({ activeOnly: false }),
+        catalogApi.listCombos(false),
+        catalogApi.listCategories(),
+      ]);
+      setProducts(prods);
+      setCombos(cmbs);
+      setCategories(categoryList);
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCatalogData();
+  }, [fetchCatalogData]);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -63,60 +89,125 @@ export const CatalogPage: React.FC = () => {
   }, [combos, searchTerm]);
 
   // Toggle active status
-  const handleToggleStatus = (product: Product, checked: boolean) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === product.id ? { ...p, isActive: checked } : p))
-    );
-    message.success(
-      t("business:catalog.changedTo", { value1: product.name, value2: checked ? t("business:catalog.available") : t("business:catalog.salesPaused") })
-    );
+  const handleToggleStatus = async (product: Product, checked: boolean) => {
+    try {
+      await catalogApi.updateProductStatus(product.id, checked);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, isActive: checked } : p))
+      );
+      const statusText = checked ? t("business:catalog.available") : t("business:catalog.salesPaused");
+      message.success(t("business:catalog.changedTo", { value1: product.name, value2: statusText }));
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    }
+  };
+
+  // Toggle combo status
+  const handleToggleComboStatus = async (combo: Combo, checked: boolean) => {
+    try {
+      await catalogApi.updateComboStatus(combo.id, checked);
+      setCombos((prev) =>
+        prev.map((c) => (c.id === combo.id ? { ...c, isActive: checked } : c))
+      );
+      const statusText = checked ? t("business:catalog.active") : t("business:catalog.paused");
+      message.success(t("business:catalog.changedComboTo", { value1: combo.name, value2: statusText }));
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    }
+  };
+
+  // Delete combo
+  const handleDeleteCombo = async (combo: Combo) => {
+    try {
+      await catalogApi.deleteCombo(combo.id);
+      setCombos((prev) => prev.filter((c) => c.id !== combo.id));
+      message.success(t("business:catalog.deletedCombo", { value1: combo.name }));
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    }
   };
 
   // Save product from ProductForm
-  const handleSaveProduct = (data: Partial<Product>) => {
+  const handleSaveProduct = async (
+    data: Partial<Product>,
+    imageFile?: File,
+    onUploadProgress?: (percent: number) => void
+  ) => {
+    let savedProduct: Product;
     if (editingProduct) {
+      savedProduct = await catalogApi.updateProduct(editingProduct.id, data);
       setProducts((prev) =>
-        prev.map((p) => (p.id === editingProduct.id ? ({ ...p, ...data } as Product) : p))
+        prev.map((p) => (p.id === editingProduct.id ? savedProduct : p))
+      );
+    } else if (pendingProductUpload) {
+      savedProduct = await catalogApi.updateProduct(pendingProductUpload.id, data);
+      setProducts((prev) =>
+        prev.map((p) => (p.id === savedProduct.id ? savedProduct : p))
       );
     } else {
-      setProducts((prev) => [data as Product, ...prev]);
+      savedProduct = await catalogApi.createProduct(data);
+      setProducts((prev) => [savedProduct, ...prev]);
+      setPendingProductUpload(savedProduct);
     }
+
+    if (imageFile) {
+      savedProduct = await catalogApi.uploadProductImage(
+        savedProduct.id,
+        imageFile,
+        onUploadProgress
+      );
+      setProducts((prev) =>
+        prev.map((product) => product.id === savedProduct.id ? savedProduct : product)
+      );
+    }
+    setPendingProductUpload(null);
   };
 
   // Save combo from ProductForm
-  const handleSaveCombo = (data: Partial<Combo>) => {
-    const newCombo: Combo = {
-      id: data.id || Date.now(),
-      name: data.name || 'Combo Ưu Đãi Mới',
-      slug: data.name?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-') || `combo-${Date.now()}`,
-      description: data.description || '',
-      comboPrice: data.comboPrice || 99000,
-      imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?w=600',
-      startAt: new Date().toISOString(),
-      isActive: true,
-      items: Array.isArray((data as any).items)
-        ? (data as any).items.map((prodId: number) => {
-            const found = products.find((p) => p.id === prodId);
-            return { productId: prodId, productName: found?.name || 'Món gà Clucky', quantity: 1 };
-          })
-        : [],
-    };
-    setCombos((prev) => [newCombo, ...prev]);
+  const handleSaveCombo = async (
+    data: Partial<Combo>,
+    imageFile?: File,
+    onUploadProgress?: (percent: number) => void
+  ) => {
+    let savedCombo = pendingComboUpload
+      ? await catalogApi.updateCombo(pendingComboUpload.id, data)
+      : await catalogApi.createCombo(data);
+    setCombos((prev) => pendingComboUpload
+      ? prev.map((combo) => combo.id === savedCombo.id ? savedCombo : combo)
+      : [savedCombo, ...prev]);
+    if (!pendingComboUpload) setPendingComboUpload(savedCombo);
+    if (imageFile) {
+      savedCombo = await catalogApi.uploadComboImage(
+        savedCombo.id,
+        imageFile,
+        onUploadProgress
+      );
+      setCombos((prev) =>
+        prev.map((combo) => combo.id === savedCombo.id ? savedCombo : combo)
+      );
+    }
+    setPendingComboUpload(null);
     setViewMode('combos');
-    message.success(t("business:catalog.comboSavedSuccessfully", { value1: newCombo.name }));
   };
 
   // Confirm delete
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (productToDelete) {
-      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
-      message.success(t("business:catalog.removedFromTheMenu", { value1: productToDelete.name }));
-      setDeleteModalOpen(false);
-      setProductToDelete(null);
+      try {
+        await catalogApi.deleteProduct(productToDelete.id);
+        setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+        message.success(t("business:catalog.removedFromTheMenu", { value1: productToDelete.name }));
+      } catch (err) {
+        message.error(getErrorMessage(err));
+      } finally {
+        setDeleteModalOpen(false);
+        setProductToDelete(null);
+      }
     }
   };
 
-  const spicyBadges = (level: number) => {
+  const spicyBadges = (level?: number | null) => {
+    if (level == null) return null;
     if (level === 0) return <Tag style={{ borderRadius: 6 }}>{t("business:catalog.notSpicy")}</Tag>;
     if (level === 1)
       return (
@@ -137,12 +228,11 @@ export const CatalogPage: React.FC = () => {
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Image
-            src={record.imageUrl}
+            src={record.imageUrl ?? undefined}
             alt={record.name}
             width={58}
             height={58}
             style={{ borderRadius: 12, objectFit: 'cover', border: '1px solid #E8E2D9' }}
-            fallback="https://images.unsplash.com/photo-1562967916-eb82221dfb92?w=100"
           />
           <div>
             <div
@@ -154,11 +244,6 @@ export const CatalogPage: React.FC = () => {
               }}
             >
               {record.name}
-              {record.isBestSeller && (
-                <span className="badge-best-seller" style={{ marginLeft: 8 }}>
-                  ★ Best Seller
-                </span>
-              )}
             </div>
             <div style={{ fontSize: 12, color: '#6B6259', marginTop: 2 }}>
               <code>/{record.slug}</code>
@@ -213,7 +298,7 @@ export const CatalogPage: React.FC = () => {
         <div>
           {spicyBadges(record.spicyLevel)}
           <span style={{ fontSize: 12, color: '#6B6259', marginLeft: 8 }}>
-            {record.kcal} kcal
+            {record.kcal != null && `${record.kcal} kcal`}
           </span>
         </div>
       ),
@@ -289,12 +374,11 @@ export const CatalogPage: React.FC = () => {
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Image
-            src={record.imageUrl}
+            src={record.imageUrl ?? undefined}
             alt={record.name}
             width={58}
             height={58}
             style={{ borderRadius: 12, objectFit: 'cover', border: '1px solid #E8E2D9' }}
-            fallback="https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?w=100"
           />
           <div>
             <div
@@ -379,14 +463,7 @@ export const CatalogPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Switch
             checked={isActive}
-            onChange={(checked) => {
-              setCombos((prev) =>
-                prev.map((c) => (c.id === record.id ? { ...c, isActive: checked } : c))
-              );
-              message.success(
-                t("business:catalog.changedComboTo", { value1: record.name, value2: checked ? t("business:catalog.active") : t("business:catalog.paused") })
-              );
-            }}
+            onChange={(checked) => handleToggleComboStatus(record, checked)}
             size="small"
           />
           <StatusBadge
@@ -408,10 +485,7 @@ export const CatalogPage: React.FC = () => {
             type="text"
             danger
             icon={<DeleteOutlined />}
-            onClick={() => {
-              setCombos((prev) => prev.filter((c) => c.id !== record.id));
-              message.success(t("business:catalog.deletedCombo", { value1: record.name }));
-            }}
+            onClick={() => handleDeleteCombo(record)}
           />
         </Tooltip>
       ),
@@ -479,14 +553,16 @@ export const CatalogPage: React.FC = () => {
         options={[
           {
             label: (
-              <span style={{ fontWeight: 700, padding: '4px 8px' }}> {t("business:catalog.individualDishes")}{products.length})
+              <span style={{ fontWeight: 700, padding: '4px 8px' }}>
+                {t("business:catalog.individualDishes")} ({products.length})
               </span>
             ),
             value: 'products',
           },
           {
             label: (
-              <span style={{ fontWeight: 700, padding: '4px 8px' }}> {t("business:catalog.promotionalCombos")}{combos.length})
+              <span style={{ fontWeight: 700, padding: '4px 8px' }}>
+                {t("business:catalog.promotionalCombos")} ({combos.length})
               </span>
             ),
             value: 'combos',
@@ -629,8 +705,12 @@ export const CatalogPage: React.FC = () => {
         onClose={() => {
           setFormOpen(false);
           setEditingProduct(null);
+          setPendingProductUpload(null);
+          setPendingComboUpload(null);
         }}
         initialProduct={editingProduct}
+        products={products}
+        categories={categories}
         onSaveProduct={handleSaveProduct}
         onSaveCombo={handleSaveCombo}
       />

@@ -15,7 +15,14 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'com.cloudinary:cloudinary-http44:1.36.0'
 }
 
 bootJar { archiveFileName = 'catalog-store-service-0.1.0-SNAPSHOT.jar' }
 jar { enabled = false }
+
+tasks.register('catalogSelfCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.clucky.catalogstoreservice.config.CatalogSelfCheck'
+}

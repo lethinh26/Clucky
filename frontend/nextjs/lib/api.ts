@@ -4,7 +4,18 @@
  * All requests go through the API Gateway (`NEXT_PUBLIC_API_URL`,
  * default http://localhost:8080) — never directly to a business service.
  */
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+function getBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return (
+      process.env.API_URL ||
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:8080"
+    );
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+}
+
 export { getErrorMessage } from "./i18n/core";
 import { getBrowserLocale } from "./i18n/core";
 
@@ -47,7 +58,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+    res = await fetch(`${getBaseUrl()}${path}`, {
+      credentials: "include",
+      ...options,
+      headers,
+    });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw error;
     throw { code: "NETWORK_ERROR" };
@@ -89,9 +104,11 @@ export interface ResetPasswordPayload {
 }
 export interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   role?: string;
   storeId?: number;
+  email?: string;
+  fullName?: string;
 }
 export type GoogleAuthResult =
   AuthTokens | { status: "REQUIRES_PASSWORD"; pendingToken: string };
@@ -121,6 +138,14 @@ export const authApi = {
     request<AuthTokens>("/api/auth/verify-otp", {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  refresh: () =>
+    request<AuthTokens>("/api/auth/refresh", {
+      method: "POST",
+    }),
+  logout: () =>
+    request<{ message?: string }>("/api/auth/logout", {
+      method: "POST",
     }),
   forgotPassword: (body: ForgotPasswordPayload) =>
     request<{ message?: string }>("/api/auth/forgot-password", {
@@ -374,6 +399,173 @@ export const refundApi = {
       method: "POST",
       body: JSON.stringify({ orderId, amount, reason }),
     }),
+};
+
+/* ---------- Catalog & Stores ---------- */
+import type { StoreStatus } from "./types/store";
+
+export interface StoreItem {
+  id: number;
+  name: string;
+  address: string;
+  district?: string | null;
+  city?: string | null;
+  phone: string;
+  openTime: string;
+  closeTime: string;
+  status: StoreStatus;
+  deliveryArea: string;
+  managerName?: string;
+}
+
+export interface CategoryItem {
+  id: number;
+  name: string;
+  imageUrl?: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface ProductItem {
+  id: number;
+  slug: string;
+  name: string;
+  categoryId?: number;
+  categoryName?: string;
+  category?: string;
+  description: string;
+  basePrice: number;
+  price: number;
+  imageUrl?: string | null;
+  image?: string | null;
+  alt?: string;
+  kcal?: number | null;
+  spicyLevel?: number | null;
+  isActive: boolean;
+  isAvailable?: boolean | null;
+  isSoldOut?: boolean | null;
+  isBestSeller?: boolean | null;
+  rating?: number | null;
+  reviewCount?: number | null;
+  options?: {
+    id: string;
+    name: string;
+    required: boolean;
+    choices: { id: string; name: string; priceAdjustment: number }[];
+  }[];
+  toppings?: { id: string; name: string; price: number }[];
+  comboItems?: ComboItem['items'];
+}
+
+export interface ComboItem {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  comboPrice: number;
+  imageUrl?: string | null;
+  startAt?: string;
+  endAt?: string;
+  isActive: boolean;
+  isAvailable?: boolean | null;
+  isSoldOut?: boolean | null;
+  items: { productId: number; productName: string; quantity: number; optionId?: number }[];
+}
+
+function comboAsProduct(combo: ComboItem): ProductItem {
+  return {
+    id: combo.id,
+    slug: combo.slug || `combo-${combo.id}`,
+    name: combo.name,
+    categoryName: 'Combo',
+    category: 'Combo',
+    description: combo.description,
+    basePrice: combo.comboPrice,
+    price: combo.comboPrice,
+    imageUrl: combo.imageUrl,
+    image: combo.imageUrl,
+    alt: combo.name,
+    isActive: combo.isActive,
+    isAvailable: combo.isAvailable,
+    isSoldOut: combo.isSoldOut,
+    options: [],
+    toppings: [],
+    comboItems: combo.items,
+  };
+}
+
+export const catalogApi = {
+  getStores: (activeOnly = false) =>
+    request<StoreItem[]>(`/api/stores?activeOnly=${activeOnly}`),
+  getStoreById: (id: number) =>
+    request<StoreItem>(`/api/stores/${id}`),
+  getCategories: (activeOnly = true) =>
+    request<CategoryItem[]>(`/api/catalog/categories?activeOnly=${activeOnly}`),
+  getProducts: async (params?: { storeId?: number; categoryId?: number; keyword?: string; spicyLevel?: number; activeOnly?: boolean }): Promise<ProductItem[]> => {
+    const query = new URLSearchParams();
+    if (params?.storeId) query.set('storeId', String(params.storeId));
+    if (params?.categoryId) query.set('categoryId', String(params.categoryId));
+    if (params?.keyword) query.set('keyword', params.keyword);
+    if (params?.spicyLevel !== undefined) query.set('spicyLevel', String(params.spicyLevel));
+    if (params?.activeOnly !== undefined) query.set('activeOnly', String(params.activeOnly));
+    const qs = query.toString();
+
+    const products = await request<ProductItem[]>(`/api/catalog/products${qs ? `?${qs}` : ''}`);
+    if (params?.categoryId !== undefined) return products;
+
+    const comboQuery = new URLSearchParams();
+    if (params?.storeId) comboQuery.set('storeId', String(params.storeId));
+    comboQuery.set('activeOnly', String(params?.activeOnly ?? true));
+    const combos = await request<ComboItem[]>(`/api/catalog/combos?${comboQuery.toString()}`);
+    const mappedCombos = combos.map(comboAsProduct);
+    const keyword = params?.keyword?.toLocaleLowerCase();
+    const filteredCombos = keyword
+      ? mappedCombos.filter((combo) =>
+          `${combo.name} ${combo.description}`.toLocaleLowerCase().includes(keyword)
+        )
+      : mappedCombos;
+
+    return [...products, ...filteredCombos];
+  },
+  getProductById: async (id: number, storeId?: number): Promise<ProductItem> => {
+    return request<ProductItem>(`/api/catalog/products/${id}${storeId ? `?storeId=${storeId}` : ''}`);
+  },
+  getComboProductById: async (id: number, storeId?: number): Promise<ProductItem> =>
+    comboAsProduct(await request<ComboItem>(`/api/catalog/combos/${id}${storeId ? `?storeId=${storeId}` : ''}`)),
+  getCombos: (storeId?: number, activeOnly = true) =>
+    request<ComboItem[]>(`/api/catalog/combos?activeOnly=${activeOnly}${storeId ? `&storeId=${storeId}` : ''}`),
+  getComboById: (id: number, storeId?: number) =>
+    request<ComboItem>(`/api/catalog/combos/${id}${storeId ? `?storeId=${storeId}` : ''}`),
+}
+
+/* ---------- Promotions & Loyalty ---------- */
+export const promotionApi = {
+  getAvailableVouchers: () =>
+    request<import("./types/promotion").Voucher[]>("/api/promotions/vouchers/available"),
+  validateVoucher: (body: {
+    code: string;
+    orderAmount: number;
+    storeId?: string | number | null;
+  }) =>
+    request<import("./promotion").VoucherValidationResult>(
+      "/api/promotions/vouchers/validate",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      }
+    ),
+  getMyLoyalty: () => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("clucky_access_token")
+        : null;
+    return request<{
+      points: import("./types/promotion").MemberPoints;
+      transactions: import("./types/promotion").PointTransaction[];
+    }>("/api/loyalty/me", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
 };
 
 export default request;

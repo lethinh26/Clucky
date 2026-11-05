@@ -1,24 +1,30 @@
 package com.clucky.catalogstoreservice.entity;
 
 import jakarta.persistence.*;
-import java.time.Instant;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "stores", schema = "catalog_service")
+@Table(name = "stores")
 public class Store {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id", nullable = false)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 160)
+    @Column(nullable = false, length = 160)
     private String name;
 
-    @Column(name = "address", nullable = false, length = 255)
+    @Column(nullable = false, length = 255)
     private String address;
 
-    @Column(name = "phone", nullable = false, length = 30)
+    @Column(length = 120)
+    private String district;
+
+    @Column(length = 120)
+    private String city;
+
+    @Column(nullable = false, length = 30)
     private String phone;
 
     @Column(name = "open_time", nullable = false)
@@ -27,14 +33,32 @@ public class Store {
     @Column(name = "close_time", nullable = false)
     private LocalTime closeTime;
 
-    @Column(name = "status", nullable = false, length = 20)
-    private String status = "ACTIVE";
+    @Column(nullable = false, length = 20)
+    private StoreStatus status = StoreStatus.OPEN;
 
-    @Column(name = "delivery_area", nullable = true, columnDefinition = "text")
+    @Column(name = "delivery_area", columnDefinition = "TEXT")
     private String deliveryArea;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt = Instant.now();
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    public Store() {}
+
+    public Store(Long id, String name, String address, String phone, LocalTime openTime, LocalTime closeTime, StoreStatus status, String deliveryArea) {
+        this.id = id;
+        this.name = name;
+        this.address = address;
+        this.phone = phone;
+        this.openTime = openTime;
+        this.closeTime = closeTime;
+        this.status = status != null ? status : StoreStatus.OPEN;
+        this.deliveryArea = deliveryArea;
+        this.createdAt = OffsetDateTime.now();
+    }
+
+    public Store(Long id, String name, String address, String phone, LocalTime openTime, LocalTime closeTime, String status, String deliveryArea) {
+        this(id, name, address, phone, openTime, closeTime, StoreStatus.fromString(status), deliveryArea);
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -45,6 +69,12 @@ public class Store {
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
 
+    public String getDistrict() { return district; }
+    public void setDistrict(String district) { this.district = district; }
+
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
 
@@ -54,12 +84,13 @@ public class Store {
     public LocalTime getCloseTime() { return closeTime; }
     public void setCloseTime(LocalTime closeTime) { this.closeTime = closeTime; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public StoreStatus getStatus() { return status; }
+    public void setStatus(StoreStatus status) { this.status = status != null ? status : StoreStatus.OPEN; }
+    public void setStatus(String status) { this.status = StoreStatus.fromString(status); }
 
     public String getDeliveryArea() { return deliveryArea; }
     public void setDeliveryArea(String deliveryArea) { this.deliveryArea = deliveryArea; }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

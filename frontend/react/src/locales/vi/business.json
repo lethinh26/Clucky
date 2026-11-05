@@ -84,7 +84,9 @@
     "chooseTheResponsibleManager": "Chọn quản lý phụ trách",
     "activityStatus": "Trạng thái hoạt động",
     "salesStopped": "Ngừng bán",
-    "temporarilyClosedIndicator": "🟡 Tạm đóng"
+    "temporarilyClosedIndicator": "🟡 Tạm đóng",
+    "city": "Tỉnh / Thành phố",
+    "enterCity": "Nhập tỉnh/thành phố"
   },
   "demoordercontrols": {
     "orderProgress": "Tiến trình đơn hàng",
@@ -187,6 +189,8 @@
     "deletePermanently": "Xóa vĩnh viễn"
   },
   "productform": {
+    "uploadingImage": "Đang tải ảnh lên Cloudinary...",
+    "imageUploadFailed": "Tải ảnh thất bại",
     "onlyPngJpgAndWebpImagesAreAccepted": "Chỉ chấp nhận file ảnh định dạng PNG, JPG hoặc WEBP!",
     "imagesMustNotExceedMb": "Dung lượng ảnh tối đa là 5MB!",
     "newOptionGroup": "Nhóm tùy chọn mới",
@@ -659,5 +663,16 @@
     "codCollectionConfirmed": "Đã xác nhận thu tiền COD.",
     "cannotReviewThisRequestCheckYourPermissionsAndDecisionNote": "Không thể duyệt yêu cầu này. Kiểm tra quyền và ghi chú quyết định.",
     "refundRequest": "{{value1}} yêu cầu hoàn tiền. {{value2}}"
+  },
+  "promotionUi": {
+    "order": "Đơn hàng",
+    "payment": "Thanh toán",
+    "system": "Hệ thống",
+    "markRead": "Đánh dấu đã đọc",
+    "promotion": "Khuyến mãi",
+    "member": "Thành viên",
+    "silver": "Bạc (Silver)",
+    "gold": "Vàng (Gold)",
+    "pointsClose": "điểm)"
   }
 }

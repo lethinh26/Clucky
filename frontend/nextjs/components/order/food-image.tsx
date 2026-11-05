@@ -5,13 +5,15 @@ import { useState, type ImgHTMLAttributes } from "react";
 export function FoodImage({
   src,
   alt,
+  usePlaceholder = true,
   ...props
 }: Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
   src?: string;
   alt: string;
+  usePlaceholder?: boolean;
 }) {
   const [failedSrc, setFailedSrc] = useState<string>();
-  const fallback = !src || failedSrc === src;
+  const fallback = usePlaceholder && (!src || failedSrc === src);
   return (
     <img
       {...props}
@@ -19,7 +21,7 @@ export function FoodImage({
       alt={alt}
       loading={props.loading ?? "lazy"}
       decoding="async"
-      onError={fallback ? undefined : () => setFailedSrc(src)}
+      onError={fallback || !usePlaceholder ? undefined : () => setFailedSrc(src)}
     />
   );
 }

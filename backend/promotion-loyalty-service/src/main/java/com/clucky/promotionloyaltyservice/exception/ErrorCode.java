@@ -24,7 +24,13 @@ public enum ErrorCode {
     VOUCHER_SCOPE_MISMATCH(409, "This voucher cannot be used at this store."),
     MIN_ORDER_NOT_MET(409, "Your order does not meet the minimum voucher value."),
     INSUFFICIENT_POINTS(409, "You do not have enough points for this operation."),
-    EMAIL_EXISTS(409, "This email is already registered.");
+    EMAIL_EXISTS(409, "This email is already registered."),
+    ACCOUNT_LOCKED(403, "This account has been locked."),
+    INVALID_CREDENTIALS(401, "Invalid email or password."),
+    EMAIL_NOT_VERIFIED(401, "Please verify your email before signing in."),
+    INVALID_OTP(400, "The OTP is invalid or has already been used."),
+    OTP_EXPIRED(400, "The OTP has expired."),
+    TOKEN_REVOKED(401, "The session has expired or been revoked.");
 
     private final int httpStatus;
     private final String message;
