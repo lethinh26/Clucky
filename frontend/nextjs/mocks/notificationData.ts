@@ -54,3 +54,4 @@ export const MOCK_CUSTOMER_NOTIFICATIONS: NotificationItemData[] = [
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
   },
 ];
+

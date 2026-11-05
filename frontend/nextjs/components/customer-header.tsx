@@ -109,7 +109,9 @@ export function CustomerHeader() {
           >
             {t("auth.register.action")}{" "}<ArrowUpRight size={16} aria-hidden="true" />
           </Link>
-          <NotificationPopover />
+          <div className={styles.notification}>
+            <NotificationPopover />
+          </div>
           <CartBadge count={count}>
             <Link
               href="/cart"
