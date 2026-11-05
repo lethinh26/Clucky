@@ -2,7 +2,7 @@
  * Thin API client for the Clucky customer app.
  *
  * All requests go through the API Gateway (`NEXT_PUBLIC_API_URL`,
- * default http://localhost:8080) — never directly to a business service.
+ * same-origin when empty) — never directly to a business service.
  */
 function getBaseUrl(): string {
   if (typeof window === "undefined") {
@@ -13,7 +13,7 @@ function getBaseUrl(): string {
       "http://localhost:8080"
     );
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  return process.env.NEXT_PUBLIC_API_URL ?? "";
 }
 
 export { getErrorMessage } from "./i18n/core";
@@ -42,7 +42,12 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
     const token = localStorage.getItem("clucky_access_token");
-    if (token && !headers.has("Authorization")) {
+    const publicAuth = [
+      "/api/auth/google", "/api/auth/google/complete", "/api/auth/login",
+      "/api/auth/register", "/api/auth/verify-otp", "/api/auth/refresh",
+      "/api/auth/logout", "/api/auth/forgot-password", "/api/auth/reset-password",
+    ].includes(path);
+    if (token && !publicAuth && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${token}`);
     }
     const guestSession = localStorage.getItem("clucky_guest_session_id");

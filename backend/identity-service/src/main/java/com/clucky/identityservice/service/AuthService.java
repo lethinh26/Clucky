@@ -200,7 +200,7 @@ public class AuthService {
         refreshTokenService.revokeAllForUser(user.getId());
     }
 
-    private AuthResult issueSession(User user) {
+    AuthResult issueSession(User user) {
         String sid = UUID.randomUUID().toString();
         String accessToken = jwtIssuer.issueAccessToken(user.getId(), user.getRole(), user.getStoreId(), sid);
         String refreshToken = jwtIssuer.issueRefreshToken(user.getId(), sid, UUID.randomUUID().toString());

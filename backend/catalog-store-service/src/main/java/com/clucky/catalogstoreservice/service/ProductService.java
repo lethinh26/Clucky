@@ -71,8 +71,8 @@ public class ProductService {
         int pageNumber = pageable.getPageNumber();
         int totalPages = pageSize > 0 ? (int) Math.ceil((double) totalElements / pageSize) : 0;
 
-        int fromIndex = Math.min(pageNumber * pageSize, totalElements);
-        int toIndex = Math.min(fromIndex + pageSize, totalElements);
+        int fromIndex = (int) Math.min(pageable.getOffset(), totalElements);
+        int toIndex = (int) Math.min((long) fromIndex + pageSize, totalElements);
         List<ProductDto.Response> content = filtered.subList(fromIndex, toIndex);
 
         return new PageResponse<>(content, pageNumber, pageSize, totalElements, totalPages);
@@ -117,7 +117,7 @@ public class ProductService {
                         resp.setBasePrice(sp.getStorePrice());
                         resp.setPrice(sp.getStorePrice());
                     }
-                    boolean soldOut = Boolean.TRUE.equals(sp.getIsSoldOut()) || (si != null && si.getQuantityAvailable() <= 0);
+                    boolean soldOut = Boolean.TRUE.equals(sp.getIsSoldOut()) || si == null || si.getQuantityAvailable() <= 0;
                     resp.setIsSoldOut(soldOut);
                     resp.setIsAvailable(Boolean.TRUE.equals(sp.getIsAvailable()) && !soldOut);
                 } else {

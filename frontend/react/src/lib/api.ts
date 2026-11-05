@@ -89,10 +89,10 @@ export interface CatalogCategory {
 
 /**
  * Axios client for the Clucky staff/admin app.
- * All requests go through the API Gateway (`VITE_API_URL`, default http://localhost:8080).
+ * All requests go through the API Gateway (`VITE_API_URL`, same-origin when empty).
  */
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_URL ?? '',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
   timeout: 15000,

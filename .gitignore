@@ -46,6 +46,8 @@ venv/
 Thumbs.db
 
 # Local logs and runtime data
+secrets/
+**/*firebase-adminsdk*.json
 *.log
 *.tmp
 

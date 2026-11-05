@@ -1,5 +1,12 @@
 # [INT-74] Google login E2E: tài khoản cũ/mới, complete-password, token lỗi và email trùng
 
+## Cập nhật tích hợp local — 05/11/2026, chưa nghiệm thu E2E
+
+- UI Google hiện gọi endpoint thật qua Gateway, chỉ hiện đặt mật khẩu khi REQUIRES_PASSWORD; thông báo rõ email/Google dùng chung account. Đồng bộ password policy backend, retry pending sau 401/409/5xx/network; không gửi Bearer cũ lên endpoint auth công khai.
+- Backend trả access token + refresh cookie hiện có; test UI không còn giả refresh token trong JSON. Bổ sung regression account cũ, complete, mật khẩu yếu và conflict/restart.
+- Người dùng đã điền ba biến Next.js. Firebase backend credential/project/provider/authorized domains và môi trường local/VPS cần người dùng cấu hình theo [runbook](../docs/Google_Auth_Runbook.md).
+- Chưa chạy test/lint/typecheck/build, browser/Firebase E2E hoặc hạ tầng; chưa có evidence PASS, không đánh DONE.
+
 > Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
 
 ## Thông tin quản lý

@@ -27,6 +27,7 @@ public class CatalogCacheService {
         this(redisTemplate, null);
     }
 
+    @Autowired
     public CatalogCacheService(@Autowired(required = false) StringRedisTemplate redisTemplate,
                                @Autowired(required = false) ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;

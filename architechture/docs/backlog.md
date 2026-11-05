@@ -446,6 +446,18 @@ Các kết quả dưới đây được giữ từ lần đồng bộ cũ, **kh�
 - Đã tải lại **184 file task detail đính kèm** và so sánh nội dung với bản chuẩn bị: tất cả khớp.
 - Không chạy test/lint/typecheck/build, không bật Docker/backend và không kiểm thử frontend Clucky. Đây là đối chiếu dữ liệu backlog, không phải chứng nhận chức năng ứng dụng.
 
+## Ghi nhận phạm vi Payment ngày 04/11/2026 — chưa xếp sprint
+
+Theo quyết định của Lê Phú Thịnh, ghi nhận các đầu việc sau cho sprint sau; chưa cấp task ID, PIC chính thức, SP, deadline hoặc đồng bộ Lark. Không cộng vào số lượng task snapshot hiện tại:
+
+- Tra soát/hỗ trợ khách sửa hoặc thiếu nội dung chuyển khoản `Clucky-...`.
+- Xử lý thiếu/thừa tiền, tiền đến sau expiry/hủy đơn và khoản chuyển thêm cho đơn đã thanh toán: reconciliation, compensation/refund và quy trình CSKH theo policy được duyệt sau.
+- Mỗi trường hợp cần AC về phân quyền, bằng chứng đối soát và idempotency trước triển khai. Hiện tại không tự sửa số tiền, reopen Order hay xác nhận thành công cho các trường hợp này.
+- Không hoãn baseline an toàn: xác thực webhook, chống xử lý lặp cùng transaction id, ghi nhận bền vững tối thiểu không lộ secret, ACK/retry đúng provider và không xác nhận nhầm đơn vẫn thuộc Sprint 2. Giao dịch khách chuyển lần nữa có transaction id mới khác với webhook retry cùng id.
+- Phạm vi mới thay đổi phần reconciliation nâng cao trong BE-45/INT-49 và late-payment trong INT-50; cần đồng bộ AC/task detail khi chốt triển khai, không đánh DONE theo AC cũ.
+
+Chi tiết quyết định đã chốt và đề xuất chờ duyệt: [Kế hoạch Sprint 2 của Lê Phú Thịnh, mục 8](Sprint_2_Le_Phu_Thinh_Plan.md#8-làm-rõ-với-pic-ngày-04112026).
+
 ## Lưu ý khi dọn thư mục
 
 Đã bỏ `architechture/plans` và `architechture/verification` khỏi Git theo yêu cầu. Backlog tổng hợp, task detail trong `architechture/tasks/` và các báo cáo trong `docs/verification/` được giữ nguyên. Liên kết tới tài liệu đã xóa trỏ về commit lưu lịch sử. ZIP dự phòng cục bộ được ignore, không nằm trong PR; không cập nhật trạng thái Lark trong lần dọn này.

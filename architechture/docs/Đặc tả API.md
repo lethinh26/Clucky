@@ -13,6 +13,18 @@ Quy ước chung:
 ---
 
 # 1. IDENTITY SERVICE — /api/auth, /api/users
+
+### Google/email — contract BE-76, cập nhật 05/11/2026
+
+- Một email chuẩn hóa tương ứng một Customer. Google-first đặt mật khẩu Clucky một lần; email login dùng cùng hash. Email-first đã verify được link Google rồi đăng nhập ngay, không đổi mật khẩu/userId/hồ sơ. Không tạo user riêng cho Google.
+- `POST /api/auth/google` body `{idToken}` (không rỗng, tối đa 16.384 ký tự): Firebase Admin verify project/chữ ký/expiry/revocation/email_verified/provider Google. User mới trả 200 `{status: "REQUIRES_PASSWORD", pendingToken}` và không cấp JWT/cookie; user đã hoàn tất trả AuthResponse + refresh cookie hiện có.
+- `POST /api/auth/google/complete` body `{pendingToken,password}`: token ngẫu nhiên 43 ký tự base64url, TTL mặc định 10 phút, dùng một lần. Password 8–72 ký tự, có chữ hoa/thường/số, không quá 72 byte UTF-8. Tạo CUSTOMER ACTIVE/email_verified=true; trả 200 AuthResponse + cookie, không gửi OTP email registration.
+- AuthResponse chỉ có accessToken/role/storeId/email/fullName. Refresh ở cookie `clucky_refresh_token`, HttpOnly, SameSite=Lax, Path=/api/auth, Secure theo AUTH_COOKIE_SECURE; không trả refresh token trong JSON. Hai route Google yêu cầu Origin/Referer thuộc allow-list AUTH_ALLOWED_ORIGINS như login.
+- User LOCKED: 403 ACCOUNT_LOCKED; non-CUSTOMER: 403 FORBIDDEN; email đăng ký dở chưa verified: 401 EMAIL_NOT_VERIFIED, không tự giữ mật khẩu chưa chứng minh ownership để link; UID/email xung đột: 409 RESOURCE_CONFLICT. Email register/complete cạnh tranh tài khoản đã có: 409 EMAIL_EXISTS, không overwrite.
+- Token Google sai/hết hạn/revoked/provider sai: 401 UNAUTHENTICATED; pending hết hạn/đã dùng: 401 TOKEN_REVOKED; quá 10 lần Google sign-in/UID trong 60 giây: 429 TOO_MANY_REQUESTS; Firebase chưa bật hoặc Redis/Firebase không sẵn sàng: 503 DEPENDENCY_UNAVAILABLE. Lỗi theo shape/catalog chung.
+- Pending được lấy và xóa nguyên tử bằng Redis GETDEL, không GET rồi DEL riêng. Nếu DB rollback, khách bắt đầu Google lại; nếu DB đã commit nhưng response thất lạc, lần Google lại vào tài khoản đã tạo không hỏi password. UI bỏ pending cũ sau 409/5xx/lỗi mạng và hướng dẫn retry, không dùng complete để reset mật khẩu.
+- Cấu hình và checklist local/VPS: [Google Auth Runbook](Google_Auth_Runbook.md). Chưa chạy nghiệm thu Firebase/DB/Redis thật.
+
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
 | POST /api/auth/register | PUB | Đăng ký khách hàng, gửi OTP |
