@@ -167,6 +167,8 @@ export interface BackendCartItem {
   itemName: string;
   unitPrice: number;
   quantity: number;
+  optionIds?: number[];
+  toppingIds?: number[];
   optionsSnapshot?: unknown;
   toppingsSnapshot?: unknown;
   note?: string;
@@ -209,7 +211,7 @@ export const cartApi = {
       method: "DELETE",
     }),
   clearCart: () =>
-    request<void>("/api/cart", {
+    request<BackendCartDto>("/api/cart", {
       method: "DELETE",
     }),
   mergeCart: (guestSessionId: string) =>
@@ -226,7 +228,7 @@ export interface OrderPreviewPayload {
   items: CartItemPayload[];
   voucherCode?: string;
   pointsUsed?: number;
-  address?: string;
+  receiverAddress?: string;
 }
 
 export interface OrderPreviewResult {

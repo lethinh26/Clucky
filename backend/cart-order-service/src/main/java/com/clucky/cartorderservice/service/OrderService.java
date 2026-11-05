@@ -215,6 +215,9 @@ public class OrderService {
 
         // Validate voucher with Promotion Service (P1-02: No hardcoded voucher strings)
         PromotionClient.VoucherResult voucherCalc = promotionClient.validateVoucher(request.voucherCode(), request.storeId(), subtotal);
+        if (request.voucherCode() != null && !request.voucherCode().isBlank() && !voucherCalc.valid()) {
+            throw new ApiException(ErrorCode.VOUCHER_INACTIVE);
+        }
         BigDecimal discountAmount = voucherCalc.discountAmount();
 
         // Validate loyalty points with Promotion Service (P1-02: Verified reservation)
@@ -268,15 +271,10 @@ public class OrderService {
         List<OrderItem> savedItems = new ArrayList<>();
         for (int i = 0; i < items.size(); i++) {
             CartItemDto it = items.get(i);
-            CatalogClient.ValidatedCatalogItem validated = i < catalogValidation.items().size()
-                    ? catalogValidation.items().get(i) : null;
-
-            BigDecimal unitPrice = (validated != null && validated.unitPrice() != null)
-                    ? validated.unitPrice() : it.getUnitPrice();
-            BigDecimal extraPrice = (validated != null && validated.extraPrice() != null)
-                    ? validated.extraPrice() : BigDecimal.ZERO;
-            String itemName = (validated != null && validated.name() != null)
-                    ? validated.name() : (it.getItemName() != null ? it.getItemName() : "Item");
+            CatalogClient.ValidatedCatalogItem validated = catalogValidation.items().get(i);
+            BigDecimal unitPrice = validated.unitPrice();
+            BigDecimal extraPrice = validated.extraPrice() != null ? validated.extraPrice() : BigDecimal.ZERO;
+            String itemName = validated.name();
 
             OrderItem item = new OrderItem();
             item.setOrderId(order.getId());
@@ -289,12 +287,8 @@ public class OrderService {
             item.setNote(it.getNote());
             item.setLineTotal(unitPrice.add(extraPrice).multiply(BigDecimal.valueOf(it.getQuantity())));
 
-            if (it.getOptionIds() != null && !it.getOptionIds().isEmpty()) {
-                item.setOptionsSnapshot(objectMapper.valueToTree(it.getOptionIds()));
-            }
-            if (it.getToppingIds() != null && !it.getToppingIds().isEmpty()) {
-                item.setToppingsSnapshot(objectMapper.valueToTree(it.getToppingIds()));
-            }
+            item.setOptionsSnapshot(objectMapper.valueToTree(validated.optionsSnapshot()));
+            item.setToppingsSnapshot(objectMapper.valueToTree(validated.toppingsSnapshot()));
             savedItems.add(orderItemRepository.save(item));
         }
 
@@ -563,13 +557,13 @@ public class OrderService {
             List<Long> optionIds = new ArrayList<>();
             if (it.getOptionsSnapshot() != null && it.getOptionsSnapshot().isArray()) {
                 for (JsonNode n : it.getOptionsSnapshot()) {
-                    optionIds.add(n.asLong());
+                    optionIds.add(n.isObject() ? n.path("id").asLong() : n.asLong());
                 }
             }
             List<Long> toppingIds = new ArrayList<>();
             if (it.getToppingsSnapshot() != null && it.getToppingsSnapshot().isArray()) {
                 for (JsonNode n : it.getToppingsSnapshot()) {
-                    toppingIds.add(n.asLong());
+                    toppingIds.add(n.isObject() ? n.path("id").asLong() : n.asLong());
                 }
             }
             CartItemDto cartItem = new CartItemDto(

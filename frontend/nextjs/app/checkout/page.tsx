@@ -2,7 +2,8 @@
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toCartPayload } from "@/lib/cart";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import Link from "@/components/ui-loader/navigation-link";
 import { Select } from "@base-ui/react/select";
@@ -17,7 +18,6 @@ import { ShippingFeeCard } from "@/components/shipping";
 import {
   orderApi,
   getErrorMessage,
-  type CartItemPayload,
   type CreateOrderPayload,
 } from "@/lib/api";
 import {
@@ -34,7 +34,11 @@ export default function CheckoutPage() {
 
   const { money: formatPrice } = useLocaleTools();
   const router = useRouter();
-  const { items, subtotal, ready, createOrder } = useOrder();
+  const { items, subtotal, ready, cartPending, createOrder } = useOrder();
+  const payloadItems = useMemo(() => {
+    try { return items.map(toCartPayload); }
+    catch { return null; }
+  }, [items]);
   useNavigationTask(!ready);
   const submitLock = useRef(false);
   const [submitting, setSubmitting] = useState(false);
@@ -99,25 +103,11 @@ export default function CheckoutPage() {
 
   // Preview breakdown sync
   useEffect(() => {
-    if (!items.length) {
+    if (!items.length || !payloadItems) {
       setPreviewData(null);
       return;
     }
     let active = true;
-    const payloadItems: CartItemPayload[] = items.map((it) => ({
-      productId:
-        it.productId ||
-        Number(it.slug?.replace(/\D/g, "")) ||
-        Number(it.id?.replace(/\D/g, "")) ||
-        undefined,
-      comboId: it.comboId,
-      itemName: it.name,
-      unitPrice: it.unitPrice,
-      quantity: it.quantity,
-      optionsSnapshot: it.options,
-      toppingsSnapshot: it.toppings,
-      note: it.note,
-    }));
 
     orderApi
       .preview({
@@ -126,7 +116,7 @@ export default function CheckoutPage() {
         items: payloadItems,
         voucherCode: appliedVoucher?.code,
         pointsUsed: usePoints ? 50 : 0,
-        address: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+        receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
       })
       .then((res) => {
         if (!active || !res) return;
@@ -152,30 +142,18 @@ export default function CheckoutPage() {
     appliedVoucher,
     usePoints,
     deliveryAddress,
+    payloadItems,
   ]);
 
   const handleApplyVoucher = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!payloadItems || cartPending) return;
     const cleanCode = voucherInput.trim().toUpperCase();
     if (!cleanCode) {
       setAppliedVoucher(null);
       setVoucherMsg("");
       return;
     }
-    const payloadItems: CartItemPayload[] = items.map((it) => ({
-      productId:
-        it.productId ||
-        Number(it.slug?.replace(/\D/g, "")) ||
-        Number(it.id?.replace(/\D/g, "")) ||
-        undefined,
-      comboId: it.comboId,
-      itemName: it.name,
-      unitPrice: it.unitPrice,
-      quantity: it.quantity,
-      optionsSnapshot: it.options,
-      toppingsSnapshot: it.toppings,
-      note: it.note,
-    }));
     orderApi
       .preview({
         storeId: Number(selectedStore) || 1,
@@ -183,7 +161,7 @@ export default function CheckoutPage() {
         items: payloadItems,
         voucherCode: cleanCode,
         pointsUsed: usePoints ? 50 : 0,
-        address: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+        receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
       })
       .then((res) => {
         if (res && res.valid && res.discountAmount > 0) {
@@ -203,7 +181,7 @@ export default function CheckoutPage() {
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || !items.length || submitting || submitLock.current) return;
+    if (!ready || cartPending || !payloadItems || !items.length || submitting || submitLock.current) return;
     submitLock.current = true;
     setSubmitting(true);
     setSubmitError(null);
@@ -217,20 +195,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    const payloadItems: CartItemPayload[] = items.map((it) => ({
-      productId:
-        it.productId ||
-        Number(it.slug?.replace(/\D/g, "")) ||
-        Number(it.id?.replace(/\D/g, "")) ||
-        undefined,
-      comboId: it.comboId,
-      itemName: it.name,
-      unitPrice: it.unitPrice,
-      quantity: it.quantity,
-      optionsSnapshot: it.options,
-      toppingsSnapshot: it.toppings,
-      note: it.note,
-    }));
 
     const payload: CreateOrderPayload = {
       storeId: Number(selectedStore) || 1,
@@ -738,13 +702,13 @@ export default function CheckoutPage() {
                     lineHeight: 1.4,
                   }}
                 >
-                  {submitError.includes(".") ? t(submitError) : submitError}
+                  {submitError}
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || cartPending || !payloadItems}
                 className={styles.submitBtn}
               >
                 {submitting

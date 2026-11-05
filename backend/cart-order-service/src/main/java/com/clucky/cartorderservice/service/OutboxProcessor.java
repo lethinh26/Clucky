@@ -10,8 +10,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -28,15 +29,19 @@ public class OutboxProcessor {
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final EventMapper eventMapper;
+    private final TransactionTemplate transaction;
 
     public OutboxProcessor(
             OutboxEventRepository outboxEventRepository,
             KafkaTemplate<String, String> kafkaTemplate,
-            EventMapper eventMapper
+            EventMapper eventMapper,
+            PlatformTransactionManager transactionManager
     ) {
         this.outboxEventRepository = outboxEventRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.eventMapper = eventMapper;
+        this.transaction = new TransactionTemplate(transactionManager);
+        this.transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
@@ -65,8 +70,11 @@ public class OutboxProcessor {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processSingleEvent(Long outboxId) {
+        transaction.executeWithoutResult(status -> dispatch(outboxId));
+    }
+
+    private void dispatch(Long outboxId) {
         Optional<OutboxEvent> opt = outboxEventRepository.findById(outboxId);
         if (opt.isEmpty()) {
             return;

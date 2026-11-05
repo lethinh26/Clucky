@@ -51,7 +51,7 @@ export default async function ProductPage({
 
   return (
     <main>
-      <ProductDetailClient product={product} storeId={storeId} />
+      <ProductDetailClient product={product} storeId={storeId} itemType={isCombo ? "COMBO" : "PRODUCT"} />
     </main>
   );
 }

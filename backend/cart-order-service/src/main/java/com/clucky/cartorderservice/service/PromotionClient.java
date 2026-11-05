@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 
@@ -29,12 +30,13 @@ public class PromotionClient {
     public record VoucherValidationRequest(
             String code,
             Long storeId,
-            BigDecimal subtotal
+            BigDecimal orderAmount
     ) {}
 
     public record VoucherValidationResponse(
-            String code,
-            BigDecimal discountAmount
+            boolean valid,
+            BigDecimal discountAmount,
+            String reason
     ) {}
 
     public record VoucherResult(
@@ -130,20 +132,31 @@ public class PromotionClient {
                     .retrieve()
                     .body(VoucherValidationResponse.class);
 
-            if (res != null && res.discountAmount() != null && res.discountAmount().compareTo(BigDecimal.ZERO) > 0) {
+            if (res == null) {
+                throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            }
+            if (res.valid() && res.discountAmount() != null && res.discountAmount().signum() >= 0) {
                 return new VoucherResult(true, "Đã áp dụng mã giảm giá thành công", res.discountAmount());
             }
 
-            return new VoucherResult(false, "Mã voucher không hợp lệ hoặc không đủ điều kiện áp dụng", BigDecimal.ZERO);
+            return new VoucherResult(false, res.reason(), BigDecimal.ZERO);
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 400 || ex.getStatusCode().value() == 404
+                    || ex.getStatusCode().value() == 409) {
+                return new VoucherResult(false, ErrorCode.VOUCHER_INACTIVE.message(), BigDecimal.ZERO);
+            }
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         } catch (Exception ex) {
             LOG.warn("Promotion service voucher validation unavailable or rejected code={} storeId={} error={}",
                     code, storeId, ex.getMessage());
-            // In accordance with P1-02: Do NOT invent fake fallback vouchers. Unverified vouchers cannot grant discounts.
-            return new VoucherResult(false, "Hệ thống khuyến mãi chưa sẵn sàng hoặc mã không hợp lệ", BigDecimal.ZERO);
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
     }
 
     public LoyaltyResult validateLoyalty(Integer requestedPoints, BigDecimal orderAmount) {
+        // TODO: Promotion has no /api/loyalty/preview endpoint yet; redemption cannot work until that contract is implemented.
         if (requestedPoints == null || requestedPoints <= 0) {
             return new LoyaltyResult(true, 0, BigDecimal.ZERO, null);
         }
