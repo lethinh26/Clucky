@@ -1,6 +1,6 @@
 # [INT-69] Customer auth UI: email sent/sending/failure states
 
-> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
 
 ## Thông tin quản lý
 
@@ -29,6 +29,18 @@ Auth UI phân biệt đang gửi, đã gửi và gửi thất bại theo backend
 
 Không render OTP thật trên UI/log hoặc tự verify mã tại client.
 
+### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
+
+Auth pages đã có submitting/error và deferred actions; verify-otp resend đang gọi register payload rỗng cần chốt lại. HTTP success không mặc nhiên nghĩa người dùng đã nhận email, phải tách queued/sent/accepted semantics.
+
+- [frontend/nextjs/app/register/page.tsx](../../frontend/nextjs/app/register/page.tsx)
+- [frontend/nextjs/app/verify-otp/page.tsx](../../frontend/nextjs/app/verify-otp/page.tsx)
+- [frontend/nextjs/app/forgot-password/page.tsx](../../frontend/nextjs/app/forgot-password/page.tsx)
+- [architechture/tasks/BE-16.md](../../architechture/tasks/BE-16.md)
+- [architechture/tasks/BE-60.md](../../architechture/tasks/BE-60.md)
+
+Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
+
 ## 3. Đầu vào, đầu ra và contract
 
 | Thành phần | Chi tiết cần bàn giao |
@@ -39,11 +51,18 @@ Không render OTP thật trên UI/log hoặc tự verify mã tại client.
 
 Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
 
-## 4. Luồng xử lý / cách thực hiện
+### Mapping phải ghi trước khi nối luồng
 
-1. Submit và khóa action trong pending
-2. Hiển thị outcome theo response backend
-3. Cho retry/resend theo contract và cập nhật error khi đổi locale
+Register/forgot/resend response/error → idle/sending/accepted-or-queued/failure UI copy theo API. Cooldown/expiry từ contract, không khẳng định inbox delivered hoặc tiết lộ email không tồn tại trái anti-enumeration policy.
+
+## 4. Thứ tự thực hiện cụ thể
+
+1. Đọc response Identity/Notification và lập bảng copy cho sync gửi/async enqueue; chốt với owner trước khi đổi nhãn.
+2. Nối pending khóa submit/resend, Enter không gửi trùng; cancellation/navigation bỏ callback cũ không làm đổi màn mới.
+3. Hiển thị email context đã chuẩn hóa nhưng không giữ password/OTP để resend; thiếu context có đường quay lại nhập.
+4. Nối resend bằng contract được duyệt, xử lý cooldown/429/expiry và lỗi sender; không gọi register rỗng như cơ chế resend mặc định.
+5. Map error codes qua i18n và giữ field input hợp lý; đổi locale vẫn hiển thị lỗi đúng, không sửa file generated trực tiếp.
+6. Bàn giao SMTP fail/network timeout/unknown email/double submit và accepted-but-not-inbox cases cho người dùng kiểm chứng.
 
 ## 5. Quy tắc và điểm cần chốt
 
@@ -52,6 +71,10 @@ Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint �
 **Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
 
 Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+### Quyết định có owner và phần bị chặn
+
+PIC Auth/Notification chốt enqueue-vs-sent, cooldown và anti-enumeration. Nếu API trả accepted chung thì UI không được tự đổi thành failure tiết lộ tài khoản hoặc success đã nhận OTP.
 
 ## 6. Dependency và bàn giao
 
@@ -71,28 +94,31 @@ Phương án được ghi là “cần chốt/đề xuất” chưa phải quy�
 
 **Task nhận đầu ra theo dependency đã khai báo:** [INT-05](INT-05.md)
 
-## 7. Tiêu chí nghiệm thu
+## 7. Tiêu chí nghiệm thu cụ thể
 
-| AC | Điều kiện / thao tác | Kết quả mong đợi |
+| AC | Fixture / thao tác | Kết quả mong đợi |
 |---|---|---|
-| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Sending/sent/failure UX cho OTP, retry và giữ form. |
+| AC-01 | Submit form hợp lệ với outcome backend đã chốt | UI gửi/chờ/kết quả đúng semantics, success không khẳng định inbox nếu chỉ queued/accepted |
 | AC-02 | SMTP failure | Không hiển thị đã nhận OTP |
 | AC-03 | Double submit | Không gửi request lặp không kiểm soát |
 | AC-04 | Forgot email không tồn tại | Không lộ thêm thông tin trái policy |
+| AC-05 | SMTP/network lỗi hoặc request lặp trong pending/cooldown | Không báo đã nhận OTP giả, không gửi lặp không kiểm soát và có retry hợp lệ |
+| AC-06 | Forgot email không tồn tại rồi đổi vi/en | Không lộ thông tin ngoài policy, error/copy đổi locale đúng và không log email/password thừa |
 
-Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
 
 ## 8. Checklist và bằng chứng bàn giao
 
 - [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
-- [ ] AC-02: SMTP failure — ghi kết quả và evidence.
-- [ ] AC-03: Double submit — ghi kết quả và evidence.
-- [ ] AC-04: Forgot email không tồn tại — ghi kết quả và evidence.
 - [ ] Bàn giao bằng chứng cụ thể: Auth API mocked failure cho UI và SMTP-backed integration evidence được phân biệt.
 - [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
 
 - Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
+
+- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
+- [ ] Bàn giao outcome-copy-error matrix và resend decision với INT-05, evidence đã mask; UI fixture không thay email delivery evidence.
+- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
+- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
 
 ## 9. Truy vết gộp task
 
@@ -100,19 +126,14 @@ Không
 
 Không có ID gộp trực tiếp vào task này.
 
-## 10. Tài liệu nguồn
+## 10. Tài liệu và source cần đọc
 
-- [SRS.md](../../architechture/docs/SRS.md)
-- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
-- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
-- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
-- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
-- [schema.sql](../../architechture/database/schema.sql)
-- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
-- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
-- [Danh mục error code](../../contracts/errors.json)
-- [Brand Guidelines](../docs/Brand_Guidelines.md)
-- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+- [frontend/nextjs/app/register/page.tsx](../../frontend/nextjs/app/register/page.tsx)
+- [frontend/nextjs/app/verify-otp/page.tsx](../../frontend/nextjs/app/verify-otp/page.tsx)
+- [frontend/nextjs/app/forgot-password/page.tsx](../../frontend/nextjs/app/forgot-password/page.tsx)
+- [architechture/tasks/BE-16.md](../../architechture/tasks/BE-16.md)
+- [architechture/tasks/BE-60.md](../../architechture/tasks/BE-60.md)
+- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
 
 ## 11. Metadata và lịch sử kế hoạch
 
