@@ -47,10 +47,28 @@ class LoyaltyPostgresTest {
         @Bean LoyaltyService service(MemberPointsRepository members, PointTransactionRepository ledger, LoyaltyConfigRepository config) {
             return new LoyaltyService(members, ledger, config);
         }
+        @Bean VoucherService vouchers(VoucherRepository repository) { return new VoucherService(repository); }
     }
 
     @Autowired LoyaltyService service;
     @Autowired DataSource source;
+    @Autowired VoucherService vouchers;
+
+    @Test
+    void concurrentApprovalsPersistOneApprovedState() throws Exception {
+        var request = new VoucherRequest();
+        request.setCode("TEST_" + java.util.UUID.randomUUID());
+        request.setType(com.clucky.promotionloyaltyservice.model.VoucherType.AMOUNT);
+        request.setValue(java.math.BigDecimal.TEN);
+        request.setStartAt(java.time.Instant.now().minusSeconds(60));
+        request.setEndAt(java.time.Instant.now().plusSeconds(3600));
+        var proposal = vouchers.createStoreProposal(request, 7L, "STORE_MANAGER", 2L);
+        race(() -> vouchers.approveVoucher(proposal.getId(), 1L, "ADMIN"));
+        var approved = vouchers.getVoucherById(proposal.getId());
+        assertEquals(com.clucky.promotionloyaltyservice.model.VoucherStatus.ACTIVE, approved.getStatus());
+        assertEquals(1L, approved.getApprovedBy());
+        assertEquals(2L, approved.getStoreId());
+    }
 
     @Test
     void concurrentOrderRetriesHaveOneBalanceEffectPerOperation() throws Exception {
