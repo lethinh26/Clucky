@@ -1,6 +1,6 @@
 # [INT-11] Notification list + mark-read E2E
 
-> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
 
 ## Thông tin quản lý
 
@@ -29,6 +29,17 @@ Notification list/badge/read trên hai app phản ánh record thật của user 
 
 Không admin email-log hoặc promotion email backlog.
 
+### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
+
+Có notification model/helpers và UI components; sự tồn tại của UI không xác nhận list/read-state đã nối server. Đọc BE-38/39 để tách producer event, persisted notification và refresh UI.
+
+- [frontend/nextjs/lib/notification.ts](../../frontend/nextjs/lib/notification.ts)
+- [frontend/nextjs/components/notification](../../frontend/nextjs/components/notification)
+- [architechture/tasks/BE-38.md](../../architechture/tasks/BE-38.md)
+- [architechture/tasks/BE-39.md](../../architechture/tasks/BE-39.md)
+
+Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
+
 ## 3. Đầu vào, đầu ra và contract
 
 | Thành phần | Chi tiết cần bàn giao |
@@ -39,11 +50,18 @@ Không admin email-log hoặc promotion email backlog.
 
 Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
 
-## 4. Luồng xử lý / cách thực hiện
+### Mapping phải ghi trước khi nối luồng
 
-1. Phát nghiệp vụ để sinh notification
-2. Load/paginate list theo actor
-3. Mark-read/read-all và kiểm tra reload
+GET my và read/read-all lấy actor từ JWT; notification ID, event ID, unread count và pagination phải cùng semantics. Chốt read-all tới mốc nào khi event mới đến; UI không tự dùng userId query để chọn người nhận.
+
+## 4. Thứ tự thực hiện cụ thể
+
+1. Lập bảng event nghiệp vụ → recipient → notification type/link theo BE-39; xác định producer nào đã bàn giao thật.
+2. Chuẩn bị hai user A/B, dữ liệu đủ nhiều trang và một event có ID cố định để replay.
+3. Nối list/loading/error/empty và link đúng resource, chỉ dùng Gateway; không lộ notification người khác trong cache dùng chung.
+4. Nối mark-read/read-all, khóa request đang chạy và rollback/refetch khi lỗi; refresh trang phải giữ read state server.
+5. Nối unread count/refetch theo policy, bỏ polling khi logout/rời scope; tránh append item trùng khi fetch trang và nhận event cùng lúc.
+6. Bàn giao replay, ID của B, event mới trong lúc read-all và failed update với evidence notification persisted và UI reload.
 
 ## 5. Quy tắc và điểm cần chốt
 
@@ -52,6 +70,10 @@ Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint �
 **Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
 
 Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+### Quyết định có owner và phần bị chặn
+
+PIC Notification/UI chốt count/pagination/read-all snapshot và tần suất refresh. UI-32 là phối hợp nghiệm thu, không tự thêm dependency edge hay đổi lịch snapshot.
 
 ## 6. Dependency và bàn giao
 
@@ -70,28 +92,31 @@ Phương án được ghi là “cần chốt/đề xuất” chưa phải quy�
 
 **Task nhận đầu ra theo dependency đã khai báo:** [DEP-09](DEP-09.md), [TEST-17](TEST-17.md)
 
-## 7. Tiêu chí nghiệm thu
+## 7. Tiêu chí nghiệm thu cụ thể
 
-| AC | Điều kiện / thao tác | Kết quả mong đợi |
+| AC | Fixture / thao tác | Kết quả mong đợi |
 |---|---|---|
-| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Notification API integration, read/read-all/count và target navigation. |
+| AC-01 | Phát event cho A, load list rồi mark-read và reload | Một item đúng recipient/type/link, read-state và unread count khớp server |
 | AC-02 | Replay event | Không xuất hiện item trùng |
 | AC-03 | User A dùng ID của B | API chặn và UI không lộ |
 | AC-04 | Mark-read lỗi | Không giữ trạng thái đã đọc giả |
+| AC-05 | A gửi ID notification B hoặc đổi local cache user | Backend từ chối, response/cache không tiết lộ dữ liệu B |
+| AC-06 | Mark-read lỗi và event bị replay trong lúc phân trang | Không giữ read success giả, không nhân bản item; có retry rõ |
 
-Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
 
 ## 8. Checklist và bằng chứng bàn giao
 
 - [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
-- [ ] AC-02: Replay event — ghi kết quả và evidence.
-- [ ] AC-03: User A dùng ID của B — ghi kết quả và evidence.
-- [ ] AC-04: Mark-read lỗi — ghi kết quả và evidence.
 - [ ] Bàn giao bằng chứng cụ thể: Event→notification→UI trace trên hai app và cross-user read test.
 - [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
 
 - Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
+
+- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
+- [ ] Bàn giao event-to-recipient map, ID đã mask, list/count/read traces và UI-32 contract; email delivery được kiểm chứng riêng, không suy từ in-app success.
+- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
+- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
 
 ## 9. Truy vết gộp task
 
@@ -99,19 +124,13 @@ DEP-17: Promotion/Notification smoke test + event runbook
 
 Không mở lại các ID đã gộp; phần việc gộp phải được kiểm chứng cùng task đích.
 
-## 10. Tài liệu nguồn
+## 10. Tài liệu và source cần đọc
 
-- [SRS.md](../../architechture/docs/SRS.md)
-- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
-- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
-- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
-- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
-- [schema.sql](../../architechture/database/schema.sql)
-- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
-- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
-- [Danh mục error code](../../contracts/errors.json)
-- [Brand Guidelines](../docs/Brand_Guidelines.md)
-- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+- [frontend/nextjs/lib/notification.ts](../../frontend/nextjs/lib/notification.ts)
+- [frontend/nextjs/components/notification](../../frontend/nextjs/components/notification)
+- [architechture/tasks/BE-38.md](../../architechture/tasks/BE-38.md)
+- [architechture/tasks/BE-39.md](../../architechture/tasks/BE-39.md)
+- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
 
 ## 11. Metadata và lịch sử kế hoạch
 
