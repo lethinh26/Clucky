@@ -29,8 +29,7 @@ import { AdminTable } from '../../../components/ui/AdminTable';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { AdminModal } from '../../../components/ui/AdminModal';
 import { useAuth } from '../../../context/AuthContext';
-import { getErrorMessage } from '../../../lib/api';
-import { inventoryApi, storesApi, type InventoryItem, type Store } from '../../../lib/catalog-and-stores.api';
+import { inventoryApi, storesApi, getErrorMessage, type InventoryItem, type Store } from '../../../lib/api';
 
 export const StaffInventoryPage: React.FC = () => {
   const { t } = useTranslation();

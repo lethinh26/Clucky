@@ -16,7 +16,7 @@ import type { Dayjs } from 'dayjs';
 import { AdminModal } from '../../../components/ui/AdminModal';
 import { useAuth } from '../../../context/AuthContext';
 import type { AdminVoucher, VoucherPayload, VoucherScope, VoucherType } from '../../../types/promotion';
-import type { Store } from '../../../lib/catalog-and-stores.api';
+import type { Store } from '../../../lib/api';
 
 const { TextArea } = Input;
 

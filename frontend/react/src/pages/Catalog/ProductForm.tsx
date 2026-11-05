@@ -518,11 +518,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   />
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 13, color: '#6B6259' }}>
-                      {t("business:productform.requiredLabel", "Bắt buộc chọn")}:
+                      {t("business:productform.requiredLabel")}:
                     </span>
                     <Switch
-                      checkedChildren={t("business:productform.required", "Bắt buộc")}
-                      unCheckedChildren={t("business:productform.optional", "Tùy chọn")}
+                      checkedChildren={t("business:productform.required")}
+                      unCheckedChildren={t("business:productform.optional")}
                       checked={group.required ?? true}
                       onChange={(val) => {
                         const updated = [...optionGroups];
