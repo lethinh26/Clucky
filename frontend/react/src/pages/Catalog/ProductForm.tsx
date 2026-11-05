@@ -33,8 +33,14 @@ import {
 } from '@ant-design/icons';
 import { AdminDrawer } from '../../components/ui/AdminDrawer';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
-import type { Product, Combo, ProductOptionGroup, ProductTopping, CatalogCategory } from '../../lib/catalog-and-stores.api';
-import { getErrorMessage } from '../../lib/api';
+import {
+  getErrorMessage,
+  type Product,
+  type Combo,
+  type ProductOptionGroup,
+  type ProductTopping,
+  type CatalogCategory,
+} from '../../lib/api';
 
 interface ProductFormProps {
   open: boolean;
