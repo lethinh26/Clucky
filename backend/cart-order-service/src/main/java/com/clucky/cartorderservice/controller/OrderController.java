@@ -96,7 +96,8 @@ public class OrderController {
             @PathVariable("id") @Positive Long id,
             @RequestBody(required = false) RejectOrderRequest request
     ) {
-        OrderResponse response = orderService.rejectOrder(id, request);
+        CancelOrderRequest cancelRequest = request != null ? new CancelOrderRequest(request.reason()) : null;
+        OrderResponse response = orderService.rejectOrder(id, cancelRequest);
         return ResponseEntity.ok(response);
     }
 
