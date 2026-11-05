@@ -34,18 +34,28 @@ public class ReportService {
      * BE-42: Lấy dữ liệu Dashboard theo role & scope
      */
     @Transactional(readOnly = true)
-    public DashboardResponse getDashboard(Long actorUserId, String actorRole, Long actorStoreId, Long requestedStoreId) {
+    public DashboardResponse getDashboard(Long actorUserId, String actorRole, Long actorStoreId,
+                                          Long requestedStoreId, LocalDate from, LocalDate to) {
         Long effectiveStoreId = resolveEffectiveStoreId(actorRole, actorStoreId, requestedStoreId, true);
         LocalDate today = LocalDate.now();
-        LocalDate startOfMonth = today.withDayOfMonth(1);
+        if ("STAFF".equalsIgnoreCase(actorRole)) {
+            if ((from != null && !from.equals(today)) || (to != null && !to.equals(today))) {
+                throw new ForbiddenException("Nhân viên chỉ được xem số đơn hôm nay của quán!");
+            }
+            // ponytail: daily projection only; add shift totals when an authoritative shift projection exists.
+            int todayOrders = statsRepository.findByStoreIdAndStatDate(effectiveStoreId, today)
+                    .map(DailyStoreStats::getOrderCount).orElse(0);
+            return new DashboardResponse("STORE_DAY", effectiveStoreId, today, today,
+                    null, todayOrders, null, null, null, null, OffsetDateTime.now());
+        }
+
+        RevenueReportResponse period = getRevenueReport(
+                actorUserId, actorRole, actorStoreId, requestedStoreId, from, to);
 
         BigDecimal todayRev = BigDecimal.ZERO;
         int todayOrders = 0;
         BigDecimal todayCod = BigDecimal.ZERO;
         BigDecimal todayTransfer = BigDecimal.ZERO;
-
-        BigDecimal periodRev = BigDecimal.ZERO;
-        int periodOrders = 0;
 
         if (effectiveStoreId != null) {
             // Theo cửa hàng cụ thể
@@ -58,11 +68,6 @@ public class ReportService {
                 todayTransfer = s.getTransferAmount();
             }
 
-            List<DailyStoreStats> monthStats = statsRepository.findByStoreIdAndStatDateBetweenOrderByStatDateAsc(effectiveStoreId, startOfMonth, today);
-            for (DailyStoreStats s : monthStats) {
-                periodRev = periodRev.add(s.getRevenue());
-                periodOrders += s.getOrderCount();
-            }
         } else {
             // Toàn chuỗi (Admin)
             List<DailyStoreStats> todayAll = statsRepository.findByStatDateBetweenOrderByStatDateAsc(today, today);
@@ -73,11 +78,6 @@ public class ReportService {
                 todayTransfer = todayTransfer.add(s.getTransferAmount());
             }
 
-            List<DailyStoreStats> monthStats = statsRepository.findByStatDateBetweenOrderByStatDateAsc(startOfMonth, today);
-            for (DailyStoreStats s : monthStats) {
-                periodRev = periodRev.add(s.getRevenue());
-                periodOrders += s.getOrderCount();
-            }
         }
 
         String scope = effectiveStoreId == null ? "CHAIN" : "STORE";
@@ -86,12 +86,14 @@ public class ReportService {
         return new DashboardResponse(
                 scope,
                 effectiveStoreId,
+                period.from(),
+                period.to(),
                 todayRev,
                 todayOrders,
                 todayCod,
                 todayTransfer,
-                periodRev,
-                periodOrders,
+                period.totalRevenue(),
+                period.totalOrderCount(),
                 OffsetDateTime.now()
         );
     }
@@ -114,7 +116,7 @@ public class ReportService {
         }
 
         LocalDate effectiveTo = to != null ? to : LocalDate.now();
-        LocalDate effectiveFrom = from != null ? from : effectiveTo.minusDays(30);
+        LocalDate effectiveFrom = from != null ? from : effectiveTo.withDayOfMonth(1);
 
         if (effectiveFrom.isAfter(effectiveTo)) {
             throw new IllegalArgumentException("Ngày bắt đầu (from) không được lớn hơn ngày kết thúc (to)!");
@@ -195,6 +197,9 @@ public class ReportService {
      * Xác định cửa hàng có hiệu lực và kiểm tra quyền RBAC theo quán
      */
     private Long resolveEffectiveStoreId(String role, Long actorStoreId, Long requestedStoreId, boolean allowStaff) {
+        if (requestedStoreId != null && requestedStoreId <= 0) {
+            throw new IllegalArgumentException("storeId phải là số dương!");
+        }
         if ("ADMIN".equalsIgnoreCase(role)) {
             return requestedStoreId;
         }

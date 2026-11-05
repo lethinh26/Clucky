@@ -1,15 +1,15 @@
 package com.clucky.reviewreportservice.controller;
 
 import com.clucky.reviewreportservice.config.CurrentActor;
-import com.clucky.reviewreportservice.config.SecurityContextHelper;
 import com.clucky.reviewreportservice.dto.DashboardResponse;
 import com.clucky.reviewreportservice.dto.RevenueReportResponse;
+import com.clucky.reviewreportservice.dto.Role;
 import com.clucky.reviewreportservice.service.ReportService;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -30,16 +30,16 @@ public class ReportController {
      * Quyền: STF / MGR / ADM; scope theo role
      */
     @GetMapping("/dashboard")
+    @PreAuthorize("hasAnyRole('STAFF', 'STORE_MANAGER', 'ADMIN')")
     public ResponseEntity<DashboardResponse> getDashboard(
             @RequestParam(required = false) Long storeId,
-            HttpServletRequest request
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        SecurityContextHelper.requireRole(request, "STAFF", "STORE_MANAGER", "ADMIN");
-        Long userId = resolveUserId(request);
-        String role = resolveUserRole(request);
-        Long actorStoreId = resolveStoreId(request);
+        CurrentActor actor = CurrentActor.require();
 
-        DashboardResponse response = reportService.getDashboard(userId, role, actorStoreId, storeId);
+        DashboardResponse response = reportService.getDashboard(
+                actor.userId(), actor.role().name(), actor.storeId(), storeId, from, to);
         return ResponseEntity.ok(response);
     }
 
@@ -48,18 +48,16 @@ public class ReportController {
      * Quyền: MGR (đúng quán), ADM (chọn quán hoặc toàn chuỗi) - STAFF bị chặn
      */
     @GetMapping("/revenue")
+    @PreAuthorize("hasAnyRole('STORE_MANAGER', 'ADMIN')")
     public ResponseEntity<RevenueReportResponse> getRevenueReport(
             @RequestParam(required = false) Long storeId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            HttpServletRequest request
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        SecurityContextHelper.requireRole(request, "STORE_MANAGER", "ADMIN");
-        Long userId = resolveUserId(request);
-        String role = resolveUserRole(request);
-        Long actorStoreId = resolveStoreId(request);
+        CurrentActor actor = CurrentActor.require();
 
-        RevenueReportResponse response = reportService.getRevenueReport(userId, role, actorStoreId, storeId, from, to);
+        RevenueReportResponse response = reportService.getRevenueReport(
+                actor.userId(), actor.role().name(), actor.storeId(), storeId, from, to);
         return ResponseEntity.ok(response);
     }
 
@@ -68,30 +66,31 @@ public class ReportController {
      * Quyền: MGR (đúng quán), ADM (chọn quán hoặc toàn chuỗi) - STAFF bị chặn
      */
     @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('STORE_MANAGER', 'ADMIN')")
     public ResponseEntity<byte[]> exportReport(
             @RequestParam String format,
             @RequestParam(required = false) Long storeId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            HttpServletRequest request
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) throws IOException {
-        SecurityContextHelper.requireRole(request, "STORE_MANAGER", "ADMIN");
-        Long userId = resolveUserId(request);
-        String role = resolveUserRole(request);
-        Long actorStoreId = resolveStoreId(request);
+        CurrentActor actor = CurrentActor.require();
+        LocalDate effectiveTo = to != null ? to : LocalDate.now();
+        LocalDate effectiveFrom = from != null ? from : effectiveTo.withDayOfMonth(1);
 
-        byte[] fileBytes = reportService.exportReport(userId, role, actorStoreId, storeId, from, to, format);
+        byte[] fileBytes = reportService.exportReport(actor.userId(), actor.role().name(), actor.storeId(),
+                storeId, effectiveFrom, effectiveTo, format);
 
-        String normalizedFormat = format.trim().toLowerCase();
+        String normalizedFormat = format.equalsIgnoreCase("xlsx") ? "xlsx" : "pdf";
         String contentType = normalizedFormat.equals("xlsx")
                 ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 : MediaType.APPLICATION_PDF_VALUE;
 
-        String storePart = (storeId != null ? "store" + storeId : "all-stores");
+        Long effectiveStoreId = actor.role() == Role.ADMIN ? storeId : actor.storeId();
+        String storePart = (effectiveStoreId != null ? "store" + effectiveStoreId : "all-stores");
         String filename = String.format("revenue-report-%s-%s-%s.%s",
                 storePart,
-                from != null ? from.toString() : "start",
-                to != null ? to.toString() : LocalDate.now().toString(),
+                effectiveFrom,
+                effectiveTo,
                 normalizedFormat);
 
         return ResponseEntity.ok()
@@ -101,39 +100,4 @@ public class ReportController {
                 .body(fileBytes);
     }
 
-    private Long resolveUserId(HttpServletRequest request) {
-        try {
-            return SecurityContextHelper.getCurrentUserId(request);
-        } catch (Exception e) {
-            try {
-                return CurrentActor.require().userId();
-            } catch (Exception ignored) {
-                throw e;
-            }
-        }
-    }
-
-    private String resolveUserRole(HttpServletRequest request) {
-        try {
-            return SecurityContextHelper.getCurrentUserRole(request);
-        } catch (Exception e) {
-            try {
-                return CurrentActor.require().role().name();
-            } catch (Exception ignored) {
-                throw e;
-            }
-        }
-    }
-
-    private Long resolveStoreId(HttpServletRequest request) {
-        Long sid = SecurityContextHelper.getCurrentStoreId(request);
-        if (sid != null) {
-            return sid;
-        }
-        try {
-            return CurrentActor.require().storeId();
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
 }
