@@ -3,6 +3,10 @@ package com.clucky.identityservice.controller;
 import com.clucky.identityservice.config.AuthProperties;
 import com.clucky.identityservice.dto.auth.*;
 import com.clucky.identityservice.service.AuthService;
+import com.clucky.identityservice.service.GoogleAuthService;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
@@ -17,16 +21,44 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthProperties authProperties;
+    private final GoogleAuthService googleAuthService;
 
-    public AuthController(AuthService authService, AuthProperties authProperties) {
+    public AuthController(AuthService authService, AuthProperties authProperties, GoogleAuthService googleAuthService) {
         this.authService = authService;
         this.authProperties = authProperties;
+        this.googleAuthService = googleAuthService;
+    }
+
+    @PostMapping("/google")
+    @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(
+            oneOf = {AuthResponse.class, GoogleAuthDto.Pending.class})))
+    public Object google(@Valid @RequestBody GoogleAuthDto.SignIn request, HttpServletResponse response) {
+        GoogleAuthService.LoginResult result = googleAuthService.login(request.idToken());
+        if (result.session() == null) {
+            return new GoogleAuthDto.Pending("REQUIRES_PASSWORD", result.pendingToken());
+        }
+        setRefreshCookie(response, result.session().refreshToken());
+        return toAuthResponse(result.session());
+    }
+
+    @PostMapping("/google/complete")
+    public AuthResponse completeGoogle(@Valid @RequestBody GoogleAuthDto.Complete request,
+            HttpServletResponse response) {
+        AuthService.AuthResult result = googleAuthService.complete(request.pendingToken(), request.password());
+        setRefreshCookie(response, result.refreshToken());
+        return toAuthResponse(result);
     }
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public MessageResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
+    }
+
+    @PostMapping("/resend-otp")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MessageResponse resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        return authService.resendRegisterOtp(request.email());
     }
 
     @PostMapping("/verify-otp")

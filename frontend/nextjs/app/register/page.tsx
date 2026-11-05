@@ -23,12 +23,14 @@ export default function RegisterPage() {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<unknown>(null);
   const [loading, setLoading] = React.useState(false);
+  const [sent, setSent] = React.useState<string | null>(null);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
     const task = startAction();
     setError(null);
+    setSent(null);
     if (!fullName.trim() || !email.trim() || !password) {
       setError("auth.validation.registrationRequired");
       return;
@@ -52,7 +54,9 @@ export default function RegisterPage() {
       if (task.isCurrent()) router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}`);
     } catch (err) {
       if (!task.isCurrent()) return;
-
+      if (err && typeof err === "object" && "code" in err && (err as { code?: string }).code === "EMAIL_EXISTS") {
+        setSent(email.trim());
+      }
       setError(err);
     } finally {
       if (task.isCurrent()) setLoading(false);
@@ -71,11 +75,18 @@ export default function RegisterPage() {
               {typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)}
             </div>
           )}
+          {sent && (
+            <div className="form-success" role="status">
+              {t("auth.register.emailExists")}
+              <Link href={`/verify-otp?email=${encodeURIComponent(sent)}`}>{t("auth.register.resendHint")}</Link>
+            </div>
+          )}
           <Input
             label={t("auth.fields.fullName")}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             required
+            disabled={loading}
             autoComplete="name"
           />
           <Input
@@ -84,6 +95,7 @@ export default function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={loading}
             autoComplete="email"
             placeholder="ban@clucky.vn"
           />
@@ -92,6 +104,7 @@ export default function RegisterPage() {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            disabled={loading}
             autoComplete="tel"
             placeholder="0901 234 567"
           />
@@ -101,6 +114,7 @@ export default function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={loading}
             autoComplete="new-password"
             placeholder={t("auth.fields.passwordHint")}
           />

@@ -57,6 +57,10 @@ public class AuthService {
         if (userRepository.existsByEmail(email)) {
             throw new ApiException(ErrorCode.EMAIL_EXISTS);
         }
+        if (request.fullName() == null || request.fullName().isBlank()
+                || request.password() == null || request.password().isBlank()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
 
         String phone = request.phone() != null && !request.phone().isBlank() ? request.phone().trim() : null;
         if (phone != null && userRepository.existsByPhone(phone)) {
@@ -192,6 +196,28 @@ public class AuthService {
         return new MessageResponse("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
     }
 
+    /**
+     * INT-69: resend the register OTP for an existing, not-yet-verified account.
+     * Issues a new challenge (invalidating the previous one) and re-publishes the email.
+     */
+    @Transactional
+    public MessageResponse resendRegisterOtp(String email) {
+        String normalized = normalizeEmail(email);
+        otpService.limitIssuance(normalized, OtpService.PURPOSE_REGISTER);
+        User user = userRepository.findByEmail(normalized)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+        if (STATUS_LOCKED.equals(user.getStatus())) {
+            throw new ApiException(ErrorCode.ACCOUNT_LOCKED);
+        }
+        String otp = otpService.generateAndSaveOtp(normalized, OtpService.PURPOSE_REGISTER);
+        emailEventPublisher.publishOtpEmail(normalized, EmailEventPublisher.TEMPLATE_REGISTER_OTP, otp,
+                Map.of("fullName", user.getFullName()));
+        return new MessageResponse("Đã gửi lại mã OTP. Vui lòng kiểm tra email.");
+    }
+
     /** Revokes every session of a user; called when an account is locked by administration. */
     @Transactional
     public void revokeAllSessionsForLockedAccount(User user) {
@@ -200,7 +226,7 @@ public class AuthService {
         refreshTokenService.revokeAllForUser(user.getId());
     }
 
-    private AuthResult issueSession(User user) {
+    AuthResult issueSession(User user) {
         String sid = UUID.randomUUID().toString();
         String accessToken = jwtIssuer.issueAccessToken(user.getId(), user.getRole(), user.getStoreId(), sid);
         String refreshToken = jwtIssuer.issueRefreshToken(user.getId(), sid, UUID.randomUUID().toString());

@@ -63,6 +63,7 @@ export interface Store {
   deliveryArea?: string | null;
   managerId?: number;
   managerName?: string;
+  isOpenNow?: boolean;
 }
 
 export interface InventoryItem {
@@ -78,12 +79,20 @@ export interface InventoryItem {
   updatedBy?: string | null;
 }
 
+export interface CatalogCategory {
+  id: number;
+  name: string;
+  imageUrl?: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 /**
  * Axios client for the Clucky staff/admin app.
- * All requests go through the API Gateway (`VITE_API_URL`, default http://localhost:8080).
+ * All requests go through the API Gateway (`VITE_API_URL`, same-origin when empty).
  */
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_URL ?? '',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
   timeout: 15000,
@@ -97,14 +106,55 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/* ---------- INT-05: 401 handling with single-flight refresh ---------- */
+let refreshPromise: Promise<boolean> | null = null;
+
+function tryRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = api
+      .post<AuthTokens>('/api/auth/refresh')
+      .then((r) => {
+        const token = r.data?.accessToken;
+        if (typeof token !== 'string' || !token) return false;
+        if (typeof token === 'string') {
+          localStorage.setItem('clucky_admin_access_token', token);
+        }
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+type RetriableConfig = import('axios').InternalAxiosRequestConfig & { _retried?: boolean };
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error: import('axios').AxiosError) => {
+    const status = error.response?.status;
+    const original = error.config as RetriableConfig | undefined;
+    const url: string = original?.url ?? '';
+    const isAuthPath = url.startsWith('/api/auth/');
+    if (status === 401 && original && !original._retried && !isAuthPath) {
+      original._retried = true;
+      if (await tryRefresh()) {
+        return api.request(original);
+      }
+      localStorage.removeItem('clucky_admin_access_token');
+      window.location.assign('/login');
+    }
+    return Promise.reject(error);
+  },
+);
+
 export function getErrorMessage(err: unknown, _fallback?: string): string {
   return resolveError(err);
 }
 
 /* ---------- Auth ---------- */
-export interface LoginPayload { email: string; password: string }
-export interface ForgotPasswordPayload { email: string }
-export interface ResetPasswordPayload { email: string; otp: string; newPassword: string }
 export interface AuthTokens {
   accessToken: string;
   refreshToken?: string;
@@ -114,6 +164,9 @@ export interface AuthTokens {
   fullName?: string;
 }
 
+export interface LoginPayload { email: string; password: string }
+export interface ForgotPasswordPayload { email: string }
+export interface ResetPasswordPayload { email: string; otp: string; newPassword: string }
 export const authApi = {
   login: (body: LoginPayload) => api.post<AuthTokens>('/api/auth/login', body).then((r) => r.data),
   refresh: () => api.post<AuthTokens>('/api/auth/refresh').then((r) => r.data),
@@ -132,14 +185,6 @@ export interface AdminUser {
   storeId?: number;
   storeName?: string;
   status: 'ACTIVE' | 'LOCKED';
-}
-
-export interface CatalogCategory {
-  id: number;
-  name: string;
-  imageUrl?: string;
-  sortOrder: number;
-  isActive: boolean;
 }
 
 export const usersApi = {
@@ -369,6 +414,20 @@ export const partyOrdersApi = {
       .then((r) => r.data),
 };
 
+/* ---------- Promotions & Vouchers ---------- */
+export const promotionsApi = {
+  listVouchers: (params?: { scope?: string; storeId?: number; status?: string; keyword?: string }, signal?: AbortSignal) =>
+    api.get<AdminVoucher[]>('/api/promotions/vouchers', { params, signal }).then((r) => r.data),
+  getVoucher: (id: number | string, signal?: AbortSignal) =>
+    api.get<AdminVoucher>(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
+  createVoucher: (data: VoucherPayload, signal?: AbortSignal) =>
+    api.post<AdminVoucher>('/api/promotions/vouchers', data, { signal }).then((r) => r.data),
+  updateVoucher: (id: number | string, data: VoucherPayload, signal?: AbortSignal) =>
+    api.put<AdminVoucher>(`/api/promotions/vouchers/${id}`, data, { signal }).then((r) => r.data),
+  deleteVoucher: (id: number | string, signal?: AbortSignal) =>
+    api.delete(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
+};
+
 /* ---------- Catalog & Products ---------- */
 export const catalogApi = {
   listProducts: (params?: { storeId?: number; categoryId?: number; keyword?: string; activeOnly?: boolean }) =>
@@ -447,20 +506,6 @@ export const inventoryApi = {
     api.put<InventoryItem>(`/api/stores/${storeId}/inventory/${productId}`, data).then((r) => r.data),
   updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean }) =>
     api.put(`/api/stores/${storeId}/products/${productId}/availability`, data).then((r) => r.data),
-};
-
-/* ---------- Promotions & Vouchers ---------- */
-export const promotionsApi = {
-  listVouchers: (params?: { scope?: string; storeId?: number; status?: string; keyword?: string }, signal?: AbortSignal) =>
-    api.get<AdminVoucher[]>('/api/promotions/vouchers', { params, signal }).then((r) => r.data),
-  getVoucher: (id: number | string, signal?: AbortSignal) =>
-    api.get<AdminVoucher>(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
-  createVoucher: (data: VoucherPayload, signal?: AbortSignal) =>
-    api.post<AdminVoucher>('/api/promotions/vouchers', data, { signal }).then((r) => r.data),
-  updateVoucher: (id: number | string, data: VoucherPayload, signal?: AbortSignal) =>
-    api.put<AdminVoucher>(`/api/promotions/vouchers/${id}`, data, { signal }).then((r) => r.data),
-  deleteVoucher: (id: number | string, signal?: AbortSignal) =>
-    api.delete(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
 };
 
 export default api;

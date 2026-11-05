@@ -172,12 +172,14 @@ public class VoucherService {
      */
     @Transactional
     public VoucherResponse createVoucher(VoucherRequest request, Long actorId, String actorRole, Long actorStoreId) {
-        validateVoucherRequest(request, null);
-
+        requireEditor(actorId, actorRole);
         // RBAC: Store Manager can only propose/create vouchers for their assigned store
         if ("STORE_MANAGER".equalsIgnoreCase(actorRole)) {
             if (actorStoreId == null) {
                 throw new BadRequestException("Store Manager chưa được phân công chi nhánh");
+            }
+            if (request.getStoreId() != null && !request.getStoreId().equals(actorStoreId)) {
+                throw new ApiException(ErrorCode.FORBIDDEN);
             }
             request.setScope(VoucherScope.STORE);
             request.setStoreId(actorStoreId);
@@ -187,6 +189,7 @@ public class VoucherService {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
 
+        validateVoucherRequest(request, null);
         Voucher voucher = new Voucher();
         mapDtoToEntity(request, voucher);
         voucher.setCreatedBy(actorId);
@@ -302,16 +305,22 @@ public class VoucherService {
      */
     @Transactional
     public VoucherResponse updateVoucher(Long id, VoucherRequest request, Long actorId, String actorRole, Long actorStoreId) {
-        Voucher existing = voucherRepository.findById(id)
+        requireEditor(actorId, actorRole);
+        Voucher existing = voucherRepository.findByIdWithLock(id)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy voucher với id: " + id));
 
         // RBAC check for Store Manager
         if ("STORE_MANAGER".equalsIgnoreCase(actorRole)) {
             if (actorStoreId == null || existing.getStoreId() == null || !existing.getStoreId().equals(actorStoreId)) {
-                throw new BadRequestException("Store Manager chỉ được chỉnh sửa voucher thuộc chi nhánh của mình");
+                throw new ApiException(ErrorCode.FORBIDDEN);
+            }
+            if (request.getStoreId() != null && !request.getStoreId().equals(actorStoreId)) {
+                throw new ApiException(ErrorCode.FORBIDDEN);
             }
             request.setScope(VoucherScope.STORE);
             request.setStoreId(actorStoreId);
+            request.setStatus(VoucherStatus.PENDING_APPROVAL);
+            existing.setApprovedBy(null);
         }
 
         validateVoucherRequest(request, id);
@@ -326,12 +335,13 @@ public class VoucherService {
      */
     @Transactional
     public void deleteVoucher(Long id, Long actorId, String actorRole, Long actorStoreId) {
-        Voucher existing = voucherRepository.findById(id)
+        requireEditor(actorId, actorRole);
+        Voucher existing = voucherRepository.findByIdWithLock(id)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy voucher với id: " + id));
 
         if ("STORE_MANAGER".equalsIgnoreCase(actorRole)) {
             if (actorStoreId == null || existing.getStoreId() == null || !existing.getStoreId().equals(actorStoreId)) {
-                throw new BadRequestException("Store Manager chỉ được thao tác với voucher thuộc chi nhánh của mình");
+                throw new ApiException(ErrorCode.FORBIDDEN);
             }
         }
 
@@ -341,6 +351,13 @@ public class VoucherService {
             voucherRepository.save(existing);
         } else {
             voucherRepository.delete(existing);
+        }
+    }
+
+    private void requireEditor(Long actorId, String actorRole) {
+        if (actorId == null || actorRole == null) throw new ApiException(ErrorCode.UNAUTHENTICATED);
+        if (!"ADMIN".equalsIgnoreCase(actorRole) && !"STORE_MANAGER".equalsIgnoreCase(actorRole)) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
         }
     }
 

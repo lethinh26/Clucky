@@ -14,7 +14,7 @@ class CsrfOriginFilterTest {
     void cookieEndpointsRequireTrustedOrigin() throws Exception {
         var filter = new CsrfOriginFilter(new AuthProperties(null, null, null, null,
                 List.of("http://localhost:3000")), new ObjectMapper().findAndRegisterModules());
-        for (String path : List.of("/api/auth/logout", "/api/auth/refresh")) {
+        for (String path : List.of("/api/auth/logout", "/api/auth/refresh", "/api/auth/google", "/api/auth/google/complete")) {
             for (String origin : new String[]{null, "https://untrusted.example", "http://localhost:3000"}) {
                 var request = new MockHttpServletRequest("POST", path);
                 if (origin != null) request.addHeader("Origin", origin);

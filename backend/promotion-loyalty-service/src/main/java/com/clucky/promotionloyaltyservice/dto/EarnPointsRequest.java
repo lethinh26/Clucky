@@ -1,23 +1,17 @@
 package com.clucky.promotionloyaltyservice.dto;
 
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record EarnPointsRequest(
-        @NotNull(message = "customerId không được để trống")
-        @Positive(message = "customerId phải là số dương")
-        Long customerId,
-
-        @NotNull(message = "orderId không được để trống")
-        @Positive(message = "orderId phải là số dương")
-        Long orderId,
-
-        @NotNull(message = "orderAmount không được để trống")
-        @DecimalMin(value = "0", message = "orderAmount không được âm")
-        @Digits(integer = 12, fraction = 0, message = "Số tiền tối đa 12 chữ số nguyên, không phần lẻ")
-        BigDecimal orderAmount
+        @NotNull @Positive Long customerId,
+        @Positive Long orderId,
+        @PositiveOrZero BigDecimal orderAmount,
+        @PositiveOrZero Integer points,
+        @Size(max = 64) String operationKey,
+        @Size(max = 255) String reason
 ) {}
 

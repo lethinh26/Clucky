@@ -26,8 +26,9 @@ clucky:
     issuer: ${IDENTITY_ISSUER_URI:}
   catalog:
     service-token: ${CATALOG_SERVICE_TOKEN:}
-    service-url: ${CATALOG_SERVICE_URL:http://localhost:8082}
+    service-url: ${CATALOG_SERVICE_URL:http://catalog-store-service}
   shipping:
-    service-url: ${SHIPPING_SERVICE_URL:http://localhost:8086}
+    service-url: ${SHIPPING_SERVICE_URL:http://shipping-service}
   promotion:
-    service-url: ${PROMOTION_SERVICE_URL:http://localhost:8085}
+    service-token: ${PROMOTION_SERVICE_TOKEN:}
+    service-url: ${PROMOTION_SERVICE_URL:http://promotion-loyalty-service}

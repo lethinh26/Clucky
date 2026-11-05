@@ -1,19 +1,15 @@
 package com.clucky.promotionloyaltyservice.dto;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 public record LoyaltyReleaseRequest(
-        @NotNull(message = "customerId không được để trống")
-        @Positive(message = "customerId phải là số dương")
-        Long customerId,
-
-        @NotNull(message = "points không được để trống")
-        @Positive(message = "Số điểm hoàn trả phải lớn hơn 0")
-        Integer points,
-
-        @NotNull(message = "orderId không được để trống")
-        @Positive(message = "orderId phải là số dương")
-        Long orderId
+        @NotNull @Positive Long customerId,
+        @NotNull @Min(1) Integer points,
+        @NotNull @Positive Long orderId,
+        @Size(max = 64) String operationKey,
+        @Size(max = 255) String reason
 ) {}
 

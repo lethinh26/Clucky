@@ -71,11 +71,13 @@ class JwtIssuerTest {
 
     @Test
     void expiredRefreshTokenIsRejected() throws Exception {
-        JwtIssuer negative = new JwtIssuer(new JwtSettings(SECRET, "clucky-identity", "clucky-api"),
-                new AuthProperties(Duration.ofMinutes(30), Duration.ofSeconds(-1), Duration.ofMinutes(5),
-                        new AuthProperties.Cookie(false), List.of()));
-        String token = negative.issueRefreshToken(1L, "sid", "jti");
-        assertThrows(ApiException.class, () -> negative.verifyAndParseRefreshToken(token));
+        var original = com.nimbusds.jwt.SignedJWT.parse(issuer().issueRefreshToken(1L, "sid", "jti"));
+        var claims = new com.nimbusds.jwt.JWTClaimsSet.Builder(original.getJWTClaimsSet())
+                .issueTime(java.util.Date.from(java.time.Instant.now().minusSeconds(120)))
+                .expirationTime(java.util.Date.from(java.time.Instant.now().minusSeconds(60))).build();
+        var expired = new com.nimbusds.jwt.SignedJWT(original.getHeader(), claims);
+        expired.sign(new com.nimbusds.jose.crypto.MACSigner(SECRET));
+        assertThrows(ApiException.class, () -> issuer().verifyAndParseRefreshToken(expired.serialize()));
     }
 
     @Test
