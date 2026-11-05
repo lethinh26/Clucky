@@ -1,6 +1,6 @@
 # [TEST-24] Secret masking: App Password absent from logs/API
 
-> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
 
 ## Thông tin quản lý
 
@@ -29,6 +29,18 @@ App Password và credential sender không lọt vào Git, API, log hoặc artifa
 
 Không tuyên bố security toàn hệ hoặc quét credential tài khoản ngoài scope.
 
+### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
+
+Notification có SafeLog/config placeholders; phải rà cả API/email-log/DLQ/exception/artifact, không chỉ grep một biến trong source. Không đọc credential ngoài workspace/task được phép hoặc dán phát hiện secret thật vào report.
+
+- [backend/notification-service](../../backend/notification-service)
+- [.env.mail-sender.example](../../.env.mail-sender.example)
+- [architechture/tasks/BE-57.md](../../architechture/tasks/BE-57.md)
+- [architechture/tasks/BE-67.md](../../architechture/tasks/BE-67.md)
+- [architechture/docs/observability.md](../../architechture/docs/observability.md)
+
+Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
+
 ## 3. Đầu vào, đầu ra và contract
 
 | Thành phần | Chi tiết cần bàn giao |
@@ -39,11 +51,18 @@ Không tuyên bố security toàn hệ hoặc quét credential tài khoản ngo�
 
 Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
 
-## 4. Luồng xử lý / cách thực hiện
+### Mapping phải ghi trước khi nối luồng
 
-1. Rà tracked files/example configs
-2. Gây lỗi sender có kiểm soát và đọc API/log
-3. Kiểm tra log detail/config exposure và evidence artifacts
+Inventory chỉ tên biến/nguồn config/sink, dùng marker synthetic không phải secret thật. Coverage tracked files, example config, response/log/diagnostics/DLQ và evidence; findings ghi file/field/path/redacted context, không sao chép giá trị bí mật.
+
+## 4. Thứ tự thực hiện cụ thể
+
+1. Nhận secret inventory tên biến từ owner và phạm vi scan repository/runtime artifacts, không tự quét tài khoản/máy ngoài scope.
+2. Lập checklist tracked files/env examples chỉ placeholder; nếu phát hiện thật báo owner riêng để rotate/revoke, không in toàn dòng secret.
+3. Thiết kế synthetic marker trong cấu hình test để kích hoạt exception/sender lỗi có kiểm soát khi người dùng chạy.
+4. Theo marker qua response, logs, email-log detail, diagnostic/config endpoint và DLQ headers/body; backend phải redact trước lưu/xuất, không chỉ UI che.
+5. Rà screenshot/collection/report sau che và metadata/attachments có thể lộ; lưu evidence không chứa marker giá trị nhạy cảm thực.
+6. Bàn giao coverage/negative evidence/findings/PIC/retest; không tuyên bố security toàn hệ thống từ bài kiểm App Password.
 
 ## 5. Quy tắc và điểm cần chốt
 
@@ -52,6 +71,10 @@ Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint �
 **Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
 
 Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+### Quyết định có owner và phần bị chặn
+
+PIC security/Notification chốt marker và cách scan không echo secret; nếu cần lịch sử Git ghi phạm vi được duyệt. Secret thật phải rotate theo owner, xóa khỏi report không thay revocation.
 
 ## 6. Dependency và bàn giao
 
@@ -70,28 +93,29 @@ Phương án được ghi là “cần chốt/đề xuất” chưa phải quy�
 
 **Task nhận đầu ra theo dependency đã khai báo:** Chưa có task khai báo phụ thuộc trong snapshot.
 
-## 7. Tiêu chí nghiệm thu
+## 7. Tiêu chí nghiệm thu cụ thể
 
-| AC | Điều kiện / thao tác | Kết quả mong đợi |
+| AC | Fixture / thao tác | Kết quả mong đợi |
 |---|---|---|
-| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Security regression findings có vị trí/redaction và không lưu bản secret trong báo cáo. |
+| AC-01 | Marker test đi qua sender failure và API/log/DLQ theo checklist | Không xuất marker/credential trong sink, vẫn đủ error category/correlation để debug |
 | AC-02 | Exception chứa credential | Không xuất giá trị qua response/log |
 | AC-03 | .env.example | Chỉ placeholder |
 | AC-04 | Evidence screenshot/file | Không chứa secret sau che |
+| AC-05 | Tracked .env.example/config và collection/evidence artifacts | Chỉ placeholder/redacted, không private key/token/password thật |
+| AC-06 | Phát hiện secret thật trong phạm vi được phép | Ghi vị trí đã mask, thông báo owner xử lý/rotate; không chép secret vào backlog hoặc screenshot |
 
-Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
 
 ## 8. Checklist và bằng chứng bàn giao
 
 - [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
-- [ ] AC-02: Exception chứa credential — ghi kết quả và evidence.
-- [ ] AC-03: .env.example — ghi kết quả và evidence.
-- [ ] AC-04: Evidence screenshot/file — ghi kết quả và evidence.
 - [ ] Bàn giao bằng chứng cụ thể: File/response/log locations, masked findings và retest outcome.
 - [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
 
-
+- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
+- [ ] Bàn giao sink coverage và findings redacted với severity/owner/retest; không chạy scanner/runtime fault trong lần biên soạn.
+- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
+- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
 
 ## 9. Truy vết gộp task
 
@@ -99,18 +123,14 @@ Không
 
 Không có ID gộp trực tiếp vào task này.
 
-## 10. Tài liệu nguồn
+## 10. Tài liệu và source cần đọc
 
-- [SRS.md](../../architechture/docs/SRS.md)
-- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
-- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
-- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
-- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
-- [schema.sql](../../architechture/database/schema.sql)
-- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
-- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
-- [Danh mục error code](../../contracts/errors.json)
-- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+- [backend/notification-service](../../backend/notification-service)
+- [.env.mail-sender.example](../../.env.mail-sender.example)
+- [architechture/tasks/BE-57.md](../../architechture/tasks/BE-57.md)
+- [architechture/tasks/BE-67.md](../../architechture/tasks/BE-67.md)
+- [architechture/docs/observability.md](../../architechture/docs/observability.md)
+- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
 
 ## 11. Metadata và lịch sử kế hoạch
 

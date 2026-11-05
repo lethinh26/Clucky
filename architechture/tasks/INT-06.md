@@ -1,6 +1,6 @@
 # [INT-06] Menu/catalog E2E: browse, search, availability theo quán
 
-> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
 
 ## Thông tin quản lý
 
@@ -29,6 +29,18 @@ Menu Customer lấy dữ liệu Catalog thật qua Gateway và phản ánh đún
 
 Không CRUD admin hoặc performance certification TEST-13.
 
+### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
+
+Menu đã gọi catalogApi theo storeId; ProductCard mang storeId sang detail. selectedCategory khởi tạo từ cat nhưng cần rà thay đổi URL trên cùng trang. Home/detail có catch chuyển về rỗng/null, không coi đó là xử lý lỗi E2E hoàn chỉnh.
+
+- [frontend/nextjs/app/menu/page.tsx](../../frontend/nextjs/app/menu/page.tsx)
+- [frontend/nextjs/components/product-card.tsx](../../frontend/nextjs/components/product-card.tsx)
+- [frontend/nextjs/lib/api.ts](../../frontend/nextjs/lib/api.ts)
+- [backend/catalog-store-service](../../backend/catalog-store-service)
+- [architechture/tasks/BE-54.md](../../architechture/tasks/BE-54.md)
+
+Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
+
 ## 3. Đầu vào, đầu ra và contract
 
 | Thành phần | Chi tiết cần bàn giao |
@@ -39,11 +51,18 @@ Không CRUD admin hoặc performance certification TEST-13.
 
 Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
 
-## 4. Luồng xử lý / cách thực hiện
+### Mapping phải ghi trước khi nối luồng
 
-1. Chọn store và tải menu
-2. Search/category/filter giữ đúng query
-3. Mở detail và kiểm tra availability sau mutation
+Ghi query cat/storeId/keyword/pagination thực được API hỗ trợ, response list/detail/availability và cache key theo quán. Chốt lọc client hay server với Catalog; không đổi chiến lược ngầm hoặc tải tất cả khi contract phân trang.
+
+## 4. Thứ tự thực hiện cụ thể
+
+1. Đối chiếu public Catalog routes qua Gateway và DTO thực với Menu/Home/detail; ghi endpoint/field còn thiếu.
+2. Chuẩn bị cùng món tại quán A còn hàng và B hết hàng, một danh mục rỗng và ID không hợp lệ.
+3. Nối list/search/filter theo query đã duyệt; đồng bộ cat/storeId với reload và Back/Forward, không dùng index làm category ID.
+4. Nối detail và đường quay lại giữ quán; response lỗi phải tách not-found/empty/network thay vì mock success.
+5. Xử lý đổi quán nhanh: hủy hoặc bỏ response cũ, clear state stale; sau availability mutation dùng cơ chế invalidation/refetch đã thống nhất BE-54.
+6. Bàn giao request matrix, cache-scope evidence và case lỗi/retry cho người dùng kiểm chứng; không khẳng định runtime chỉ từ source đã gọi API.
 
 ## 5. Quy tắc và điểm cần chốt
 
@@ -52,6 +71,10 @@ Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint �
 **Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
 
 Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+### Quyết định có owner và phần bị chặn
+
+PIC tích hợp và Catalog chốt pagination/cache TTL/invalidation và cách phản ánh unknown availability. Thiếu invalidation thì ghi blocker mutation→browse; không tự nới thời gian stale để AC pass.
 
 ## 6. Dependency và bàn giao
 
@@ -71,28 +94,31 @@ Phương án được ghi là “cần chốt/đề xuất” chưa phải quy�
 
 **Task nhận đầu ra theo dependency đã khai báo:** [TEST-01](TEST-01.md), [TEST-17](TEST-17.md)
 
-## 7. Tiêu chí nghiệm thu
+## 7. Tiêu chí nghiệm thu cụ thể
 
-| AC | Điều kiện / thao tác | Kết quả mong đợi |
+| AC | Fixture / thao tác | Kết quả mong đợi |
 |---|---|---|
-| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Browse/search/filter/detail nối API thay mock trong phạm vi tích hợp. |
+| AC-01 | Chọn A, tìm món, mở detail, đổi sang B với availability khác | List/detail và link giữ đúng scope; B không nhận state còn hàng của A |
 | AC-02 | Đổi store | Không tái dùng menu/cache sai quán |
 | AC-03 | API lỗi | Loading kết thúc và có retry |
 | AC-04 | Không có kết quả | Empty đúng, không fallback mock như dữ liệu thật |
+| AC-05 | Response A đến sau B và thao tác Back/Forward đổi cat | Kết quả và sidebar khớp URL hiện tại, không bị response cũ ghi đè |
+| AC-06 | Tắt availability tại quán rồi tải lại theo policy cache | Món phản ánh thay đổi trong giới hạn đã duyệt; không fallback fixture khi API lỗi |
 
-Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
 
 ## 8. Checklist và bằng chứng bàn giao
 
 - [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
-- [ ] AC-02: Đổi store — ghi kết quả và evidence.
-- [ ] AC-03: API lỗi — ghi kết quả và evidence.
-- [ ] AC-04: Không có kết quả — ghi kết quả và evidence.
 - [ ] Bàn giao bằng chứng cụ thể: Gateway requests, two-store data và loading/error/empty/reload cases.
 - [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
 
 - Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
+
+- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
+- [ ] Bàn giao bảng query/DTO/cache key, trace A/B và invalidation cùng owner BE-54/INT-54; giữ riêng kết quả UI và API thật.
+- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
+- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
 
 ## 9. Truy vết gộp task
 
@@ -100,19 +126,14 @@ DEP-14: Catalog smoke test + menu seed/runbook
 
 Không mở lại các ID đã gộp; phần việc gộp phải được kiểm chứng cùng task đích.
 
-## 10. Tài liệu nguồn
+## 10. Tài liệu và source cần đọc
 
-- [SRS.md](../../architechture/docs/SRS.md)
-- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
-- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
-- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
-- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
-- [schema.sql](../../architechture/database/schema.sql)
-- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
-- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
-- [Danh mục error code](../../contracts/errors.json)
-- [Brand Guidelines](../docs/Brand_Guidelines.md)
-- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+- [frontend/nextjs/app/menu/page.tsx](../../frontend/nextjs/app/menu/page.tsx)
+- [frontend/nextjs/components/product-card.tsx](../../frontend/nextjs/components/product-card.tsx)
+- [frontend/nextjs/lib/api.ts](../../frontend/nextjs/lib/api.ts)
+- [backend/catalog-store-service](../../backend/catalog-store-service)
+- [architechture/tasks/BE-54.md](../../architechture/tasks/BE-54.md)
+- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
 
 ## 11. Metadata và lịch sử kế hoạch
 
