@@ -6,10 +6,17 @@ import sys
 import tempfile
 import unittest
 
-from prepare import prepare
+from prepare import prepare, validate_environment
 
 
 class BackendEnvironmentTest(unittest.TestCase):
+    def test_report_policy_requires_explicit_supported_selection(self):
+        for policy in ("false", "order.completed", "payment.confirmed"):
+            values = validate_environment(json.dumps({**self.values, "REPORT_REVENUE_EVENT": policy}))
+            self.assertEqual(policy, values["REPORT_REVENUE_EVENT"])
+        with self.assertRaises(ValueError):
+            validate_environment(json.dumps({**self.values, "REPORT_REVENUE_EVENT": "first-arrival"}))
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
