@@ -50,17 +50,12 @@ export default function CheckoutPage() {
   const [orderNote, setOrderNote] = useState("");
 
   // Voucher & Loyalty states (Contract slots with M5)
-  const [voucherInput, setVoucherInput] = useState("CLUCKYGIAM20");
+  const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<{
     code: string;
     discount: number;
-  } | null>({
-    code: "CLUCKYGIAM20",
-    discount: 20000,
-  });
-  const [voucherMsg, setVoucherMsg] = useState(
-    "business.checkout.theDiscountHasBeenApplied",
-  );
+  } | null>(null);
+  const [voucherMsg, setVoucherMsg] = useState("");
   const [usePoints, setUsePoints] = useState(false);
 
   // Server-preview breakdown
@@ -104,9 +99,11 @@ export default function CheckoutPage() {
     let active = true;
     const payloadItems: CartItemPayload[] = items.map((it) => ({
       productId:
+        it.productId ||
         Number(it.slug?.replace(/\D/g, "")) ||
         Number(it.id?.replace(/\D/g, "")) ||
-        1,
+        undefined,
+      comboId: it.comboId,
       itemName: it.name,
       unitPrice: it.unitPrice,
       quantity: it.quantity,
@@ -153,16 +150,47 @@ export default function CheckoutPage() {
   const handleApplyVoucher = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = voucherInput.trim().toUpperCase();
-    if (cleanCode === "CLUCKYGIAM20") {
-      setAppliedVoucher({ code: "CLUCKYGIAM20", discount: 20000 });
-      setVoucherMsg("business.checkout.theDiscountHasBeenApplied");
-    } else if (cleanCode === "CLUCKYFREESHIP") {
-      setAppliedVoucher({ code: "CLUCKYFREESHIP", discount: 20000 });
-      setVoucherMsg("business.checkout.freeDeliveryApplied");
-    } else {
+    if (!cleanCode) {
       setAppliedVoucher(null);
-      setVoucherMsg("business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
+      setVoucherMsg("");
+      return;
     }
+    const payloadItems: CartItemPayload[] = items.map((it) => ({
+      productId:
+        it.productId ||
+        Number(it.slug?.replace(/\D/g, "")) ||
+        Number(it.id?.replace(/\D/g, "")) ||
+        undefined,
+      comboId: it.comboId,
+      itemName: it.name,
+      unitPrice: it.unitPrice,
+      quantity: it.quantity,
+      optionsSnapshot: it.options,
+      toppingsSnapshot: it.toppings,
+      note: it.note,
+    }));
+    orderApi
+      .preview({
+        storeId: Number(selectedStore) || 1,
+        type: orderType,
+        items: payloadItems,
+        voucherCode: cleanCode,
+        pointsUsed: usePoints ? 50 : 0,
+        address: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+      })
+      .then((res) => {
+        if (res && res.valid && res.discountAmount > 0) {
+          setAppliedVoucher({ code: cleanCode, discount: res.discountAmount });
+          setVoucherMsg("business.checkout.theDiscountHasBeenApplied");
+        } else {
+          setAppliedVoucher(null);
+          setVoucherMsg(res?.message || "business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
+        }
+      })
+      .catch(() => {
+        setAppliedVoucher(null);
+        setVoucherMsg("business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
+      });
   };
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -174,9 +202,11 @@ export default function CheckoutPage() {
 
     const payloadItems: CartItemPayload[] = items.map((it) => ({
       productId:
+        it.productId ||
         Number(it.slug?.replace(/\D/g, "")) ||
         Number(it.id?.replace(/\D/g, "")) ||
-        1,
+        undefined,
+      comboId: it.comboId,
       itemName: it.name,
       unitPrice: it.unitPrice,
       quantity: it.quantity,
@@ -188,6 +218,7 @@ export default function CheckoutPage() {
     const payload: CreateOrderPayload = {
       storeId: Number(selectedStore) || 1,
       type: orderType,
+      paymentMethod: paymentMethod,
       items: payloadItems,
       voucherCode: appliedVoucher?.code,
       pointsUsed: usePoints ? 50 : 0,
@@ -200,7 +231,7 @@ export default function CheckoutPage() {
 
     try {
       const backendOrder = await createOrder(payload);
-      const targetId = backendOrder.orderCode || String(backendOrder.id);
+      const targetId = String(backendOrder.id);
       router.push(`/orders/${targetId}`);
     } catch (err: any) {
       console.error("Order creation failed:", err);

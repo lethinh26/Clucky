@@ -33,6 +33,10 @@ const storageKey = "clucky-order-workspace-v1";
 const cartSchema = z.array(
   z.object({
     id: z.string(),
+    productId: z.number().optional(),
+    comboId: z.number().optional(),
+    itemType: z.enum(["PRODUCT", "COMBO"]).optional(),
+    itemKey: z.string().optional(),
     slug: z.string(),
     name: z.string(),
     category: z.string(),
@@ -180,8 +184,12 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
     pointsAmount: Number(be.pointsAmount),
     shippingFee: Number(be.shippingFee),
     totalAmount: Number(be.totalAmount),
-    paymentMethod: "COD",
-    paymentStatus: currentStatus === "PENDING_PAYMENT" ? "PENDING" : "PAID",
+    paymentMethod: (be.paymentMethod as Order["paymentMethod"]) || (be.status === "PENDING_PAYMENT" ? "BANK_TRANSFER" : "COD"),
+    paymentStatus: be.status === "CANCELLED"
+      ? "FAILED"
+      : (be.paymentMethod === "BANK_TRANSFER" || be.status === "PENDING_PAYMENT")
+        ? (be.status === "PENDING_PAYMENT" ? "PENDING" : "PAID")
+        : (be.status === "COMPLETED" ? "PAID" : "PENDING"),
     receiverName: be.receiverName,
     receiverPhone: be.receiverPhone,
     deliveryAddress: be.deliveryAddress,
@@ -196,6 +204,10 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
 function mapBackendCartItemToCartItem(be: BackendCartItem): CartItem {
   return {
     id: be.itemKey,
+    itemKey: be.itemKey,
+    productId: be.productId,
+    comboId: be.comboId,
+    itemType: be.productId ? "PRODUCT" : be.comboId ? "COMBO" : undefined,
     slug: String(be.productId || be.comboId || be.itemKey),
     name: be.itemName,
     category: "Food",
@@ -340,8 +352,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         items: addCartItem(prev.items, item),
       }));
+      const pId = item.productId ?? (Number(item.id) || undefined);
+      const cId = item.comboId;
       cartApi.addItem({
-        productId: Number(item.id) || undefined,
+        productId: pId,
+        comboId: cId,
         itemName: item.name,
         unitPrice: item.unitPrice,
         quantity: item.quantity,
@@ -449,38 +464,8 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           orders: prev.orders.map((o) => (o.id === id || o.orderCode === id ? mapped : o)),
         }));
       } catch (err) {
-        console.warn("Cancel order backend error, applying local state:", err);
-        setWorkspace((prev) => ({
-          ...prev,
-          orders: prev.orders.map((order) => {
-            if (
-              (order.id !== id && order.orderCode !== id) ||
-              !["PENDING_PAYMENT", "CONFIRMED"].includes(order.status)
-            )
-              return order;
-            return {
-              ...order,
-              status: "CANCELLED",
-              updatedAt: new Date().toISOString(),
-              refundStatus:
-                order.paymentStatus === "PAID" &&
-                order.paymentMethod === "BANK_TRANSFER"
-                  ? "PENDING"
-                  : order.refundStatus,
-              timeline: [
-                ...order.timeline.map((step) => ({ ...step, current: false })),
-                {
-                  status: "CANCELLED",
-                  title: getTranslator(getBrowserLocale())("business.orderprovider.orderCancelled"),
-                  description: reason.trim(),
-                  time: new Date().toISOString(),
-                  done: true,
-                  current: true,
-                },
-              ],
-            };
-          }),
-        }));
+        console.error("Cancel order backend error:", err);
+        throw err;
       }
     },
     [setWorkspace],
@@ -489,17 +474,17 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const reorder = useCallback(
     async (order: Order) => {
       try {
-        const beOrder = await orderApi.reorder(order.id);
-        if (beOrder) {
-          const mapped = mapBackendOrderToOrder(beOrder);
+        const cartDto = await orderApi.reorder(order.id);
+        if (cartDto && Array.isArray(cartDto.items)) {
+          const cartItems = cartDto.items.map(mapBackendCartItemToCartItem);
           setWorkspace((prev) => ({
             ...prev,
-            orders: [ensureDemoShipment(mapped), ...prev.orders],
+            items: cartItems,
           }));
           return;
         }
       } catch (err) {
-        console.warn("Backend reorder error, putting items back into cart:", err);
+        console.warn("Backend reorder error, putting items back into local cart:", err);
       }
       const incoming: CartItem[] = order.items.map((item) => ({
         id: crypto.randomUUID(),

@@ -63,6 +63,12 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                                 "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                                 "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/cart/merge").authenticated()
+                        .pathMatchers(HttpMethod.GET, "/api/cart").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/cart/items").permitAll()
+                        .pathMatchers(HttpMethod.PUT, "/api/cart/items/**").permitAll()
+                        .pathMatchers(HttpMethod.DELETE, "/api/cart/items/**", "/api/cart").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/orders/preview").permitAll()
                         .pathMatchers("/internal/**", "/api/payments/webhook/**").denyAll()
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.jwtAuthenticationConverter(

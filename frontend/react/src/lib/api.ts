@@ -105,6 +105,7 @@ export interface BackendOrder {
   storeId: number;
   type: 'DELIVERY' | 'PICKUP';
   status: string;
+  paymentMethod?: string;
   subtotal: number;
   discountAmount: number;
   pointsUsed: number;
@@ -130,14 +131,27 @@ export interface BackendOrder {
   }>;
 }
 
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export const ordersApi = {
   list: (
     params?: { storeId?: number; status?: string; page?: number; size?: number },
     signal?: AbortSignal
   ) =>
     api
-      .get<BackendOrder[]>('/api/orders', { params, signal })
-      .then((r) => r.data),
+      .get<any>('/api/orders', { params, signal })
+      .then((r) => {
+        if (r.data && Array.isArray(r.data.content)) {
+          return r.data.content as BackendOrder[];
+        }
+        return Array.isArray(r.data) ? (r.data as BackendOrder[]) : [];
+      }),
   getById: (id: string | number, signal?: AbortSignal) =>
     api.get<BackendOrder>(`/api/orders/${id}`, { signal }).then((r) => r.data),
   updateStatus: (
@@ -155,7 +169,7 @@ export const ordersApi = {
       .then((r) => r.data),
   cancel: (id: string | number, reason: string, signal?: AbortSignal) =>
     api
-      .post<BackendOrder>(`/api/orders/${id}/cancel`, { reason }, { signal })
+      .put<BackendOrder>(`/api/orders/${id}/cancel`, { reason }, { signal })
       .then((r) => r.data),
 };
 
@@ -179,50 +193,63 @@ export const refundsApi = {
     signal?: AbortSignal
   ) =>
     api
-      .get<BackendRefund[]>('/api/refunds', { params, signal })
-      .then((r) => r.data),
+      .get<any>('/api/refund-requests', { params, signal })
+      .then((r) => {
+        if (r.data && Array.isArray(r.data.content)) {
+          return r.data.content as BackendRefund[];
+        }
+        return Array.isArray(r.data) ? (r.data as BackendRefund[]) : [];
+      }),
   review: (
     id: string | number,
     action: 'APPROVE' | 'REJECT',
     note?: string,
     signal?: AbortSignal
-  ) =>
-    api
+  ) => {
+    const endpoint = action === 'APPROVE' ? 'approve' : 'reject';
+    return api
       .put<BackendRefund>(
-        `/api/refunds/${id}/review`,
-        { action, note },
+        `/api/refund-requests/${id}/${endpoint}`,
+        { reason: note },
         { signal }
       )
-      .then((r) => r.data),
+      .then((r) => r.data);
+  },
 };
 
 /* ---------- Party Orders ---------- */
 export interface BackendPartyOrder {
   id: number;
-  requestNumber: string;
+  requestNumber?: string;
   customerId?: number;
   storeId: number;
   contactName: string;
-  contactPhone: string;
-  contactEmail: string;
+  contactPhone?: string;
+  phone?: string;
+  contactEmail?: string;
   expectedDate: string;
-  expectedTime: string;
+  expectedTime?: string;
   guestCount: number;
-  status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'CANCELLED';
+  status: 'NEW' | 'CONTACTED' | 'QUOTED' | 'CONFIRMED' | 'CLOSED' | 'CANCELLED';
   depositAmount?: number;
   notes?: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 export const partyOrdersApi = {
   list: (
-    params?: { storeId?: number; status?: string },
+    params?: { storeId?: number; status?: string; page?: number; size?: number },
     signal?: AbortSignal
   ) =>
     api
-      .get<BackendPartyOrder[]>('/api/party-orders', { params, signal })
-      .then((r) => r.data),
+      .get<any>('/api/party-orders', { params, signal })
+      .then((r) => {
+        if (r.data && Array.isArray(r.data.content)) {
+          return r.data.content as BackendPartyOrder[];
+        }
+        return Array.isArray(r.data) ? (r.data as BackendPartyOrder[]) : [];
+      }),
   getById: (id: string | number, signal?: AbortSignal) =>
     api
       .get<BackendPartyOrder>(`/api/party-orders/${id}`, { signal })
@@ -236,7 +263,7 @@ export const partyOrdersApi = {
     api
       .put<BackendPartyOrder>(
         `/api/party-orders/${id}/status`,
-        { status, reason },
+        { status, notes: reason },
         { signal }
       )
       .then((r) => r.data),
@@ -248,16 +275,16 @@ export const partyOrdersApi = {
   ) =>
     api
       .put<BackendPartyOrder>(
-        `/api/party-orders/${id}/confirm`,
-        { depositAmount, note },
+        `/api/party-orders/${id}/status`,
+        { status: 'CONFIRMED', notes: note },
         { signal }
       )
       .then((r) => r.data),
   reject: (id: string | number, reason: string, signal?: AbortSignal) =>
     api
       .put<BackendPartyOrder>(
-        `/api/party-orders/${id}/reject`,
-        { reason },
+        `/api/party-orders/${id}/status`,
+        { status: 'CANCELLED', notes: reason },
         { signal }
       )
       .then((r) => r.data),

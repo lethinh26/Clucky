@@ -3,16 +3,18 @@ package com.clucky.cartorderservice.service;
 import com.clucky.cartorderservice.dto.DomainEvent;
 import com.clucky.cartorderservice.entity.Order;
 import com.clucky.cartorderservice.entity.OrderItem;
-import com.clucky.cartorderservice.mapper.EventMapper;
+import com.clucky.cartorderservice.entity.OutboxEvent;
+import com.clucky.cartorderservice.repository.OutboxEventRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
@@ -27,17 +29,17 @@ public class OrderEventPublisher {
     public static final String TOPIC_ORDER_COMPLETED = "order.completed";
     public static final String TOPIC_ORDER_CANCELLED = "order.cancelled";
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final EventMapper eventMapper;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final ObjectMapper objectMapper;
 
     public OrderEventPublisher(
-            KafkaTemplate<String, String> kafkaTemplate,
-            EventMapper eventMapper,
+            OutboxEventRepository outboxEventRepository,
+            ApplicationEventPublisher applicationEventPublisher,
             ObjectMapper objectMapper
     ) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.eventMapper = eventMapper;
+        this.outboxEventRepository = outboxEventRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
         this.objectMapper = objectMapper;
     }
 
@@ -69,6 +71,9 @@ public class OrderEventPublisher {
         payload.put("storeId", order.getStoreId());
         payload.put("type", order.getType());
         payload.put("status", order.getStatus());
+        if (order.getPaymentMethod() != null) {
+            payload.put("paymentMethod", order.getPaymentMethod());
+        }
 
         if (previousStatus != null) {
             payload.put("previousStatus", previousStatus);
@@ -145,7 +150,11 @@ public class OrderEventPublisher {
         return payload;
     }
 
-    private void publish(String topic, Order order, ObjectNode payload) {
+    /**
+     * Transactional Outbox Pattern: Saves outbox record in the same database transaction.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void publish(String topic, Order order, ObjectNode payload) {
         try {
             String eventId = UUID.randomUUID().toString();
             String correlationId = resolveCorrelationId();
@@ -159,21 +168,26 @@ public class OrderEventPublisher {
                     payload
             );
 
-            ProducerRecord<String, String> record = eventMapper.toRecord(event, order.getOrderCode());
-            kafkaTemplate.send(record).whenComplete((result, ex) -> {
-                if (ex != null) {
-                    LOG.warn("event=order_event_publish_failed topic={} orderCode={} error={}",
-                            topic, order.getOrderCode(), ex.getMessage());
-                } else {
-                    LOG.info("event=order_event_published topic={} orderCode={} partition={} offset={}",
-                            topic, order.getOrderCode(),
-                            result.getRecordMetadata().partition(),
-                            result.getRecordMetadata().offset());
-                }
-            });
+            String jsonPayload = objectMapper.writeValueAsString(event);
+            OutboxEvent outboxEvent = new OutboxEvent(
+                    eventId,
+                    "Order",
+                    order.getOrderCode() != null ? order.getOrderCode() : String.valueOf(order.getId()),
+                    topic,
+                    topic,
+                    jsonPayload
+            );
+
+            OutboxEvent saved = outboxEventRepository.save(outboxEvent);
+            LOG.info("event=outbox_event_saved eventId={} topic={} orderCode={}",
+                    eventId, topic, order.getOrderCode());
+
+            // Fire application event to be dispatched after transaction commit
+            applicationEventPublisher.publishEvent(new OutboxEventCreatedEvent(saved.getId(), topic, order.getOrderCode()));
         } catch (Exception ex) {
-            LOG.warn("event=order_event_publish_exception topic={} orderCode={} error={}",
-                    topic, order.getOrderCode(), ex.getMessage());
+            LOG.error("event=outbox_event_save_failed topic={} orderCode={} error={}",
+                    topic, order.getOrderCode(), ex.getMessage(), ex);
+            throw new RuntimeException("Failed to persist outbox event", ex);
         }
     }
 
@@ -184,4 +198,6 @@ public class OrderEventPublisher {
         }
         return UUID.randomUUID().toString();
     }
+
+    public record OutboxEventCreatedEvent(Long outboxId, String topic, String orderCode) {}
 }

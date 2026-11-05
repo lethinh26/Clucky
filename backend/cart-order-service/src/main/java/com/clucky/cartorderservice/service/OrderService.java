@@ -10,14 +10,12 @@ import com.clucky.cartorderservice.dto.*;
 import com.clucky.cartorderservice.entity.Order;
 import com.clucky.cartorderservice.entity.OrderItem;
 import com.clucky.cartorderservice.entity.OrderStatusHistory;
-import com.clucky.cartorderservice.entity.RefundRequest;
 import com.clucky.cartorderservice.exception.ApiException;
 import com.clucky.cartorderservice.exception.ErrorCode;
 import com.clucky.cartorderservice.mapper.DomainMapper;
 import com.clucky.cartorderservice.repository.OrderItemRepository;
 import com.clucky.cartorderservice.repository.OrderRepository;
 import com.clucky.cartorderservice.repository.OrderStatusHistoryRepository;
-import com.clucky.cartorderservice.repository.RefundRequestRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
@@ -43,37 +41,41 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService {
     private static final Logger LOG = LoggerFactory.getLogger(OrderService.class);
-    private static final BigDecimal DEFAULT_SHIPPING_FEE = new BigDecimal("20000");
-    private static final BigDecimal POINTS_CONVERSION_RATE = new BigDecimal("1000");
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
-    private final RefundRequestRepository refundRequestRepository;
     private final CartService cartService;
     private final AccessGuard accessGuard;
     private final ObjectMapper objectMapper;
     private final OrderEventPublisher orderEventPublisher;
+    private final CatalogClient catalogClient;
+    private final PromotionClient promotionClient;
+    private final ShippingClient shippingClient;
     private final Random random = new SecureRandom();
 
     public OrderService(
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             OrderStatusHistoryRepository orderStatusHistoryRepository,
-            RefundRequestRepository refundRequestRepository,
             CartService cartService,
             AccessGuard accessGuard,
             ObjectMapper objectMapper,
-            OrderEventPublisher orderEventPublisher
+            OrderEventPublisher orderEventPublisher,
+            CatalogClient catalogClient,
+            PromotionClient promotionClient,
+            ShippingClient shippingClient
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
-        this.refundRequestRepository = refundRequestRepository;
         this.cartService = cartService;
         this.accessGuard = accessGuard;
         this.objectMapper = objectMapper;
         this.orderEventPublisher = orderEventPublisher;
+        this.catalogClient = catalogClient;
+        this.promotionClient = promotionClient;
+        this.shippingClient = shippingClient;
     }
 
     public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
@@ -85,22 +87,55 @@ public class OrderService {
             );
         }
 
-        BigDecimal subtotal = items.stream()
-                .map(it -> {
-                    BigDecimal unitPrice = it.getUnitPrice() != null ? it.getUnitPrice() : BigDecimal.ZERO;
-                    int qty = it.getQuantity() != null ? it.getQuantity() : 1;
-                    return unitPrice.multiply(BigDecimal.valueOf(qty));
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Long storeId = request.storeId();
+        if (storeId == null) {
+            for (CartItemDto it : items) {
+                if (it.getStoreId() != null) {
+                    storeId = it.getStoreId();
+                    break;
+                }
+            }
+        }
+        if (storeId == null) {
+            storeId = 1L;
+        }
+
+        // Validate items with Catalog Service (P1-01)
+        CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(storeId, items);
+        if (!catalogValidation.valid() || !catalogValidation.storeOpen()) {
+            return new OrderPreviewResponse(
+                    BigDecimal.ZERO, BigDecimal.ZERO, 0, BigDecimal.ZERO,
+                    BigDecimal.ZERO, BigDecimal.ZERO, false,
+                    catalogValidation.message() != null ? catalogValidation.message() : "Sản phẩm hoặc cửa hàng không khả dụng",
+                    items
+            );
+        }
+
+        BigDecimal subtotal = catalogValidation.subtotal();
 
         String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
-        BigDecimal shippingFee = "PICKUP".equalsIgnoreCase(type) ? BigDecimal.ZERO : DEFAULT_SHIPPING_FEE;
+        // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
+        ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
+                type, storeId, request.receiverAddress(), subtotal
+        );
+        if (!shippingResult.available() && !"PICKUP".equalsIgnoreCase(type)) {
+            LOG.warn("Shipping service calculate-fee unavailable during preview storeId={} address={}",
+                    storeId, request.receiverAddress());
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
+        BigDecimal shippingFee = shippingResult.fee() != null ? shippingResult.fee() : BigDecimal.ZERO;
 
-        VoucherCalculation voucherCalc = calculateVoucher(request.voucherCode(), subtotal, shippingFee);
+        // Validate voucher with Promotion Service (P1-02)
+        PromotionClient.VoucherResult voucherCalc = promotionClient.validateVoucher(request.voucherCode(), storeId, subtotal);
         BigDecimal discountAmount = voucherCalc.discountAmount();
 
-        int pointsUsed = (request.pointsUsed() != null && request.pointsUsed() > 0) ? request.pointsUsed() : 0;
-        BigDecimal pointsAmount = BigDecimal.valueOf(pointsUsed).multiply(POINTS_CONVERSION_RATE);
+        // Validate loyalty points with Promotion Service (P1-02)
+        PromotionClient.LoyaltyResult loyaltyCalc = promotionClient.validateLoyalty(
+                request.pointsUsed(),
+                subtotal.subtract(discountAmount).add(shippingFee)
+        );
+        int pointsUsed = loyaltyCalc.pointsUsed();
+        BigDecimal pointsAmount = loyaltyCalc.pointsAmount();
 
         BigDecimal beforePoints = subtotal.subtract(discountAmount).add(shippingFee);
         if (beforePoints.compareTo(BigDecimal.ZERO) < 0) {
@@ -109,7 +144,6 @@ public class OrderService {
 
         if (pointsAmount.compareTo(beforePoints) > 0) {
             pointsAmount = beforePoints;
-            pointsUsed = pointsAmount.divide(POINTS_CONVERSION_RATE).intValue();
         }
 
         BigDecimal totalAmount = beforePoints.subtract(pointsAmount);
@@ -138,32 +172,58 @@ public class OrderService {
         CartDto cart = cartService.getCart(userCartKey);
 
         List<CartItemDto> items = (cart != null && cart.getItems() != null) ? cart.getItems() : List.of();
+        if (items.isEmpty() && request.items() != null && !request.items().isEmpty()) {
+            items = request.items();
+        }
         if (items.isEmpty()) {
+            LOG.warn("event=order_create_failed reason=cart_empty customerId={}", customerId);
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
 
         for (CartItemDto it : items) {
             if (it.getStoreId() != null && !it.getStoreId().equals(request.storeId())) {
+                LOG.warn("event=order_create_failed reason=store_mismatch itemStoreId={} requestStoreId={}",
+                        it.getStoreId(), request.storeId());
                 throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
             }
         }
 
-        BigDecimal subtotal = items.stream()
-                .map(it -> {
-                    BigDecimal unitPrice = it.getUnitPrice() != null ? it.getUnitPrice() : BigDecimal.ZERO;
-                    int qty = it.getQuantity() != null ? it.getQuantity() : 1;
-                    return unitPrice.multiply(BigDecimal.valueOf(qty));
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Validate items with Catalog Service (P1-01: Client price is NEVER trusted)
+        CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(request.storeId(), items);
+        if (!catalogValidation.valid()) {
+            LOG.warn("event=order_create_failed reason=catalog_items_invalid message={}", catalogValidation.message());
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+        if (!catalogValidation.storeOpen()) {
+            LOG.warn("event=order_create_failed reason=store_closed message={}", catalogValidation.message());
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+
+        BigDecimal subtotal = catalogValidation.subtotal();
 
         String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
-        BigDecimal shippingFee = "PICKUP".equalsIgnoreCase(type) ? BigDecimal.ZERO : DEFAULT_SHIPPING_FEE;
+        // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
+        ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
+                type, request.storeId(), request.deliveryAddress(), subtotal
+        );
+        if (!shippingResult.available() && !"PICKUP".equalsIgnoreCase(type)) {
+            LOG.warn("Shipping service calculate-fee unavailable during createOrder storeId={} address={}",
+                    request.storeId(), request.deliveryAddress());
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
+        BigDecimal shippingFee = shippingResult.fee() != null ? shippingResult.fee() : BigDecimal.ZERO;
 
-        VoucherCalculation voucherCalc = calculateVoucher(request.voucherCode(), subtotal, shippingFee);
+        // Validate voucher with Promotion Service (P1-02: No hardcoded voucher strings)
+        PromotionClient.VoucherResult voucherCalc = promotionClient.validateVoucher(request.voucherCode(), request.storeId(), subtotal);
         BigDecimal discountAmount = voucherCalc.discountAmount();
 
-        int pointsUsed = (request.pointsUsed() != null && request.pointsUsed() > 0) ? request.pointsUsed() : 0;
-        BigDecimal pointsAmount = BigDecimal.valueOf(pointsUsed).multiply(POINTS_CONVERSION_RATE);
+        // Validate loyalty points with Promotion Service (P1-02: Verified reservation)
+        PromotionClient.LoyaltyResult loyaltyCalc = promotionClient.validateLoyalty(
+                request.pointsUsed(),
+                subtotal.subtract(discountAmount).add(shippingFee)
+        );
+        int pointsUsed = loyaltyCalc.pointsUsed();
+        BigDecimal pointsAmount = loyaltyCalc.pointsAmount();
 
         BigDecimal beforePoints = subtotal.subtract(discountAmount).add(shippingFee);
         if (beforePoints.compareTo(BigDecimal.ZERO) < 0) {
@@ -172,7 +232,6 @@ public class OrderService {
 
         if (pointsAmount.compareTo(beforePoints) > 0) {
             pointsAmount = beforePoints;
-            pointsUsed = pointsAmount.divide(POINTS_CONVERSION_RATE).intValue();
         }
 
         BigDecimal totalAmount = beforePoints.subtract(pointsAmount);
@@ -181,7 +240,9 @@ public class OrderService {
         }
 
         String paymentMethod = request.paymentMethod() != null ? request.paymentMethod().trim().toUpperCase() : "COD";
-        String initialStatus = "COD".equalsIgnoreCase(paymentMethod) ? "CONFIRMED" : "PENDING_PAYMENT";
+        String initialStatus = "COD".equalsIgnoreCase(paymentMethod)
+                ? OrderStatus.CONFIRMED.name()
+                : OrderStatus.PENDING_PAYMENT.name();
 
         Order order = new Order();
         order.setOrderCode(generateOrderCode());
@@ -195,7 +256,8 @@ public class OrderService {
         order.setPointsAmount(pointsAmount);
         order.setShippingFee(shippingFee);
         order.setTotalAmount(totalAmount);
-        order.setVoucherCode(request.voucherCode() != null ? request.voucherCode().trim() : null);
+        order.setPaymentMethod(paymentMethod);
+        order.setVoucherCode(voucherCalc.valid() ? request.voucherCode().trim() : null);
         order.setReceiverName(request.receiverName().trim());
         order.setReceiverPhone(request.receiverPhone().trim());
         order.setDeliveryAddress(request.deliveryAddress());
@@ -204,17 +266,28 @@ public class OrderService {
         order = orderRepository.save(order);
 
         List<OrderItem> savedItems = new ArrayList<>();
-        for (CartItemDto it : items) {
+        for (int i = 0; i < items.size(); i++) {
+            CartItemDto it = items.get(i);
+            CatalogClient.ValidatedCatalogItem validated = i < catalogValidation.items().size()
+                    ? catalogValidation.items().get(i) : null;
+
+            BigDecimal unitPrice = (validated != null && validated.unitPrice() != null)
+                    ? validated.unitPrice() : it.getUnitPrice();
+            BigDecimal extraPrice = (validated != null && validated.extraPrice() != null)
+                    ? validated.extraPrice() : BigDecimal.ZERO;
+            String itemName = (validated != null && validated.name() != null)
+                    ? validated.name() : (it.getItemName() != null ? it.getItemName() : "Item");
+
             OrderItem item = new OrderItem();
             item.setOrderId(order.getId());
             item.setItemType(it.getProductId() != null ? "PRODUCT" : "COMBO");
             item.setProductId(it.getProductId());
             item.setComboId(it.getComboId());
-            item.setItemName(it.getItemName() != null ? it.getItemName() : "Item");
-            item.setUnitPrice(it.getUnitPrice());
+            item.setItemName(itemName);
+            item.setUnitPrice(unitPrice.add(extraPrice));
             item.setQuantity(it.getQuantity());
             item.setNote(it.getNote());
-            item.setLineTotal(it.getUnitPrice().multiply(BigDecimal.valueOf(it.getQuantity())));
+            item.setLineTotal(unitPrice.add(extraPrice).multiply(BigDecimal.valueOf(it.getQuantity())));
 
             if (it.getOptionIds() != null && !it.getOptionIds().isEmpty()) {
                 item.setOptionsSnapshot(objectMapper.valueToTree(it.getOptionIds()));
@@ -231,17 +304,17 @@ public class OrderService {
         history.setToStatus(initialStatus);
         history.setChangedBy(customerId);
         history.setChangedRole("CUSTOMER");
-        history.setReason("Order created");
+        history.setReason("Order created with payment method: " + paymentMethod);
         history.setCreatedAt(Instant.now());
         orderStatusHistoryRepository.save(history);
 
-        // Clear user cart in Redis
+        // Clear user cart in Redis only when order is successfully created
         cartService.clearCart(userCartKey);
 
-        LOG.info("event=order_created orderId={} orderCode={} customerId={} storeId={} total={}",
-                order.getId(), order.getOrderCode(), customerId, order.getStoreId(), order.getTotalAmount());
+        LOG.info("event=order_created orderId={} orderCode={} customerId={} storeId={} total={} paymentMethod={}",
+                order.getId(), order.getOrderCode(), customerId, order.getStoreId(), order.getTotalAmount(), paymentMethod);
 
-        // Publish order.created Kafka event
+        // Transactional Outbox: Saves outbox event in the same DB transaction
         orderEventPublisher.publishOrderCreated(order, savedItems);
 
         return DomainMapper.toResponse(order, savedItems, List.of(history));
@@ -255,21 +328,23 @@ public class OrderService {
         accessGuard.requireOwner(order.getCustomerId());
 
         String currentStatus = order.getStatus();
-        if (!"PENDING_PAYMENT".equalsIgnoreCase(currentStatus) && !"CONFIRMED".equalsIgnoreCase(currentStatus)) {
+        if (!OrderStatus.PENDING_PAYMENT.name().equalsIgnoreCase(currentStatus)
+                && !OrderStatus.CONFIRMED.name().equalsIgnoreCase(currentStatus)) {
+            LOG.warn("event=order_cancel_conflict orderId={} status={}", order.getId(), currentStatus);
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
-        order.setStatus("CANCELLED");
+        order.setStatus(OrderStatus.CANCELLED.name());
         order = orderRepository.save(order);
 
         OrderStatusHistory history = new OrderStatusHistory();
         history.setOrderId(order.getId());
         history.setFromStatus(currentStatus);
-        history.setToStatus("CANCELLED");
+        history.setToStatus(OrderStatus.CANCELLED.name());
         history.setChangedBy(CurrentActor.require().userId());
         history.setChangedRole("CUSTOMER");
         history.setReason(request != null && request.reason() != null && !request.reason().isBlank()
-                ? request.reason().trim() : "Order cancelled by customer");
+                ? request.reason().trim() : "Cancelled by customer");
         history.setCreatedAt(Instant.now());
         orderStatusHistoryRepository.save(history);
 
@@ -278,32 +353,42 @@ public class OrderService {
 
         LOG.info("event=order_cancelled orderId={} orderCode={} by=CUSTOMER", order.getId(), order.getOrderCode());
 
-        // Publish order.cancelled Kafka event
+        // P1.1: Release voucher and loyalty points if applied
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+        }
+        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
+            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
+        }
+
+        // Publish order.cancelled Kafka event via Transactional Outbox
         orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
 
         return DomainMapper.toResponse(order, items, histories);
     }
 
     @Transactional
-    public OrderResponse rejectOrder(Long id, RejectOrderRequest request) {
+    public OrderResponse rejectOrder(Long id, CancelOrderRequest request) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         accessGuard.requireStore(order.getStoreId());
 
         String currentStatus = order.getStatus();
-        if ("COMPLETED".equalsIgnoreCase(currentStatus) || "CANCELLED".equalsIgnoreCase(currentStatus)) {
+        if (OrderStatus.COMPLETED.name().equalsIgnoreCase(currentStatus)
+                || OrderStatus.CANCELLED.name().equalsIgnoreCase(currentStatus)) {
+            LOG.warn("event=order_reject_conflict orderId={} status={}", order.getId(), currentStatus);
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
         CurrentActor actor = CurrentActor.require();
-        order.setStatus("CANCELLED");
+        order.setStatus(OrderStatus.CANCELLED.name());
         order = orderRepository.save(order);
 
         OrderStatusHistory history = new OrderStatusHistory();
         history.setOrderId(order.getId());
         history.setFromStatus(currentStatus);
-        history.setToStatus("CANCELLED");
+        history.setToStatus(OrderStatus.CANCELLED.name());
         history.setChangedBy(actor.userId());
         history.setChangedRole(actor.role().name());
         history.setReason(request != null && request.reason() != null && !request.reason().isBlank()
@@ -316,7 +401,15 @@ public class OrderService {
 
         LOG.info("event=order_rejected orderId={} orderCode={} by={}", order.getId(), order.getOrderCode(), actor.role());
 
-        // Publish order.cancelled Kafka event
+        // P1.1: Release voucher and loyalty points if applied
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+        }
+        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
+            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
+        }
+
+        // Publish order.cancelled Kafka event via Transactional Outbox
         orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
 
         return DomainMapper.toResponse(order, items, histories);
@@ -339,7 +432,8 @@ public class OrderService {
         }
 
         boolean valid = switch (current) {
-            case "CONFIRMED" -> "PREPARING".equals(target);
+            case "PENDING_PAYMENT" -> "CONFIRMED".equals(target) || "CANCELLED".equals(target);
+            case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target);
             case "PREPARING" -> "READY".equals(target);
             case "READY" -> "SHIPPING".equals(target) || "COMPLETED".equals(target);
             case "SHIPPING" -> "COMPLETED".equals(target);
@@ -347,6 +441,7 @@ public class OrderService {
         };
 
         if (!valid) {
+            LOG.warn("event=invalid_status_transition orderId={} from={} to={}", order.getId(), current, target);
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
@@ -371,9 +466,17 @@ public class OrderService {
         LOG.info("event=order_status_updated orderId={} orderCode={} from={} to={}",
                 order.getId(), order.getOrderCode(), current, target);
 
-        // Publish Kafka event
-        if ("COMPLETED".equals(target)) {
+        // Publish Kafka event via Transactional Outbox
+        if (OrderStatus.COMPLETED.name().equals(target)) {
             orderEventPublisher.publishOrderCompleted(order, items);
+        } else if (OrderStatus.CANCELLED.name().equals(target)) {
+            if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+                promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            }
+            if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
+                promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
+            }
+            orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
         } else {
             orderEventPublisher.publishOrderStatusChanged(order, items, current);
         }
@@ -399,24 +502,26 @@ public class OrderService {
         Order order = orderOpt.get();
         String currentStatus = order.getStatus();
 
-        if ("CANCELLED".equalsIgnoreCase(currentStatus)) {
+        // Idempotency: Do not compensate already cancelled orders
+        if (OrderStatus.CANCELLED.name().equalsIgnoreCase(currentStatus)) {
             LOG.info("event=saga_order_already_cancelled orderId={} orderCode={}", order.getId(), order.getOrderCode());
             return;
         }
 
-        if (!"PENDING_PAYMENT".equalsIgnoreCase(currentStatus) && !"CONFIRMED".equalsIgnoreCase(currentStatus)) {
+        if (!OrderStatus.PENDING_PAYMENT.name().equalsIgnoreCase(currentStatus)
+                && !OrderStatus.CONFIRMED.name().equalsIgnoreCase(currentStatus)) {
             LOG.warn("event=saga_invalid_order_state orderId={} orderCode={} status={}",
                     order.getId(), order.getOrderCode(), currentStatus);
             return;
         }
 
-        order.setStatus("CANCELLED");
+        order.setStatus(OrderStatus.CANCELLED.name());
         order = orderRepository.save(order);
 
         OrderStatusHistory history = new OrderStatusHistory();
         history.setOrderId(order.getId());
         history.setFromStatus(currentStatus);
-        history.setToStatus("CANCELLED");
+        history.setToStatus(OrderStatus.CANCELLED.name());
         history.setChangedBy(null);
         history.setChangedRole("SYSTEM_SAGA");
         history.setReason(reason != null && !reason.isBlank()
@@ -429,6 +534,15 @@ public class OrderService {
         LOG.info("event=saga_order_cancelled orderId={} orderCode={} fromStatus={}",
                 order.getId(), order.getOrderCode(), currentStatus);
 
+        // P1.1: Compensate voucher and loyalty points if applied
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+        }
+        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
+            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
+        }
+
+        // Publish order.cancelled compensation event via Transactional Outbox
         orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
     }
 
@@ -492,15 +606,28 @@ public class OrderService {
         return mapToOrderResponsePage(orderPage);
     }
 
+    // P2.3: Extracted common lookup and security verification for order details
     public OrderResponse getOrderDetails(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        return buildOrderDetailsResponse(order);
+    }
 
+    // P2.3: Extracted common lookup and security verification for order details
+    public OrderResponse getOrderByCode(String orderCode) {
+        if (orderCode == null || orderCode.isBlank()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        Order order = orderRepository.findByOrderCode(orderCode.trim())
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        return buildOrderDetailsResponse(order);
+    }
+
+    private OrderResponse buildOrderDetailsResponse(Order order) {
         CurrentActor actor = CurrentActor.require();
-        if (actor.role() == com.clucky.cartorderservice.dto.Role.CUSTOMER) {
+        if (actor.role() == Role.CUSTOMER) {
             accessGuard.requireOwner(order.getCustomerId());
-        } else if (actor.role() == com.clucky.cartorderservice.dto.Role.STAFF
-                || actor.role() == com.clucky.cartorderservice.dto.Role.STORE_MANAGER) {
+        } else if (actor.role() == Role.STAFF || actor.role() == Role.STORE_MANAGER) {
             accessGuard.requireStore(order.getStoreId());
         }
 
@@ -509,102 +636,13 @@ public class OrderService {
         return DomainMapper.toResponse(order, items, history);
     }
 
-    @Transactional
-    public RefundRequestResponse createRefundRequest(CreateRefundRequest request) {
-        if (request == null || request.orderId() == null || request.reason() == null || request.reason().isBlank()) {
-            throw new ApiException(ErrorCode.VALIDATION_ERROR);
-        }
-
-        Order order = orderRepository.findById(request.orderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        accessGuard.requireOwner(order.getCustomerId());
-
-        List<RefundRequest> existing = refundRequestRepository.findAllByOrderId(order.getId());
-        boolean hasActive = existing.stream().anyMatch(r ->
-                "PENDING".equalsIgnoreCase(r.getStatus()) || "APPROVED".equalsIgnoreCase(r.getStatus()));
-        if (hasActive) {
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
-        }
-
-        RefundRequest refund = new RefundRequest();
-        refund.setOrderId(order.getId());
-        refund.setCustomerId(order.getCustomerId());
-        refund.setAmount(order.getTotalAmount());
-        refund.setReason(request.reason().trim());
-        refund.setStatus("PENDING");
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_requested orderId={} customerId={} amount={}",
-                order.getId(), order.getCustomerId(), order.getTotalAmount());
-
-        return DomainMapper.toResponse(refund);
-    }
-
-    public PageResponse<RefundRequestResponse> getRefundRequests(Long requestedStoreId, String status, Pageable pageable) {
-        CurrentActor actor = CurrentActor.require();
-        String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
-
-        Page<RefundRequest> page;
-        if (actor.role() == com.clucky.cartorderservice.dto.Role.CUSTOMER) {
-            page = refundRequestRepository.findByCustomerId(actor.userId(), pageable);
-        } else {
-            Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
-            page = refundRequestRepository.findRefundRequests(effectiveStoreId, cleanStatus, pageable);
-        }
-
-        return PageResponse.from(page.map(DomainMapper::toResponse));
-    }
-
-    @Transactional
-    public RefundRequestResponse approveRefundRequest(Long id) {
-        RefundRequest refund = refundRequestRepository.findById(id)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (!"PENDING".equalsIgnoreCase(refund.getStatus())) {
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
-        }
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        accessGuard.requireStore(order.getStoreId());
-
-        refund.setStatus("APPROVED");
-        refund.setReviewedBy(CurrentActor.require().userId());
-        refund.setReviewedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_approved refundId={} orderId={}", refund.getId(), refund.getOrderId());
-        return DomainMapper.toResponse(refund);
-    }
-
-    @Transactional
-    public RefundRequestResponse rejectRefundRequest(Long id) {
-        RefundRequest refund = refundRequestRepository.findById(id)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (!"PENDING".equalsIgnoreCase(refund.getStatus())) {
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
-        }
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        accessGuard.requireStore(order.getStoreId());
-
-        refund.setStatus("REJECTED");
-        refund.setReviewedBy(CurrentActor.require().userId());
-        refund.setReviewedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_rejected refundId={} orderId={}", refund.getId(), refund.getOrderId());
-        return DomainMapper.toResponse(refund);
-    }
-
     private PageResponse<OrderResponse> mapToOrderResponsePage(Page<Order> orderPage) {
         List<Long> orderIds = orderPage.getContent().stream().map(Order::getId).toList();
-        Map<Long, List<OrderItem>> itemsByOrderId = orderIds.isEmpty() ? Map.of() :
+        if (orderIds.isEmpty()) {
+            return PageResponse.from(orderPage.map(DomainMapper::toResponse));
+        }
+
+        Map<Long, List<OrderItem>> itemsByOrderId =
                 orderItemRepository.findByOrderIdIn(orderIds).stream()
                         .collect(Collectors.groupingBy(OrderItem::getOrderId));
 
@@ -654,33 +692,6 @@ public class OrderService {
         }
 
         return List.of();
-    }
-
-    private record VoucherCalculation(boolean valid, String message, BigDecimal discountAmount) {}
-
-    private VoucherCalculation calculateVoucher(String rawCode, BigDecimal subtotal, BigDecimal shippingFee) {
-        if (rawCode == null || rawCode.isBlank()) {
-            return new VoucherCalculation(false, null, BigDecimal.ZERO);
-        }
-
-        String code = rawCode.trim().toUpperCase();
-        if ("CLUCKYFREESHIP".equals(code) || "FREESHIP".equals(code)) {
-            return new VoucherCalculation(true, "Áp dụng miễn phí vận chuyển", shippingFee);
-        } else if (code.contains("GIAM20") || code.contains("20K") || "CLUCKY20".equals(code)) {
-            BigDecimal discount = new BigDecimal("20000");
-            if (discount.compareTo(subtotal) > 0) discount = subtotal;
-            return new VoucherCalculation(true, "Đã áp dụng giảm giá 20.000 VNĐ", discount);
-        } else if (code.contains("GIAM10") || code.contains("10K") || "CLUCKY10".equals(code)) {
-            BigDecimal discount = new BigDecimal("10000");
-            if (discount.compareTo(subtotal) > 0) discount = subtotal;
-            return new VoucherCalculation(true, "Đã áp dụng giảm giá 10.000 VNĐ", discount);
-        } else if (code.startsWith("CLUCKY") || code.startsWith("PROMO") || code.startsWith("DISCOUNT") || code.startsWith("GIAM")) {
-            BigDecimal discount = new BigDecimal("20000");
-            if (discount.compareTo(subtotal) > 0) discount = subtotal;
-            return new VoucherCalculation(true, "Đã áp dụng mã giảm giá", discount);
-        } else {
-            return new VoucherCalculation(false, "Mã voucher không hợp lệ hoặc đã hết hạn", BigDecimal.ZERO);
-        }
     }
 
     private String generateOrderCode() {

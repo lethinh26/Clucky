@@ -34,6 +34,10 @@ export interface CartItemTopping {
 
 export interface CartItem {
   id: string;
+  productId?: number;
+  comboId?: number;
+  itemType?: "PRODUCT" | "COMBO";
+  itemKey?: string;
   slug: string;
   name: string;
   category: string;

@@ -20,6 +20,7 @@ import {
   MessageSquare,
   CircleAlert,
   MailCheck,
+  Mail,
 } from "lucide-react";
 import { displayOrderTime } from "@/lib/order-demo";
 import { useOrder, mapBackendOrderToOrder } from "@/components/order/order-provider";
@@ -68,7 +69,8 @@ export default function OrderTrackingPage({
 
     const fetchCurrentOrder = async () => {
       try {
-        const beOrder = await orderApi.getById(id);
+        const isNumeric = /^\d+$/.test(id);
+        const beOrder = isNumeric ? await orderApi.getById(id) : await orderApi.getByCode(id);
         if (!isMounted || !beOrder) return;
         const mapped = mapBackendOrderToOrder(beOrder);
         setServerOrder(mapped);
@@ -192,32 +194,38 @@ export default function OrderTrackingPage({
           <OrderStatusChip status={order.status} />
         </header>
 
-        {/* INT-70: Email notification status indicator */}
+        {/* P3.2: Order status notification: differentiates COD vs Bank Transfer and avoids false email claims */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: "10px",
-            background: "#f0fdf4",
-            border: "1px solid #bbf7d0",
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
             borderRadius: "14px",
             padding: "12px 18px",
             marginBottom: "16px",
-            color: "#166534",
+            color: "#334155",
             fontSize: "14px",
             fontWeight: 500,
           }}
         >
-          <MailCheck size={20} style={{ flexShrink: 0, color: "#15803d" }} />
+          <Mail size={20} style={{ flexShrink: 0, color: "#64748b" }} />
           <div>
-            <strong>Email ({order.orderCode}):</strong>{" "}
-            {order.status === "CONFIRMED" || order.status === "PENDING_PAYMENT"
-              ? t("business.checkout.yourCashOnDeliveryOrderHasBeenConfirmed")
-              : order.status === "CANCELLED"
-                ? t("business.orderprogress.orderCancelledProgressHasStopped")
-                : order.status === "COMPLETED"
-                  ? t("business.demoordercontrols.yourOrderIsCompleteThankYouForChoosingClucky")
-                  : order.status}
+            <strong>{order.orderCode}:</strong>{" "}
+            {order.status === "CANCELLED"
+              ? t("business.orderprogress.orderCancelledProgressHasStopped")
+              : order.status === "COMPLETED"
+                ? t("business.demoordercontrols.yourOrderIsCompleteThankYouForChoosingClucky")
+                : order.status === "CONFIRMED"
+                  ? (order.paymentMethod === "COD"
+                      ? t("business.checkout.yourCashOnDeliveryOrderHasBeenConfirmed")
+                      : t("business.checkout.orderConfirmed"))
+                  : order.status === "PENDING_PAYMENT"
+                    ? (order.paymentMethod === "BANK_TRANSFER"
+                        ? t("business.checkout.pleaseCompletePaymentSoCluckyCanPrepareYourMeal")
+                        : t("business.checkout.yourCashOnDeliveryOrderHasBeenConfirmed"))
+                    : order.status}
           </div>
         </div>
 

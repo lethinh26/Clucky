@@ -19,6 +19,7 @@ spring:
             allowCredentials: true
             exposedHeaders:
               - X-Correlation-ID
+              - X-Guest-Session-Id
       routes:
         - id: identity
           uri: lb://IDENTITY-SERVICE

@@ -1,15 +1,18 @@
 package com.clucky.cartorderservice.dto;
 
 import com.clucky.cartorderservice.cart.CartItemDto;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import java.util.List;
 
 public record OrderPreviewRequest(
-        Long storeId,
+        @Positive Long storeId,
         String type,
         String voucherCode,
-        Integer pointsUsed,
+        @PositiveOrZero Integer pointsUsed,
         String receiverAddress,
         Double latitude,
         Double longitude,
-        List<CartItemDto> items
+        List<@Valid CartItemDto> items
 ) {}

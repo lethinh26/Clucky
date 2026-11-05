@@ -23,6 +23,7 @@ import {
   ordersApi,
   refundsApi,
   type BackendOrder,
+  type BackendRefund,
 } from "../lib/api";
 
 const storageKey = "clucky-admin-orders-demo-v2";
@@ -69,6 +70,7 @@ const schema = z.array(
     deliveryAddress: z.string().optional(),
     note: z.string().optional(),
     hasRefundRequest: z.boolean().optional(),
+    refundRequestId: z.number().optional(),
     refundReason: z.string().optional(),
     refundAmount: z.number().optional(),
     refundStatus: z
@@ -167,8 +169,12 @@ function mapBackendOrderToAdminOrder(be: BackendOrder): AdminOrder {
     storeName: `Clucky #${be.storeId}`,
     orderType: be.type || "DELIVERY",
     status,
-    paymentMethod: "COD",
-    paymentStatus: status === "PENDING_PAYMENT" ? "PENDING" : "PAID",
+    paymentMethod: (be.paymentMethod as AdminOrder["paymentMethod"]) || (status === "PENDING_PAYMENT" ? "BANK_TRANSFER" : "COD"),
+    paymentStatus: status === "CANCELLED"
+      ? "FAILED"
+      : (be.paymentMethod === "BANK_TRANSFER" || status === "PENDING_PAYMENT")
+        ? (status === "PENDING_PAYMENT" ? "PENDING" : "PAID")
+        : (status === "COMPLETED" ? "PAID" : "PENDING"),
     items,
     subtotal: Number(be.subtotal),
     discount: Number(be.discountAmount || 0),
@@ -211,13 +217,13 @@ interface OrderWorkspace {
     id: string,
     status: AdminOrderStatus,
     reason?: string,
-  ) => boolean;
-  confirmCOD: (id: string) => boolean;
+  ) => Promise<boolean>;
+  confirmCOD: (id: string) => Promise<boolean>;
   reviewRefund: (
     id: string,
     action: "APPROVED" | "REJECTED",
     note: string,
-  ) => boolean;
+  ) => Promise<boolean>;
   refreshOrders: () => Promise<void>;
 }
 
@@ -235,9 +241,33 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     try {
       const storeIdParam =
         user?.role === "ADMIN" || !user?.storeId ? undefined : Number(user.storeId);
-      const remoteOrders = await ordersApi.list({ storeId: storeIdParam });
+      const [remoteOrders, remoteRefunds] = await Promise.all([
+        ordersApi.list({ storeId: storeIdParam }),
+        refundsApi.list({ storeId: storeIdParam }).catch(() => [] as BackendRefund[]),
+      ]);
       if (Array.isArray(remoteOrders) && remoteOrders.length > 0) {
-        const mapped = withCatalogImages(remoteOrders.map(mapBackendOrderToAdminOrder));
+        const refundByOrderId = new Map<number, BackendRefund>();
+        if (Array.isArray(remoteRefunds)) {
+          for (const ref of remoteRefunds) {
+            if (ref.orderId != null) {
+              refundByOrderId.set(Number(ref.orderId), ref);
+            }
+          }
+        }
+        const mapped = withCatalogImages(
+          remoteOrders.map((bo) => {
+            const adminOrder = mapBackendOrderToAdminOrder(bo);
+            const ref = refundByOrderId.get(Number(bo.id));
+            if (ref) {
+              adminOrder.hasRefundRequest = ref.status === "PENDING";
+              adminOrder.refundRequestId = ref.id;
+              adminOrder.refundReason = ref.reason;
+              adminOrder.refundAmount = Number(ref.amount);
+              adminOrder.refundStatus = ref.status;
+            }
+            return adminOrder;
+          }),
+        );
         latest.current = mapped;
         setOrders(mapped);
       }
@@ -303,7 +333,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   );
 
   const perform = useCallback(
-    (id: string, action: AdminDemoAction): boolean => {
+    async (id: string, action: AdminDemoAction): Promise<boolean> => {
       const order = latest.current.find((entry) => entry.id === id);
       if (!order) {
         setActionError(
@@ -324,6 +354,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      // Snapshot previous state for rollback
+      const previousOrders = latest.current;
+
       setActionError("");
       const updated = latest.current.map((entry) =>
         entry.id === id ? result.order : entry,
@@ -331,33 +364,38 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       latest.current = updated;
       setOrders(updated);
 
-      // Backend sync with optimistic lock / conflict handling (INT-14)
-      (async () => {
-        try {
-          if (action.type === "STATUS") {
-            await ordersApi.updateStatus(id, action.status, action.reason);
-          } else if (action.type === "COD") {
-            await ordersApi.updateStatus(id, "COMPLETED", "COD confirmed");
-          } else if (action.type === "REFUND") {
-            const refundAction = action.decision === "APPROVED" ? "APPROVE" : "REJECT";
-            await refundsApi.review(id, refundAction, action.note);
+      // Backend sync with strict rollback on failure (P2-05)
+      try {
+        if (action.type === "STATUS") {
+          await ordersApi.updateStatus(id, action.status, action.reason);
+        } else if (action.type === "COD") {
+          await ordersApi.updateStatus(id, "COMPLETED", "COD confirmed");
+        } else if (action.type === "REFUND") {
+          const refundAction = action.decision === "APPROVED" ? "APPROVE" : "REJECT";
+          if (!order.refundRequestId) {
+            setActionError("Không tìm thấy mã yêu cầu hoàn tiền (Refund Request ID) hợp lệ cho đơn hàng này.");
+            return false;
           }
-        } catch (err: any) {
-          const errorMsg =
-            err?.response?.data?.message ||
-            err?.message ||
-            "Order operation failed due to conflict.";
-          console.warn("Backend order update warning, applying fallback:", errorMsg);
-          // If 409 or conflict:
-          if (err?.response?.status === 409 || err?.response?.status === 400) {
-            setActionError(`[Conflict] ${errorMsg}`);
-            // Reload latest state from backend
-            refreshOrders();
-          }
+          await refundsApi.review(order.refundRequestId, refundAction, action.note);
         }
-      })();
+        return true;
+      } catch (err: any) {
+        // Rollback optimistic state immediately
+        latest.current = previousOrders;
+        setOrders(previousOrders);
 
-      return true;
+        const errorMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Order operation failed.";
+        setActionError(errorMsg);
+        console.warn("Backend order update rejected, rolled back optimistic state:", errorMsg);
+
+        if (err?.response?.status === 409 || err?.response?.status === 400 || err?.response?.status === 403) {
+          await refreshOrders();
+        }
+        return false;
+      }
     },
     [user, refreshOrders],
   );

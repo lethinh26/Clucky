@@ -168,6 +168,7 @@ const ORDER_FIXTURES: AdminOrder[] = [
     paymentMethod: "BANK_TRANSFER",
     paymentStatus: "PAID",
     hasRefundRequest: true,
+    refundRequestId: 101,
     refundReason:
       "Khách thanh toán chuyển khoản nhưng cửa hàng hết gà vị cay, xin hoàn tiền.",
     refundAmount: 189000,

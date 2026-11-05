@@ -51,14 +51,15 @@ export default function PartyOrderPage() {
     useState<string>("pkg-birthday");
   const [notes, setNotes] = useState("");
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
-  const [savedLocally, setSavedLocally] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdPartyOrder, setCreatedPartyOrder] =
     useState<BackendPartyOrder | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitError(null);
     const chosenPkg = PARTY_PACKAGES.find((pkg) => pkg.id === selectedPackage);
     const combinedNotes = notes.trim()
       ? `${notes.trim()} (Pkg: ${selectedPackage})`
@@ -80,31 +81,15 @@ export default function PartyOrderPage() {
         notes: combinedNotes,
       });
       setCreatedPartyOrder(result);
-      setSavedLocally(true);
-    } catch (err) {
-      console.warn("Party order API submission error, saving fallback:", err);
-      try {
-        localStorage.setItem(
-          "clucky-party-request-v1",
-          JSON.stringify({
-            customerName,
-            customerPhone,
-            customerEmail,
-            expectedDate,
-            expectedTime,
-            guestCount,
-            selectedStore,
-            selectedPackage,
-            notes,
-          }),
-        );
-        setSavedLocally(true);
-      } catch {
-        setSavedLocally(false);
-      }
+      setIsSuccessModalOpen(true);
+    } catch (err: any) {
+      console.error("Party order API submission error:", err);
+      const errMsg =
+        err?.message ||
+        "Gửi yêu cầu đặt tiệc không thành công. Vui lòng kiểm tra lại thông tin.";
+      setSubmitError(errMsg);
     } finally {
       setSubmitting(false);
-      setIsSuccessModalOpen(true);
     }
   };
 
@@ -138,6 +123,23 @@ export default function PartyOrderPage() {
           <PartyPopper size={48} strokeWidth={1.2} />
         </section>
         <div className={styles.partyCard}>
+          {submitError && (
+            <div
+              role="alert"
+              style={{
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                color: "#b91c1c",
+                borderRadius: "12px",
+                padding: "12px 16px",
+                marginBottom: "20px",
+                fontSize: "14px",
+                fontWeight: 500,
+              }}
+            >
+              {submitError}
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
             {/* Packages */}
             <div className={styles.fieldGroup}>
@@ -372,13 +374,11 @@ export default function PartyOrderPage() {
                 </dd>
               </div>
             </dl>
-            <p className={styles.saveHint}>
-              {savedLocally
-                ? t("business.party.theDemoFormHasBeenSavedInThisBrowser")
-                : t(
-                    "business.party.couldNotSaveInThisBrowserYourDetailsRemainAvailableInThis",
-                  )}
-            </p>
+            {createdPartyOrder?.id && (
+              <p className={styles.saveHint}>
+                ID #{createdPartyOrder.id}
+              </p>
+            )}
             <button
               type="button"
               onClick={() => setIsSuccessModalOpen(false)}

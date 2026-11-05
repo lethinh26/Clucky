@@ -60,6 +60,9 @@ public class Order {
     @Column(name = "note", nullable = true, columnDefinition = "text")
     private String note;
 
+    @Column(name = "payment_method", nullable = false, length = 20)
+    private String paymentMethod = "COD";
+
     @Column(name = "scheduled_at", nullable = true)
     private Instant scheduledAt;
 
@@ -120,6 +123,9 @@ public class Order {
 
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
+
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
 
     public Instant getScheduledAt() { return scheduledAt; }
     public void setScheduledAt(Instant scheduledAt) { this.scheduledAt = scheduledAt; }

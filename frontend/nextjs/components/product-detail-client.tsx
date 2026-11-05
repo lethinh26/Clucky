@@ -111,6 +111,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     if (!ready || isSoldOut || isAddedSuccess) return;
     addItem({
       id: crypto.randomUUID(),
+      productId: Number(product.id),
+      itemType: "PRODUCT",
       slug: product.slug,
       name: product.name,
       category: product.categoryName,

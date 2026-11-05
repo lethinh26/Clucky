@@ -158,8 +158,10 @@ export interface CartItemPayload {
   productId?: number;
   comboId?: number;
   itemName: string;
-  unitPrice: number;
+  unitPrice?: number;
   quantity: number;
+  optionIds?: number[];
+  toppingIds?: number[];
   optionsSnapshot?: unknown;
   toppingsSnapshot?: unknown;
   note?: string;
@@ -219,6 +221,7 @@ export interface OrderPreviewResult {
 export interface CreateOrderPayload {
   storeId: number;
   type: "DELIVERY" | "PICKUP";
+  paymentMethod: "COD" | "BANK_TRANSFER";
   items: CartItemPayload[];
   voucherCode?: string;
   pointsUsed?: number;
@@ -260,6 +263,7 @@ export interface BackendOrder {
   storeId: number;
   type: "DELIVERY" | "PICKUP";
   status: string;
+  paymentMethod?: string;
   subtotal: number;
   discountAmount: number;
   pointsUsed: number;
@@ -301,13 +305,15 @@ export const orderApi = {
     request<PageResponse<BackendOrder>>(`/api/orders/my?page=${page}&size=${size}`),
   getById: (id: string | number) =>
     request<BackendOrder>(`/api/orders/${id}`),
+  getByCode: (orderCode: string) =>
+    request<BackendOrder>(`/api/orders/code/${encodeURIComponent(orderCode)}`),
   cancel: (id: string | number, reason: string) =>
     request<BackendOrder>(`/api/orders/${id}/cancel`, {
       method: "PUT",
       body: JSON.stringify({ reason }),
     }),
   reorder: (id: string | number) =>
-    request<BackendOrder>(`/api/orders/${id}/reorder`, {
+    request<BackendCartDto>(`/api/orders/${id}/reorder`, {
       method: "POST",
     }),
 };

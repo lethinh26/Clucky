@@ -4,6 +4,7 @@ import com.clucky.cartorderservice.config.AccessGuard;
 import com.clucky.cartorderservice.config.CurrentActor;
 import com.clucky.cartorderservice.dto.CreatePartyOrderRequest;
 import com.clucky.cartorderservice.dto.PageResponse;
+import com.clucky.cartorderservice.dto.PartyOrderStatus;
 import com.clucky.cartorderservice.dto.PartyOrderResponse;
 import com.clucky.cartorderservice.dto.Role;
 import com.clucky.cartorderservice.dto.UpdatePartyOrderStatusRequest;
@@ -56,7 +57,7 @@ public class PartyOrderService {
         entity.setExpectedDate(request.expectedDate());
         entity.setGuestCount(request.guestCount());
         entity.setContent(request.content().trim());
-        entity.setStatus("NEW");
+        entity.setStatus(PartyOrderStatus.NEW.name());
 
         entity = partyOrderRepository.save(entity);
         LOG.info("event=party_order_created id={} customerId={} storeId={}",

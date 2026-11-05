@@ -24,7 +24,7 @@ public class OrderController {
 
     @PostMapping("/preview")
     public ResponseEntity<OrderPreviewResponse> preview(
-            @RequestBody(required = false) OrderPreviewRequest request,
+            @Valid @RequestBody(required = false) OrderPreviewRequest request,
             HttpServletRequest httpRequest
     ) {
         OrderPreviewRequest req = request != null ? request : new OrderPreviewRequest(
@@ -76,6 +76,12 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/code/{orderCode}")
+    public ResponseEntity<OrderResponse> getOrderByCode(@PathVariable("orderCode") String orderCode) {
+        OrderResponse response = orderService.getOrderByCode(orderCode);
+        return ResponseEntity.ok(response);
+    }
+
     @PutMapping("/{id}/cancel")
     public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable("id") @Positive Long id,
@@ -107,17 +113,5 @@ public class OrderController {
     public ResponseEntity<CartDto> reorder(@PathVariable("id") @Positive Long id) {
         CartDto cart = orderService.reorder(id);
         return ResponseEntity.ok(cart);
-    }
-
-    @PostMapping("/{id}/refund-requests")
-    public ResponseEntity<RefundRequestResponse> createRefundRequestByOrder(
-            @PathVariable("id") @Positive Long id,
-            @RequestBody CancelOrderRequest body
-    ) {
-        String reason = (body != null && body.reason() != null && !body.reason().isBlank())
-                ? body.reason() : "Refund requested for order #" + id;
-        CreateRefundRequest request = new CreateRefundRequest(id, reason);
-        RefundRequestResponse response = orderService.createRefundRequest(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

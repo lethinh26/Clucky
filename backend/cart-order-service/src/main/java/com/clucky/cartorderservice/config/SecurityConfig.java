@@ -79,6 +79,7 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll();
+                    auth.requestMatchers(HttpMethod.POST, "/api/cart/merge").authenticated();
                     auth.requestMatchers("/api/cart", "/api/cart/**").permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/orders/preview").permitAll();
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();

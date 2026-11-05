@@ -74,12 +74,13 @@ export const OrdersPage: React.FC = () => {
     setDrawerOpen(true);
   };
 
-  const handleStatusChange = (
+  const handleStatusChange = async (
     orderId: string,
     newStatus: AdminOrderStatus,
     reason?: string,
   ) => {
-    if (!updateStatus(orderId, newStatus, reason)) {
+    const ok = await updateStatus(orderId, newStatus, reason);
+    if (!ok) {
       message.warning(
         actionError ||
           t("business:orderspage.cannotChangeStatusYetCheckTheProgressAndConfirmPaymentCollectionBefore"),
@@ -90,12 +91,12 @@ export const OrdersPage: React.FC = () => {
     return true;
   };
 
-  const handleConfirmRefund = (
+  const handleConfirmRefund = async (
     orderId: string,
     action: "APPROVED" | "REJECTED",
     note: string,
   ) => {
-    return reviewRefund(orderId, action, note);
+    return await reviewRefund(orderId, action, note);
   };
 
   // Filter logic

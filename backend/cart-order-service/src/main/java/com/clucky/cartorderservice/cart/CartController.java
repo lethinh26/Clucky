@@ -1,5 +1,6 @@
 package com.clucky.cartorderservice.cart;
 
+import com.clucky.cartorderservice.config.CurrentActor;
 import com.clucky.cartorderservice.config.RedisConfig;
 import com.clucky.cartorderservice.dto.Role;
 import com.clucky.cartorderservice.exception.ApiException;
@@ -33,22 +34,13 @@ public class CartController {
     private CartContext resolveContext(HttpServletRequest request, HttpServletResponse response) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof JwtAuthenticationToken jwtToken && jwtToken.isAuthenticated()) {
-            Jwt jwt = jwtToken.getToken();
-            String role = jwt.getClaimAsString("role");
-            if (role == null || !Role.CUSTOMER.name().equalsIgnoreCase(role)) {
+            CurrentActor actor = CurrentActor.require();
+            if (actor.role() != Role.CUSTOMER) {
                 throw new ApiException(ErrorCode.FORBIDDEN);
             }
-            String sub = jwt.getSubject();
-            if (sub == null || sub.isBlank()) {
-                throw new ApiException(ErrorCode.UNAUTHENTICATED);
-            }
-            try {
-                Long userId = Long.valueOf(sub);
-                String cartKey = RedisConfig.key("cart", userId.toString());
-                return new CartContext(cartKey, CartService.CUSTOMER_CART_TTL, true, userId, null);
-            } catch (NumberFormatException e) {
-                throw new ApiException(ErrorCode.UNAUTHENTICATED);
-            }
+            Long userId = actor.userId();
+            String cartKey = RedisConfig.key("cart", userId.toString());
+            return new CartContext(cartKey, CartService.CUSTOMER_CART_TTL, true, userId, null);
         }
 
         // Guest session resolution
@@ -135,25 +127,11 @@ public class CartController {
             @RequestHeader(value = "X-Guest-Session-Id", required = false) String guestSessionHeader,
             @RequestBody(required = false) MergeCartRequest mergeRequest,
             HttpServletRequest request) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (!(auth instanceof JwtAuthenticationToken jwtToken) || !jwtToken.isAuthenticated()) {
-            throw new ApiException(ErrorCode.UNAUTHENTICATED);
-        }
-        Jwt jwt = jwtToken.getToken();
-        String role = jwt.getClaimAsString("role");
-        if (role == null || !Role.CUSTOMER.name().equalsIgnoreCase(role)) {
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() != Role.CUSTOMER) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
-        String sub = jwt.getSubject();
-        if (sub == null || sub.isBlank()) {
-            throw new ApiException(ErrorCode.UNAUTHENTICATED);
-        }
-        Long userId;
-        try {
-            userId = Long.valueOf(sub);
-        } catch (NumberFormatException e) {
-            throw new ApiException(ErrorCode.UNAUTHENTICATED);
-        }
+        Long userId = actor.userId();
 
         String guestSessionId = null;
         if (mergeRequest != null && mergeRequest.getSessionId() != null && !mergeRequest.getSessionId().isBlank()) {

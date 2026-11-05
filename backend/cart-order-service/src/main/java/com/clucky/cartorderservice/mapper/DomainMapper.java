@@ -9,57 +9,11 @@ public final class DomainMapper {
     private DomainMapper() {}
 
     public static OrderResponse toResponse(Order entity) {
-        return new OrderResponse(
-                entity.getId(),
-                entity.getOrderCode(),
-                entity.getCustomerId(),
-                entity.getStoreId(),
-                entity.getType(),
-                entity.getStatus(),
-                entity.getSubtotal(),
-                entity.getDiscountAmount(),
-                entity.getPointsUsed(),
-                entity.getPointsAmount(),
-                entity.getShippingFee(),
-                entity.getTotalAmount(),
-                entity.getVoucherCode(),
-                entity.getReceiverName(),
-                entity.getReceiverPhone(),
-                entity.getDeliveryAddress(),
-                entity.getNote(),
-                entity.getScheduledAt(),
-                entity.getCreatedAt(),
-                entity.getUpdatedAt()
-        );
+        return toResponse(entity, List.of(), List.of());
     }
 
     public static OrderResponse toResponse(Order entity, List<OrderItem> items) {
-        List<OrderItemResponse> itemResponses = items == null ? List.of() :
-                items.stream().map(DomainMapper::toResponse).toList();
-        return new OrderResponse(
-                entity.getId(),
-                entity.getOrderCode(),
-                entity.getCustomerId(),
-                entity.getStoreId(),
-                entity.getType(),
-                entity.getStatus(),
-                entity.getSubtotal(),
-                entity.getDiscountAmount(),
-                entity.getPointsUsed(),
-                entity.getPointsAmount(),
-                entity.getShippingFee(),
-                entity.getTotalAmount(),
-                entity.getVoucherCode(),
-                entity.getReceiverName(),
-                entity.getReceiverPhone(),
-                entity.getDeliveryAddress(),
-                entity.getNote(),
-                entity.getScheduledAt(),
-                entity.getCreatedAt(),
-                entity.getUpdatedAt(),
-                itemResponses,
-                List.of()
-        );
+        return toResponse(entity, items, List.of());
     }
 
     public static OrderResponse toResponse(Order entity, List<OrderItem> items, List<OrderStatusHistory> history) {
@@ -88,6 +42,7 @@ public final class DomainMapper {
                 entity.getScheduledAt(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
+                entity.getPaymentMethod(),
                 itemResponses,
                 historyResponses
         );
