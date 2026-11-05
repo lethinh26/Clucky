@@ -39,7 +39,8 @@ class SessionRevocationServiceTest {
     @Test
     void redisWriteFailureIsReported() {
         Duration ttl = Duration.ofDays(7);
-        doThrow(new IllegalStateException()).when(redis.opsForValue())
+        var values = redis.opsForValue();
+        doThrow(new IllegalStateException()).when(values)
                 .set("auth:revoked:sid:device-a", "revoked", ttl);
         assertEquals(ErrorCode.DEPENDENCY_UNAVAILABLE,
                 assertThrows(ApiException.class, () -> service.revokeSession("device-a", ttl)).getCode());

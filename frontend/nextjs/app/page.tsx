@@ -3,7 +3,7 @@ import Link from "@/components/ui-loader/navigation-link";
 import { Hero } from "@/components/hero";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";
-import { catalogApi } from "@/lib/api";
+import { catalogApi } from "@/lib/catalog-and-stores.api";
 import { Flame, Award, Truck } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export default async function Home() {
 
   try {
     const [prods, cats] = await Promise.all([
-      catalogApi.getProducts({ activeOnly: true }),
+      catalogApi.getProducts({ activeOnly: true, page: 0, size: 9 }),
       catalogApi.getCategories(true),
     ]);
     displayProducts = prods;
@@ -37,7 +37,7 @@ export default async function Home() {
 
   const featuredProducts = displayProducts
     .filter((p) => p.isActive !== false)
-    .slice(0, 8);
+    .slice(0, 9);
 
   return (
     <>

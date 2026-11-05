@@ -98,6 +98,7 @@ for (const origin of [customer, admin]) {
 }
 
 test("admin filters and an open form survive language changes", async ({ page }) => {
+  await page.route("**/api/catalog/**", route => route.fulfill({ json: [] }));
   await page.goto(admin + "/admin/catalog");
   await page.getByPlaceholder("Tìm kiếm tên món, slug, danh mục...").fill("Gà");
   await page.getByRole("button", { name: "Thêm món ăn mới" }).click();

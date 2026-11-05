@@ -3,9 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from "next-intl";
 import Link from '@/components/ui-loader/navigation-link';
-import type { StoreItem } from '@/lib/api';
+import { catalogApi, type StoreItem } from '@/lib/catalog-and-stores.api';
 import { getStoreStatusMeta } from '@/lib/types/store';
-import { catalogApi } from '@/lib/api';
 import {
   MapPin,
   Clock,
@@ -230,24 +229,56 @@ export default function StoresPage() {
                       </div>
                     </div>
 
-                    <span
-                      style={{
-                        padding: '4px 12px',
-                        borderRadius: 999,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        backgroundColor: meta.bgColor,
-                        color: meta.color,
-                        border: `1px solid ${meta.borderColor}`,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {store.status === 'OPEN'
-                        ? t("business.stores.openNow")
-                        : store.status === 'CLOSED_TEMP'
+                    {store.status === 'OPEN' ? (
+                      store.isOpenNow !== false ? (
+                        <span
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            backgroundColor: '#EAF6EE',
+                            color: '#1E7A46',
+                            border: '1px solid #A7F3D0',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t("business.stores.openNow")}
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            backgroundColor: '#FEF3C7',
+                            color: '#92400E',
+                            border: '1px solid #FDE68A',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {t("business.stores.outsideHours", { openTime: store.openTime })}
+                        </span>
+                      )
+                    ) : (
+                      <span
+                        style={{
+                          padding: '4px 12px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          backgroundColor: meta.bgColor,
+                          color: meta.color,
+                          border: `1px solid ${meta.borderColor}`,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {store.status === 'CLOSED_TEMP'
                           ? t("business.stores.underMaintenance")
                           : t("business.stores.closed")}
-                    </span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Details */}
