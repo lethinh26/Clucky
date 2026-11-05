@@ -23,6 +23,7 @@ test('cookie-auth requests omit stale bearer tokens while business requests reta
     },
   });
   const { api, authApi } = module.exports;
+  assert.equal(api.defaults.baseURL, '');
   const requests = [];
   api.defaults.adapter = async (config) => {
     requests.push(config);

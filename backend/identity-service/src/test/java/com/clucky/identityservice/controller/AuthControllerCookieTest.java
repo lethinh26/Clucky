@@ -1,16 +1,19 @@
 package com.clucky.identityservice.controller;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import com.clucky.identityservice.config.AuthProperties;
 import com.clucky.identityservice.dto.Role;
 import com.clucky.identityservice.dto.auth.AuthResponse;
+import com.clucky.identityservice.dto.auth.GoogleAuthDto;
 import com.clucky.identityservice.dto.auth.LoginRequest;
 import com.clucky.identityservice.dto.auth.MessageResponse;
 import com.clucky.identityservice.dto.auth.ResetPasswordRequest;
 import com.clucky.identityservice.dto.auth.VerifyOtpRequest;
 import com.clucky.identityservice.entity.User;
 import com.clucky.identityservice.service.AuthService;
+import com.clucky.identityservice.service.GoogleAuthService;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +26,7 @@ class AuthControllerCookieTest {
 
     private CapturingAuthService service;
     private AuthController controller;
+    private final GoogleAuthService google = mock(GoogleAuthService.class);
 
     @BeforeEach
     void setUp() {
@@ -30,7 +34,44 @@ class AuthControllerCookieTest {
         AuthProperties properties = new AuthProperties(java.time.Duration.ofMinutes(30),
                 java.time.Duration.ofDays(7), java.time.Duration.ofMinutes(5),
                 new AuthProperties.Cookie(true), List.of("http://localhost:3000"));
-        controller = new AuthController(service, properties);
+        controller = new AuthController(service, properties, google);
+    }
+
+    @Test
+    void googlePendingDoesNotSetCookieAndCompletedLoginUsesExistingCookieContract() {
+        var request = new GoogleAuthDto.SignIn("firebase-token");
+        when(google.login(request.idToken())).thenReturn(new GoogleAuthService.LoginResult(null, "p".repeat(43)));
+        var pendingResponse = new MockHttpServletResponse();
+        Object pendingBody = controller.google(request, pendingResponse);
+        assertInstanceOf(GoogleAuthDto.Pending.class, pendingBody);
+        assertNull(pendingResponse.getHeader("Set-Cookie"));
+
+        AuthService.AuthResult session = service.login(new LoginRequest("a@example.com", "Password123"));
+        when(google.login(request.idToken())).thenReturn(new GoogleAuthService.LoginResult(session, null));
+        var loginResponse = new MockHttpServletResponse();
+        AuthResponse loginBody = assertInstanceOf(AuthResponse.class, controller.google(request, loginResponse));
+        assertEquals(ACCESS, loginBody.accessToken());
+        assertTrue(loginResponse.getHeader("Set-Cookie").contains("HttpOnly"));
+        assertTrue(loginResponse.getHeader("Set-Cookie").contains("Secure"));
+        assertTrue(loginResponse.getHeader("Set-Cookie").contains("SameSite=Lax"));
+
+        var completeRequest = new GoogleAuthDto.Complete("p".repeat(43), "Password123");
+        when(google.complete(completeRequest.pendingToken(), completeRequest.password())).thenReturn(session);
+        var completeResponse = new MockHttpServletResponse();
+        assertEquals(loginBody, controller.completeGoogle(completeRequest, completeResponse));
+        assertEquals(loginResponse.getHeader("Set-Cookie"), completeResponse.getHeader("Set-Cookie"));
+    }
+
+    @Test
+    void googleBoundaryRejectsInvalidTokenAndPasswordFields() {
+        try (var factory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+            assertFalse(validator.validate(new GoogleAuthDto.SignIn("")).isEmpty());
+            assertFalse(validator.validate(new GoogleAuthDto.SignIn("x".repeat(16385))).isEmpty());
+            assertFalse(validator.validate(new GoogleAuthDto.Complete("short", "Password123")).isEmpty());
+            assertFalse(validator.validate(new GoogleAuthDto.Complete("p".repeat(43), "weakpassword")).isEmpty());
+            assertTrue(validator.validate(new GoogleAuthDto.Complete("p".repeat(43), "Password123")).isEmpty());
+        }
     }
 
     @Test
