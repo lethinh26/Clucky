@@ -1,0 +1,13 @@
+.git
+.gradle
+**/.gradle
+**/build
+.env
+.env.*
+**/.env
+**/.env.*
+secrets
+**/secrets
+**/*firebase-adminsdk*.json
+*.log
+**/*.log

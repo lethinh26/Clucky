@@ -52,6 +52,7 @@ public class AuthService {
     @Transactional
     public MessageResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
+        otpService.limitIssuance(email, OtpService.PURPOSE_REGISTER);
 
         if (userRepository.existsByEmail(email)) {
             throw new ApiException(ErrorCode.EMAIL_EXISTS);
@@ -158,6 +159,7 @@ public class AuthService {
     @Transactional
     public MessageResponse forgotPassword(ForgotPasswordRequest request) {
         String email = normalizeEmail(request.email());
+        otpService.limitIssuance(email, OtpService.PURPOSE_RESET);
 
         userRepository.findByEmail(email).ifPresent(user -> {
             if (STATUS_ACTIVE.equals(user.getStatus())) {
@@ -201,6 +203,7 @@ public class AuthService {
     @Transactional
     public MessageResponse resendRegisterOtp(String email) {
         String normalized = normalizeEmail(email);
+        otpService.limitIssuance(normalized, OtpService.PURPOSE_REGISTER);
         User user = userRepository.findByEmail(normalized)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
         if (Boolean.TRUE.equals(user.getEmailVerified())) {
@@ -223,7 +226,7 @@ public class AuthService {
         refreshTokenService.revokeAllForUser(user.getId());
     }
 
-    private AuthResult issueSession(User user) {
+    AuthResult issueSession(User user) {
         String sid = UUID.randomUUID().toString();
         String accessToken = jwtIssuer.issueAccessToken(user.getId(), user.getRole(), user.getStoreId(), sid);
         String refreshToken = jwtIssuer.issueRefreshToken(user.getId(), sid, UUID.randomUUID().toString());

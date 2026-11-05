@@ -2,13 +2,14 @@ package com.clucky.identityservice.service;
 
 import com.clucky.identityservice.config.AuthProperties;
 import com.clucky.identityservice.dto.event.EmailMessage;
+import com.clucky.identityservice.exception.ApiException;
+import com.clucky.identityservice.exception.ErrorCode;
 import com.clucky.identityservice.logging.SafeLog;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Publishes BE-59 {@code EmailMessage} payloads for the Notification Service.
@@ -37,7 +39,7 @@ public class EmailEventPublisher {
     private final AuthProperties authProperties;
 
     public EmailEventPublisher(
-            @Autowired(required = false) KafkaTemplate<String, String> kafkaTemplate,
+            KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper,
             AuthProperties authProperties
     ) {
@@ -48,7 +50,7 @@ public class EmailEventPublisher {
 
     public void publishOtpEmail(String recipient, String template, String otp, Map<String, String> extraVariables) {
         if (recipient == null || recipient.isBlank()) {
-            return;
+            throw new IllegalArgumentException("Recipient is required");
         }
 
         String incomingCorrelationId = MDC.get("correlationId");
@@ -69,8 +71,7 @@ public class EmailEventPublisher {
         EmailMessage message = new EmailMessage(messageId, eventId, correlationId, recipient, template, variables);
 
         if (kafkaTemplate == null) {
-            LOG.warn("event=email_not_published template={} reason=kafka_template_unavailable", template);
-            return;
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
 
         try {
@@ -80,15 +81,15 @@ public class EmailEventPublisher {
             record.headers().add("X-Event-ID", eventId.getBytes(StandardCharsets.UTF_8));
             record.headers().add("X-Message-ID", messageId.getBytes(StandardCharsets.UTF_8));
 
-            kafkaTemplate.send(record).whenComplete((result, failure) -> {
-                if (failure != null) {
-                    LOG.error("event=email_publish_failed correlationId={} template={} trace={}",
-                            correlationId, template, SafeLog.trace(failure));
-                }
-            });
+            // ponytail: broker ACK is not SQL/Kafka atomicity; add an outbox when atomic delivery is required.
+            kafkaTemplate.send(record).get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException failure) {
+            Thread.currentThread().interrupt();
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         } catch (Exception failure) {
             LOG.error("event=email_publish_failed correlationId={} template={} trace={}",
                     correlationId, template, SafeLog.trace(failure));
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
     }
 }

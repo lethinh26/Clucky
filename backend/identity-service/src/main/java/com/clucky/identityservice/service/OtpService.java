@@ -7,6 +7,8 @@ import com.clucky.identityservice.exception.ApiException;
 import com.clucky.identityservice.exception.ErrorCode;
 import com.clucky.identityservice.repository.OtpCodeRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
@@ -16,6 +18,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 
 /**
  * OTP lifecycle service.
@@ -36,15 +39,21 @@ public class OtpService {
     public static final String PURPOSE_RESET = "RESET";
 
     private static final String HMAC_ALGORITHM = "HmacSHA256";
+    private static final DefaultRedisScript<Long> ATTEMPT_COUNTER = new DefaultRedisScript<>(
+            "local count = redis.call('INCR', KEYS[1]); "
+                    + "if count == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end; return count", Long.class);
 
     private final OtpCodeRepository otpCodeRepository;
     private final AuthProperties authProperties;
+    private final StringRedisTemplate redis;
     private final byte[] verifierKey;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public OtpService(OtpCodeRepository otpCodeRepository, AuthProperties authProperties, JwtSettings jwtSettings) {
+    public OtpService(OtpCodeRepository otpCodeRepository, AuthProperties authProperties, JwtSettings jwtSettings,
+            StringRedisTemplate redis) {
         this.otpCodeRepository = otpCodeRepository;
         this.authProperties = authProperties;
+        this.redis = redis;
         this.verifierKey = jwtSettings.secret() == null ? new byte[0]
                 : jwtSettings.secret().getBytes(StandardCharsets.UTF_8);
         if (this.verifierKey.length < 32) {
@@ -86,6 +95,8 @@ public class OtpService {
             throw new ApiException(ErrorCode.INVALID_OTP);
         }
 
+        limitAttempts("verify", identifier, purpose);
+
         OtpCode otp = otpCodeRepository
                 .findFirstByIdentifierAndPurposeAndUsedFalseOrderByCreatedAtDesc(identifier, purpose)
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_OTP));
@@ -107,6 +118,26 @@ public class OtpService {
         // Conditional update: only one concurrent caller can flip used=false -> true.
         if (otpCodeRepository.consumeOtp(otp.getId()) == 0) {
             throw new ApiException(ErrorCode.INVALID_OTP);
+        }
+    }
+
+    public void limitIssuance(String identifier, String purpose) {
+        limitAttempts("issue", identifier, purpose);
+    }
+
+    private void limitAttempts(String action, String identifier, String purpose) {
+        Long count;
+        try {
+            String key = "rate-limit:otp:" + action + ":" + purpose + ":" + verifier(identifier);
+            count = redis.execute(ATTEMPT_COUNTER, List.of(key), String.valueOf(authProperties.otpTtl().toMillis()));
+        } catch (RuntimeException failure) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
+        if (count == null) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
+        if (count > 5) {
+            throw new ApiException(ErrorCode.TOO_MANY_REQUESTS);
         }
     }
 

@@ -1,6 +1,8 @@
 package com.clucky.identityservice.service;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import com.clucky.identityservice.dto.auth.ForgotPasswordRequest;
 import com.clucky.identityservice.dto.auth.LoginRequest;
@@ -43,6 +45,8 @@ class AuthServiceTest {
     private FakeRefreshRepository refreshRepository;
     private AuthService service;
     private PasswordEncoder encoder;
+    private SessionRevocationService revocation;
+    private org.springframework.data.redis.core.StringRedisTemplate redis;
 
     @BeforeEach
     void setUp() {
@@ -53,10 +57,13 @@ class AuthServiceTest {
         JwtIssuer issuer = new JwtIssuer(settings, properties);
 
         OtpServiceTest.InMemoryOtpRepository otpRepository = new OtpServiceTest.InMemoryOtpRepository();
-        otpService = new OtpService(otpRepository.proxy(), properties, settings);
+        redis = mock(org.springframework.data.redis.core.StringRedisTemplate.class);
+        when(redis.execute(any(org.springframework.data.redis.core.script.RedisScript.class), anyList(), anyString()))
+                .thenReturn(1L);
+        otpService = new OtpService(otpRepository.proxy(), properties, settings, redis);
 
         refreshRepository = new FakeRefreshRepository();
-        SessionRevocationService revocation = new SessionRevocationService(null);
+        revocation = mock(SessionRevocationService.class);
         refreshTokens = new RefreshTokenService(refreshRepository.proxy(), userRepository(), issuer, revocation,
                 properties);
 
@@ -274,6 +281,57 @@ class AuthServiceTest {
         ApiException failure = assertThrows(ApiException.class,
                 () -> service.resendRegisterOtp("nobody@example.com"));
         assertEquals(ErrorCode.RESOURCE_NOT_FOUND, failure.getCode());
+    }
+
+    @Test
+    void resendOtpEnforcesIssuanceQuotaBeforeAccountLookup() {
+        when(redis.execute(any(org.springframework.data.redis.core.script.RedisScript.class), anyList(), anyString()))
+                .thenReturn(6L);
+        assertEquals(ErrorCode.TOO_MANY_REQUESTS, assertThrows(ApiException.class,
+                () -> service.resendRegisterOtp("missing@example.com")).getCode());
+        assertTrue(publishedCodes.isEmpty());
+    }
+
+    @Test
+    void revokedSessionCannotRotateRefreshToken() {
+        seedVerifiedUser("a@example.com", "Password1");
+        AuthService.AuthResult session = service.login(new LoginRequest("a@example.com", "Password1"));
+        when(revocation.isSessionRevoked(anyString())).thenReturn(true);
+        assertEquals(ErrorCode.TOKEN_REVOKED, assertThrows(ApiException.class,
+                () -> service.refresh(session.refreshToken())).getCode());
+        assertEquals(1, refreshRepository.rows.size());
+    }
+
+    @Test
+    void resetRevocationBlocksAnUnrevokedRefreshRow() {
+        seedVerifiedUser("a@example.com", "Password1");
+        AuthService.AuthResult session = service.login(new LoginRequest("a@example.com", "Password1"));
+        when(revocation.isUserRevoked(anyLong(), any(Instant.class))).thenReturn(true);
+        assertEquals(ErrorCode.TOKEN_REVOKED, assertThrows(ApiException.class,
+                () -> service.refresh(session.refreshToken())).getCode());
+        assertEquals(1, refreshRepository.rows.size());
+    }
+
+    @Test
+    void logoutDoesNotHideRevocationFailure() {
+        seedVerifiedUser("a@example.com", "Password1");
+        AuthService.AuthResult session = service.login(new LoginRequest("a@example.com", "Password1"));
+        doThrow(new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE)).when(revocation)
+                .revokeSession(anyString(), any(Duration.class));
+        assertEquals(ErrorCode.DEPENDENCY_UNAVAILABLE, assertThrows(ApiException.class,
+                () -> service.logout(session.refreshToken())).getCode());
+    }
+
+    @Test
+    void forgotPasswordQuotaAppliesBeforeAccountLookup() {
+        seedVerifiedUser("a@example.com", "Password1");
+        when(redis.execute(any(org.springframework.data.redis.core.script.RedisScript.class), anyList(), anyString()))
+                .thenReturn(6L);
+        for (String email : List.of("a@example.com", "missing@example.com")) {
+            assertEquals(ErrorCode.TOO_MANY_REQUESTS, assertThrows(ApiException.class,
+                    () -> service.forgotPassword(new ForgotPasswordRequest(email))).getCode());
+        }
+        assertTrue(publishedCodes.isEmpty());
     }
 
     private void seedVerifiedUser(String email, String rawPassword) {

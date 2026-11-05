@@ -112,7 +112,10 @@ public class JwtIssuer {
             String jti = claims.getJWTID();
             Instant expiresAt = exp.toInstant();
 
-            return new RefreshTokenClaims(userId, sid, jti, expiresAt);
+            if (userId <= 0 || sid == null || sid.isBlank() || jti == null || claims.getIssueTime() == null) {
+                throw new ApiException(ErrorCode.UNAUTHENTICATED);
+            }
+            return new RefreshTokenClaims(userId, sid, jti, expiresAt, claims.getIssueTime().toInstant());
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
@@ -131,6 +134,6 @@ public class JwtIssuer {
         }
     }
 
-    public record RefreshTokenClaims(Long userId, String sid, String jti, Instant expiresAt) {}
+    public record RefreshTokenClaims(Long userId, String sid, String jti, Instant expiresAt, Instant issuedAt) {}
 }
 

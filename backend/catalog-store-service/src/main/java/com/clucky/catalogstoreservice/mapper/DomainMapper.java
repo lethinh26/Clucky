@@ -14,9 +14,9 @@ public final class DomainMapper {
                 entity.getPhone(),
                 entity.getOpenTime(),
                 entity.getCloseTime(),
-                entity.getStatus(),
+                entity.getStatus() != null ? entity.getStatus().name() : null,
                 entity.getDeliveryArea(),
-                entity.getCreatedAt()
+                entity.getCreatedAt() != null ? entity.getCreatedAt().toInstant() : null
         );
     }
 
@@ -33,7 +33,7 @@ public final class DomainMapper {
     public static ProductResponse toResponse(Product entity) {
         return new ProductResponse(
                 entity.getId(),
-                entity.getCategoryId(),
+                entity.getCategory() != null ? entity.getCategory().getId() : null,
                 entity.getName(),
                 entity.getDescription(),
                 entity.getBasePrice(),
@@ -48,17 +48,18 @@ public final class DomainMapper {
     public static ProductOptionResponse toResponse(ProductOption entity) {
         return new ProductOptionResponse(
                 entity.getId(),
-                entity.getProductId(),
+                entity.getProduct() != null ? entity.getProduct().getId() : null,
                 entity.getGroupName(),
                 entity.getName(),
-                entity.getExtraPrice()
+                entity.getExtraPrice(),
+                entity.getIsRequired()
         );
     }
 
     public static ProductToppingResponse toResponse(ProductTopping entity) {
         return new ProductToppingResponse(
                 entity.getId(),
-                entity.getProductId(),
+                entity.getProduct() != null ? entity.getProduct().getId() : null,
                 entity.getToppingName(),
                 entity.getExtraPrice()
         );
@@ -72,8 +73,8 @@ public final class DomainMapper {
                 entity.getComboPrice(),
                 entity.getImageUrl(),
                 entity.getImagePublicId(),
-                entity.getStartAt(),
-                entity.getEndAt(),
+                entity.getStartAt() != null ? entity.getStartAt().toInstant() : null,
+                entity.getEndAt() != null ? entity.getEndAt().toInstant() : null,
                 entity.getIsActive()
         );
     }
@@ -81,8 +82,8 @@ public final class DomainMapper {
     public static ComboItemResponse toResponse(ComboItem entity) {
         return new ComboItemResponse(
                 entity.getId(),
-                entity.getComboId(),
-                entity.getProductId(),
+                entity.getCombo() != null ? entity.getCombo().getId() : null,
+                entity.getProduct() != null ? entity.getProduct().getId() : null,
                 entity.getQuantity(),
                 entity.getOptionId()
         );
@@ -91,8 +92,8 @@ public final class DomainMapper {
     public static StoreProductResponse toResponse(StoreProduct entity) {
         return new StoreProductResponse(
                 entity.getId(),
-                entity.getStoreId(),
-                entity.getProductId(),
+                entity.getStore() != null ? entity.getStore().getId() : null,
+                entity.getProduct() != null ? entity.getProduct().getId() : null,
                 entity.getStorePrice(),
                 entity.getIsAvailable(),
                 entity.getIsSoldOut()
@@ -102,12 +103,12 @@ public final class DomainMapper {
     public static StoreInventoryResponse toResponse(StoreInventory entity) {
         return new StoreInventoryResponse(
                 entity.getId(),
-                entity.getStoreId(),
-                entity.getProductId(),
+                entity.getStore() != null ? entity.getStore().getId() : null,
+                entity.getProduct() != null ? entity.getProduct().getId() : null,
                 entity.getQuantityAvailable(),
                 entity.getLowStockThreshold(),
                 entity.getUpdatedBy(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt() != null ? entity.getUpdatedAt().toInstant() : null
         );
     }
 }

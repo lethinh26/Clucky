@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,7 +32,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 @EnableConfigurationProperties(JwtSettings.class)
 public class SecurityConfig {
     @Bean
-    JwtDecoder jwtDecoder(JwtSettings settings) {
+    JwtDecoder jwtDecoder(JwtSettings settings, StringRedisTemplate redis) {
         byte[] key = settings.secret() == null ? new byte[0] : settings.secret().getBytes(StandardCharsets.UTF_8);
         if (key.length < 32 || settings.secret().startsWith("change-") || settings.secret().contains("replace-")) {
             throw new IllegalStateException("Configure a strong JWT_SECRET with at least 32 bytes");
@@ -39,7 +40,7 @@ public class SecurityConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(new SecretKeySpec(key, "HmacSHA256"))
                 .macAlgorithm(MacAlgorithm.HS256).build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(settings.issuer()), new AccessTokenValidator(settings.audience())));
+                JwtValidators.createDefaultWithIssuer(settings.issuer()), new AccessTokenValidator(settings.audience(), redis)));
         return decoder;
     }
 
@@ -79,6 +80,9 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll();
+                    auth.requestMatchers(HttpMethod.POST, "/api/cart/merge").authenticated();
+                    auth.requestMatchers("/api/cart", "/api/cart/**").permitAll();
+                    auth.requestMatchers(HttpMethod.POST, "/api/orders/preview").permitAll();
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })

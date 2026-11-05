@@ -47,13 +47,13 @@ public class IdentityHeaderPropagationFilter implements GlobalFilter, Ordered {
                 .map(SecurityContext::getAuthentication)
                 .filter(auth -> auth instanceof JwtAuthenticationToken jwtAuth && jwtAuth.isAuthenticated())
                 .cast(JwtAuthenticationToken.class)
-                .flatMap(jwtAuth -> {
+                .map(jwtAuth -> {
                     Jwt jwt = jwtAuth.getToken();
                     String userId = jwt.getSubject();
                     String role = jwt.getClaimAsString("role");
                     Object storeClaim = jwt.getClaims().get("storeId");
                     if (userId == null || role == null) {
-                        return chain.filter(exchange.mutate().request(mutated).build());
+                        return exchange.mutate().request(mutated).build();
                     }
                     var request = mutated.mutate()
                             .headers(headers -> {
@@ -64,9 +64,10 @@ public class IdentityHeaderPropagationFilter implements GlobalFilter, Ordered {
                                 }
                             })
                             .build();
-                    return chain.filter(exchange.mutate().request(request).build());
+                    return exchange.mutate().request(request).build();
                 })
                 // Unauthenticated (public) requests proceed with stripped headers only.
-                .switchIfEmpty(chain.filter(exchange.mutate().request(mutated).build()));
+                .defaultIfEmpty(exchange.mutate().request(mutated).build())
+                .flatMap(chain::filter);
     }
 }

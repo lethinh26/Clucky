@@ -24,7 +24,9 @@
 }
 
 .itemCard:focus-visible {
-  box-shadow: 0 0 0 2px #F59E0B;
+  outline: 2px solid #8F1216;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 2px rgba(143, 18, 22, 0.15);
 }
 
 /* Unread highlighted state */
@@ -162,7 +164,8 @@
   transition: opacity 0.15s ease;
 }
 
-.itemCard:hover .actionBtns {
+.itemCard:hover .actionBtns,
+.itemCard:focus-within .actionBtns {
   opacity: 1;
 }
 
@@ -177,6 +180,13 @@
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
+}
+
+.actionBtn:focus-visible {
+  outline: 2px solid #8F1216;
+  outline-offset: 1px;
+  opacity: 1;
+  background: #FEE2E2;
 }
 
 .actionBtn:hover {

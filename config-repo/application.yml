@@ -1,4 +1,6 @@
 eureka:
+  instance:
+    prefer-ip-address: true
   client:
     service-url:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
@@ -43,7 +45,7 @@ spring:
 clucky:
   security:
     jwt:
-      secret: ${JWT_SECRET:}
+      secret: ${JWT_SECRET:clucky-dev-secret-jwt-key-2026-auth-token-32bytes-min}
       issuer: ${JWT_ISSUER:clucky-identity}
       audience: ${JWT_AUDIENCE:clucky-api}
   kafka:

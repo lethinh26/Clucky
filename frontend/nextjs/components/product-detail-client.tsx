@@ -8,17 +8,19 @@ import { FoodImage } from "@/components/order/food-image";
 import Link from "@/components/ui-loader/navigation-link";
 import { useOrder } from "@/components/order/order-provider";
 import { type Product } from "@/lib/products";
-import { ArrowLeft, Star, Minus, Plus, ShoppingBag, Check } from "lucide-react";
+import { ArrowLeft, Minus, Plus, ShoppingBag, Check } from "lucide-react";
 
 interface ProductDetailClientProps {
   product: Product;
+  storeId?: number;
+  itemType: "PRODUCT" | "COMBO";
 }
 
-export function ProductDetailClient({ product }: ProductDetailClientProps) {
+export function ProductDetailClient({ product, storeId, itemType }: ProductDetailClientProps) {
   const t = useTranslations();
 
   const { money: formatPrice } = useLocaleTools();
-  const { addItem, ready } = useOrder();
+  const { addItem, ready, cartPending } = useOrder();
 
   // Selected single options (one choice per group)
   const [selectedOptions, setSelectedOptions] = useState<
@@ -107,13 +109,18 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     };
   }, [product, selectedOptions, selectedToppings, quantity]);
 
-  const handleAddToCart = () => {
-    if (!ready || isSoldOut || isAddedSuccess) return;
-    addItem({
+  const handleAddToCart = async () => {
+    if (!ready || cartPending || isSoldOut || isAddedSuccess) return;
+    const added = await addItem({
       id: crypto.randomUUID(),
+      productId: itemType === "PRODUCT" ? Number(product.id) : undefined,
+      comboId: itemType === "COMBO" ? Number(product.id) : undefined,
+      itemType,
+      optionIds: Object.values(selectedOptions).map(Number),
+      toppingIds: selectedToppings.map(Number),
       slug: product.slug,
       name: product.name,
-      category: product.categoryName,
+      category: product.categoryName || product.category || '',
       basePrice: product.basePrice || product.price,
       unitPrice,
       quantity,
@@ -126,6 +133,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         return choice
           ? [
               {
+                id: Number(choice.id),
                 groupName: group.name,
                 name: choice.name,
                 extraPrice: choice.priceAdjustment,
@@ -135,8 +143,9 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       }),
       toppings: product.toppings
         ?.filter((top) => selectedToppings.includes(top.id))
-        .map((top) => ({ name: top.name, extraPrice: top.price })),
+        .map((top) => ({ id: Number(top.id), name: top.name, extraPrice: top.price })),
     });
+    if (!added) return;
     setIsAddedSuccess(true);
     if (addTimer.current) clearTimeout(addTimer.current);
     addTimer.current = setTimeout(() => {
@@ -144,7 +153,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     }, 600);
   };
 
-  const isSoldOut = product.isSoldOut || !product.isAvailable;
+  const isSoldOut = product.isSoldOut === true || product.isAvailable === false;
 
   return (
     <div
@@ -152,7 +161,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     >
       {/* Back button */}
       <Link
-        href="/menu"
+        href={storeId ? `/menu?storeId=${storeId}` : "/menu"}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -194,6 +203,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             <FoodImage
               src={product.imageUrl || product.image}
               alt={product.alt || product.name}
+              usePlaceholder={false}
               style={{
                 width: "100%",
                 aspectRatio: 1,
@@ -201,31 +211,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 display: "block",
               }}
             />
-
-            {product.isBestSeller && !isSoldOut && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: 20,
-                  left: 20,
-                  background: "linear-gradient(135deg, #E5C358, #C9A227)",
-                  color: "#16100D",
-                  fontFamily: "Baloo 2, sans-serif",
-                  fontWeight: 700,
-                  fontSize: 13,
-                  letterSpacing: "0.08em",
-                  padding: "6px 16px",
-                  borderRadius: 999,
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-                  textTransform: "uppercase",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <Star size={13} fill="currentColor" /> Best Seller
-              </span>
-            )}
 
             {isSoldOut && (
               <span
@@ -249,7 +234,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
+              gridTemplateColumns: product.kcal != null ? "repeat(2, 1fr)" : "1fr",
               gap: 12,
               marginTop: 24,
             }}
@@ -274,47 +259,29 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               <span style={{ fontSize: 12, color: "#6B6259" }}> {t("business.productdetailclient.freshlyMade")} </span>
             </div>
 
-            <div
-              style={{
-                padding: "16px 12px",
-                borderRadius: 18,
-                background: "#FFFAF3",
-                border: "1px solid #E8E2D9",
-                textAlign: "center",
-              }}
-            >
-              <strong
+            {product.kcal != null && (
+              <div
                 style={{
-                  display: "block",
-                  fontFamily: "Baloo 2, sans-serif",
-                  fontSize: 16,
-                  color: "#16100D",
+                  padding: "16px 12px",
+                  borderRadius: 18,
+                  background: "#FFFAF3",
+                  border: "1px solid #E8E2D9",
+                  textAlign: "center",
                 }}
               >
-                {product.kcal} kcal
-              </strong>
-              <span style={{ fontSize: 12, color: "#6B6259" }}> {t("business.productdetailclient.justTheRightPortion")} </span>
-            </div>
-
-            <div
-              style={{
-                padding: "16px 12px",
-                borderRadius: 18,
-                background: "#FFFAF3",
-                border: "1px solid #E8E2D9",
-                textAlign: "center",
-              }}
-            >
-              <strong
-                style={{
-                  display: "block",
-                  fontFamily: "Baloo 2, sans-serif",
-                  fontSize: 16,
-                  color: "#16100D",
-                }}
-              > {t("business.productdetailclient.minutes")} </strong>
-              <span style={{ fontSize: 12, color: "#6B6259" }}> {t("business.productdetailclient.preparedHotAndFresh")} </span>
-            </div>
+                <strong
+                  style={{
+                    display: "block",
+                    fontFamily: "Baloo 2, sans-serif",
+                    fontSize: 16,
+                    color: "#16100D",
+                  }}
+                >
+                  {product.kcal} kcal
+                </strong>
+                <span style={{ fontSize: 12, color: "#6B6259" }}> {t("business.productdetailclient.justTheRightPortion")} </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -337,7 +304,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
               marginBottom: 10,
             }}
           >
-            {product.categoryName || (product as any).category} · Clucky Classic
+            {product.categoryName || product.category}
           </div>
 
           <h1
@@ -354,34 +321,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             {product.name}
           </h1>
 
-          {/* Rating */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 18,
-            }}
-          >
-            <div style={{ display: "flex", color: "#C9A227" }}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Star key={s} size={18} fill="#C9A227" stroke="#C9A227" />
-              ))}
-            </div>
-            <span
-              style={{
-                fontFamily: "Quicksand, sans-serif",
-                fontWeight: 700,
-                fontSize: 14,
-                color: "#16100D",
-              }}
-            >
-              {product.rating || 4.9}
-            </span>
-            <span style={{ color: "#6B6259", fontSize: 13 }}>
-              ({product.reviewCount || 128} {t("business.productdetailclient.customerReviews")} </span>
-          </div>
-
           {/* Description */}
           <p
             style={{
@@ -394,6 +333,21 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           >
             {product.description}
           </p>
+
+          {product.comboItems && product.comboItems.length > 0 && (
+            <section style={{ marginBottom: 28 }}>
+              <h2 style={{ fontFamily: "Baloo 2, sans-serif", fontSize: 18, marginBottom: 8 }}>
+                {t("business.productdetailclient.comboItems")}
+              </h2>
+              <ul style={{ margin: 0, paddingLeft: 22, color: "#6B6259" }}>
+                {product.comboItems.map((item) => (
+                  <li key={item.productId}>
+                    {item.productName} × {item.quantity}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {/* Single Options (Chọn 1) */}
           {product.options?.map((group) => (
@@ -721,7 +675,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={isSoldOut || !ready || isAddedSuccess}
+              disabled={isSoldOut || !ready || cartPending || isAddedSuccess}
               data-added={isAddedSuccess}
               className="btn-primary"
               style={{

@@ -4,21 +4,20 @@ import { useLocaleTools } from "@/lib/i18n/hooks";
 
 import { FoodImage } from "@/components/order/food-image";
 import Link from "@/components/ui-loader/navigation-link";
-import Image from "next/image";
-import { categories, type Product } from "@/lib/products";
-import { Plus, Flame, Star } from "lucide-react";
+import type { Product } from "@/lib/products";
+import { Plus, Flame } from "lucide-react";
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, storeId }: { product: Product; storeId?: number }) {
   const t = useTranslations();
   const { money: formatPrice } = useLocaleTools();
   const categoryName = product.categoryName || product.category || "";
-  const categoryKey = categories.find(category => category.name === categoryName)?.messageKey;
-  const isSoldOut = product.isSoldOut || !product.isAvailable;
+  const isSoldOut = product.isSoldOut === true || product.isAvailable === false;
+  const productHref = `/menu/${product.slug}${storeId ? `?storeId=${storeId}` : ''}`;
 
   return (
     <article className="product-card">
       <Link
-        href={`/menu/${product.slug}`}
+        href={productHref}
         className="product-card-media"
         aria-label={t("menu.product.view", { name: product.name })}
       >
@@ -26,13 +25,8 @@ export function ProductCard({ product }: { product: Product }) {
           src={product.imageUrl || product.image}
           alt={product.alt || product.name}
           loading="lazy"
+          usePlaceholder={false}
         />
-
-        {product.isBestSeller && !isSoldOut && (
-          <span className="badge-best-seller">
-            <Star size={12} fill="currentColor" /> Best Seller
-          </span>
-        )}
 
         {isSoldOut && <span className="badge-sold-out">{t("menu.product.soldOut")}</span>}
       </Link>
@@ -46,7 +40,7 @@ export function ProductCard({ product }: { product: Product }) {
           }}
         >
           <span className="card-tag">
-            {categoryKey ? t(categoryKey) : categoryName}
+            {categoryName}
           </span>
           {product.spicyLevel > 0 && (
             <span
@@ -66,7 +60,7 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
 
         <h2>
-          <Link href={`/menu/${product.slug}`}>{product.name}</Link>
+          <Link href={productHref}>{product.name}</Link>
         </h2>
 
         <p>{product.description}</p>
@@ -77,7 +71,7 @@ export function ProductCard({ product }: { product: Product }) {
           </span>
           <Link
             className="add-button"
-            href={`/menu/${product.slug}`}
+            href={productHref}
             aria-label={t("menu.product.customise", { name: product.name })}
           >
             <Plus size={20} />

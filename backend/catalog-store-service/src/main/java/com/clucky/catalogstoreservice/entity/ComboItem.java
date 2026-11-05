@@ -3,33 +3,45 @@ package com.clucky.catalogstoreservice.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "combo_items", schema = "catalog_service")
+@Table(name = "combo_items")
 public class ComboItem {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id", nullable = false)
     private Long id;
 
-    @Column(name = "combo_id", nullable = false)
-    private Long comboId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "combo_id", nullable = false)
+    private Combo combo;
 
-    @Column(name = "product_id", nullable = false)
-    private Long productId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
-    @Column(name = "quantity", nullable = false)
+    @Column(nullable = false)
     private Integer quantity = 1;
 
-    @Column(name = "option_id", nullable = true)
+    @Column(name = "option_id")
     private Long optionId;
+
+    public ComboItem() {}
+
+    public ComboItem(Long id, Combo combo, Product product, Integer quantity, Long optionId) {
+        this.id = id;
+        this.combo = combo;
+        this.product = product;
+        this.quantity = quantity != null ? quantity : 1;
+        this.optionId = optionId;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
-    public Long getComboId() { return comboId; }
-    public void setComboId(Long comboId) { this.comboId = comboId; }
+    public Combo getCombo() { return combo; }
+    public void setCombo(Combo combo) { this.combo = combo; }
 
-    public Long getProductId() { return productId; }
-    public void setProductId(Long productId) { this.productId = productId; }
+    public Product getProduct() { return product; }
+    public void setProduct(Product product) { this.product = product; }
 
     public Integer getQuantity() { return quantity; }
     public void setQuantity(Integer quantity) { this.quantity = quantity; }

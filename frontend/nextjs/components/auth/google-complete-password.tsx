@@ -34,6 +34,13 @@ export function GoogleCompletePassword({
       setError("auth.validation.passwordLength");
       return;
     }
+    if (
+      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$/.test(password) ||
+      new TextEncoder().encode(password).length > 72
+    ) {
+      setError("auth.google.passwordPolicy");
+      return;
+    }
     if (password !== confirm) {
       setError("auth.validation.passwordMismatch");
       return;
@@ -60,6 +67,7 @@ export function GoogleCompletePassword({
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
             minLength={8}
+            maxLength={72}
             autoFocus
             disabled={loading}
             aria-invalid={!!error}
@@ -81,6 +89,7 @@ export function GoogleCompletePassword({
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"
+            maxLength={72}
             disabled={loading}
             aria-invalid={!!error}
             aria-describedby={error ? "google-password-error" : undefined}

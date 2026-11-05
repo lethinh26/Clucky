@@ -2,13 +2,13 @@
 import { useTranslations } from "next-intl";
 
 
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from '@/components/ui-loader/navigation-link';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
 import { StyledSelect } from '@/components/styled-select';
-import { products, categories, type Product } from '@/lib/products';
+import { catalogApi, type CategoryItem, type ProductItem, type StoreItem } from '@/lib/catalog-and-stores.api';
 import {
   Search,
   X,
@@ -16,6 +16,8 @@ import {
   ArrowUpDown,
   UtensilsCrossed,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 function MenuContent() {
@@ -23,43 +25,112 @@ function MenuContent() {
   const searchParams = useSearchParams();
   const initialCategory = Number(searchParams.get('cat')) || 0;
   const storeIdParam = searchParams.get('storeId');
+  const parsedStoreId = Number(storeIdParam);
+  const storeId = Number.isSafeInteger(parsedStoreId) && parsedStoreId > 0
+    ? parsedStoreId
+    : undefined;
+  const hasInvalidStoreId = storeIdParam !== null && storeId === undefined;
 
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [currentStore, setCurrentStore] = useState<StoreItem | null>(null);
+  const [categories, setCategories] = useState<{ id: number; name: string; messageKey?: string }[]>([
+    { id: 0, name: 'All', messageKey: 'menu.categories.all' },
+  ]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<number>(initialCategory);
   const [searchTerm, setSearchTerm] = useState('');
   const [spicyFilter, setSpicyFilter] = useState<'ALL' | '0' | '1' | '2'>('ALL');
-  const [sortOption, setSortOption] = useState<'POPULAR' | 'PRICE_ASC' | 'PRICE_DESC'>('POPULAR');
+  const [sortOption, setSortOption] = useState<'DEFAULT' | 'PRICE_ASC' | 'PRICE_DESC'>('DEFAULT');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const ITEMS_PER_PAGE = 12;
+
+  useEffect(() => {
+    let active = true;
+    const fetchCatalog = async () => {
+      setLoading(true);
+      setLoadError(null);
+      setProducts([]);
+      setCurrentStore(null);
+      if (hasInvalidStoreId) {
+        setCategories([{ id: 0, name: 'All', messageKey: 'menu.categories.all' }]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const [liveProds, liveCats, storeDetail] = await Promise.all([
+          catalogApi.getProducts({ storeId, activeOnly: true }),
+          catalogApi.getCategories(true),
+          storeId ? catalogApi.getStoreById(storeId).catch(() => null) : Promise.resolve(null),
+        ]);
+        if (active) {
+          setProducts(liveProds);
+          setCurrentStore(storeDetail);
+          setCategories([
+            { id: 0, name: 'All', messageKey: 'menu.categories.all' },
+            ...liveCats.map((c: CategoryItem) => ({ id: c.id, name: c.name })),
+          ]);
+        }
+      } catch (err) {
+        if (active) setLoadError(err instanceof Error ? err.message : t("menu.empty.title"));
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    fetchCatalog();
+    return () => { active = false; };
+  }, [storeId, hasInvalidStoreId]);
+
+  // Reset to page 1 on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchTerm, spicyFilter, sortOption, storeId]);
 
   // Filter & Sort Logic
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
         // Category Filter
-        const matchCat = selectedCategory === 0 || p.categoryId === selectedCategory;
+        const selectedCategoryName = categories.find((category) => category.id === selectedCategory)?.name;
+        const matchCat =
+          selectedCategory === 0 ||
+          p.categoryId === selectedCategory ||
+          (selectedCategoryName?.toLocaleLowerCase() === 'combo' &&
+            p.categoryName?.toLocaleLowerCase() === 'combo');
         // Search Term
         const matchSearch =
           p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+          (p.categoryName ?? p.category ?? '').toLowerCase().includes(searchTerm.toLowerCase());
         // Spicy Filter
         const matchSpicy =
-          spicyFilter === 'ALL' || p.spicyLevel.toString() === spicyFilter;
+          spicyFilter === 'ALL' || p.spicyLevel?.toString() === spicyFilter;
 
         return matchCat && matchSearch && matchSpicy;
       })
       .sort((a, b) => {
         if (sortOption === 'PRICE_ASC') return (a.basePrice || a.price) - (b.basePrice || b.price);
         if (sortOption === 'PRICE_DESC') return (b.basePrice || b.price) - (a.basePrice || a.price);
-        // Default popular: Best seller first
-        return (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0);
+        return 0;
       });
-  }, [selectedCategory, searchTerm, spicyFilter, sortOption]);
+  }, [products, categories, selectedCategory, searchTerm, spicyFilter, sortOption]);
+
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
 
   const handleResetFilters = () => {
     setSelectedCategory(0);
     setSearchTerm('');
     setSpicyFilter('ALL');
-    setSortOption('POPULAR');
+    setSortOption('DEFAULT');
+    setCurrentPage(1);
   };
+
+  const errorMessage = hasInvalidStoreId ? t("menu.errors.invalidStoreId") : loadError;
 
   return (
     <div style={{ maxWidth: 1240, margin: '0 auto', padding: '0 24px 80px' }}>
@@ -67,7 +138,7 @@ function MenuContent() {
       <div style={{ padding: '32px 0 24px', textAlign: 'center' }}>
         <span className="eyebrow">
           <Sparkles size={16} className="inline mr-1 text-[#C9A227]" />
-          Fresh from the fryer
+          {t("menu.eyebrow")}
         </span>
         <h1
           style={{
@@ -92,23 +163,80 @@ function MenuContent() {
         >
           {t("menu.description")}{" "}</p>
 
-        {storeIdParam && (
+        {storeId && (
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 10,
               marginTop: 16,
-              padding: '6px 16px',
-              backgroundColor: '#FEF9C3',
-              border: '1px solid #FDE047',
+              padding: '8px 18px',
+              backgroundColor: '#FFFAF3',
+              border: '1px solid #E8E2D9',
               borderRadius: 999,
               fontSize: 13,
-              fontWeight: 700,
-              color: '#946C00',
+              fontWeight: 600,
+              color: '#16100D',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
             }}
           >
-            <span>{t("menu.storePrefix")}{storeIdParam}</span>
+            <span>
+              {currentStore ? `📍 ${currentStore.name}` : `${t("menu.storePrefix")}${storeId}`}
+            </span>
+            {currentStore && (
+              currentStore.status === 'OPEN' ? (
+                currentStore.isOpenNow !== false ? (
+                  <span
+                    style={{
+                      padding: '3px 12px',
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      backgroundColor: '#EAF6EE',
+                      color: '#1E7A46',
+                      border: '1px solid #A7F3D0',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t("menu.storeStatus.openNow")}
+                  </span>
+                ) : (
+                  <span
+                    style={{
+                      padding: '3px 12px',
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      backgroundColor: '#FEF3C7',
+                      color: '#92400E',
+                      border: '1px solid #FDE68A',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t("menu.storeStatus.outsideHours", { openTime: currentStore.openTime })}
+                  </span>
+                )
+              ) : (
+                <span
+                  style={{
+                    padding: '3px 12px',
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    backgroundColor: '#FEE2E2',
+                    color: '#DC2626',
+                    border: '1px solid #FECACA',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {currentStore.status === 'CLOSED_TEMP'
+                    ? t("menu.storeStatus.closedTemp")
+                    : t("menu.storeStatus.closed")}
+                </span>
+              )
+            )}
           </div>
         )}
       </div>
@@ -219,7 +347,7 @@ function MenuContent() {
                 onChange={(v) => setSortOption(v as any)}
                 ariaLabel={t("menu.sort.accessibleLabel")}
                 options={[
-                  { value: 'POPULAR', label: t("menu.sort.popular") },
+                  { value: 'DEFAULT', label: t("menu.sort.default") },
                   { value: 'PRICE_ASC', label: t("menu.sort.priceAscending") },
                   { value: 'PRICE_DESC', label: t("menu.sort.priceDescending") },
                 ]}
@@ -263,23 +391,151 @@ function MenuContent() {
                 }}
               >
                 <CategoryIcon id={cat.id} size={18} active={isActive} />
-                <span>{t(cat.messageKey)}</span>
+                <span>{cat.messageKey ? t(cat.messageKey) : cat.name}</span>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Product Grid or Empty State */}
-      {filteredProducts.length > 0 ? (
+      {errorMessage && (
+        <p role="alert" style={{ color: '#B42318', textAlign: 'center' }}>
+          {errorMessage}
+        </p>
+      )}
+      {loading ? (
+        <p aria-live="polite" style={{ textAlign: 'center' }}>{t("menu.loading")}</p>
+      ) : errorMessage ? null : filteredProducts.length > 0 ? (
         <div>
           <div style={{ marginBottom: 16, fontSize: 13, color: '#6B6259', fontWeight: 600 }}>
-            {t("menu.results.prefix")}{" "}<strong>{filteredProducts.length}</strong> {" "}{t("menu.results.suffix")}{" "}</div>
+            {t("menu.results.prefix")}{" "}<strong>{filteredProducts.length}</strong> {" "}{t("menu.results.suffix")}
+            {totalPages > 1 && (
+              <span style={{ marginLeft: 8, color: '#C9A227', fontWeight: 700 }}>
+                {t("menu.pagination.pageIndicator", { current: currentPage, total: totalPages })}
+              </span>
+            )}
+          </div>
           <div className="product-grid">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.slug} product={product} />
+            {paginatedProducts.map((product) => (
+              <ProductCard key={product.slug} product={product} storeId={storeId} />
             ))}
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div
+              style={{
+                marginTop: 48,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 8,
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                onClick={() => {
+                  setCurrentPage((p) => Math.max(1, p - 1));
+                  window.scrollTo({ top: 300, behavior: 'smooth' });
+                }}
+                disabled={currentPage === 1}
+                aria-label={t("menu.pagination.prevAria")}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  border: '1px solid #E8E2D9',
+                  backgroundColor: currentPage === 1 ? '#F5EDE0' : '#FFFFFF',
+                  color: currentPage === 1 ? '#A8A29E' : '#16100D',
+                  fontFamily: 'Quicksand, sans-serif',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  minHeight: 40,
+                }}
+              >
+                <ChevronLeft size={16} />
+                <span>{t("menu.pagination.prev")}</span>
+              </button>
+
+              {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => {
+                const isActive = pageNum === currentPage;
+                if (
+                  totalPages > 7 &&
+                  pageNum !== 1 &&
+                  pageNum !== totalPages &&
+                  Math.abs(pageNum - currentPage) > 1
+                ) {
+                  if (pageNum === 2 || pageNum === totalPages - 1) {
+                    return (
+                      <span key={pageNum} style={{ padding: '0 4px', color: '#6B6259' }}>
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                }
+
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => {
+                      setCurrentPage(pageNum);
+                      window.scrollTo({ top: 300, behavior: 'smooth' });
+                    }}
+                    aria-current={isActive ? 'page' : undefined}
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      border: `1px solid ${isActive ? '#8F1216' : '#E8E2D9'}`,
+                      backgroundColor: isActive ? '#8F1216' : '#FFFFFF',
+                      color: isActive ? '#FFFFFF' : '#16100D',
+                      fontFamily: 'Baloo 2, sans-serif',
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: isActive ? '0 4px 14px rgba(143, 18, 22, 0.25)' : 'none',
+                    }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => {
+                  setCurrentPage((p) => Math.min(totalPages, p + 1));
+                  window.scrollTo({ top: 300, behavior: 'smooth' });
+                }}
+                disabled={currentPage === totalPages}
+                aria-label={t("menu.pagination.nextAria")}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '8px 16px',
+                  borderRadius: 999,
+                  border: '1px solid #E8E2D9',
+                  backgroundColor: currentPage === totalPages ? '#F5EDE0' : '#FFFFFF',
+                  color: currentPage === totalPages ? '#A8A29E' : '#16100D',
+                  fontFamily: 'Quicksand, sans-serif',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  minHeight: 40,
+                }}
+              >
+                <span>{t("menu.pagination.next")}</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         /* Empty State */

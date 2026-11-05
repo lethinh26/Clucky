@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { seedOrder } from "../fixtures/order";
 
 const customer = "http://127.0.0.1:4174";
 const admin = "http://127.0.0.1:4173";
@@ -97,6 +98,7 @@ for (const origin of [customer, admin]) {
 }
 
 test("admin filters and an open form survive language changes", async ({ page }) => {
+  await page.route("**/api/catalog/**", route => route.fulfill({ json: [] }));
   await page.goto(admin + "/admin/catalog");
   await page.getByPlaceholder("Tìm kiếm tên món, slug, danh mục...").fill("Gà");
   await page.getByRole("button", { name: "Thêm món ăn mới" }).click();
@@ -185,8 +187,9 @@ test("party prices follow locale without translating package names", async ({ pa
 });
 
 test("order timestamps use Vietnam time in both languages without translating customer data", async ({ page, context }) => {
+  await seedOrder(page);
   await context.addCookies([{ name: "clucky_locale", value: "en", url: customer }]);
-  await page.goto(customer + "/orders/demo-clucky");
+  await page.goto(customer + "/orders/901");
   for (const locale of ["en", "vi"] as const) {
     await switchLanguage(page, locale);
     const date = new Intl.DateTimeFormat(locale === "en" ? "en-US" : "vi-VN", {

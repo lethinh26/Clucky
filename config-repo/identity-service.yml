@@ -17,6 +17,12 @@ spring:
     schemas: identity_service
     create-schemas: true
     baseline-on-migrate: false
+  kafka:
+    producer:
+      properties:
+        max.block.ms: 3000
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}
@@ -27,6 +33,9 @@ cloudinary:
 
 clucky:
   auth:
+    google:
+      enabled: ${FIREBASE_AUTH_ENABLED:false}
+      project-id: ${FIREBASE_PROJECT_ID:}
     access-ttl: ${AUTH_ACCESS_TTL:30m}
     refresh-ttl: ${AUTH_REFRESH_TTL:7d}
     otp-ttl: ${AUTH_OTP_TTL:5m}

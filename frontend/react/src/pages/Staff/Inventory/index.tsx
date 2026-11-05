@@ -1,5 +1,5 @@
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
-import React, { useState, useMemo } from 'react';
 import {
   Button,
   Space,
@@ -29,23 +29,53 @@ import { AdminTable } from '../../../components/ui/AdminTable';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { AdminModal } from '../../../components/ui/AdminModal';
 import { useAuth } from '../../../context/AuthContext';
-import { InventoryItem, mockInventory, mockStores } from '../../../mocks/catalogData';
+import { inventoryApi, storesApi, getErrorMessage, type InventoryItem, type Store } from '../../../lib/api';
 
 export const StaffInventoryPage: React.FC = () => {
   const { t } = useTranslation();
 
-  const { user, isAdmin } = useAuth();
-  const [inventory, setInventory] = useState<InventoryItem[]>(mockInventory);
+  const { user, isAdmin, isStaff } = useAuth();
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'LOW_STOCK' | 'SOLD_OUT'>('ALL');
-  const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId || 1);
+  const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId ?? 0);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [form] = Form.useForm();
 
-  const activeStoreId = isAdmin ? adminSelectedStoreId : (user.storeId || 1);
-  const currentStore = mockStores.find((s) => s.id === activeStoreId);
-  const currentStoreName = currentStore?.name || user.storeName || 'Chi nhánh Clucky Lê Lợi (Q.1)';
+  const activeStoreId = isAdmin ? adminSelectedStoreId || stores[0]?.id : user.storeId;
+  const currentStore = stores.find((s) => s.id === activeStoreId);
+  const currentStoreName = currentStore?.name || user.storeName;
+
+  const fetchInventory = useCallback(async () => {
+    try {
+      setLoading(true);
+      const storeList = await storesApi.list(false);
+      const selectedStoreId = isAdmin
+        ? (storeList.some((store) => store.id === adminSelectedStoreId)
+          ? adminSelectedStoreId
+          : storeList[0]?.id)
+        : user.storeId;
+      const invList = selectedStoreId
+        ? await inventoryApi.getStoreInventory(selectedStoreId)
+        : [];
+      setStores(storeList);
+      setInventory(invList);
+      if (isAdmin && selectedStoreId && selectedStoreId !== adminSelectedStoreId) {
+        setAdminSelectedStoreId(selectedStoreId);
+      }
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [activeStoreId, adminSelectedStoreId, isAdmin, user.storeId]);
+
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
 
   // Store-scoped inventory
   const storeInventory = useMemo(() => {
@@ -81,26 +111,22 @@ export const StaffInventoryPage: React.FC = () => {
   const availableCount = totalItems - soldOutCount;
 
   // Toggle "Hết món trong ca" (Local branch switch)
-  const handleToggleSoldOut = (item: InventoryItem, checked: boolean) => {
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    setInventory((prev) =>
-      prev.map((i) =>
-        i.productId === item.productId
-          ? {
-              ...i,
-              isSoldOut: checked,
-              updatedAt: now,
-              updatedBy: `${user.fullName} (${user.role})`,
-            }
-          : i
-      )
-    );
-    if (checked) {
-      message.warning(
-        t("business:inventory.markedAsSoldOutForThisShiftCustomersAtThisStoreWill", { value1: item.productName })
-      );
-    } else {
-      message.success(t("business:inventory.isBackOnSaleAtThisStore", { value1: item.productName }));
+  const handleToggleSoldOut = async (item: InventoryItem, checked: boolean) => {
+    try {
+      if (!activeStoreId) return;
+      await inventoryApi.updateAvailability(activeStoreId, item.productId, { isSoldOut: checked });
+      await fetchInventory();
+      if (checked) {
+        message.warning(
+          t("business:inventory.markedAsSoldOutForThisShiftCustomersAtThisStoreWill", { value1: item.productName })
+        );
+      } else {
+        message.success(
+          t("business:inventory.isBackOnSaleAtThisStore", { value1: item.productName })
+        );
+      }
+    } catch (err) {
+      message.error(getErrorMessage(err));
     }
   };
 
@@ -116,25 +142,27 @@ export const StaffInventoryPage: React.FC = () => {
   const handleUpdateStockSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-      setInventory((prev) =>
-        prev.map((i) =>
-          i.productId === editingItem?.productId
-            ? {
-                ...i,
-                quantityAvailable: values.quantityAvailable,
-                lowStockThreshold: values.lowStockThreshold,
-                isSoldOut: values.quantityAvailable === 0 ? true : i.isSoldOut,
-                updatedAt: now,
-                updatedBy: `${user.fullName} (${user.role})`,
-              }
-            : i
-        )
-      );
-      message.success(t("business:inventory.inventoryQuantityUpdatedFor", { value1: editingItem?.productName }));
+      if (editingItem && activeStoreId) {
+        const payload: { quantityAvailable?: number; lowStockThreshold?: number } = {
+          quantityAvailable: values.quantityAvailable,
+        };
+        if (!isStaff && values.lowStockThreshold != null) {
+          payload.lowStockThreshold = values.lowStockThreshold;
+        }
+
+        const updated = await inventoryApi.updateInventory(activeStoreId, editingItem.productId, payload);
+        setInventory((prev) =>
+          prev.map((i) =>
+            i.productId === editingItem.productId ? updated : i
+          )
+        );
+        message.success(
+          t("business:inventory.inventoryQuantityUpdatedFor", { value1: editingItem.productName })
+        );
+      }
       setModalOpen(false);
-    } catch {
-      message.error(t("business:inventory.pleaseEnterAValidQuantity"));
+    } catch (err) {
+      message.error(getErrorMessage(err));
     }
   };
 
@@ -145,12 +173,11 @@ export const StaffInventoryPage: React.FC = () => {
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <Image
-            src={record.imageUrl}
+            src={record.imageUrl ?? undefined}
             alt={record.productName}
             width={52}
             height={52}
             style={{ borderRadius: 12, objectFit: 'cover', border: '1px solid #E8E2D9' }}
-            fallback="https://images.unsplash.com/photo-1562967916-eb82221dfb92?w=100"
           />
           <div>
             <div
@@ -308,7 +335,7 @@ export const StaffInventoryPage: React.FC = () => {
                 value={adminSelectedStoreId}
                 onChange={setAdminSelectedStoreId}
                 style={{ width: 280, fontFamily: 'Quicksand, sans-serif' }}
-                options={mockStores.map((s) => ({
+                options={stores.map((s) => ({
                   value: s.id,
                   label: `🏪 ${s.name}`,
                 }))}
@@ -462,9 +489,9 @@ export const StaffInventoryPage: React.FC = () => {
           <Form.Item
             name="lowStockThreshold"
             label={t("business:inventory.lowStockAlertThresholdServings")}
-            rules={[{ required: true, message: t("business:inventory.pleaseEnterAnAlertThreshold") }]}
+            rules={isStaff ? [] : [{ required: true, message: t("business:inventory.pleaseEnterAnAlertThreshold") }]}
           >
-            <InputNumber min={1} max={500} style={{ width: '100%', height: 40 }} />
+            <InputNumber min={1} max={500} disabled={isStaff} style={{ width: '100%', height: 40 }} />
           </Form.Item>
 
           <div

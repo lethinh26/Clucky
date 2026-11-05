@@ -1,8 +1,11 @@
 {
   "hero": {
     "description": "Gà rán giòn rụm đậm vị truyền thống, chế biến thủ công từ 100% gà tươi mỗi ngày. Từng miếng gà nóng hổi chuẩn nhiệt độ vàng mang lại niềm vui trọn vẹn cho bạn và người thân.",
+    "eyebrow": "Nóng giòn từ chảo chiên",
     "order": "Đặt món ngay",
     "menu": "Xem thực đơn",
+    "titleTop": "Giòn rụm bên ngoài.",
+    "titleBottom": "Đậm vị bên trong.",
     "imageAlt": "Đĩa gà rán giòn vàng óng ánh Clucky"
   },
   "bestSellers": "Món ăn bán chạy nhất",

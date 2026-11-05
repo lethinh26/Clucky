@@ -56,6 +56,11 @@ public class RefreshTokenService {
     public RotateResult rotate(String rawRefreshToken) {
         JwtIssuer.RefreshTokenClaims claims = jwtIssuer.verifyAndParseRefreshToken(rawRefreshToken);
 
+        if (sessionRevocationService.isSessionRevoked(claims.sid())
+                || sessionRevocationService.isUserRevoked(claims.userId(), claims.issuedAt())) {
+            throw new ApiException(ErrorCode.TOKEN_REVOKED);
+        }
+
         String tokenHash = hash(rawRefreshToken);
         RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ApiException(ErrorCode.TOKEN_REVOKED));
@@ -94,16 +99,11 @@ public class RefreshTokenService {
         if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
             return;
         }
-        try {
-            JwtIssuer.RefreshTokenClaims claims = jwtIssuer.verifyAndParseRefreshToken(rawRefreshToken);
-            String tokenHash = hash(rawRefreshToken);
-            refreshTokenRepository.revokeToken(tokenHash);
-            if (claims.sid() != null) {
-                sessionRevocationService.revokeSession(claims.sid(), authProperties.accessTtl());
-            }
-        } catch (Exception ignored) {
-            // Best effort revoke
-        }
+        JwtIssuer.RefreshTokenClaims claims = jwtIssuer.verifyAndParseRefreshToken(rawRefreshToken);
+        String tokenHash = hash(rawRefreshToken);
+        refreshTokenRepository.revokeToken(tokenHash);
+        sessionRevocationService.revokeSession(claims.sid(),
+                authProperties.refreshTtl().plus(authProperties.accessTtl()).plusMinutes(1));
     }
 
     @Transactional
@@ -112,7 +112,8 @@ public class RefreshTokenService {
             return;
         }
         refreshTokenRepository.revokeAllForUser(userId);
-        sessionRevocationService.revokeAllUserSessions(userId, Instant.now(), authProperties.accessTtl());
+        sessionRevocationService.revokeAllUserSessions(userId, Instant.now(),
+                authProperties.refreshTtl().plus(authProperties.accessTtl()).plusMinutes(1));
     }
 
     public static String hash(String input) {

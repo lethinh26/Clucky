@@ -3,17 +3,17 @@ package com.clucky.catalogstoreservice.entity;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "categories", schema = "catalog_service")
+@Table(name = "categories")
 public class Category {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id", nullable = false)
     private Long id;
 
-    @Column(name = "name", nullable = false, length = 120)
+    @Column(nullable = false, length = 120)
     private String name;
 
-    @Column(name = "image_url", nullable = true, columnDefinition = "text")
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @Column(name = "sort_order", nullable = false)
@@ -21,6 +21,16 @@ public class Category {
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
+
+    public Category() {}
+
+    public Category(Long id, String name, String imageUrl, Integer sortOrder, Boolean isActive) {
+        this.id = id;
+        this.name = name;
+        this.imageUrl = imageUrl;
+        this.sortOrder = sortOrder != null ? sortOrder : 0;
+        this.isActive = isActive != null ? isActive : true;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

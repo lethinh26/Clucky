@@ -12,7 +12,7 @@ interface RefundModalProps {
     orderId: string,
     action: "APPROVED" | "REJECTED",
     note: string,
-  ) => boolean;
+  ) => Promise<boolean> | boolean;
 }
 
 export const RefundModal: React.FC<RefundModalProps> = ({
@@ -37,8 +37,9 @@ export const RefundModal: React.FC<RefundModalProps> = ({
 
   if (!order) return null;
 
-  const handleOk = () => {
-    if (!onConfirmRefund(order.id, action, reviewNote)) {
+  const handleOk = async () => {
+    const ok = await onConfirmRefund(order.id, action, reviewNote);
+    if (!ok) {
       message.error(
         t("business:refundmodal.unableToProcessThisRefundCheckYourPermissionsAndTheCurrentData"),
       );

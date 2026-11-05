@@ -2,9 +2,10 @@ package com.clucky.identityservice.service;
 
 import com.clucky.identityservice.config.RedisConfig;
 import com.clucky.identityservice.logging.SafeLog;
+import com.clucky.identityservice.exception.ApiException;
+import com.clucky.identityservice.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -17,38 +18,39 @@ public class SessionRevocationService {
 
     private final StringRedisTemplate redisTemplate;
 
-    public SessionRevocationService(@Autowired(required = false) StringRedisTemplate redisTemplate) {
+    public SessionRevocationService(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 
     public void revokeSession(String sid, Duration ttl) {
         if (sid == null || sid.isBlank() || redisTemplate == null) {
-            return;
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
         try {
             String key = RedisConfig.key("auth:revoked:sid", sid);
             redisTemplate.opsForValue().set(key, "revoked", ttl);
         } catch (Exception e) {
             LOG.warn("Failed to write revoked session to Redis: {}", SafeLog.trace(e));
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
     }
 
     public boolean isSessionRevoked(String sid) {
         if (sid == null || sid.isBlank() || redisTemplate == null) {
-            return false;
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
         try {
             String key = RedisConfig.key("auth:revoked:sid", sid);
             return Boolean.TRUE.equals(redisTemplate.hasKey(key));
         } catch (Exception e) {
             LOG.warn("Failed to check revoked session in Redis: {}", SafeLog.trace(e));
-            return false;
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
     }
 
     public void revokeAllUserSessions(Long userId, Instant revokedAt, Duration ttl) {
         if (userId == null || userId <= 0 || redisTemplate == null) {
-            return;
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
         try {
             String key = RedisConfig.key("auth:revoked:user", String.valueOf(userId));
@@ -56,12 +58,13 @@ public class SessionRevocationService {
             redisTemplate.opsForValue().set(key, String.valueOf(timestamp), ttl);
         } catch (Exception e) {
             LOG.warn("Failed to write revoked user to Redis: {}", SafeLog.trace(e));
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
     }
 
     public boolean isUserRevoked(Long userId, Instant tokenIssuedAt) {
         if (userId == null || userId <= 0 || tokenIssuedAt == null || redisTemplate == null) {
-            return false;
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
         try {
             String key = RedisConfig.key("auth:revoked:user", String.valueOf(userId));
@@ -73,7 +76,7 @@ public class SessionRevocationService {
             return false;
         } catch (Exception e) {
             LOG.warn("Failed to check revoked user in Redis: {}", SafeLog.trace(e));
-            return false;
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
     }
 }

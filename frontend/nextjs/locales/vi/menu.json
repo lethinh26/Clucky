@@ -9,8 +9,13 @@
     "combo": "Combo"
   },
   "title": "Thực đơn Clucky",
+  "eyebrow": "Nóng giòn từ chảo chiên",
+  "loading": "Đang tải thực đơn...",
   "description": "Chọn món yêu thích của bạn — từ gà rán giòn rụm áp suất, burger brioche thơm lừng, cho tới các combo tiết kiệm trọn gói.",
   "storePrefix": "📍 Đang xem thực đơn giao hàng từ Chi nhánh #",
+  "errors": {
+    "invalidStoreId": "Mã chi nhánh không hợp lệ. Vui lòng chọn lại chi nhánh."
+  },
   "search": {
     "placeholder": "Tìm kiếm món ăn, vị cay, thành phần...",
     "clear": "Xóa từ khóa"
@@ -27,7 +32,7 @@
   "sort": {
     "label": "Sắp xếp:",
     "accessibleLabel": "Sắp xếp món ăn",
-    "popular": "Bán chạy nhất",
+    "default": "Thứ tự mặc định",
     "priceAscending": "Giá tăng dần",
     "priceDescending": "Giá giảm dần"
   },
@@ -45,5 +50,18 @@
     "view": "Xem chi tiết {name}",
     "customise": "Xem và chọn món {name}"
   },
-  "categoryIcon": "Biểu tượng {name}"
+  "categoryIcon": "Biểu tượng {name}",
+  "pagination": {
+    "pageIndicator": "(Trang {current}/{total})",
+    "prev": "Trước",
+    "next": "Sau",
+    "prevAria": "Trang trước",
+    "nextAria": "Trang sau"
+  },
+  "storeStatus": {
+    "openNow": "● Đang mở cửa",
+    "outsideHours": "○ Ngoài giờ phục vụ (Mở lúc {openTime})",
+    "closedTemp": "✕ Tạm đóng cửa",
+    "closed": "✕ Đã đóng cửa"
+  }
 }

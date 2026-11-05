@@ -221,12 +221,17 @@
     "backToForm": "Back to form"
   },
   "stores": {
+    "eyebrow": "Find your Clucky",
     "cluckyStores": "Clucky stores",
     "pickUpAHotCrispyMealAtAStoreOrChooseYour": "Pick up a hot, crispy meal at a store or choose your nearest branch for fast delivery.",
     "searchByStoreNameStreetDistrict": "Search by store name, street, district...",
     "allStores": "All stores",
     "cluckyStoresInHoChiMinhCity": "Clucky stores in Ho Chi Minh City",
     "openNow": "● Open now",
+    "outsideHours": "○ Outside serving hours (Opens at {openTime})",
+    "loading": "Loading stores...",
+    "underMaintenance": "○ Under maintenance",
+    "closed": "✕ Closed",
     "temporarilyClosed": "Temporarily closed",
     "openingHours": "Opening hours:",
     "delivery": "Delivery:",
@@ -357,6 +362,7 @@
     "scanWithAVietqrCompatibleBankingAppKeepTheAmountAndTransfer": "Scan with a VietQR-compatible banking app. Keep the amount and transfer reference unchanged so the system can match your payment."
   },
   "productdetailclient": {
+    "comboItems": "Items in this combo",
     "backToTheCluckyMenu": "Back to the Clucky menu",
     "soldOutToday": "Sold out today",
     "crispy": "Crispy",
@@ -635,6 +641,27 @@
     "minimumMissing": "The order is below the VND {minimum} minimum (VND {missing} more needed).",
     "minutesAgo": "{count} minutes ago",
     "hoursAgo": "{count} hours ago",
-    "daysAgo": "{count} days ago"
+    "daysAgo": "{count} days ago",
+    "yourNotifications": "Your notifications",
+    "yourNotificationsSub": "Track order updates, promotional offers, and important announcements.",
+    "markAllAsRead": "Mark all as read",
+    "markAllReadAction": "Mark all as read",
+    "noUnreadNotifications": "No unread notifications",
+    "noNotificationsYet": "No notifications yet",
+    "notificationsIntro": "New order and promotional notifications will appear here.",
+    "viewAllNotifications": "View account and notifications",
+    "navigationNotice": "Navigation notice:",
+    "understood": "Understood",
+    "close": "Close",
+    "inbox": "Notification inbox",
+    "allCategories": "All categories",
+    "viewedAll": "You have reviewed all notifications in this section.",
+    "markReadError": "Connection error: Unable to mark as read. Reverted unread status (AC-03).",
+    "targetUnavailable": "The linked page or reference code is unavailable.",
+    "targetUnavailableSystem": "General system notification, please see message content.",
+    "targetUnavailableOrder": "The referenced order or link is no longer available on the system.",
+    "notificationUnreadCount": "Notifications ({count} unread)",
+    "allWithCount": "All ({count})",
+    "unreadWithCount": "Unread ({count})"
   }
 }

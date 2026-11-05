@@ -46,6 +46,8 @@ venv/
 Thumbs.db
 
 # Local logs and runtime data
+secrets/
+**/*firebase-adminsdk*.json
 *.log
 *.tmp
 
@@ -65,3 +67,12 @@ stitch_clucky_ui_component_reference/
 *.tsbuildinfo
 test-results/
 playwright-report/
+
+# Skills
+.skills/
+
+# M3 task documentation and Postman collections
+docs/M3_CART_ORDER_FIX_FLOW.md
+**/M3_CART_ORDER_FIX_FLOW.md
+*.postman_collection.json
+docs/*.postman_collection.json

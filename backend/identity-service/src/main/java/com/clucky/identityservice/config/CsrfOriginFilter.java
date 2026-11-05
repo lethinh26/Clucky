@@ -32,7 +32,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class CsrfOriginFilter extends OncePerRequestFilter {
     private static final Set<String> PROTECTED_PATHS = Set.of(
             "/api/auth/refresh", "/api/auth/logout", "/api/auth/reset-password",
-            "/api/auth/login", "/api/auth/verify-otp");
+            "/api/auth/login", "/api/auth/verify-otp", "/api/auth/google", "/api/auth/google/complete");
 
     private final List<String> allowedOrigins;
     private final ObjectMapper mapper;
@@ -59,10 +59,7 @@ public class CsrfOriginFilter extends OncePerRequestFilter {
                 request.getScheme() + "://" + request.getServerName()
                         + (isDefaultPort(request) ? "" : ":" + request.getServerPort()));
 
-        // A browser always sends Origin (or at least Referer) on a cross-site POST, so rejecting an
-        // unlisted value blocks forged cross-site submissions while still allowing non-browser clients
-        // (server-to-server calls, health probes) that cannot be victims of CSRF in the first place.
-        if (candidate != null && !sameOrigin && !allowedOrigins.contains(normalize(candidate))) {
+        if (candidate == null || (!sameOrigin && !allowedOrigins.contains(normalize(candidate)))) {
             request.setAttribute(CorrelationIdFilter.ERROR_CODE, ErrorCode.FORBIDDEN.name());
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);

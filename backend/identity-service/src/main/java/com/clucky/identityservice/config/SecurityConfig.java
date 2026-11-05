@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import javax.crypto.spec.SecretKeySpec;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -33,7 +32,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 @EnableConfigurationProperties({JwtSettings.class, AuthProperties.class})
 public class SecurityConfig {
     @Bean
-    JwtDecoder jwtDecoder(JwtSettings settings, @Autowired(required = false) SessionRevocationService sessionRevocationService) {
+    JwtDecoder jwtDecoder(JwtSettings settings, SessionRevocationService sessionRevocationService) {
         byte[] key = settings.secret() == null ? new byte[0] : settings.secret().getBytes(StandardCharsets.UTF_8);
         if (key.length < 32 || settings.secret().startsWith("change-") || settings.secret().contains("replace-")) {
             throw new IllegalStateException("Configure a strong JWT_SECRET with at least 32 bytes");

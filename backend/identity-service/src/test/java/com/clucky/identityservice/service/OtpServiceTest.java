@@ -1,6 +1,8 @@
 package com.clucky.identityservice.service;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import com.clucky.identityservice.config.AuthProperties;
 import com.clucky.identityservice.config.JwtSettings;
@@ -16,20 +18,25 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 
 class OtpServiceTest {
     private static final String SECRET = "unit-test-secret-value-at-least-32-bytes-long";
 
     private InMemoryOtpRepository repository;
     private OtpService service;
+    private StringRedisTemplate redis;
 
     @BeforeEach
     void setUp() {
         repository = new InMemoryOtpRepository();
+        redis = mock(StringRedisTemplate.class);
+        when(redis.execute(any(RedisScript.class), anyList(), anyString())).thenReturn(1L);
         AuthProperties properties = new AuthProperties(Duration.ofMinutes(30), Duration.ofDays(7),
                 Duration.ofMinutes(5), new AuthProperties.Cookie(false), List.of());
         service = new OtpService(repository.proxy(), properties,
-                new JwtSettings(SECRET, "clucky-identity", "clucky-api"));
+                new JwtSettings(SECRET, "clucky-identity", "clucky-api"), redis);
     }
 
     @Test
@@ -123,6 +130,49 @@ class OtpServiceTest {
     @Test
     void unsupportedPurposeIsRejectedAtIssuance() {
         assertThrows(IllegalArgumentException.class, () -> service.generateAndSaveOtp("a@b.com", "LOGIN"));
+    }
+
+    @Test
+    void failedAttemptsAreLimitedEvenAfterNewChallenge() {
+        String code = service.generateAndSaveOtp("a@b.com", OtpService.PURPOSE_RESET);
+        String wrong = code.equals("000000") ? "000001" : "000000";
+        var attempts = new java.util.concurrent.atomic.AtomicLong();
+        when(redis.execute(any(RedisScript.class), argThat((List<String> keys) ->
+                keys != null && keys.getFirst().contains(":verify:")), anyString()))
+                .thenAnswer(invocation -> attempts.incrementAndGet());
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertEquals(ErrorCode.INVALID_OTP, assertThrows(ApiException.class,
+                    () -> service.verifyAndConsume("a@b.com", OtpService.PURPOSE_RESET, wrong)).getCode());
+        }
+        String replacement = service.generateAndSaveOtp("a@b.com", OtpService.PURPOSE_RESET);
+        assertEquals(ErrorCode.TOO_MANY_REQUESTS, assertThrows(ApiException.class,
+                () -> service.verifyAndConsume("a@b.com", OtpService.PURPOSE_RESET, replacement)).getCode());
+        assertFalse(repository.rows.getLast().getUsed());
+    }
+
+    @Test
+    void issuanceLimitDoesNotInvalidateExistingCode() {
+        service.generateAndSaveOtp("a@b.com", OtpService.PURPOSE_RESET);
+        when(redis.execute(any(RedisScript.class), anyList(), anyString())).thenReturn(6L);
+        assertEquals(ErrorCode.TOO_MANY_REQUESTS, assertThrows(ApiException.class,
+                () -> service.limitIssuance("a@b.com", OtpService.PURPOSE_RESET)).getCode());
+        assertEquals(1, repository.rows.size());
+        assertFalse(repository.rows.getFirst().getUsed());
+    }
+
+    @Test
+    void redisFailureDoesNotBypassAttemptLimit() {
+        String code = service.generateAndSaveOtp("a@b.com", OtpService.PURPOSE_RESET);
+        when(redis.execute(any(RedisScript.class), anyList(), anyString())).thenThrow(new IllegalStateException());
+        assertEquals(ErrorCode.DEPENDENCY_UNAVAILABLE, assertThrows(ApiException.class,
+                () -> service.verifyAndConsume("a@b.com", OtpService.PURPOSE_RESET, code)).getCode());
+        assertFalse(repository.rows.getFirst().getUsed());
+    }
+
+    @Test
+    void nonPositiveOtpWindowIsRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new AuthProperties(null, null, Duration.ZERO, null, null));
     }
 
     /** Minimal in-memory stand-in for {@link OtpCodeRepository}; only the used methods are implemented. */

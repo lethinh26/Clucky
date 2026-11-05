@@ -55,20 +55,15 @@ export interface Combo {
   items: ComboItem[];
 }
 
-export interface Store {
-  id: number;
-  name: string;
-  address: string;
-  district: string;
-  city: string;
-  phone: string;
-  openTime: string;
-  closeTime: string;
-  status: 'OPEN' | 'CLOSED_TEMP' | 'INACTIVE';
-  deliveryArea: string;
-  managerId?: number;
-  managerName?: string;
-}
+import type { Store, StoreStatus, StoreStatusMeta } from '../types/store';
+export type { Store, StoreStatus, StoreStatusMeta };
+export {
+  STORE_STATUSES,
+  STORE_STATUS_META,
+  isStoreStatus,
+  normalizeStoreStatus,
+  getStoreStatusMeta,
+} from '../types/store';
 
 export interface InventoryItem {
   storeId: number;

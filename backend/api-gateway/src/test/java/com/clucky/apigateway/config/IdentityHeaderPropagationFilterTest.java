@@ -21,6 +21,18 @@ class IdentityHeaderPropagationFilterTest {
     private final IdentityHeaderPropagationFilter filter = new IdentityHeaderPropagationFilter();
 
     @Test
+    void authenticatedRequestsInvokeTheChainExactlyOnce() {
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var exchange = MockServerWebExchange.from(MockServerHttpRequest.post("/api/orders"));
+        filter.filter(exchange, next -> {
+            calls.incrementAndGet();
+            return Mono.empty();
+        }).contextWrite(ReactiveSecurityContextHolder.withSecurityContext(
+                Mono.just(securityContext(7L, "CUSTOMER", null)))).block();
+        assertEquals(1, calls.get());
+    }
+
+    @Test
     void stripsClientSuppliedIdentityHeadersWhenUnauthenticated() {
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest
                 .get("/api/users/me")

@@ -221,12 +221,17 @@
     "backToForm": "Quay lại biểu mẫu"
   },
   "stores": {
+    "eyebrow": "Tìm cửa hàng Clucky gần bạn",
     "cluckyStores": "Hệ thống Cửa hàng Clucky",
     "pickUpAHotCrispyMealAtAStoreOrChooseYour": "Ghé lấy món nóng giòn trực tiếp tại cửa hàng hoặc chọn chi nhánh gần bạn nhất để nhận đơn giao siêu tốc.",
     "searchByStoreNameStreetDistrict": "Tìm theo tên chi nhánh, đường, quận...",
     "allStores": "Tất cả chi nhánh",
     "cluckyStoresInHoChiMinhCity": "Chi nhánh Clucky TP.HCM",
     "openNow": "● Đang mở cửa",
+    "outsideHours": "○ Ngoài giờ phục vụ (Mở lúc {openTime})",
+    "loading": "Đang tải danh sách chi nhánh...",
+    "underMaintenance": "○ Đang bảo trì",
+    "closed": "✕ Đóng cửa",
     "temporarilyClosed": "Tạm đóng",
     "openingHours": "Giờ phục vụ:",
     "delivery": "Giao hàng:",
@@ -357,6 +362,7 @@
     "scanWithAVietqrCompatibleBankingAppKeepTheAmountAndTransfer": "Quét bằng ứng dụng ngân hàng hỗ trợ VietQR. Giữ đúng số tiền và nội dung chuyển khoản để hệ thống đối chiếu thanh toán."
   },
   "productdetailclient": {
+    "comboItems": "Sản phẩm trong combo",
     "backToTheCluckyMenu": "Quay lại Thực đơn Clucky",
     "soldOutToday": "Tạm hết hôm nay",
     "crispy": "Giòn tan",
@@ -635,6 +641,27 @@
     "minimumMissing": "Đơn hàng chưa đạt mức tối thiểu {minimum}đ (còn thiếu {missing}đ).",
     "minutesAgo": "{count} phút trước",
     "hoursAgo": "{count} giờ trước",
-    "daysAgo": "{count} ngày trước"
+    "daysAgo": "{count} ngày trước",
+    "yourNotifications": "Thông báo của bạn",
+    "yourNotificationsSub": "Theo dõi cập nhật đơn hàng, ưu đãi khuyến mãi và thông báo quan trọng.",
+    "markAllAsRead": "Đã đọc tất cả",
+    "markAllReadAction": "Đánh dấu tất cả là đã đọc",
+    "noUnreadNotifications": "Không có thông báo chưa đọc",
+    "noNotificationsYet": "Chưa có thông báo nào",
+    "notificationsIntro": "Các thông báo mới về đơn hàng và ưu đãi sẽ xuất hiện tại đây.",
+    "viewAllNotifications": "Xem thông tin tài khoản & thông báo",
+    "navigationNotice": "Lưu ý điều hướng:",
+    "understood": "Đã hiểu",
+    "close": "Đóng",
+    "inbox": "Hộp thư thông báo",
+    "allCategories": "Tất cả thể loại",
+    "viewedAll": "Bạn đã xem hết mọi thông báo trong mục này.",
+    "markReadError": "Lỗi kết nối: Không thể đánh dấu đã đọc. Đã hoàn tác trạng thái chưa đọc (AC-03).",
+    "targetUnavailable": "Trang liên kết hoặc mã tham chiếu không khả dụng.",
+    "targetUnavailableSystem": "Thông báo hệ thống chung, vui lòng xem chi tiết nội dung.",
+    "targetUnavailableOrder": "Đơn hàng hoặc trang liên kết tham chiếu không còn khả dụng trên hệ thống.",
+    "notificationUnreadCount": "Thông báo ({count} chưa đọc)",
+    "allWithCount": "Tất cả ({count})",
+    "unreadWithCount": "Chưa đọc ({count})"
   }
 }

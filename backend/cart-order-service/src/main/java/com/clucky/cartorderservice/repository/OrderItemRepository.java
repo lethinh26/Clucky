@@ -2,7 +2,12 @@ package com.clucky.cartorderservice.repository;
 
 import com.clucky.cartorderservice.entity.OrderItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+import java.util.Collection;
 
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
-
+    List<OrderItem> findByOrderId(Long orderId);
+    List<OrderItem> findByOrderIdOrderByIdAsc(Long orderId);
+    List<OrderItem> findByOrderIdIn(Collection<Long> orderIds);
 }

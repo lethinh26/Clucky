@@ -27,6 +27,7 @@ import {
   FileTextOutlined,
   CommentOutlined,
   BarChartOutlined,
+  GiftOutlined,
   BellOutlined,
   UserOutlined,
   LogoutOutlined,
@@ -37,6 +38,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { AdminFooter } from "../components/AdminFooter";
 import { PageLoadingContent } from "../components/ui-loader/page-loading";
+import { AdminNotificationCenter } from "../components/ui/AdminNotificationCenter";
 
 const routeBreadcrumbMap: Record<string, string> = {
   "/admin": "admin:nav.overview",
@@ -50,6 +52,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/users": "admin:nav.users",
   "/admin/reports": "admin:nav.reports",
   "/admin/payments": "admin:nav.payments",
+  "/admin/promotions": "admin:nav.promotions",
 };
 
 export const AdminLayout: React.FC = () => {
@@ -75,6 +78,7 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/reviews")) selectedKey = "reviews";
   else if (pathname.includes("/reports")) selectedKey = "reports";
   else if (pathname.includes("/payments")) selectedKey = "payments";
+  else if (pathname.includes("/promotions")) selectedKey = "promotions";
 
   const roleNavPermissions: Record<
     "ADMIN" | "STORE_MANAGER" | "STAFF",
@@ -90,6 +94,7 @@ export const AdminLayout: React.FC = () => {
       "reviews",
       "reports",
       "payments",
+      "promotions",
     ],
     STORE_MANAGER: [
       "dashboard",
@@ -100,6 +105,7 @@ export const AdminLayout: React.FC = () => {
       "reviews",
       "reports",
       "payments",
+      "promotions",
     ],
     STAFF: ["dashboard", "inventory", "staff-orders", "orders", "reviews"],
   };
@@ -164,6 +170,12 @@ export const AdminLayout: React.FC = () => {
       icon: <BarChartOutlined />,
       label: t("admin:nav.payments"),
       onClick: () => navigate("/admin/payments"),
+    },
+    {
+      key: "promotions",
+      icon: <GiftOutlined />,
+      label: t("admin:breadcrumb.promotions"),
+      onClick: () => navigate("/admin/promotions"),
     },
   ];
 
@@ -481,7 +493,9 @@ export const AdminLayout: React.FC = () => {
               ]}
             />
 
-            {/* Notification Bell */}
+            {/* Notification Center */}
+            <AdminNotificationCenter />
+            {false && (
             <Badge dot color="#8F1216">
               <Button
                 type="text"
@@ -493,6 +507,7 @@ export const AdminLayout: React.FC = () => {
                 onClick={() => message.info(t("admin:notifications.empty"))}
               />
             </Badge>
+            )}
 
             {/* Profile Dropdown */}
             <LanguageSwitcher />

@@ -18,6 +18,8 @@ import {
   message,
   Switch,
   DatePicker,
+  Progress,
+  Alert,
 } from 'antd';
 import type { UploadProps, UploadFile } from 'antd';
 import {
@@ -27,23 +29,43 @@ import {
   FireOutlined,
   PictureOutlined,
   SaveOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import { AdminDrawer } from '../../components/ui/AdminDrawer';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
-import { Product, Combo, ProductOptionGroup, ProductTopping, mockProducts } from '../../mocks/catalogData';
+import {
+  getErrorMessage,
+  type Product,
+  type Combo,
+  type ProductOptionGroup,
+  type ProductTopping,
+  type CatalogCategory,
+} from '../../lib/api';
 
 interface ProductFormProps {
   open: boolean;
   onClose: () => void;
   initialProduct?: Product | null;
-  onSaveProduct: (product: Partial<Product>) => void;
-  onSaveCombo?: (combo: Partial<Combo>) => void;
+  products: Product[];
+  categories: CatalogCategory[];
+  onSaveProduct: (
+    product: Partial<Product>,
+    imageFile?: File,
+    onUploadProgress?: (percent: number) => void
+  ) => Promise<void>;
+  onSaveCombo: (
+    combo: Partial<Combo>,
+    imageFile?: File,
+    onUploadProgress?: (percent: number) => void
+  ) => Promise<void>;
 }
 
 export const ProductForm: React.FC<ProductFormProps> = ({
   open,
   onClose,
   initialProduct,
+  products,
+  categories,
   onSaveProduct,
   onSaveCombo,
 }) => {
@@ -57,12 +79,15 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>([]);
   const [toppings, setToppings] = useState<ProductTopping[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (initialProduct) {
       form.setFieldsValue({
         name: initialProduct.name,
-        slug: initialProduct.slug,
         categoryId: initialProduct.categoryId,
         basePrice: initialProduct.basePrice,
         kcal: initialProduct.kcal,
@@ -71,6 +96,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         isActive: initialProduct.isActive,
       });
       setImageUrl(initialProduct.imageUrl || '');
+      setSelectedFile(null);
       setOptionGroups(initialProduct.options || []);
       setToppings(initialProduct.toppings || []);
       if (initialProduct.imageUrl) {
@@ -85,54 +111,33 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       }
     } else {
       form.resetFields();
+      comboForm.resetFields();
       setImageUrl('');
+      setSelectedFile(null);
       setFileList([]);
-      setOptionGroups([
-        {
-          id: 'opt-size',
-          name: 'Kích thước',
-          required: true,
-          choices: [
-            { id: 'size-m', name: 'Tiêu chuẩn (Vừa)', priceAdjustment: 0 },
-            { id: 'size-l', name: 'Lớn (+30% khẩu phần)', priceAdjustment: 20000 },
-          ],
-        },
-      ]);
-      setToppings([
-        { id: 'top-cheese', name: 'Sốt phô mai cay', price: 15000 },
-        { id: 'top-snow', name: 'Bột phô mai tuyết', price: 10000 },
-      ]);
+      setOptionGroups([]);
+      setToppings([]);
     }
   }, [initialProduct, open, form]);
 
-  // Auto-generate slug from name
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const name = e.target.value;
-    const slug = name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[đĐ]/g, 'd')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .trim()
-      .replace(/\s+/g, '-');
-    form.setFieldsValue({ slug });
-  };
-
   // Image Upload Validator according to SRS / task guidelines (< 5MB, MIME png/jpeg/webp)
   const beforeUpload = (file: File) => {
+    setUploadError(null);
+    setUploadProgress(0);
     const isAcceptedFormat = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
     if (!isAcceptedFormat) {
       message.error(t("business:productform.onlyPngJpgAndWebpImagesAreAccepted"));
       return Upload.LIST_IGNORE;
     }
-    const isLt5M = file.size / 1024 / 1024 < 5;
+    const isLt5M = file.size / 1024 / 1024 <= 5;
     if (!isLt5M) {
       message.error(t("business:productform.imagesMustNotExceedMb"));
       return Upload.LIST_IGNORE;
     }
 
-    // Create local preview URL
+    setSelectedFile(file);
+
+    // Instant local preview (INT-72)
     const reader = new FileReader();
     reader.onload = (e) => {
       const url = e.target?.result as string;
@@ -151,7 +156,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const addOptionChoice = (groupIndex: number) => {
     const updated = [...optionGroups];
     updated[groupIndex].choices.push({
-      id: `choice-${Date.now()}`,
+      id: `new-${crypto.randomUUID()}`,
       name: '',
       priceAdjustment: 0,
     });
@@ -171,7 +176,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         id: `opt-${Date.now()}`,
         name: t("business:productform.newOptionGroup"),
         required: true,
-        choices: [{ id: `choice-${Date.now()}-1`, name: t("business:account.default"), priceAdjustment: 0 }],
+        choices: [{ id: `new-${crypto.randomUUID()}`, name: t("business:account.default"), priceAdjustment: 0 }],
       },
     ]);
   };
@@ -186,7 +191,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const addTopping = () => {
     setToppings([
       ...toppings,
-      { id: `top-${Date.now()}`, name: '', price: 10000 },
+      { id: `new-${crypto.randomUUID()}`, name: '', price: 0 },
     ]);
   };
 
@@ -197,40 +202,73 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   const handleProductSubmit = async () => {
+    let values: Partial<Product>;
     try {
-      const values = await form.validateFields();
-      const payload: Partial<Product> = {
-        ...values,
-        id: initialProduct?.id || Date.now(),
-        imageUrl: imageUrl || 'https://images.unsplash.com/photo-1562967916-eb82221dfb92?w=600',
-        options: optionGroups,
-        toppings: toppings,
-        isAvailable: true,
-        isSoldOut: false,
-      };
-      onSaveProduct(payload);
-      message.success(initialProduct ? t("business:productform.dishUpdatedSuccessfully") : t("business:productform.newDishAddedToTheMenu"));
-      onClose();
+      values = await form.validateFields();
     } catch {
       message.error(t("business:productform.pleaseCheckTheRequiredFields"));
+      return;
+    }
+
+    const payload: Partial<Product> = {
+      ...values,
+      imageUrl: initialProduct?.imageUrl || undefined,
+      options: optionGroups,
+      toppings,
+    };
+
+    try {
+      setUploadError(null);
+      setUploadProgress(0);
+      setUploading(Boolean(selectedFile));
+      await onSaveProduct(payload, selectedFile ?? undefined, setUploadProgress);
+      message.success(initialProduct ? t("business:productform.dishUpdatedSuccessfully") : t("business:productform.newDishAddedToTheMenu"));
+      onClose();
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      setUploadError(errorMessage);
+      message.error(errorMessage);
+    } finally {
+      setUploading(false);
     }
   };
 
   const handleComboSubmit = async () => {
+    let values: {
+      name: string;
+      description: string;
+      comboPrice: number;
+      items?: number[];
+    };
     try {
-      const values = await comboForm.validateFields();
-      if (onSaveCombo) {
-        onSaveCombo({
-          id: Date.now(),
-          ...values,
-          imageUrl: imageUrl || 'https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?w=600',
-          isActive: true,
-        });
-      }
-      message.success(t("business:productform.newComboCreatedSuccessfully"));
-      onClose();
+      values = await comboForm.validateFields();
     } catch {
       message.error(t("business:productform.pleaseCompleteTheComboDetails"));
+      return;
+    }
+
+    try {
+      setUploadError(null);
+      setUploadProgress(0);
+      setUploading(Boolean(selectedFile));
+      await onSaveCombo({
+        ...values,
+        imageUrl: undefined,
+        isActive: true,
+        items: (values.items ?? []).map((productId) => ({
+          productId,
+          productName: products.find((product) => product.id === productId)?.name ?? '',
+          quantity: 1,
+        })),
+      }, selectedFile ?? undefined, setUploadProgress);
+      message.success(t("business:productform.newComboCreatedSuccessfully"));
+      onClose();
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      setUploadError(errorMessage);
+      message.error(errorMessage);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -248,6 +286,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <Button
             type="primary"
             icon={<SaveOutlined />}
+            loading={uploading}
+            disabled={uploading}
             onClick={activeTab === 'product' ? handleProductSubmit : handleComboSubmit}
             style={{
               backgroundColor: '#8F1216',
@@ -289,20 +329,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         <Form
           form={form}
           layout="vertical"
-          initialValues={{
-            categoryId: 1,
-            spicyLevel: 1,
-            isActive: true,
-            basePrice: 89000,
-            kcal: 500,
-          }}
+          initialValues={{ isActive: true }}
         >
           {/* Main Info */}
           <Card
             title={t("business:productform.generalDishInformation")}
             style={{ marginBottom: 20, borderRadius: 16, background: '#FFFFFF', border: '1px solid #E8E2D9' }}
           >
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
               <Form.Item
                 name="name"
                 label={t("business:productform.dishName")}
@@ -310,17 +344,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               >
                 <Input
                   placeholder={t("business:productform.forExampleSpicyHoneyFriedChicken")}
-                  onChange={handleNameChange}
                   style={{ borderRadius: 10, height: 40 }}
                 />
-              </Form.Item>
-
-              <Form.Item
-                name="slug"
-                label={t("business:productform.urlSlug")}
-                rules={[{ required: true, message: t("business:productform.pleaseEnterASlug") }]}
-              >
-                <Input placeholder="ga-ran-sot-mat-ong-cay" style={{ borderRadius: 10, height: 40 }} />
               </Form.Item>
             </div>
 
@@ -332,45 +357,15 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               >
                 <Select
                   style={{ height: 40 }}
-                  options={[
-                    {
-                      value: 1,
-                      label: (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <CategoryIcon id={1} size={16} /> {t("business:catalog.friedChicken")} </span>
-                      ),
-                    },
-                    {
-                      value: 2,
-                      label: (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <CategoryIcon id={2} size={16} /> Burger
-                        </span>
-                      ),
-                    },
-                    {
-                      value: 3,
-                      label: (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <CategoryIcon id={3} size={16} /> Combo
-                        </span>
-                      ),
-                    },
-                    {
-                      value: 4,
-                      label: (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <CategoryIcon id={4} size={16} /> {t("business:catalog.sides")} </span>
-                      ),
-                    },
-                    {
-                      value: 5,
-                      label: (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <CategoryIcon id={5} size={16} /> {t("business:catalog.drinks")} </span>
-                      ),
-                    },
-                  ]}
+                  disabled={categories.length === 0}
+                  options={categories.map((category) => ({
+                    value: category.id,
+                    label: (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <CategoryIcon id={category.id} size={16} /> {category.name}
+                      </span>
+                    ),
+                  }))}
                 />
               </Form.Item>
 
@@ -448,6 +443,26 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               <p style={{ fontFamily: 'Quicksand, sans-serif', fontSize: 12, color: '#6B6259', margin: '4px 0 0' }}> {t("business:productform.pngJpgAndWebpSupportedUpToMbAutomaticallyCompressedAndUploaded")} </p>
             </Upload.Dragger>
 
+            {uploading && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#6B6259', marginBottom: 4 }}>
+                  <span><LoadingOutlined spin /> {t("business:productform.uploadingImage")}</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <Progress percent={uploadProgress} status="active" strokeColor="#8F1216" />
+              </div>
+            )}
+
+            {uploadError && (
+              <Alert
+                type="error"
+                showIcon
+                message={t("business:productform.imageUploadFailed")}
+                description={uploadError}
+                style={{ marginTop: 12, borderRadius: 10 }}
+              />
+            )}
+
             {imageUrl && (
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
                 <img
@@ -507,16 +522,21 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     }}
                     style={{ fontWeight: 700, width: 220 }}
                   />
-                  <Switch
-                    checkedChildren={t("business:productform.required")}
-                    unCheckedChildren={t("business:party.custom")}
-                    checked={group.required}
-                    onChange={(val) => {
-                      const updated = [...optionGroups];
-                      updated[groupIdx].required = val;
-                      setOptionGroups(updated);
-                    }}
-                  />
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, color: '#6B6259' }}>
+                      {t("business:productform.requiredLabel")}:
+                    </span>
+                    <Switch
+                      checkedChildren={t("business:productform.required")}
+                      unCheckedChildren={t("business:productform.optional")}
+                      checked={group.required ?? true}
+                      onChange={(val) => {
+                        const updated = [...optionGroups];
+                        updated[groupIdx].required = val;
+                        setOptionGroups(updated);
+                      }}
+                    />
+                  </div>
                   <Button
                     type="text"
                     danger
@@ -646,7 +666,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 <Select
                   mode="multiple"
                   placeholder={t("business:productform.selectComboDishes")}
-                  options={mockProducts.map((p) => ({ value: p.id, label: t("business:productform.vnd", { value1: p.name, value2: p.basePrice.toLocaleString(locale === "en" ? "en-US" : "vi-VN") }) }))}
+                  options={products.map((p) => ({ value: p.id, label: t("business:productform.vnd", { value1: p.name, value2: p.basePrice.toLocaleString(locale === "en" ? "en-US" : "vi-VN") }) }))}
                 />
               </Form.Item>
             </div>
