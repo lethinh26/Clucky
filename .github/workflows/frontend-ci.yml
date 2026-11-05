@@ -120,8 +120,27 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  preflight:
+    name: Validate backend configuration
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: frontend-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate backend secret without logging values
+        env:
+          BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
+        shell: bash
+        run: printf '%s' "$BACKEND_ENV_JSON" | python3 deploy/backend/prepare.py --validate
+
   images:
     name: Package frontend images
+    needs: preflight
     # PR checks gate merging; main packages the merged revision without retesting.
     if: >-
       github.ref == 'refs/heads/main' &&
