@@ -240,6 +240,42 @@ class AuthServiceTest {
         assertEquals(ErrorCode.UNAUTHENTICATED, failure.getCode());
     }
 
+    /* ---------- INT-69: resend register OTP ---------- */
+
+    @Test
+    void resendOtpIssuesANewRegisterChallengeForAnUnverifiedAccount() {
+        service.register(new RegisterRequest("Nguyen Van A", "a@example.com", null, "Password1"));
+        String firstCode = publishedCodes.get(EmailEventPublisher.TEMPLATE_REGISTER_OTP);
+
+        var response = service.resendRegisterOtp("  A@Example.com ");
+
+        assertEquals("Đã gửi lại mã OTP. Vui lòng kiểm tra email.", response.message());
+        String secondCode = publishedCodes.get(EmailEventPublisher.TEMPLATE_REGISTER_OTP);
+        assertNotEquals(firstCode, secondCode, "Resend must issue a fresh OTP");
+
+        // The previously issued code is invalidated: issuing a new challenge supersedes it.
+        ApiException failure = assertThrows(ApiException.class,
+                () -> service.verifyOtp(new VerifyOtpRequest("a@example.com", firstCode)));
+        assertEquals(ErrorCode.INVALID_OTP, failure.getCode());
+        assertNotNull(service.verifyOtp(new VerifyOtpRequest("a@example.com", secondCode)));
+    }
+
+    @Test
+    void resendOtpRejectsAVerifiedAccount() {
+        seedVerifiedUser("a@example.com", "Password1");
+
+        ApiException failure = assertThrows(ApiException.class,
+                () -> service.resendRegisterOtp("a@example.com"));
+        assertEquals(ErrorCode.RESOURCE_CONFLICT, failure.getCode());
+    }
+
+    @Test
+    void resendOtpRejectsAnUnknownEmail() {
+        ApiException failure = assertThrows(ApiException.class,
+                () -> service.resendRegisterOtp("nobody@example.com"));
+        assertEquals(ErrorCode.RESOURCE_NOT_FOUND, failure.getCode());
+    }
+
     private void seedVerifiedUser(String email, String rawPassword) {
         User user = new User();
         user.setId(ids.incrementAndGet());

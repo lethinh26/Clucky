@@ -1,6 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, type FormEvent } from "react";
+import * as React from "react";
+import { useState, type FormEvent } from "react";
 import {
   UserRound,
   MapPin,
@@ -11,20 +12,11 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { profileApi, getErrorMessage, type AddressResponse, type AddressPayload } from "@/lib/api";
 import styles from "./account.module.css";
 type Profile = { fullName: string; email: string; phone: string };
-type Address = {
-  id: string;
-  receiverName: string;
-  phone: string;
-  province: string;
-  district: string;
-  ward: string;
-  detail: string;
-  isDefault: boolean;
-};
-const emptyAddress: Address = {
-  id: "",
+type Address = AddressResponse;
+const emptyAddress: AddressPayload & { id?: number } = {
   receiverName: "",
   phone: "",
   province: "",
@@ -34,11 +26,10 @@ const emptyAddress: Address = {
   isDefault: false,
 };
 const initialProfile: Profile = {
-  fullName: "Khách hàng Clucky",
-  email: "khachhang@example.com",
+  fullName: "",
+  email: "",
   phone: "",
 };
-const storageKey = "clucky_profile_ui_v1";
 export default function AccountPage() {
   const t = useTranslations();
 
@@ -47,110 +38,136 @@ export default function AccountPage() {
   const [savedProfile, setSavedProfile] = useState(initialProfile);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [editing, setEditing] = useState<Address | null>(null);
+  const [editing, setEditing] = useState<(AddressPayload & { id?: number }) | null>(null);
   const [deleting, setDeleting] = useState<Address | null>(null);
   const [password, setPassword] = useState({
     current: "",
     next: "",
     confirm: "",
   });
-  useEffect(() => {
+  const load = React.useCallback(async () => {
     try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const value = JSON.parse(raw);
-        if (
-          value.profile &&
-          ["fullName", "email", "phone"].every(
-            (k) => typeof value.profile[k] === "string",
-          ) &&
-          Array.isArray(value.addresses) &&
-          value.addresses.every(
-            (a: Address) =>
-              [
-                "id",
-                "receiverName",
-                "phone",
-                "province",
-                "district",
-                "ward",
-                "detail",
-              ].every((k) => typeof a[k as keyof Address] === "string") &&
-              typeof a.isDefault === "boolean",
-          )
-        ) {
-          setProfile(value.profile);
-          setSavedProfile(value.profile);
-          setAddresses(value.addresses);
-        }
-      }
-    } catch {
-      setError(
-        "business.account.unableToReadSavedDemoDataYouCanEnterYourDetailsAgain",
-      );
-    }
-    setReady(true);
-  }, []);
-  function save(
-    nextProfile: Profile,
-    nextAddresses: Address[],
-    message: string,
-  ) {
-    try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({ profile: nextProfile, addresses: nextAddresses }),
-      );
+      const [me, list] = await Promise.all([profileApi.get(), profileApi.listAddresses()]);
+      const nextProfile = { fullName: me.fullName ?? "", email: me.email ?? "", phone: me.phone ?? "" };
+      setProfile(nextProfile);
       setSavedProfile(nextProfile);
-      setAddresses(nextAddresses);
-      setNotice(message);
+      setAddresses(list);
       setError("");
-      return true;
-    } catch {
-      setError("business.account.unableToSaveDataInThisBrowserPleaseTryAgain");
-      return false;
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setReady(true);
     }
-  }
+  }, []);
+
+  React.useEffect(() => {
+    void load();
+  }, [load]);
+
   function changeTab(value: string) {
     setTab(value);
     setNotice("");
     setError("");
     setPassword({ current: "", next: "", confirm: "" });
   }
-  function saveAddress(e: FormEvent) {
+
+  async function saveAddress(e: FormEvent) {
     e.preventDefault();
-    if (!editing) return;
-    const clean = {
-      ...editing,
-      ...Object.fromEntries(
-        Object.entries(editing)
-          .filter(([, v]) => typeof v === "string")
-          .map(([k, v]) => [k, (v as string).trim()]),
-      ),
-    } as Address;
-    if (
-      ["receiverName", "province", "district", "ward", "detail"].some(
-        (k) => !clean[k as keyof Address],
-      )
-    ) {
+    if (!editing || busy) return;
+    const payload: AddressPayload = {
+      receiverName: editing.receiverName.trim(),
+      phone: editing.phone.trim(),
+      province: editing.province.trim(),
+      district: editing.district.trim(),
+      ward: editing.ward.trim(),
+      detail: editing.detail.trim(),
+      isDefault: addresses.length === 0 ? true : editing.isDefault,
+    };
+    if (!payload.receiverName || !payload.phone || !payload.province || !payload.district || !payload.ward || !payload.detail) {
       setError("business.account.pleaseCompleteTheAddressAndRecipientDetails");
       return;
     }
-    const item = {
-      ...clean,
-      id: clean.id || crypto.randomUUID(),
-      isDefault: addresses.length === 0 || clean.isDefault,
-    };
-    let next = addresses.some((a) => a.id === item.id)
-      ? addresses.map((a) => (a.id === item.id ? item : a))
-      : [...addresses, item];
-    if (item.isDefault)
-      next = next.map((a) => ({ ...a, isDefault: a.id === item.id }));
-    if (!next.some((a) => a.isDefault))
-      next = next.map((a, i) => ({ ...a, isDefault: i === 0 }));
-    if (save(savedProfile, next, "business.account.demoAddressSaved")) setEditing(null);
+    setBusy(true);
+    setError("");
+    try {
+      if (editing.id != null) await profileApi.updateAddress(editing.id, payload);
+      else await profileApi.createAddress(payload);
+      await load();
+      setNotice("business.account.demoAddressSaved");
+      setEditing(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeAddress() {
+    if (!deleting || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await profileApi.deleteAddress(deleting.id);
+      await load();
+      setNotice("business.account.addressDeleted");
+      setDeleting(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function makeDefault(address: Address) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await profileApi.updateAddress(address.id, {
+        receiverName: address.receiverName,
+        phone: address.phone,
+        province: address.province,
+        district: address.district,
+        ward: address.ward,
+        detail: address.detail,
+        isDefault: true,
+      });
+      await load();
+      setNotice("business.account.defaultAddressUpdated");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveProfile(e: FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    if (!profile.fullName.trim()) {
+      setError("business.account.pleaseEnterYourFullName");
+      return;
+    }
+    if (!profile.phone.trim()) {
+      setError("business.account.enterAPhoneNumberWithCharacters");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await profileApi.update({ fullName: profile.fullName.trim(), phone: profile.phone.trim() });
+      const nextProfile = { fullName: updated.fullName ?? "", email: updated.email ?? "", phone: updated.phone ?? "" };
+      setProfile(nextProfile);
+      setSavedProfile(nextProfile);
+      setNotice("business.account.demoProfileSaved");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <>
@@ -187,12 +204,12 @@ export default function AccountPage() {
           <section className={styles.panel} aria-busy={!ready}>
             {notice && (
               <p role="status" className={styles.success}>
-                {notice ? t(notice) : ""}
+                {t.has(notice) ? t(notice) : notice}
               </p>
             )}
             {error && !editing && (
               <p role="alert" className={styles.error}>
-                {error ? t(error) : ""}
+                {t.has(error) ? t(error) : error}
               </p>
             )}
             {tab === "profile" && (
@@ -201,25 +218,13 @@ export default function AccountPage() {
                 <p className={styles.muted}> {t("business.account.updateYourContactDetails")} </p>
                 <form
                   className={styles.form}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!profile.fullName.trim()) {
-                      setError("business.account.pleaseEnterYourFullName");
-                      return;
-                    }
-                    const clean = {
-                      ...profile,
-                      fullName: profile.fullName.trim(),
-                      email: profile.email.trim(),
-                    };
-                    if (save(clean, addresses, "business.account.demoProfileSaved"))
-                      setProfile(clean);
-                  }}
+                  onSubmit={saveProfile}
                 >
                   <Input
                     label={t("business.account.fullName")}
                     required
-                    maxLength={100}
+                    maxLength={160}
+                    disabled={busy}
                     value={profile.fullName}
                     onChange={(e) =>
                       setProfile({ ...profile, fullName: e.target.value })
@@ -228,17 +233,16 @@ export default function AccountPage() {
                   <Input
                     label="Email"
                     type="email"
-                    required
+                    disabled
                     value={profile.email}
-                    onChange={(e) =>
-                      setProfile({ ...profile, email: e.target.value })
-                    }
+                    onChange={() => undefined}
                   />
                   <Input
                     label={t("business.account.phoneNumber")}
                     type="tel"
-                    pattern="[0-9+ ()-]{9,15}"
+                    pattern="[0-9+ ()-]{6,30}"
                     title={t("business.account.enterAPhoneNumberWithCharacters")}
+                    disabled={busy}
                     value={profile.phone}
                     onChange={(e) =>
                       setProfile({ ...profile, phone: e.target.value })
@@ -247,7 +251,7 @@ export default function AccountPage() {
                   <div className={styles.actions}>
                     <button
                       type="submit"
-                      disabled={!ready}
+                      disabled={!ready || busy}
                       className={styles.primary}
                     > {t("business.account.saveChanges")} </button>
                     <button
@@ -318,15 +322,8 @@ export default function AccountPage() {
                             <Trash2 size={14} /> {t("business.account.delete")} </button>
                           {!a.isDefault && (
                             <button
-                              onClick={() =>
-                                save(
-                                  savedProfile,
-                                  addresses.map((item) => ({
-                                    ...item,
-                                    isDefault: item.id === a.id,
-                                  })), "business.account.defaultAddressUpdated",
-                                )
-                              }
+                              disabled={busy}
+                              onClick={() => void makeDefault(a)}
                             > {t("business.account.setAsDefault")} </button>
                           )}
                         </div>
@@ -415,7 +412,7 @@ export default function AccountPage() {
           <form className={styles.form} onSubmit={saveAddress}>
             {error && (
               <p role="alert" className={styles.error}>
-                {error ? t(error) : ""}
+                {t.has(error) ? t(error) : error}
               </p>
             )}
             {(
@@ -432,9 +429,10 @@ export default function AccountPage() {
                 key={key}
                 label={label}
                 required
-                maxLength={200}
+                maxLength={key === "detail" ? 255 : 100}
                 type={key === "phone" ? "tel" : "text"}
-                pattern={key === "phone" ? "[0-9+ ()-]{9,15}" : undefined}
+                pattern={key === "phone" ? "[0-9+ ()-]{6,30}" : undefined}
+                disabled={busy}
                 value={editing[key]}
                 onChange={(e) =>
                   setEditing({ ...editing, [key]: e.target.value })
@@ -451,7 +449,7 @@ export default function AccountPage() {
                 }
               /> {t("business.account.setAsDefaultAddress")} </label>
             <div className={styles.actions}>
-              <button className={styles.primary}>{t("business.account.saveAddress")}</button>
+              <button className={styles.primary} disabled={busy}>{t("business.account.saveAddress")}</button>
               <button
                 type="button"
                 onClick={() => {
@@ -476,13 +474,8 @@ export default function AccountPage() {
           <button onClick={() => setDeleting(null)}>{t("business.account.keepAddress")}</button>
           <button
             className={styles.primary}
-            onClick={() => {
-              let next = addresses.filter((a) => a.id !== deleting?.id);
-              if (next.length && !next.some((a) => a.isDefault))
-                next = next.map((a, i) => ({ ...a, isDefault: i === 0 }));
-              if (save(savedProfile, next, "business.account.addressDeleted"))
-                setDeleting(null);
-            }}
+            disabled={busy}
+            onClick={() => void removeAddress()}
           > {t("business.account.confirmDeletion")} </button>
         </div>
       </Modal>

@@ -41,7 +41,8 @@ export default function LoginPage() {
       if (!task.isCurrent()) return;
       if (typeof window !== "undefined") {
         localStorage.setItem("clucky_access_token", tokens.accessToken);
-        // refresh token stored in HttpOnly cookie
+        // refresh token stored in HttpOnly cookie; role guides post-login routing
+        if (tokens.role) localStorage.setItem("clucky_user_role", tokens.role);
       }
       router.push("/account");
     } catch (err) {

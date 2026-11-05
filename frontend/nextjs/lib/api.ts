@@ -13,10 +13,47 @@ export interface ApiError {
   code?: string;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+/* ---------- INT-05: 401 handling with single-flight refresh ---------- */
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!res.ok) return false;
+        const data = (await res.json().catch(() => ({}))) as {
+          accessToken?: string;
+        };
+        if (typeof data.accessToken === "string" && typeof window !== "undefined") {
+          localStorage.setItem("clucky_access_token", data.accessToken);
+        }
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  retry = true,
+): Promise<T> {
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   headers.set("Accept-Language", getBrowserLocale());
+  if (typeof window !== "undefined" && !headers.has("Authorization")) {
+    const token = localStorage.getItem("clucky_access_token");
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
@@ -30,6 +67,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
+    // INT-05: on 401 (except the auth endpoints themselves), try one refresh
+    // and replay the original request; concurrent callers share one refresh.
+    const isAuthPath = path.startsWith("/api/auth/");
+    if (res.status === 401 && retry && !isAuthPath) {
+      if (await tryRefresh()) {
+        return request<T>(path, options, false);
+      }
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("clucky_access_token");
+        window.location.assign("/login");
+      }
+    }
     const err: ApiError = {
       status: res.status,
       code: typeof data?.code === "string" ? data.code : undefined,
@@ -94,6 +143,11 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  resendOtp: (email: string) =>
+    request<{ message?: string }>("/api/auth/resend-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
   verifyOtp: (body: VerifyOtpPayload) =>
     request<AuthTokens>("/api/auth/verify-otp", {
       method: "POST",
@@ -117,6 +171,61 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+};
+
+/* ---------- BE-18: self profile + address book ---------- */
+export interface ProfileResponse {
+  id: number;
+  email: string;
+  phone: string | null;
+  fullName: string;
+  avatarUrl: string | null;
+  role: string;
+  storeId: number | null;
+  status: string;
+  emailVerified: boolean;
+}
+export interface AddressResponse {
+  id: number;
+  userId: number;
+  receiverName: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detail: string;
+  isDefault: boolean;
+}
+export interface AddressPayload {
+  receiverName: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detail: string;
+  isDefault: boolean;
+}
+
+export const profileApi = {
+  get: () => request<ProfileResponse>("/api/users/me"),
+  update: (body: { fullName: string; phone: string }) =>
+    request<ProfileResponse>("/api/users/me", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  listAddresses: () => request<AddressResponse[]>("/api/users/me/addresses"),
+  createAddress: (body: AddressPayload) =>
+    request<AddressResponse>("/api/users/me/addresses", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateAddress: (id: number, body: AddressPayload) =>
+    request<AddressResponse>(`/api/users/me/addresses/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteAddress: (id: number) =>
+    request<void>(`/api/users/me/addresses/${id}`, { method: "DELETE" }),
 };
 
 /* ---------- Promotions & Loyalty ---------- */

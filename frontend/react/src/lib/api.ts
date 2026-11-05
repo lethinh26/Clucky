@@ -19,14 +19,54 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/* ---------- INT-05: 401 handling with single-flight refresh ---------- */
+let refreshPromise: Promise<boolean> | null = null;
+
+function tryRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = api
+      .post<AuthTokens>('/api/auth/refresh')
+      .then((r) => {
+        const token = r.data?.accessToken;
+        if (typeof token === 'string') {
+          localStorage.setItem('clucky_admin_access_token', token);
+        }
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+type RetriableConfig = import('axios').InternalAxiosRequestConfig & { _retried?: boolean };
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error: import('axios').AxiosError) => {
+    const status = error.response?.status;
+    const original = error.config as RetriableConfig | undefined;
+    const url: string = original?.url ?? '';
+    const isAuthPath = url.startsWith('/api/auth/');
+    if (status === 401 && original && !original._retried && !isAuthPath) {
+      original._retried = true;
+      if (await tryRefresh()) {
+        return api.request(original);
+      }
+      localStorage.removeItem('clucky_admin_access_token');
+      window.location.assign('/login');
+    }
+    return Promise.reject(error);
+  },
+);
+
 export function getErrorMessage(err: unknown, _fallback?: string): string {
   return resolveError(err);
 }
 
 /* ---------- Auth ---------- */
-export interface LoginPayload { email: string; password: string }
-export interface ForgotPasswordPayload { email: string }
-export interface ResetPasswordPayload { email: string; otp: string; newPassword: string }
 export interface AuthTokens {
   accessToken: string;
   refreshToken?: string;
@@ -36,6 +76,9 @@ export interface AuthTokens {
   fullName?: string;
 }
 
+export interface LoginPayload { email: string; password: string }
+export interface ForgotPasswordPayload { email: string }
+export interface ResetPasswordPayload { email: string; otp: string; newPassword: string }
 export const authApi = {
   login: (body: LoginPayload) => api.post<AuthTokens>('/api/auth/login', body).then((r) => r.data),
   refresh: () => api.post<AuthTokens>('/api/auth/refresh').then((r) => r.data),

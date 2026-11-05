@@ -60,7 +60,8 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.GET, "/api/stores", "/api/stores/{id}",
                                 "/api/catalog/categories", "/api/catalog/products", "/api/catalog/products/{id}",
                                 "/api/catalog/combos", "/api/promotions/banners", "/api/reviews/products/{id}").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
+                        .pathMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/resend-otp",
+                                "/api/auth/verify-otp",
                                 "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                                 "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll()
                         .pathMatchers("/internal/**", "/api/payments/webhook/**").denyAll()
