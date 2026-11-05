@@ -1,6 +1,6 @@
 # [INT-68] Order status realtime (polling) cho customer
 
-> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
 
 ## Thông tin quản lý
 
@@ -29,6 +29,17 @@ Customer theo dõi trạng thái đơn bằng polling có kiểm soát, không t
 
 Không tracking GPS hoặc tự đổi Order state ở client.
 
+### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
+
+Customer orders/detail và provider đang có local/demo snapshot; polling phải lấy Order API thật, không tiến trạng thái bằng timer. Phối hợp payment query INT-64 để không tạo nhiều interval cho cùng màn.
+
+- [frontend/nextjs/app/orders](../../frontend/nextjs/app/orders)
+- [frontend/nextjs/components/order/order-provider.tsx](../../frontend/nextjs/components/order/order-provider.tsx)
+- [architechture/tasks/BE-27.md](../../architechture/tasks/BE-27.md)
+- [architechture/tasks/INT-64.md](../../architechture/tasks/INT-64.md)
+
+Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
+
 ## 3. Đầu vào, đầu ra và contract
 
 | Thành phần | Chi tiết cần bàn giao |
@@ -39,11 +50,18 @@ Không tracking GPS hoặc tự đổi Order state ở client.
 
 Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
 
-## 4. Luồng xử lý / cách thực hiện
+### Mapping phải ghi trước khi nối luồng
 
-1. Fetch initial state
-2. Poll khi route/order còn hoạt động
-3. Dừng hoặc điều chỉnh ở terminal/unmount và bỏ response stale
+Poll keyed theo actor/orderId, interval/backoff và terminal states được duyệt; response version/time theo contract để bỏ stale. Navigation/logout/unmount hủy fetch/timer; 401 đi auth flow thay vì retry vô hạn.
+
+## 4. Thứ tự thực hiện cụ thể
+
+1. Chốt interval/backoff/terminal với Order/UI; kiểm các nơi đang fetch để chọn một owner polling cho mỗi context.
+2. Fetch initial state có loading/error và ownership qua Gateway; không giữ order cũ khi mở ID mới.
+3. Lập poll chỉ khi màn/context còn hoạt động, tránh request chồng nếu response lâu hơn interval.
+4. Bỏ response stale sau đổi order/user hoặc abort, dùng version nếu API hỗ trợ; không so enum để đoán thứ tự state.
+5. Dừng/điều chỉnh khi terminal/unmount/logout theo policy; lỗi network có feedback/backoff, 401 không loop refresh-poll vô tận.
+6. Bàn giao delayed response A→B, backend state change, terminal và unmount cases, ghi request count/timeline để người dùng kiểm chứng.
 
 ## 5. Quy tắc và điểm cần chốt
 
@@ -52,6 +70,10 @@ Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint �
 **Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
 
 Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+### Quyết định có owner và phần bị chặn
+
+PIC Order/UI chốt terminal/cancel/refund impact và visibility policy; không tự chuyển WebSocket hoặc polling dày hơn để tạo cảm giác realtime.
 
 ## 6. Dependency và bàn giao
 
@@ -69,28 +91,31 @@ Phương án được ghi là “cần chốt/đề xuất” chưa phải quy�
 
 **Task nhận đầu ra theo dependency đã khai báo:** [INT-08](INT-08.md)
 
-## 7. Tiêu chí nghiệm thu
+## 7. Tiêu chí nghiệm thu cụ thể
 
-| AC | Điều kiện / thao tác | Kết quả mong đợi |
+| AC | Fixture / thao tác | Kết quả mong đợi |
 |---|---|---|
-| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Polling order state/history với loading/error/retry/cancellation và terminal behavior. |
+| AC-01 | Nhân sự đổi state order thật trong lúc Customer xem | UI cập nhật từ query trong giới hạn đã duyệt, không có local auto-transition |
 | AC-02 | Đổi order nhanh | Response đơn cũ không ghi đè đơn mới |
 | AC-03 | Rời trang | Không tiếp tục polling không cần thiết |
 | AC-04 | API lỗi/401 | Feedback/recovery đúng, không fake state |
+| AC-05 | Mở A rồi B, response A về sau; rời trang ngay khi request pending | Không ghi đè B, timer/request cũ được dừng hoặc bỏ kết quả |
+| AC-06 | Network lỗi/401 hoặc order terminal | Backoff/auth recovery/dừng theo policy, không fake state hoặc request vô hạn |
 
-Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
 
 ## 8. Checklist và bằng chứng bàn giao
 
 - [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
-- [ ] AC-02: Đổi order nhanh — ghi kết quả và evidence.
-- [ ] AC-03: Rời trang — ghi kết quả và evidence.
-- [ ] AC-04: API lỗi/401 — ghi kết quả và evidence.
 - [ ] Bàn giao bằng chứng cụ thể: Request timing, unmount/route switch, stale response và terminal-state cases.
 - [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
 
 - Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
+
+- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
+- [ ] Bàn giao polling lifecycle/timing và network timeline, ghi interval do owner duyệt chứ không coi giá trị fixture là yêu cầu mới.
+- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
+- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
 
 ## 9. Truy vết gộp task
 
@@ -98,19 +123,13 @@ Không
 
 Không có ID gộp trực tiếp vào task này.
 
-## 10. Tài liệu nguồn
+## 10. Tài liệu và source cần đọc
 
-- [SRS.md](../../architechture/docs/SRS.md)
-- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
-- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
-- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
-- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
-- [schema.sql](../../architechture/database/schema.sql)
-- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
-- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
-- [Danh mục error code](../../contracts/errors.json)
-- [Brand Guidelines](../docs/Brand_Guidelines.md)
-- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+- [frontend/nextjs/app/orders](../../frontend/nextjs/app/orders)
+- [frontend/nextjs/components/order/order-provider.tsx](../../frontend/nextjs/components/order/order-provider.tsx)
+- [architechture/tasks/BE-27.md](../../architechture/tasks/BE-27.md)
+- [architechture/tasks/INT-64.md](../../architechture/tasks/INT-64.md)
+- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
 
 ## 11. Metadata và lịch sử kế hoạch
 
