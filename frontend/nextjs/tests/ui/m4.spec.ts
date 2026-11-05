@@ -54,7 +54,7 @@ test("Google password step validates, sends pending token and saves only final J
   await page.route("**/api/auth/google/complete", (route) => {
     submitted = route.request().postDataJSON();
     return route.fulfill({
-      json: { accessToken: "jwt-access", refreshToken: "jwt-refresh" },
+      json: { accessToken: "jwt-access" },
     });
   });
   await page.goto(fixture);
@@ -65,13 +65,13 @@ test("Google password step validates, sends pending token and saves only final J
   await expect(page.getByRole("alert")).toHaveText(
     "Mật khẩu phải có ít nhất 8 ký tự.",
   );
-  await page.getByLabel("Mật khẩu mới").fill("password123");
+  await page.getByLabel("Mật khẩu mới").fill("Password123");
   await page.getByLabel("Nhập lại mật khẩu").fill("different");
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
   await expect(page.getByRole("alert")).toHaveText(
     "Mật khẩu nhập lại không khớp.",
   );
-  await page.getByLabel("Nhập lại mật khẩu").fill("password123");
+  await page.getByLabel("Nhập lại mật khẩu").fill("Password123");
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
   await expect(page.locator("body")).toHaveAttribute(
     "data-destination",
@@ -79,7 +79,7 @@ test("Google password step validates, sends pending token and saves only final J
   );
   expect(submitted).toEqual({
     pendingToken: "pending-test",
-    password: "password123",
+    password: "Password123",
   });
   expect(
     await page.evaluate(() => localStorage.getItem("clucky_access_token")),
@@ -91,7 +91,7 @@ test("Google existing account, cancellation and expired pending session", async 
 }) => {
   await page.route("**/api/auth/google", (route) =>
     route.fulfill({
-      json: { accessToken: "existing", refreshToken: "refresh" },
+      json: { accessToken: "existing" },
     }),
   );
   await page.goto(fixture);
@@ -113,13 +113,38 @@ test("Google existing account, cancellation and expired pending session", async 
   );
   await page.goto(fixture);
   await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
-  await page.getByLabel("Mật khẩu mới").fill("password123");
-  await page.getByLabel("Nhập lại mật khẩu").fill("password123");
+  await page.getByLabel("Mật khẩu mới").fill("Password123");
+  await page.getByLabel("Nhập lại mật khẩu").fill("Password123");
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
   await expect(page.getByRole("alert")).toContainText("hết hạn");
   await expect(
     page.getByRole("button", { name: "Đăng nhập bằng Google" }),
   ).toBeEnabled();
+});
+
+test("Google registration failure restarts safely and never stores pending tokens", async ({ page }) => {
+  await page.route("**/api/auth/google", (route) => route.fulfill({
+    json: { status: "REQUIRES_PASSWORD", pendingToken: "p".repeat(43) },
+  }));
+  await page.route("**/api/auth/google/complete", (route) => route.fulfill({
+    status: 409, json: { code: "EMAIL_EXISTS" },
+  }));
+  await page.goto(fixture);
+  await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
+  await page.getByLabel("Mật khẩu mới").fill("lowercase123");
+  await page.getByLabel("Nhập lại mật khẩu").fill("lowercase123");
+  await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
+  await expect(page.getByRole("alert")).toContainText("chữ hoa");
+  await page.getByLabel("Mật khẩu mới").fill("Password123");
+  await page.getByLabel("Nhập lại mật khẩu").fill("Password123");
+  await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
+  await expect(page.getByRole("alert")).toContainText("Hãy đăng nhập Google lại");
+  await expect(page.getByLabel("Mật khẩu mới")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("clucky_access_token"))).toBeNull();
+  await page.route("**/api/auth/google", (route) => route.fulfill({ json: { accessToken: "existing-customer" } }));
+  await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-destination", "/account");
+  expect(await page.evaluate(() => Object.keys(localStorage))).toEqual(["clucky_access_token"]);
 });
 
 test("payment admin confirms with a reason, clears cancelled draft, validates bank account", async ({

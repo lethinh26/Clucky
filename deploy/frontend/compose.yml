@@ -1,4 +1,9 @@
 # Separate project: this file never starts or stops backend/infrastructure.
+networks:
+  default:
+    external: true
+    name: clucky-app
+
 services:
   customer:
     image: clucky-customer:${IMAGE_TAG:?IMAGE_TAG is required}
@@ -8,6 +13,8 @@ services:
       - "127.0.0.1:3000:3000"
     environment:
       NODE_OPTIONS: --max-old-space-size=384
+      API_URL: http://api-gateway:8080
+      INTERNAL_API_URL: http://api-gateway:8080
     mem_limit: 512m
     security_opt:
       - no-new-privileges:true

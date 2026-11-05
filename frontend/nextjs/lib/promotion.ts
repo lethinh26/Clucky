@@ -278,7 +278,9 @@ export function calculateTierProgress(pointsInput: number, locale: Locale = getB
 }
 
 const API_GATEWAY_URL =
-  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) || 'http://localhost:8080';
+  typeof window === 'undefined'
+    ? process.env.API_URL || process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+    : process.env.NEXT_PUBLIC_API_URL ?? '';
 
 export async function fetchAvailableVouchers(): Promise<Voucher[]> {
   try {
