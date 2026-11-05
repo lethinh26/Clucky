@@ -50,5 +50,18 @@
     "view": "View {name}",
     "customise": "View and customise {name}"
   },
-  "categoryIcon": "{name} icon"
+  "categoryIcon": "{name} icon",
+  "pagination": {
+    "pageIndicator": "(Page {current}/{total})",
+    "prev": "Previous",
+    "next": "Next",
+    "prevAria": "Previous page",
+    "nextAria": "Next page"
+  },
+  "storeStatus": {
+    "openNow": "● Open now",
+    "outsideHours": "○ Outside serving hours (Opens at {openTime})",
+    "closedTemp": "✕ Temporarily closed",
+    "closed": "✕ Closed"
+  }
 }

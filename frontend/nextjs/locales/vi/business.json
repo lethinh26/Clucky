@@ -228,6 +228,7 @@
     "allStores": "Tất cả chi nhánh",
     "cluckyStoresInHoChiMinhCity": "Chi nhánh Clucky TP.HCM",
     "openNow": "● Đang mở cửa",
+    "outsideHours": "○ Ngoài giờ phục vụ (Mở lúc {openTime})",
     "loading": "Đang tải danh sách chi nhánh...",
     "underMaintenance": "○ Đang bảo trì",
     "closed": "✕ Đóng cửa",

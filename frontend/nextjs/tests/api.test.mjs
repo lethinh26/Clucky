@@ -9,12 +9,17 @@ for (const mode of ['server', 'browser', 'same-origin']) {
   const publicUrl = mode === 'same-origin' ? '' : 'https://gateway-public';
   test(`${mode} API preserves catalog routing and auth cookies`, async () => {
     const source = readFileSync(new URL('../lib/api.ts', import.meta.url), 'utf8');
+    const catalogSource = readFileSync(new URL('../lib/catalog-and-stores.api.ts', import.meta.url), 'utf8');
     const { outputText } = ts.transpileModule(source, {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     });
+    const { outputText: catalogOutput } = ts.transpileModule(catalogSource, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    });
     const module = { exports: {} };
+    const catalogModule = { exports: {} };
     const requests = [];
-    vm.runInNewContext(outputText, {
+    const context = {
       module,
       exports: module.exports,
       Headers,
@@ -29,11 +34,31 @@ for (const mode of ['server', 'browser', 'same-origin']) {
       },
       require: (name) => {
         if (name === './i18n/core') return { getBrowserLocale: () => 'vi', getErrorMessage: () => '' };
+        if (name === './api') return module.exports;
+        if (name === './catalog-and-stores.api') {
+          if (!catalogModule.exports.catalogApi) {
+            vm.runInNewContext(catalogOutput, {
+              ...context,
+              module: catalogModule,
+              exports: catalogModule.exports,
+            });
+          }
+          return catalogModule.exports;
+        }
         throw new Error(`Unexpected import: ${name}`);
       },
-    });
+    };
+    vm.runInNewContext(outputText, context);
+
+    const catalogContext = {
+      ...context,
+      module: catalogModule,
+      exports: catalogModule.exports,
+    };
+    vm.runInNewContext(catalogOutput, catalogContext);
+
     await module.exports.authApi.refresh();
-    await module.exports.catalogApi.getProducts({ storeId: 2, activeOnly: true });
+    await catalogModule.exports.catalogApi.getProducts({ storeId: 2, activeOnly: true });
     const base = server ? 'http://gateway-internal' : publicUrl;
     assert.equal(requests[0].url, `${base}/api/auth/refresh`);
     assert.equal(requests[1].url, `${base}/api/catalog/products?storeId=2&activeOnly=true`);

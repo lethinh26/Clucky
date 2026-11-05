@@ -63,6 +63,7 @@ export interface Store {
   deliveryArea?: string | null;
   managerId?: number;
   managerName?: string;
+  isOpenNow?: boolean;
 }
 
 export interface InventoryItem {
@@ -76,6 +77,14 @@ export interface InventoryItem {
   isSoldOut: boolean;
   updatedAt?: string | null;
   updatedBy?: string | null;
+}
+
+export interface CatalogCategory {
+  id: number;
+  name: string;
+  imageUrl?: string;
+  sortOrder: number;
+  isActive: boolean;
 }
 
 /**
@@ -132,14 +141,6 @@ export interface AdminUser {
   storeId?: number;
   storeName?: string;
   status: 'ACTIVE' | 'LOCKED';
-}
-
-export interface CatalogCategory {
-  id: number;
-  name: string;
-  imageUrl?: string;
-  sortOrder: number;
-  isActive: boolean;
 }
 
 export const usersApi = {
@@ -369,6 +370,20 @@ export const partyOrdersApi = {
       .then((r) => r.data),
 };
 
+/* ---------- Promotions & Vouchers ---------- */
+export const promotionsApi = {
+  listVouchers: (params?: { scope?: string; storeId?: number; status?: string; keyword?: string }, signal?: AbortSignal) =>
+    api.get<AdminVoucher[]>('/api/promotions/vouchers', { params, signal }).then((r) => r.data),
+  getVoucher: (id: number | string, signal?: AbortSignal) =>
+    api.get<AdminVoucher>(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
+  createVoucher: (data: VoucherPayload, signal?: AbortSignal) =>
+    api.post<AdminVoucher>('/api/promotions/vouchers', data, { signal }).then((r) => r.data),
+  updateVoucher: (id: number | string, data: VoucherPayload, signal?: AbortSignal) =>
+    api.put<AdminVoucher>(`/api/promotions/vouchers/${id}`, data, { signal }).then((r) => r.data),
+  deleteVoucher: (id: number | string, signal?: AbortSignal) =>
+    api.delete(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
+};
+
 /* ---------- Catalog & Products ---------- */
 export const catalogApi = {
   listProducts: (params?: { storeId?: number; categoryId?: number; keyword?: string; activeOnly?: boolean }) =>
@@ -447,20 +462,6 @@ export const inventoryApi = {
     api.put<InventoryItem>(`/api/stores/${storeId}/inventory/${productId}`, data).then((r) => r.data),
   updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean }) =>
     api.put(`/api/stores/${storeId}/products/${productId}/availability`, data).then((r) => r.data),
-};
-
-/* ---------- Promotions & Vouchers ---------- */
-export const promotionsApi = {
-  listVouchers: (params?: { scope?: string; storeId?: number; status?: string; keyword?: string }, signal?: AbortSignal) =>
-    api.get<AdminVoucher[]>('/api/promotions/vouchers', { params, signal }).then((r) => r.data),
-  getVoucher: (id: number | string, signal?: AbortSignal) =>
-    api.get<AdminVoucher>(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
-  createVoucher: (data: VoucherPayload, signal?: AbortSignal) =>
-    api.post<AdminVoucher>('/api/promotions/vouchers', data, { signal }).then((r) => r.data),
-  updateVoucher: (id: number | string, data: VoucherPayload, signal?: AbortSignal) =>
-    api.put<AdminVoucher>(`/api/promotions/vouchers/${id}`, data, { signal }).then((r) => r.data),
-  deleteVoucher: (id: number | string, signal?: AbortSignal) =>
-    api.delete(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
 };
 
 export default api;

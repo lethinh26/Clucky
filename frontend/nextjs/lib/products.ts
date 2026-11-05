@@ -1,4 +1,4 @@
-import type { ProductItem } from './api';
+import type { ProductItem } from './catalog-and-stores.api';
 import type { Store as StoreModel, StoreStatus, StoreStatusMeta } from './types/store';
 
 export type Product = ProductItem;
