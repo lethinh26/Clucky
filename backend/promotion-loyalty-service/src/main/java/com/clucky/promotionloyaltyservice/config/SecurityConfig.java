@@ -80,7 +80,11 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete",
-                            "/api/promotions/vouchers/validate").permitAll();
+                            "/api/promotions/vouchers/validate",
+                            "/api/loyalty/preview",
+                            "/api/loyalty/earn",
+                            "/api/loyalty/redeem",
+                            "/api/loyalty/release").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/promotions/vouchers/available").permitAll();
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();

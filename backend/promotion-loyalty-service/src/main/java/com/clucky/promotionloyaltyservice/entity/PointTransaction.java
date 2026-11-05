@@ -26,6 +26,12 @@ public class PointTransaction {
     @Column(name = "type", nullable = false, length = 20)
     private String type;
 
+    @Column(name = "operation_key", length = 120)
+    private String operationKey;
+
+    @Column(name = "reason", length = 255)
+    private String reason;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -46,6 +52,12 @@ public class PointTransaction {
 
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
+
+    public String getOperationKey() { return operationKey; }
+    public void setOperationKey(String operationKey) { this.operationKey = operationKey; }
+
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
