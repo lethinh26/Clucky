@@ -26,7 +26,7 @@ export interface ApiError {
 }
 
 export function getGuestSessionId(): string {
-  if (typeof window === "undefined") return "ssr-session";
+  if (typeof window === "undefined" || typeof localStorage === "undefined") return "ssr-session";
   let sessionId = localStorage.getItem("clucky_guest_session_id");
   if (!sessionId) {
     sessionId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `guest-${Date.now()}`;
@@ -40,7 +40,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   headers.set("Accept-Language", getBrowserLocale());
 
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
     const token = localStorage.getItem("clucky_access_token");
     if (token && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${token}`);

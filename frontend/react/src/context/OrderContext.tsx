@@ -358,7 +358,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         } else if (action.type === "REFUND") {
           const refundAction = action.decision === "APPROVED" ? "APPROVE" : "REJECT";
           if (!order.refundRequestId) {
-            setActionError("Không tìm thấy mã yêu cầu hoàn tiền (Refund Request ID) hợp lệ cho đơn hàng này.");
+            setActionError(getTranslator(getBrowserLocale())("errors:RESOURCE_NOT_FOUND"));
             return false;
           }
           await refundsApi.review(order.refundRequestId, refundAction, action.note);

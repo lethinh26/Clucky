@@ -13,7 +13,7 @@ import {
   Users,
   Store,
 } from "lucide-react";
-import { partyOrderApi, type BackendPartyOrder } from "@/lib/api";
+import { partyOrderApi, getErrorMessage, type BackendPartyOrder } from "@/lib/api";
 
 export default function PartyOrderPage() {
   const t = useTranslations();
@@ -83,10 +83,8 @@ export default function PartyOrderPage() {
       setCreatedPartyOrder(result);
       setIsSuccessModalOpen(true);
     } catch (err: any) {
-      console.error("Party order API submission error:", err);
-      const errMsg =
-        err?.message ||
-        "Gửi yêu cầu đặt tiệc không thành công. Vui lòng kiểm tra lại thông tin.";
+      console.warn("Party order API submission error:", err);
+      const errMsg = getErrorMessage(err);
       setSubmitError(errMsg);
     } finally {
       setSubmitting(false);

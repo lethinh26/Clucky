@@ -212,7 +212,7 @@ export default function CheckoutPage() {
     if (!token) {
       submitLock.current = false;
       setSubmitting(false);
-      setSubmitError(t("errors.UNAUTHENTICATED") || "Vui lòng đăng nhập để tiến hành đặt hàng.");
+      setSubmitError(t("errors.UNAUTHENTICATED"));
       router.push("/login?redirect=/checkout");
       return;
     }
@@ -255,7 +255,7 @@ export default function CheckoutPage() {
       submitLock.current = false;
       setSubmitting(false);
       if (err?.status === 401 || err?.code === "UNAUTHENTICATED") {
-        setSubmitError(getErrorMessage(err) || "Vui lòng đăng nhập để tiến hành đặt hàng.");
+        setSubmitError(getErrorMessage(err));
         router.push("/login?redirect=/checkout");
         return;
       }
@@ -317,7 +317,7 @@ export default function CheckoutPage() {
                   }}
                 >
                   <span style={{ fontSize: "14px", fontWeight: 500 }}>
-                    {t("errors.UNAUTHENTICATED") || "Vui lòng đăng nhập để hoàn tất đặt hàng và tích điểm thành viên."}
+                    {t("errors.UNAUTHENTICATED")}
                   </span>
                   <Link
                     href="/login?redirect=/checkout"
@@ -328,7 +328,7 @@ export default function CheckoutPage() {
                       fontSize: "14px",
                     }}
                   >
-                    {t("auth.login.action") || "Đăng nhập ngay"} &rarr;
+                    {t("auth.login.action")} &rarr;
                   </Link>
                 </div>
               )}
