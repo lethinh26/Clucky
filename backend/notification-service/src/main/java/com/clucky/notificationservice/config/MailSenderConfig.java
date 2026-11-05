@@ -9,6 +9,7 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import java.util.Properties;
 
 @Configuration(proxyBeanMethods = false)
+@org.springframework.scheduling.annotation.EnableScheduling
 @EnableConfigurationProperties(MailSenderProperties.class)
 public class MailSenderConfig {
 
@@ -27,6 +28,9 @@ public class MailSenderConfig {
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.starttls.required", "true");
+        props.put("mail.smtp.ssl.checkserveridentity", "true");
+        props.put("mail.smtp.writetimeout", String.valueOf(properties.timeoutMs()));
         props.put("mail.smtp.timeout", String.valueOf(properties.timeoutMs() > 0 ? properties.timeoutMs() : 8000));
         props.put("mail.smtp.connectiontimeout", String.valueOf(properties.timeoutMs() > 0 ? properties.timeoutMs() : 8000));
         return mailSender;

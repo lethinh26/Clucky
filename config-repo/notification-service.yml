@@ -27,3 +27,4 @@ mail-sender:
   from-name: ${MAIL_SENDER_FROM_NAME:Clucky}
   timeout-ms: ${MAIL_SENDER_TIMEOUT_MS:8000}
   max-retries: ${MAIL_SENDER_MAX_RETRIES:3}
+  poll-interval-ms: ${MAIL_SENDER_POLL_INTERVAL_MS:1000}

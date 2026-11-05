@@ -14,6 +14,8 @@ import org.slf4j.MDC;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -69,10 +71,7 @@ public class NotificationConsumer {
         } catch (Exception ex) {
             LOG.error("event=kafka_event_malformed topic={} partition={} offset={} error={}",
                     SafeLog.token(topic), record.partition(), record.offset(), ex.getMessage());
-            if (ack != null) {
-                ack.acknowledge();
-            }
-            return;
+            throw new IllegalArgumentException("Invalid notification event");
         }
 
         String eventId = event.eventId();
@@ -83,7 +82,12 @@ public class NotificationConsumer {
         try {
             processEvent(event);
             if (ack != null) {
-                ack.acknowledge();
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        ack.acknowledge();
+                    }
+                });
             }
         } finally {
             MDC.remove("eventId");
@@ -112,7 +116,8 @@ public class NotificationConsumer {
 
         // 1. In-App Notification (Idempotent by event + channel + recipient)
         if (customerId != null && spec.inAppTitle() != null) {
-            String inAppKey = "IN_APP:" + event.eventType() + ":" + event.eventId() + ":" + customerId;
+            String inAppKey = java.util.UUID.nameUUIDFromBytes(("IN_APP:" + event.eventType() + ":" + event.eventId() + ":" + customerId)
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
             Optional<Notification> existing = notificationRepository.findByOperationKey(inAppKey);
             if (existing.isPresent()) {
                 LOG.info("event=notification_in_app_replay_skipped operationKey={}", inAppKey);
@@ -134,7 +139,8 @@ public class NotificationConsumer {
 
         // 2. Email Delivery (Idempotent by messageId = event + channel + recipient)
         if (recipientEmail != null && !recipientEmail.isBlank() && spec.emailTemplate() != null) {
-            String emailMessageId = "EMAIL:" + event.eventType() + ":" + event.eventId() + ":" + recipientEmail.toLowerCase().trim();
+            String emailMessageId = java.util.UUID.nameUUIDFromBytes(("EMAIL:" + event.eventType() + ":" + event.eventId() + ":" + recipientEmail.toLowerCase(java.util.Locale.ROOT).trim())
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
             emailSenderService.processEmailIntent(
                     emailMessageId,
                     event.eventId(),
@@ -156,7 +162,7 @@ public class NotificationConsumer {
             case "order.created" -> {
                 String title = "Đơn hàng đã được tạo";
                 String content = "Đơn hàng #" + orderCode + " đã được tạo thành công và đang chờ xác nhận.";
-                yield new NotificationSpec(title, content, "ORDER", "ORDER_CONFIRMED", vars);
+                yield new NotificationSpec(title, content, "ORDER", null, vars);
             }
             case "order.status-changed" -> {
                 String status = payload.hasNonNull("status") ? payload.get("status").asText() : "CẬP NHẬT";

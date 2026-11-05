@@ -2,185 +2,143 @@ package com.clucky.notificationservice.service;
 
 import com.clucky.notificationservice.config.MailSenderProperties;
 import com.clucky.notificationservice.entity.EmailLog;
-import com.clucky.notificationservice.entity.MailTemplate;
-import com.clucky.notificationservice.logging.SafeLog;
 import com.clucky.notificationservice.repository.EmailLogRepository;
 import com.clucky.notificationservice.repository.MailTemplateRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.mail.internet.MimeMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 public class EmailSenderService {
-    private static final Logger LOG = LoggerFactory.getLogger(EmailSenderService.class);
-
     private final MailSenderProperties properties;
     private final JavaMailSender mailSender;
-    private final EmailLogRepository emailLogRepository;
-    private final MailTemplateRepository mailTemplateRepository;
-    private final ObjectMapper objectMapper;
+    private final EmailLogRepository emailLogs;
+    private final MailTemplateRepository templates;
+    private final ObjectMapper mapper;
+    private final JdbcTemplate jdbc;
+    private final TransactionTemplate transactions;
 
-    public EmailSenderService(
-            MailSenderProperties properties,
-            JavaMailSender mailSender,
-            EmailLogRepository emailLogRepository,
-            MailTemplateRepository mailTemplateRepository,
-            ObjectMapper objectMapper
-    ) {
+    public EmailSenderService(MailSenderProperties properties, JavaMailSender mailSender,
+            EmailLogRepository emailLogs, MailTemplateRepository templates, ObjectMapper mapper,
+            JdbcTemplate jdbc, PlatformTransactionManager transactionManager) {
         this.properties = properties;
         this.mailSender = mailSender;
-        this.emailLogRepository = emailLogRepository;
-        this.mailTemplateRepository = mailTemplateRepository;
-        this.objectMapper = objectMapper;
+        this.emailLogs = emailLogs;
+        this.templates = templates;
+        this.mapper = mapper;
+        this.jdbc = jdbc;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    /**
-     * Render template and send email idempotently, updating status in email_logs.
-     * Prevents duplicate deliveries by checking messageId.
-     */
     @Transactional
-    public void processEmailIntent(
-            String messageId,
-            String eventId,
-            String correlationId,
-            String toEmail,
-            String templateKey,
-            Map<String, String> variables
-    ) {
-        if (messageId == null || toEmail == null || toEmail.isBlank()) {
-            LOG.warn("event=email_dispatch_skipped_invalid_input messageId={} toEmail={}", messageId, toEmail);
-            return;
+    public void processEmailIntent(String messageId, String eventId, String correlationId,
+            String toEmail, String templateKey, Map<String, String> variables) {
+        if (messageId == null || messageId.isBlank() || messageId.length() > 160
+                || toEmail == null || toEmail.isBlank() || toEmail.length() > 255
+                || templateKey == null || templateKey.isBlank() || templateKey.length() > 100) {
+            throw new IllegalArgumentException("Invalid email intent");
         }
-
-        // Idempotency check: if messageId already exists and was SENT, skip
-        Optional<EmailLog> existingOpt = emailLogRepository.findByMessageId(messageId);
-        if (existingOpt.isPresent()) {
-            EmailLog existing = existingOpt.get();
-            if ("SENT".equals(existing.getStatus())) {
-                LOG.info("event=email_replay_detected_already_sent messageId={}", messageId);
-                return;
-            }
-            if ("FAILED".equals(existing.getStatus()) && existing.getRetryCount() >= properties.maxRetries()) {
-                LOG.info("event=email_replay_detected_terminal_failed messageId={}", messageId);
-                return;
-            }
-        }
-
-        EmailLog emailLog = existingOpt.orElseGet(EmailLog::new);
-        emailLog.setMessageId(messageId);
-        emailLog.setEventId(eventId);
-        emailLog.setCorrelationId(correlationId);
-        emailLog.setToEmail(toEmail);
-        emailLog.setTemplate(templateKey);
-        emailLog.setProvider("GMAIL_SMTP");
-
-        String variablesJson = "";
+        String serialized;
         try {
-            variablesJson = objectMapper.writeValueAsString(variables);
-        } catch (Exception ignored) {}
-        emailLog.setVariables(variablesJson);
-
-        // Render template
-        RenderedContent rendered = render(templateKey, variables);
-        emailLog.setSubject(rendered.subject());
-
-        if (!properties.enabled()) {
-            emailLog.setStatus("QUEUED");
-            emailLogRepository.save(emailLog);
-            LOG.info("event=email_queued_sender_disabled messageId={} recipient={}", messageId, SafeLog.token(toEmail));
-            return;
+            serialized = mapper.writeValueAsString(variables);
+        } catch (Exception failure) {
+            throw new IllegalArgumentException("Invalid email variables");
         }
-
-        // Attempt SMTP sending
-        emailLog.setStatus("SENDING");
-        emailLogRepository.save(emailLog);
-
-        try {
-            MimeMessage mimeMessage = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-            String fromName = properties.fromName() != null ? properties.fromName() : "Clucky Fast Food";
-            helper.setFrom(properties.username(), fromName);
-            helper.setTo(toEmail);
-            helper.setSubject(rendered.subject());
-            helper.setText(rendered.body(), false);
-
-            mailSender.send(mimeMessage);
-
-            emailLog.setStatus("SENT");
-            emailLog.setSentAt(Instant.now());
-            emailLog.setLastError(null);
-            emailLogRepository.save(emailLog);
-
-            LOG.info("event=email_sent_success messageId={} template={} recipient={}",
-                    messageId, templateKey, SafeLog.token(toEmail));
-        } catch (Exception ex) {
-            int retries = emailLog.getRetryCount() == null ? 1 : emailLog.getRetryCount() + 1;
-            emailLog.setRetryCount(retries);
-            String safeError = sanitizeError(ex.getMessage());
-            emailLog.setLastError(safeError);
-
-            if (retries >= properties.maxRetries()) {
-                emailLog.setStatus("FAILED");
-            } else {
-                emailLog.setStatus("QUEUED");
-            }
-            emailLogRepository.save(emailLog);
-
-            LOG.warn("event=email_send_attempt_failed messageId={} attempt={} status={} error={}",
-                    messageId, retries, emailLog.getStatus(), safeError);
-        }
+        jdbc.update("""
+                INSERT INTO notification_service.email_logs
+                    (message_id, event_id, correlation_id, to_email, subject, template, provider, status, variables)
+                VALUES (?, ?, ?, ?, '', ?, 'GMAIL_SMTP', 'QUEUED', ?)
+                ON CONFLICT (message_id) DO NOTHING
+                """, messageId, eventId, correlationId, toEmail, templateKey, serialized);
     }
 
-    private RenderedContent render(String templateKey, Map<String, String> variables) {
-        Optional<MailTemplate> templateOpt = mailTemplateRepository.findByTemplateKeyAndIsActiveTrue(templateKey);
+    @Scheduled(fixedDelayString = "${mail-sender.poll-interval-ms:1000}")
+    public void dispatchNext() {
+        if (!properties.enabled()) return;
+        jdbc.update("""
+                UPDATE notification_service.email_logs SET status = 'FAILED', last_error = 'SMTP_OUTCOME_UNKNOWN'
+                WHERE status = 'SENDING' AND claimed_at < NOW() - INTERVAL '5 minutes'
+                """);
+        EmailLog email = transactions.execute(status -> {
+            var ids = jdbc.queryForList("""
+                    WITH candidate AS (
+                        SELECT id FROM notification_service.email_logs
+                        WHERE status = 'QUEUED' AND next_attempt_at <= NOW()
+                        ORDER BY next_attempt_at, id FOR UPDATE SKIP LOCKED LIMIT 1
+                    )
+                    UPDATE notification_service.email_logs SET status = 'SENDING', claimed_at = NOW()
+                    WHERE id IN (SELECT id FROM candidate) RETURNING id
+                    """, Long.class);
+            return ids.isEmpty() ? null : emailLogs.findById(ids.getFirst()).orElseThrow();
+        });
+        if (email == null) return;
+
         String subject;
         String body;
-
-        if (templateOpt.isPresent()) {
-            MailTemplate template = templateOpt.get();
+        try {
+            var template = templates.findByTemplateKeyAndIsActiveTrue(email.getTemplate()).orElseThrow();
+            Map<String, String> variables = mapper.readValue(email.getVariables(), new TypeReference<>() {});
             subject = replacePlaceholders(template.getSubjectTemplate(), variables);
             body = replacePlaceholders(template.getBodyTemplate(), variables);
-        } else {
-            subject = "Clucky — Thông báo đơn hàng (" + templateKey + ")";
-            body = "Xin chào, bạn có một thông báo mới từ hệ thống Clucky.";
+            if (subject.length() > 255 || subject.contains("\r") || subject.contains("\n")
+                    || subject.contains("{{") || body.contains("{{")) {
+                throw new IllegalArgumentException("Invalid template variables");
+            }
+        } catch (Exception failure) {
+            jdbc.update("UPDATE notification_service.email_logs SET status = 'FAILED', last_error = 'INVALID_TEMPLATE' WHERE id = ? AND status = 'SENDING'", email.getId());
+            return;
         }
 
-        return new RenderedContent(subject, body);
+        try {
+            var message = mailSender.createMimeMessage();
+            var helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(properties.username(), properties.fromName());
+            helper.setTo(email.getToEmail());
+            helper.setSubject(subject);
+            helper.setText(body, false);
+            mailSender.send(message);
+        } catch (Exception failure) {
+            boolean safeToRetry = false;
+            for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+                if (cause instanceof java.net.ConnectException || cause instanceof java.net.UnknownHostException) {
+                    safeToRetry = true;
+                    break;
+                }
+            }
+            int retries = email.getRetryCount() + 1;
+            String status = safeToRetry && retries < properties.maxRetries() ? "QUEUED" : "FAILED";
+            jdbc.update("""
+                    UPDATE notification_service.email_logs
+                    SET status = ?, retry_count = ?, last_error = ?,
+                        next_attempt_at = NOW() + (? * INTERVAL '1 second')
+                    WHERE id = ? AND status = 'SENDING'
+                    """, status, retries, safeToRetry ? "SMTP_CONNECT_FAILED" : "SMTP_OUTCOME_UNKNOWN",
+                    Math.min(300L, 5L << Math.min(retries, 6)), email.getId());
+            return;
+        }
+        jdbc.update("""
+                UPDATE notification_service.email_logs SET status = 'SENT', sent_at = NOW(), subject = ?, last_error = NULL
+                WHERE id = ? AND status = 'SENDING'
+                """, subject, email.getId());
     }
 
     private String replacePlaceholders(String template, Map<String, String> variables) {
-        if (template == null || variables == null || variables.isEmpty()) {
-            return template != null ? template : "";
-        }
+        if (template == null || variables == null) throw new IllegalArgumentException("Missing template data");
         String result = template;
-        for (Map.Entry<String, String> entry : variables.entrySet()) {
+        for (var entry : variables.entrySet()) {
             if (entry.getKey() != null && entry.getValue() != null) {
                 result = result.replace("{{" + entry.getKey() + "}}", entry.getValue());
             }
         }
         return result;
     }
-
-    private String sanitizeError(String message) {
-        if (message == null || message.isBlank()) {
-            return "SMTP dispatch error";
-        }
-        String sanitized = message.replaceAll("(?i)(password|secret|key|token)=[^\\s,&]+", "$1=***");
-        if (sanitized.length() > 500) {
-            sanitized = sanitized.substring(0, 500) + "...";
-        }
-        return sanitized;
-    }
-
-    private record RenderedContent(String subject, String body) {}
 }
-

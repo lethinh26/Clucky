@@ -70,7 +70,7 @@ public class LoyaltyController {
      */
     @PostMapping("/earn")
     public ResponseEntity<PointTransactionResponse> earnPoints(@Valid @RequestBody EarnPointsRequest request) {
-        rejectCustomerActor();
+        requireInternalActor();
         PointTransactionResponse response = loyaltyService.earnPoints(request);
         return ResponseEntity.ok(response);
     }
@@ -82,7 +82,7 @@ public class LoyaltyController {
      */
     @PostMapping("/redeem")
     public ResponseEntity<PointTransactionResponse> redeemPoints(@Valid @RequestBody RedeemPointsRequest request) {
-        rejectCustomerActor();
+        requireInternalActor();
         PointTransactionResponse response = loyaltyService.redeemPoints(request);
         return ResponseEntity.ok(response);
     }
@@ -94,7 +94,7 @@ public class LoyaltyController {
      */
     @PostMapping("/release")
     public ResponseEntity<PointTransactionResponse> releasePoints(@Valid @RequestBody LoyaltyReleaseRequest request) {
-        rejectCustomerActor();
+        requireInternalActor();
         PointTransactionResponse response = loyaltyService.releasePoints(request);
         if (response == null) {
             return ResponseEntity.noContent().build();
@@ -130,16 +130,9 @@ public class LoyaltyController {
         return ResponseEntity.ok(response);
     }
 
-    private void rejectCustomerActor() {
-        try {
-            CurrentActor actor = CurrentActor.require();
-            if (actor.role() == Role.CUSTOMER) {
-                throw new ApiException(ErrorCode.FORBIDDEN);
-            }
-        } catch (ApiException e) {
-            throw e;
-        } catch (Exception ignored) {
-            // S2S internal call without customer JWT
+    private void requireInternalActor() {
+        if (CurrentActor.require().role() != Role.INTERNAL_SERVICE) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
         }
     }
 }

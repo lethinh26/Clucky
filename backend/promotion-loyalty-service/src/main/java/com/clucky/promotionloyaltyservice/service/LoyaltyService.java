@@ -22,7 +22,6 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 @Service
 public class LoyaltyService {
@@ -84,7 +83,10 @@ public class LoyaltyService {
      */
     @Transactional(readOnly = true)
     public LoyaltyPreviewResponse previewLoyalty(LoyaltyPreviewRequest request, Long authCustomerId) {
-        Long targetCustomerId = request.customerId() != null ? request.customerId() : authCustomerId;
+        Long targetCustomerId = authCustomerId;
+        if (request.customerId() != null && !Objects.equals(request.customerId(), authCustomerId)) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
 
         int availablePoints = 0;
         String tier = "MEMBER";
@@ -98,7 +100,9 @@ public class LoyaltyService {
 
         LoyaltyConfig config = getActiveConfigEntity();
         int requestedRedeem = request.pointsToRedeem() != null ? Math.max(0, request.pointsToRedeem()) : 0;
-        int pointsUsed = Math.min(requestedRedeem, availablePoints);
+        int affordablePoints = request.orderAmount().divide(config.getRedeemRate(), 0, RoundingMode.FLOOR)
+                .min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValueExact();
+        int pointsUsed = Math.min(Math.min(requestedRedeem, availablePoints), affordablePoints);
         BigDecimal pointsAmount = calculatePointsAmount(pointsUsed, config.getRedeemRate());
 
         int pointsToEarn = calculateEarnPoints(request.orderAmount(), config.getEarnRate());
@@ -113,6 +117,10 @@ public class LoyaltyService {
     @Transactional
     public PointTransactionResponse earnPoints(EarnPointsRequest request) {
         Long customerId = Objects.requireNonNull(request.customerId(), "customerId is required");
+
+        memberPointsRepository.initCustomerPoints(customerId);
+        MemberPoints member = memberPointsRepository.findByCustomerIdForUpdate(customerId)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         String opKey = resolveOperationKey("EARN", request.operationKey(), request.orderId(), customerId);
         if (opKey != null) {
@@ -133,22 +141,8 @@ public class LoyaltyService {
             pointsToEarn = 0;
         }
 
-        if (pointsToEarn <= 0) {
-            LOG.info("event=loyalty_earn_skipped points=0 customerId={} orderId={}", customerId, request.orderId());
-            // Return latest or 0 transaction
-            memberPointsRepository.initCustomerPoints(customerId);
-            MemberPoints member = memberPointsRepository.findByCustomerIdForUpdate(customerId).orElseThrow();
-            return new PointTransactionResponse(null, customerId, request.orderId(), 0, member.getTotalPoints(), "EARN", Instant.now(), "Tích điểm 0");
-        }
-
-        // Concurrency-safe initialization and row-level pessimistic lock
-        memberPointsRepository.initCustomerPoints(customerId);
-        MemberPoints member = memberPointsRepository.findByCustomerIdForUpdate(customerId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        int newBalance = member.getTotalPoints() + pointsToEarn;
+        int newBalance = Math.addExact(member.getTotalPoints(), pointsToEarn);
         member.setTotalPoints(newBalance);
-        member.setTier(calculateTier(newBalance));
         memberPointsRepository.save(member);
 
         String reason = request.reason() != null && !request.reason().isBlank()
@@ -183,6 +177,10 @@ public class LoyaltyService {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
 
+        memberPointsRepository.initCustomerPoints(customerId);
+        MemberPoints member = memberPointsRepository.findByCustomerIdForUpdate(customerId)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+
         String opKey = resolveOperationKey("REDEEM", request.operationKey(), request.orderId(), customerId);
         if (opKey != null) {
             var existing = pointTransactionRepository.findByOperationKey(opKey);
@@ -192,9 +190,6 @@ public class LoyaltyService {
             }
         }
 
-        memberPointsRepository.initCustomerPoints(customerId);
-        MemberPoints member = memberPointsRepository.findByCustomerIdForUpdate(customerId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         if (member.getTotalPoints() < pointsToRedeem) {
             LOG.warn("event=loyalty_insufficient_points customerId={} available={} requested={}",
@@ -204,7 +199,6 @@ public class LoyaltyService {
 
         int newBalance = member.getTotalPoints() - pointsToRedeem;
         member.setTotalPoints(newBalance);
-        member.setTier(calculateTier(newBalance));
         memberPointsRepository.save(member);
 
         String reason = request.reason() != null && !request.reason().isBlank()
@@ -239,6 +233,10 @@ public class LoyaltyService {
             return null;
         }
 
+        memberPointsRepository.initCustomerPoints(customerId);
+        MemberPoints member = memberPointsRepository.findByCustomerIdForUpdate(customerId)
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+
         String opKey = resolveOperationKey("RELEASE", request.operationKey(), request.orderId(), customerId);
         if (opKey != null) {
             var existing = pointTransactionRepository.findByOperationKey(opKey);
@@ -249,6 +247,9 @@ public class LoyaltyService {
         }
 
         // Validate whether points were actually redeemed for this order
+        if (request.orderId() == null || request.orderId() <= 0) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
         int pointsToRestore = pointsToRelease;
         if (request.orderId() != null) {
             List<PointTransaction> redeems = pointTransactionRepository.findByCustomerIdAndOrderIdAndType(
@@ -272,13 +273,9 @@ public class LoyaltyService {
             }
         }
 
-        memberPointsRepository.initCustomerPoints(customerId);
-        MemberPoints member = memberPointsRepository.findByCustomerIdForUpdate(customerId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
-        int newBalance = member.getTotalPoints() + pointsToRestore;
+        int newBalance = Math.addExact(member.getTotalPoints(), pointsToRestore);
         member.setTotalPoints(newBalance);
-        member.setTier(calculateTier(newBalance));
         memberPointsRepository.save(member);
 
         String reason = request.reason() != null && !request.reason().isBlank()
@@ -337,16 +334,6 @@ public class LoyaltyService {
         return DomainMapper.toResponse(config);
     }
 
-    public static String calculateTier(int totalPoints) {
-        if (totalPoints >= 5000) {
-            return "GOLD";
-        }
-        if (totalPoints >= 1000) {
-            return "SILVER";
-        }
-        return "MEMBER";
-    }
-
     private LoyaltyConfig getActiveConfigEntity() {
         return loyaltyConfigRepository.findById(1L).orElseGet(() -> {
             LoyaltyConfig fallback = new LoyaltyConfig();
@@ -361,7 +348,7 @@ public class LoyaltyService {
         if (orderAmount == null || orderAmount.signum() <= 0 || earnRate == null || earnRate.signum() <= 0) {
             return 0;
         }
-        return orderAmount.multiply(earnRate).setScale(0, RoundingMode.FLOOR).intValue();
+        return orderAmount.multiply(earnRate).setScale(0, RoundingMode.FLOOR).intValueExact();
     }
 
     private BigDecimal calculatePointsAmount(int points, BigDecimal redeemRate) {
@@ -372,13 +359,13 @@ public class LoyaltyService {
     }
 
     private String resolveOperationKey(String prefix, String providedKey, Long orderId, Long customerId) {
-        if (providedKey != null && !providedKey.isBlank()) {
-            return providedKey.trim();
-        }
         if (orderId != null) {
-            return prefix + ":order:" + orderId;
+            return prefix + ":cus:" + customerId + ":order:" + orderId;
         }
-        return prefix + ":cus:" + customerId + ":" + UUID.randomUUID();
+        if (providedKey != null && !providedKey.isBlank() && providedKey.length() <= 64) {
+            return prefix + ":cus:" + customerId + ":" + providedKey.trim();
+        }
+        throw new ApiException(ErrorCode.VALIDATION_ERROR);
     }
 }
 

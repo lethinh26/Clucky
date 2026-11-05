@@ -41,10 +41,7 @@ public class OrderCompletedConsumer {
             if (!TOPIC_ORDER_COMPLETED.equals(record.topic())) {
                 LOG.warn("event=order_event_ignored_wrong_topic topic={} partition={} offset={}",
                         SafeLog.token(record.topic()), record.partition(), record.offset());
-                if (ack != null) {
-                    ack.acknowledge();
-                }
-                return;
+                throw new IllegalArgumentException("Unexpected order topic");
             }
 
             DomainEvent event;
@@ -53,10 +50,7 @@ public class OrderCompletedConsumer {
             } catch (Exception ex) {
                 LOG.error("event=order_completed_malformed topic={} partition={} offset={} error={}",
                         SafeLog.token(record.topic()), record.partition(), record.offset(), ex.getMessage());
-                if (ack != null) {
-                    ack.acknowledge();
-                }
-                return;
+                throw new IllegalArgumentException("Invalid completed order event");
             }
 
             String eventId = event.eventId();
@@ -89,9 +83,9 @@ public class OrderCompletedConsumer {
 
         // Validate status (AC-03)
         String status = payload.hasNonNull("status") ? payload.get("status").asText() : "";
-        if (!"COMPLETED".equalsIgnoreCase(status) && !status.isBlank()) {
+        if (!"COMPLETED".equals(status) || !"cart-order-service".equals(event.sourceService())) {
             LOG.warn("event=order_event_ignored_status_not_completed eventId={} status={}", event.eventId(), status);
-            return;
+            throw new IllegalArgumentException("Invalid completed order source or status");
         }
 
         // Validate customer identity (AC-01, AC-05)
@@ -117,6 +111,9 @@ public class OrderCompletedConsumer {
         String orderCode = payload.hasNonNull("orderCode")
                 ? payload.get("orderCode").asText()
                 : (orderId != null ? String.valueOf(orderId) : "N/A");
+        if (orderId == null || orderId <= 0 || !payload.hasNonNull("totalAmount")) {
+            throw new IllegalArgumentException("Completed order identity and amount are required");
+        }
 
         // Determine eligible amount
         BigDecimal orderAmount = BigDecimal.ZERO;
