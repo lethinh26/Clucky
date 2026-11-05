@@ -30,7 +30,8 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AdminModal } from '../../components/ui/AdminModal';
 import { useAuth } from '../../context/AuthContext';
 import { getStoreStatusMeta, normalizeStoreStatus, type StoreStatus } from '../../types/store';
-import { storesApi, usersApi, getErrorMessage, type AdminUser, type Store } from '../../lib/api';
+import { usersApi, getErrorMessage, type AdminUser } from '../../lib/api';
+import { storesApi, type Store } from '../../lib/catalog-and-stores.api';
 
 export const StoresPage: React.FC = () => {
   const { t } = useTranslation();

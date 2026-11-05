@@ -33,7 +33,7 @@ import {
 } from '@ant-design/icons';
 import { AdminDrawer } from '../../components/ui/AdminDrawer';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
-import type { Product, Combo, ProductOptionGroup, ProductTopping, CatalogCategory } from '../../lib/api';
+import type { Product, Combo, ProductOptionGroup, ProductTopping, CatalogCategory } from '../../lib/catalog-and-stores.api';
 import { getErrorMessage } from '../../lib/api';
 
 interface ProductFormProps {
@@ -516,16 +516,21 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     }}
                     style={{ fontWeight: 700, width: 220 }}
                   />
-                  <Switch
-                    checkedChildren={t("business:productform.required")}
-                    unCheckedChildren={t("business:party.custom")}
-                    checked={group.required}
-                    onChange={(val) => {
-                      const updated = [...optionGroups];
-                      updated[groupIdx].required = val;
-                      setOptionGroups(updated);
-                    }}
-                  />
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, color: '#6B6259' }}>
+                      {t("business:productform.requiredLabel", "Bắt buộc chọn")}:
+                    </span>
+                    <Switch
+                      checkedChildren={t("business:productform.required", "Bắt buộc")}
+                      unCheckedChildren={t("business:productform.optional", "Tùy chọn")}
+                      checked={group.required ?? true}
+                      onChange={(val) => {
+                        const updated = [...optionGroups];
+                        updated[groupIdx].required = val;
+                        setOptionGroups(updated);
+                      }}
+                    />
+                  </div>
                   <Button
                     type="text"
                     danger

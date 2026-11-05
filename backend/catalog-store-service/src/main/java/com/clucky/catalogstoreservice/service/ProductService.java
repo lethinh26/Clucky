@@ -1,6 +1,7 @@
 package com.clucky.catalogstoreservice.service;
 
 import com.clucky.catalogstoreservice.dto.MediaDto;
+import com.clucky.catalogstoreservice.dto.PageResponse;
 import com.clucky.catalogstoreservice.dto.ProductDto;
 import com.clucky.catalogstoreservice.entity.*;
 import com.clucky.catalogstoreservice.exception.ResourceNotFoundException;
@@ -8,6 +9,7 @@ import com.clucky.catalogstoreservice.exception.ApiException;
 import com.clucky.catalogstoreservice.exception.ErrorCode;
 import com.clucky.catalogstoreservice.media.CloudinaryMediaAdapter;
 import com.clucky.catalogstoreservice.repository.*;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -55,13 +57,40 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductDto.Response> getProducts(Long storeId, Long categoryId, String keyword, Integer spicyLevel, boolean activeOnly) {
-        List<Product> products;
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            String pattern = "%" + keyword.trim().toLowerCase() + "%";
-            products = productRepository.searchWithKeyword(categoryId, pattern, spicyLevel, activeOnly);
-        } else {
-            products = productRepository.searchWithoutKeyword(categoryId, spicyLevel, activeOnly);
+        List<ProductDto.Response> all = getOrLoadStoreProducts(storeId);
+        return filterProducts(all, categoryId, keyword, spicyLevel, activeOnly);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ProductDto.Response> getProductsPaged(Long storeId, Long categoryId, String keyword, Integer spicyLevel, boolean activeOnly, Pageable pageable) {
+        List<ProductDto.Response> all = getOrLoadStoreProducts(storeId);
+        List<ProductDto.Response> filtered = filterProducts(all, categoryId, keyword, spicyLevel, activeOnly);
+
+        int totalElements = filtered.size();
+        int pageSize = pageable.getPageSize();
+        int pageNumber = pageable.getPageNumber();
+        int totalPages = pageSize > 0 ? (int) Math.ceil((double) totalElements / pageSize) : 0;
+
+        int fromIndex = Math.min(pageNumber * pageSize, totalElements);
+        int toIndex = Math.min(fromIndex + pageSize, totalElements);
+        List<ProductDto.Response> content = filtered.subList(fromIndex, toIndex);
+
+        return new PageResponse<>(content, pageNumber, pageSize, totalElements, totalPages);
+    }
+
+    private List<ProductDto.Response> getOrLoadStoreProducts(Long storeId) {
+        List<ProductDto.Response> cached = cacheService.getCachedMenu(storeId);
+        if (cached != null) {
+            return cached;
         }
+
+        List<ProductDto.Response> loaded = loadFullProductsFromDb(storeId);
+        cacheService.setCachedMenu(storeId, loaded);
+        return loaded;
+    }
+
+    private List<ProductDto.Response> loadFullProductsFromDb(Long storeId) {
+        List<Product> products = productRepository.findAllWithCategory();
 
         Map<Long, StoreProduct> storeProductMap = new HashMap<>();
         Map<Long, StoreInventory> storeInventoryMap = new HashMap<>();
@@ -97,6 +126,33 @@ public class ProductService {
                 }
             }
             return resp;
+        }).collect(Collectors.toList());
+    }
+
+    private List<ProductDto.Response> filterProducts(List<ProductDto.Response> list,
+                                                     Long categoryId,
+                                                     String keyword,
+                                                     Integer spicyLevel,
+                                                     boolean activeOnly) {
+        String trimmed = keyword != null && !keyword.trim().isEmpty() ? keyword.trim().toLowerCase() : null;
+        return list.stream().filter(p -> {
+            if (activeOnly && !Boolean.TRUE.equals(p.getIsActive())) {
+                return false;
+            }
+            if (categoryId != null && !categoryId.equals(p.getCategoryId())) {
+                return false;
+            }
+            if (spicyLevel != null && !spicyLevel.equals(p.getSpicyLevel())) {
+                return false;
+            }
+            if (trimmed != null) {
+                boolean nameMatch = p.getName() != null && p.getName().toLowerCase().contains(trimmed);
+                boolean descMatch = p.getDescription() != null && p.getDescription().toLowerCase().contains(trimmed);
+                if (!nameMatch && !descMatch) {
+                    return false;
+                }
+            }
+            return true;
         }).collect(Collectors.toList());
     }
 
@@ -246,12 +302,13 @@ public class ProductService {
                     for (ProductDto.OptionChoiceDto choice : group.getChoices()) {
                         Long optionId = persistedItemId(choice.getId(), "opt-");
                         ProductOption option = optionId == null
-                                ? new ProductOption(null, product, group.getName(), choice.getName(), choice.getPriceAdjustment())
+                                ? new ProductOption(null, product, group.getName(), choice.getName(), choice.getPriceAdjustment(), group.isRequired())
                                 : remainingOptions.remove(optionId);
                         if (option == null) throw new ApiException(ErrorCode.VALIDATION_ERROR);
                         option.setGroupName(group.getName());
                         option.setName(choice.getName());
                         option.setExtraPrice(choice.getPriceAdjustment());
+                        option.setIsRequired(group.isRequired());
                         retainedOptions.add(option);
                     }
                 }
@@ -318,24 +375,27 @@ public class ProductService {
         r.setIsActive(p.getIsActive());
 
         // Group options by groupName
-        Map<String, List<ProductDto.OptionChoiceDto>> groupMap = new LinkedHashMap<>();
+        Map<String, List<ProductOption>> rawGroupMap = new LinkedHashMap<>();
         List<ProductOption> options = optionRepository.findByProductId(p.getId());
         for (ProductOption opt : options) {
-            groupMap.computeIfAbsent(opt.getGroupName(), k -> new ArrayList<>())
-                    .add(new ProductDto.OptionChoiceDto(
-                            "opt-" + opt.getId(),
-                            opt.getName(),
-                            opt.getExtraPrice()
-                    ));
+            rawGroupMap.computeIfAbsent(opt.getGroupName(), k -> new ArrayList<>()).add(opt);
         }
         List<ProductDto.OptionGroupDto> optionGroups = new ArrayList<>();
         int gIndex = 1;
-        for (Map.Entry<String, List<ProductDto.OptionChoiceDto>> entry : groupMap.entrySet()) {
+        for (Map.Entry<String, List<ProductOption>> entry : rawGroupMap.entrySet()) {
+            boolean isRequired = entry.getValue().stream()
+                    .anyMatch(opt -> opt.getIsRequired() == null || Boolean.TRUE.equals(opt.getIsRequired()));
+            List<ProductDto.OptionChoiceDto> choices = entry.getValue().stream()
+                    .map(opt -> new ProductDto.OptionChoiceDto(
+                            "opt-" + opt.getId(),
+                            opt.getName(),
+                            opt.getExtraPrice()
+                    )).collect(Collectors.toList());
             optionGroups.add(new ProductDto.OptionGroupDto(
                     "grp-" + (gIndex++),
                     entry.getKey(),
-                    true,
-                    entry.getValue()
+                    isRequired,
+                    choices
             ));
         }
         r.setOptions(optionGroups);

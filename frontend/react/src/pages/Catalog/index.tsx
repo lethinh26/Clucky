@@ -24,7 +24,8 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ConfirmModal } from '../../components/ui/AdminModal';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { ProductForm } from './ProductForm';
-import { CatalogCategory, catalogApi, getErrorMessage, type Product, type Combo } from '../../lib/api';
+import { getErrorMessage } from '../../lib/api';
+import { catalogApi, type CatalogCategory, type Product, type Combo } from '../../lib/catalog-and-stores.api';
 
 export const CatalogPage: React.FC = () => {
   const { t } = useTranslation();

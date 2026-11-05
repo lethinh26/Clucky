@@ -21,11 +21,17 @@ public class StoreDto {
         private String closeTime;
         private String status;
         private String deliveryArea;
+        private Boolean isOpenNow;
 
         public Response() {}
 
         public Response(Long id, String name, String address, String district, String city, String phone,
                         LocalTime openTime, LocalTime closeTime, StoreStatus status, String deliveryArea) {
+            this(id, name, address, district, city, phone, openTime, closeTime, status, deliveryArea, null);
+        }
+
+        public Response(Long id, String name, String address, String district, String city, String phone,
+                        LocalTime openTime, LocalTime closeTime, StoreStatus status, String deliveryArea, Boolean isOpenNow) {
             this.id = id;
             this.name = name;
             this.address = address;
@@ -36,6 +42,7 @@ public class StoreDto {
             this.closeTime = closeTime != null ? closeTime.format(TIME_FORMAT) : null;
             this.status = status != null ? status.name() : null;
             this.deliveryArea = deliveryArea;
+            this.isOpenNow = isOpenNow;
         }
 
         public Long getId() { return id; }
@@ -67,6 +74,9 @@ public class StoreDto {
 
         public String getDeliveryArea() { return deliveryArea; }
         public void setDeliveryArea(String deliveryArea) { this.deliveryArea = deliveryArea; }
+
+        public Boolean getIsOpenNow() { return isOpenNow; }
+        public void setIsOpenNow(Boolean isOpenNow) { this.isOpenNow = isOpenNow; }
     }
 
     public static class Request {

@@ -40,10 +40,9 @@ import { BannerBacklogSection } from './components/BannerBacklogSection';
 import { useAuth } from '../../context/AuthContext';
 import {
   promotionsApi,
-  storesApi,
   getErrorMessage,
-  type Store,
 } from '../../lib/api';
+import { storesApi, type Store } from '../../lib/catalog-and-stores.api';
 import { MOCK_VOUCHERS } from '../../mocks/promotionData';
 import type { AdminVoucher, VoucherPayload, VoucherStatus } from '../../types/promotion';
 import './promotions.css';

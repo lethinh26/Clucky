@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 public class StoreService {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final java.time.ZoneId VIETNAM_ZONE = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final StoreRepository storeRepository;
     private final ProductRepository productRepository;
@@ -126,8 +127,25 @@ public class StoreService {
         cacheService.evictStoreMenuCache(id);
     }
 
+    public boolean isStoreServingNow(Store store) {
+        if (store == null || store.getStatus() != StoreStatus.OPEN) {
+            return false;
+        }
+        LocalTime openTime = store.getOpenTime();
+        LocalTime closeTime = store.getCloseTime();
+        if (openTime == null || closeTime == null || openTime.equals(closeTime)) {
+            return true;
+        }
+        LocalTime now = LocalTime.now(VIETNAM_ZONE);
+        if (openTime.isBefore(closeTime)) {
+            return !now.isBefore(openTime) && !now.isAfter(closeTime);
+        } else {
+            return !now.isBefore(openTime) || !now.isAfter(closeTime);
+        }
+    }
+
     public StoreDto.Response toResponse(Store store) {
-        return new StoreDto.Response(
+        StoreDto.Response resp = new StoreDto.Response(
                 store.getId(),
                 store.getName(),
                 store.getAddress(),
@@ -139,6 +157,8 @@ public class StoreService {
                 store.getStatus(),
                 store.getDeliveryArea()
         );
+        resp.setIsOpenNow(isStoreServingNow(store));
+        return resp;
     }
 
     private LocalTime parseTime(String timeStr) {
