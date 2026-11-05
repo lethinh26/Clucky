@@ -17,6 +17,17 @@
   transition: all 0.2s ease;
   white-space: nowrap;
   user-select: none;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.codeText {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
 }
 
 .voucherDot {
@@ -131,9 +142,15 @@
   letter-spacing: 0.5px;
   cursor: pointer;
   transition: background 0.15s;
+  max-width: 150px;
+  min-width: 0;
 }
 .couponCodeBadge:hover {
   background: #FEF3C7;
+}
+.couponCodeBadge:focus-visible {
+  outline: 2px solid #8F1216;
+  outline-offset: 1px;
 }
 
 .couponCondition {
@@ -167,6 +184,10 @@
 }
 .couponApplyBtn:hover:not(:disabled) {
   background: #C2410C;
+}
+.couponApplyBtn:focus-visible {
+  outline: 2px solid #8F1216;
+  outline-offset: 1px;
 }
 .couponApplyBtn:disabled {
   background: #D1D5DB;

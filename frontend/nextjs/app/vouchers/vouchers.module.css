@@ -275,6 +275,11 @@
   color: #16100d;
 }
 
+.tabBtn:focus-visible {
+  outline: 2px solid #8f1216;
+  outline-offset: 2px;
+}
+
 .tabBtnActive {
   background: #8f1216;
   border-color: #8f1216;
@@ -309,6 +314,11 @@
 .chipBtn:hover {
   border-color: #c9a227;
   color: #16100d;
+}
+
+.chipBtn:focus-visible {
+  outline: 2px solid #8f1216;
+  outline-offset: 2px;
 }
 
 .chipBtnActive {
@@ -508,11 +518,27 @@
   letter-spacing: 0.5px;
   cursor: pointer;
   transition: all 0.15s ease;
+  min-width: 0;
+  max-width: calc(100% - 110px);
+}
+
+.copyCodeBtn span {
+  display: inline-block;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .copyCodeBtn:hover {
   background: #fef3c7;
   border-color: #f59e0b;
+}
+
+.copyCodeBtn:focus-visible {
+  outline: 2px solid #8f1216;
+  outline-offset: 2px;
 }
 
 .applyNowBtn {
@@ -529,11 +555,18 @@
   text-decoration: none;
   cursor: pointer;
   transition: all 0.15s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .applyNowBtn:hover {
   background: #730e11;
   color: #ffffff;
+}
+
+.applyNowBtn:focus-visible {
+  outline: 2px solid #8f1216;
+  outline-offset: 2px;
 }
 
 /* -------------------------------------------------------------

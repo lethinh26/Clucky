@@ -119,7 +119,7 @@ export function VoucherBadge({
         aria-label={t("business.promotionUi.voucherAccessible", { code: code, discount: discountText, status: STATUS_LABEL[status] })}
       >
         <span className={styles.voucherDot} aria-hidden="true" />
-        <span>{code}</span>
+        <span className={styles.codeText} title={code}>{code}</span>
         <span>•</span>
         <span>{type === 'PERCENT' ? `-${value}%` : `-${Math.round(value / 1000)}k`}</span>
       </span>
@@ -152,7 +152,7 @@ export function VoucherBadge({
             title={t("business.promotionUi.clickCopy")}
             aria-label={t("business.promotionUi.copyVoucher", { code: code })}
           >
-            <span>{code}</span>
+            <span className={styles.codeText} title={code}>{code}</span>
             {copied ? (
               <Check size={12} color="#10B981" aria-hidden="true" />
             ) : (
@@ -198,7 +198,7 @@ export function VoucherBadge({
       aria-label={`Voucher ${code}: ${discountText}, ${STATUS_LABEL[status]}`}
     >
       <Tag size={12} aria-hidden="true" />
-      <strong>{code}</strong>
+      <strong className={styles.codeText} title={code}>{code}</strong>
       <span>{discountText}</span>
       <span className={styles.voucherDot} aria-hidden="true" />
       <span>{STATUS_LABEL[status]}</span>

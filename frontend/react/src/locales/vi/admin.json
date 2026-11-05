@@ -9,13 +9,15 @@
     "reviews": "Quản lý Đánh giá",
     "users": "Quản lý Người dùng",
     "reports": "Báo cáo & Thống kê",
-    "payments": "Thanh toán & Đối soát"
+    "payments": "Thanh toán & Đối soát",
+    "promotions": "Quản lý Khuyến mãi & Voucher"
   },
   "breadcrumb": {
     "catalog": "Thực đơn & Combo",
     "stores": "Hệ thống Chi nhánh",
     "reviews": "Đánh giá & Phản hồi",
-    "users": "Người dùng"
+    "users": "Người dùng",
+    "promotions": "Khuyến mãi & Voucher"
   },
   "roles": {
     "hqAdmin": "Quản trị viên HQ",
@@ -69,5 +71,30 @@
     "accountPrefix": "Tài khoản của bạn (",
     "description": ") không được phân quyền truy cập vào phân hệ này.",
     "back": "Quay lại Bảng điều khiển"
+  },
+  "promotions": {
+    "title": "Quản lý Khuyến mãi & Ưu đãi",
+    "subtitle": "Quản lý các mã voucher giảm giá, theo dõi đề xuất chi nhánh và banner tiếp thị thương hiệu.",
+    "tabs": {
+      "vouchers": "Mã giảm giá (Vouchers)",
+      "proposals": "Duyệt đề xuất chi nhánh",
+      "banners": "Banner khuyến mãi"
+    },
+    "createVoucher": "Tạo Voucher mới",
+    "editVoucher": "Chỉnh sửa Voucher",
+    "voucherDetail": "Chi tiết Voucher",
+    "scope": {
+      "all": "Toàn hệ thống",
+      "store": "Chi nhánh cụ thể"
+    },
+    "type": {
+      "percent": "Giảm theo phần trăm (%)",
+      "amount": "Giảm số tiền cố định (VNĐ)"
+    },
+    "backlogTag": "Phase 2 / Backlog",
+    "backlogAlert": {
+      "title": "Chức năng thuộc Kế hoạch phát triển (Phase 2 / Backlog)",
+      "description": "Khung giao diện này được thiết kế theo quy chuẩn kiến trúc để chuẩn bị cho giai đoạn tiếp theo. Hiện tại hệ thống chưa kích hoạt tích hợp API thực tế cho chức năng này."
+    }
   }
 }
