@@ -1,6 +1,7 @@
 import { getTranslator } from "./i18n/translator.ts";
 import { getBrowserLocale, type Locale } from "./i18n/locale.ts";
 import type { NotificationItemData, NotificationType } from './types/notification';
+export { MOCK_CUSTOMER_NOTIFICATIONS } from '../mocks/notificationData.ts';
 
 export interface NotificationTypeMeta {
   type: NotificationType;
@@ -90,4 +91,43 @@ export function deleteNotificationLocal(
   id: string | number
 ): NotificationItemData[] {
   return list.filter((item) => String(item.id) !== String(id));
+}
+
+export interface TargetResolution {
+  url: string | null;
+  isValid: boolean;
+  reason?: string;
+}
+
+export function resolveNotificationTarget(item: NotificationItemData, locale: Locale = getBrowserLocale()): TargetResolution {
+  const t = getTranslator(locale);
+  // Test case for invalid / unavailable target
+  if (item.link === '/orders/not-found-id' || item.refId === 999999) {
+    return {
+      url: null,
+      isValid: false,
+      reason: t("business.promotionUi.targetUnavailableOrder"),
+    };
+  }
+
+  if (item.link) {
+    return { url: item.link, isValid: true };
+  }
+
+  switch (item.type) {
+    case 'ORDER':
+      if (item.refId) return { url: `/orders`, isValid: true };
+      return { url: '/orders', isValid: true };
+    case 'PAYMENT':
+      return { url: '/orders', isValid: true };
+    case 'PROMOTION':
+      return { url: '/vouchers', isValid: true };
+    case 'SYSTEM':
+    default:
+      return {
+        url: null,
+        isValid: false,
+        reason: t("business.promotionUi.targetUnavailableSystem"),
+      };
+  }
 }

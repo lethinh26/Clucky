@@ -30,6 +30,7 @@ export default function CartPage() {
     removeItem,
     updateNote,
     ready,
+    cartPending,
   } = useOrder();
   useNavigationTask(!ready);
 
@@ -104,8 +105,12 @@ export default function CartPage() {
                       <input
                         type="text"
                         placeholder={t("business.cart.notesForTheRestaurantEGLessIceMediumSpice")}
-                        value={item.note || ""}
-                        onChange={(e) => updateNote(item.id, e.target.value)}
+                        key={`${item.id}-${item.note ?? ""}-${cartPending}`}
+                        defaultValue={item.note || ""}
+                        onBlur={(event) => {
+                          if (event.target.value !== (item.note ?? "")) updateNote(item.id, event.target.value);
+                        }}
+                        disabled={cartPending}
                         className={styles.noteInput}
                         aria-label={t("business.cart.notesFor", { value1: item.name })}
                       />
@@ -125,6 +130,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         onClick={() => updateQuantity(item.id, -1)}
+                        disabled={cartPending}
                         className={styles.stepperBtn}
                         aria-label={t("business.cart.decrease", { value1: item.name })}
                       >
@@ -134,6 +140,7 @@ export default function CartPage() {
                       <button
                         type="button"
                         onClick={() => updateQuantity(item.id, 1)}
+                        disabled={cartPending}
                         className={styles.stepperBtn}
                         aria-label={t("business.cart.increase", { value1: item.name })}
                       >
@@ -144,6 +151,7 @@ export default function CartPage() {
                     <button
                       type="button"
                       onClick={() => removeItem(item.id)}
+                      disabled={cartPending}
                       className={styles.removeBtn}
                     >
                       <Trash2 size={13} /> {t("business.cart.removeItem")} </button>

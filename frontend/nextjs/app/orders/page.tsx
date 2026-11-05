@@ -2,7 +2,6 @@
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
-
 import { useEffect, useRef, useState } from "react";
 import Link from "@/components/ui-loader/navigation-link";
 import { useOrder } from "@/components/order/order-provider";
@@ -27,8 +26,16 @@ export default function OrdersHistoryPage() {
   const t = useTranslations();
 
   const { locale, money: formatPrice } = useLocaleTools();
-  const { orders, reorder, ready } = useOrder();
+  const { orders, reorder, refreshOrders, ready } = useOrder();
   useNavigationTask(!ready);
+
+  // Sync server orders on mount (INT-08)
+  useEffect(() => {
+    refreshOrders().catch((err) => {
+      console.warn("Could not fetch remote orders:", err);
+    });
+  }, [refreshOrders]);
+
   const activeOrder = orders.find(
     (order) => !["COMPLETED", "CANCELLED"].includes(order.status),
   );
@@ -69,10 +76,12 @@ export default function OrdersHistoryPage() {
     return true;
   });
 
-  const handleReorder = (order: Order) => {
-    reorder(order);
+  const handleReorder = async (order: Order) => {
+    await reorder(order);
     setToastMessage(
-      t("business.orders.itemsFromOrderHaveBeenAddedToYourCart", { value1: order.orderCode }),
+      t("business.orders.itemsFromOrderHaveBeenAddedToYourCart", {
+        value1: order.orderCode,
+      }),
     );
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => {
@@ -82,11 +91,17 @@ export default function OrdersHistoryPage() {
 
   return (
     <>
-            <main className={`${styles.historyContainer} m3-page`}>
+      <main className={`${styles.historyContainer} m3-page`}>
         <div className={styles.heading}>
-          <span className={styles.eyebrow}>{t("business.orders.purchaseHistory")}</span>
+          <span className={styles.eyebrow}>
+            {t("business.orders.purchaseHistory")}
+          </span>
           <h1 className={styles.title}>{t("business.orders.myOrders")}</h1>
-          <p className={styles.sub}> {t("business.orders.trackYourDeliveryViewReceiptsOrReorderYourFavourites")} </p>
+          <p className={styles.sub}>
+            {t(
+              "business.orders.trackYourDeliveryViewReceiptsOrReorderYourFavourites",
+            )}
+          </p>
         </div>
 
         {activeOrder && (
@@ -98,10 +113,12 @@ export default function OrdersHistoryPage() {
                 {activeOrder.orderCode} · {activeOrder.storeName}
               </span>
             </div>
-            <Link href={`/orders/${activeOrder.id}`}> {t("business.orders.trackOrder")} <ArrowRight size={15} />
+            <Link href={`/orders/${activeOrder.id}`}>
+              {t("business.orders.trackOrder")} <ArrowRight size={15} />
             </Link>
           </div>
         )}
+
         {/* Quick Search */}
         <div className={styles.searchBar}>
           <input
@@ -118,41 +135,57 @@ export default function OrdersHistoryPage() {
               onClick={() => setSearchQuery("")}
               className={styles.searchBtn}
               style={{ background: "#6b6259" }}
-            > {t("business.account.delete")} </button>
+            >
+              {t("business.account.delete")}
+            </button>
           )}
         </div>
 
         {/* Status Tabs */}
-        <div className={styles.tabsList} aria-label={t("business.orders.filterOrderStatus")}>
+        <div
+          className={styles.tabsList}
+          aria-label={t("business.orders.filterOrderStatus")}
+        >
           <button
             type="button"
-
             aria-pressed={activeTab === "ALL"}
-            className={`${styles.tabItem} ${activeTab === "ALL" ? styles.tabItemActive : ""}`}
+            className={`${styles.tabItem} ${
+              activeTab === "ALL" ? styles.tabItemActive : ""
+            }`}
             onClick={() => setActiveTab("ALL")}
-          > {t("business.orders.allOrders")}{orders.length})
+          >
+            {t("business.orders.allOrders")} ({orders.length})
           </button>
           <button
             type="button"
-
             aria-pressed={activeTab === "ACTIVE"}
-            className={`${styles.tabItem} ${activeTab === "ACTIVE" ? styles.tabItemActive : ""}`}
+            className={`${styles.tabItem} ${
+              activeTab === "ACTIVE" ? styles.tabItemActive : ""
+            }`}
             onClick={() => setActiveTab("ACTIVE")}
-          > {t("business.orders.inProgress")} </button>
+          >
+            {t("business.orders.inProgress")}
+          </button>
           <button
             type="button"
-
             aria-pressed={activeTab === "COMPLETED"}
-            className={`${styles.tabItem} ${activeTab === "COMPLETED" ? styles.tabItemActive : ""}`}
+            className={`${styles.tabItem} ${
+              activeTab === "COMPLETED" ? styles.tabItemActive : ""
+            }`}
             onClick={() => setActiveTab("COMPLETED")}
-          > {t("business.orders.completed")} </button>
+          >
+            {t("business.orders.completed")}
+          </button>
           <button
             type="button"
-
             aria-pressed={activeTab === "CANCELLED"}
-            className={`${styles.tabItem} ${activeTab === "CANCELLED" ? styles.tabItemActive : ""}`}
+            className={`${styles.tabItem} ${
+              activeTab === "CANCELLED" ? styles.tabItemActive : ""
+            }`}
             onClick={() => setActiveTab("CANCELLED")}
-          > {t("business.orders.cancelled")} </button>
+          >
+            {t("business.orders.cancelled")}
+          </button>
         </div>
 
         {/* Order Cards */}
@@ -160,8 +193,14 @@ export default function OrdersHistoryPage() {
           <div className="order-skeleton" aria-hidden="true" />
         ) : filteredOrders.length === 0 ? (
           <div className={styles.emptyState}>
-            <h3 className={styles.emptyTitle}>{t("business.orders.noOrdersFound")}</h3>
-            <p className={styles.emptyDesc}> {t("business.orders.thereAreNoOrdersInThisSectionOrYourSearchDidNot")} </p>
+            <h3 className={styles.emptyTitle}>
+              {t("business.orders.noOrdersFound")}
+            </h3>
+            <p className={styles.emptyDesc}>
+              {t(
+                "business.orders.thereAreNoOrdersInThisSectionOrYourSearchDidNot",
+              )}
+            </p>
           </div>
         ) : (
           <div className={styles.ordersList}>
@@ -200,7 +239,9 @@ export default function OrdersHistoryPage() {
                   </div>
 
                   <div className={styles.cardPriceGroup}>
-                    <span className={styles.cardPriceLabel}> {t("business.checkout.totalDue")} </span>
+                    <span className={styles.cardPriceLabel}>
+                      {t("business.checkout.totalDue")}
+                    </span>
                     <span className={styles.cardPriceVal}>
                       {formatPrice(order.totalAmount)}
                     </span>
@@ -221,12 +262,15 @@ export default function OrdersHistoryPage() {
                     onClick={() => handleReorder(order)}
                     className={styles.reorderBtn}
                   >
-                    <RotateCcw size={15} /> {t("business.orders.reorderThisMeal")} </button>
+                    <RotateCcw size={15} /> {t("business.orders.reorderThisMeal")}
+                  </button>
 
                   <Link
                     href={`/orders/${order.id}`}
                     className={styles.detailBtn}
-                  > {t("business.orders.viewDetails")} </Link>
+                  >
+                    {t("business.orders.viewDetails")}
+                  </Link>
                 </div>
               </article>
             ))}
@@ -246,10 +290,12 @@ export default function OrdersHistoryPage() {
                 textDecoration: "underline",
                 marginLeft: 8,
               }}
-            > {t("business.orders.goToCart")} </Link>
+            >
+              {t("business.orders.goToCart")}
+            </Link>
           </div>
         )}
       </main>
-          </>
+    </>
   );
 }

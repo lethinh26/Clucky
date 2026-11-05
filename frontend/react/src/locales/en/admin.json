@@ -9,13 +9,15 @@
     "reviews": "Review management",
     "users": "User management",
     "reports": "Reports & statistics",
-    "payments": "Payments & reconciliation"
+    "payments": "Payments & reconciliation",
+    "promotions": "Promotions & Vouchers"
   },
   "breadcrumb": {
     "catalog": "Menu & combos",
     "stores": "Stores",
     "reviews": "Reviews & replies",
-    "users": "Users"
+    "users": "Users",
+    "promotions": "Promotions & Vouchers"
   },
   "roles": {
     "hqAdmin": "HQ administrator",
@@ -69,5 +71,30 @@
     "accountPrefix": "Your account (",
     "description": ") does not have permission to access this section.",
     "back": "Back to dashboard"
+  },
+  "promotions": {
+    "title": "Promotions & Voucher Management",
+    "subtitle": "Manage discount vouchers, review branch proposals, and oversee brand promotional banners.",
+    "tabs": {
+      "vouchers": "Discount Vouchers",
+      "proposals": "Branch Proposals",
+      "banners": "Promo Banners"
+    },
+    "createVoucher": "Create New Voucher",
+    "editVoucher": "Edit Voucher",
+    "voucherDetail": "Voucher Details",
+    "scope": {
+      "all": "System-wide",
+      "store": "Specific Branch"
+    },
+    "type": {
+      "percent": "Percentage Discount (%)",
+      "amount": "Fixed Amount Discount (VND)"
+    },
+    "backlogTag": "Phase 2 / Backlog",
+    "backlogAlert": {
+      "title": "Feature in Roadmap (Phase 2 / Backlog)",
+      "description": "This interface layout is crafted according to architecture specifications for upcoming phases. Live backend API integration is currently pending."
+    }
   }
 }

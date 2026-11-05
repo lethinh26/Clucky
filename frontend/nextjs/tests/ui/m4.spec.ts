@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { seedOrder } from "../fixtures/order";
 
 const admin = "http://127.0.0.1:4173";
 const customer = "http://127.0.0.1:4174";
@@ -238,21 +239,22 @@ test("QR failure, expiry, loading fee and pickup states", async ({ page }) => {
 test("order detail keeps main order flow and integrates payment/shipment widgets", async ({
   page,
 }, testInfo) => {
+  await seedOrder(page);
   await page.setViewportSize({ width: 375, height: 900 });
   await page.route("https://vietqr.app/img?*", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
-  await page.goto(customer + "/orders/demo-clucky");
+  await page.goto(customer + "/orders/901");
   await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Thông tin giao hàng" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }),
+    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }),
   ).toHaveCount(0);
   await page.evaluate(() => {
     const key = "clucky-order-workspace-v1";
     const snapshot = JSON.parse(localStorage.getItem(key)!);
     const order = snapshot.orders.find(
-      (entry: { id: string }) => entry.id === "demo-clucky",
+      (entry: { id: string }) => entry.id === "901",
     );
     order.status = "PENDING_PAYMENT";
     order.paymentStatus = "PENDING";
@@ -263,12 +265,12 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await page.reload();
   await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }),
+    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }),
   ).toBeVisible();
-  const qrUrl = new URL((await page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }).getAttribute("src"))!);
+  const qrUrl = new URL((await page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }).getAttribute("src"))!);
   expect(qrUrl.origin + qrUrl.pathname).toBe("https://vietqr.app/img");
   expect(qrUrl.searchParams.get("amount")).toBe("262000");
-  expect(qrUrl.searchParams.get("des")).toBe("CLU240826");
+  expect(qrUrl.searchParams.get("des")).toBe("CLU20261028TEST");
   await expect(page.getByText("Phí giao hàng", { exact: true })).toHaveCount(1);
   await expect(page.getByRole("region", { name: "Điều khiển tiến trình đơn hàng" })).not.toBeVisible();
   await expectNoOverflow(page);
@@ -281,7 +283,7 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await page.getByRole("button", { name: "Xác nhận hủy", exact: true }).click();
   await expect(page.getByText("Đơn đã được hủy thành công.")).toBeVisible();
   await expect(
-    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-240826" }),
+    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }),
   ).toHaveCount(0);
 });
 

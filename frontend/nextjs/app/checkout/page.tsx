@@ -2,13 +2,13 @@
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
-
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toCartPayload } from "@/lib/cart";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import Link from "@/components/ui-loader/navigation-link";
 import { Select } from "@base-ui/react/select";
 import { MOCK_STORES } from "@/lib/mock/order-mock-data";
-import { Order, OrderType, PaymentMethod } from "@/lib/types/order";
+import { OrderType, PaymentMethod } from "@/lib/types/order";
 import { FoodImage } from "@/components/order/food-image";
 import styles from "./checkout.module.css";
 import { useOrder } from "@/components/order/order-provider";
@@ -16,11 +16,15 @@ import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import { ShippingFeeCard } from "@/components/shipping";
 import {
+  orderApi,
+  getErrorMessage,
+  type CreateOrderPayload,
+} from "@/lib/api";
+import {
   ShoppingBag,
   MapPin,
   Truck,
   Store,
-  ArrowRight,
   ChevronDown,
   Check,
 } from "lucide-react";
@@ -30,10 +34,21 @@ export default function CheckoutPage() {
 
   const { money: formatPrice } = useLocaleTools();
   const router = useRouter();
-  const { items, subtotal, ready, placeDemoOrder } = useOrder();
+  const { items, subtotal, ready, cartPending, createOrder } = useOrder();
+  const payloadItems = useMemo(() => {
+    try { return items.map(toCartPayload); }
+    catch { return null; }
+  }, [items]);
   useNavigationTask(!ready);
   const submitLock = useRef(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("clucky_access_token") : null;
+    setIsAuthenticated(!!token);
+  }, []);
 
   // Form states
   const [orderType, setOrderType] = useState<OrderType>("DELIVERY");
@@ -46,120 +61,187 @@ export default function CheckoutPage() {
   const [orderNote, setOrderNote] = useState("");
 
   // Voucher & Loyalty states (Contract slots with M5)
-  const [voucherInput, setVoucherInput] = useState("CLUCKYGIAM20");
+  const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<{
     code: string;
     discount: number;
-  } | null>({
-    code: "CLUCKYGIAM20",
-    discount: 20000,
-  });
-  const [voucherMsg, setVoucherMsg] = useState(
-    "business.checkout.theDiscountHasBeenApplied",
-  );
+  } | null>(null);
+  const [voucherMsg, setVoucherMsg] = useState("");
   const [usePoints, setUsePoints] = useState(false);
 
-  // Cost calculations
-  const shippingFee = orderType === "DELIVERY" ? 20000 : 0;
+  // Server-preview breakdown
+  const [previewData, setPreviewData] = useState<{
+    subtotal?: number;
+    discountAmount?: number;
+    pointsAmount?: number;
+    shippingFee?: number;
+    totalAmount?: number;
+  } | null>(null);
+
+  // Cost calculations with server preview or graceful local fallback
+  const baseShippingFee = orderType === "DELIVERY" ? 20000 : 0;
+  const shippingFee =
+    previewData?.shippingFee !== undefined
+      ? previewData.shippingFee
+      : baseShippingFee;
   const voucherDiscount =
-    appliedVoucher?.code === "CLUCKYFREESHIP"
-      ? shippingFee
-      : (appliedVoucher?.discount ?? 0);
-  const pointsDiscount = usePoints ? 5000 : 0;
-  const totalAmount = Math.max(
-    0,
-    subtotal + shippingFee - voucherDiscount - pointsDiscount,
-  );
+    previewData?.discountAmount !== undefined
+      ? previewData.discountAmount
+      : appliedVoucher?.code === "CLUCKYFREESHIP"
+        ? shippingFee
+        : (appliedVoucher?.discount ?? 0);
+  const pointsDiscount =
+    previewData?.pointsAmount !== undefined
+      ? previewData.pointsAmount
+      : usePoints
+        ? 5000
+        : 0;
+  const totalAmount =
+    previewData?.totalAmount !== undefined
+      ? previewData.totalAmount
+      : Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
+
+  // Preview breakdown sync
+  useEffect(() => {
+    if (!items.length || !payloadItems) {
+      setPreviewData(null);
+      return;
+    }
+    let active = true;
+
+    orderApi
+      .preview({
+        storeId: Number(selectedStore) || 1,
+        type: orderType,
+        items: payloadItems,
+        voucherCode: appliedVoucher?.code,
+        pointsUsed: usePoints ? 50 : 0,
+        receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+      })
+      .then((res) => {
+        if (!active || !res) return;
+        setPreviewData({
+          subtotal: res.subtotal,
+          discountAmount: res.discountAmount,
+          pointsAmount: res.pointsAmount,
+          shippingFee: res.shippingFee,
+          totalAmount: res.totalAmount,
+        });
+      })
+      .catch((err) => {
+        console.warn("Order preview fallback to local:", err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    items,
+    orderType,
+    selectedStore,
+    appliedVoucher,
+    usePoints,
+    deliveryAddress,
+    payloadItems,
+  ]);
 
   const handleApplyVoucher = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!payloadItems || cartPending) return;
     const cleanCode = voucherInput.trim().toUpperCase();
-    if (cleanCode === "CLUCKYGIAM20") {
-      setAppliedVoucher({ code: "CLUCKYGIAM20", discount: 20000 });
-      setVoucherMsg("business.checkout.theDiscountHasBeenApplied");
-    } else if (cleanCode === "CLUCKYFREESHIP") {
-      setAppliedVoucher({ code: "CLUCKYFREESHIP", discount: 20000 });
-      setVoucherMsg("business.checkout.freeDeliveryApplied");
-    } else {
+    if (!cleanCode) {
       setAppliedVoucher(null);
-      setVoucherMsg("business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
+      setVoucherMsg("");
+      return;
     }
+    orderApi
+      .preview({
+        storeId: Number(selectedStore) || 1,
+        type: orderType,
+        items: payloadItems,
+        voucherCode: cleanCode,
+        pointsUsed: usePoints ? 50 : 0,
+        receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+      })
+      .then((res) => {
+        if (res && res.valid && res.discountAmount > 0) {
+          setAppliedVoucher({ code: cleanCode, discount: res.discountAmount });
+          setVoucherMsg("business.checkout.theDiscountHasBeenApplied");
+        } else {
+          setAppliedVoucher(null);
+          setVoucherMsg(res?.message || "business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
+        }
+      })
+      .catch((err: any) => {
+        setAppliedVoucher(null);
+        const msg = getErrorMessage(err);
+        setVoucherMsg(msg || "business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
+      });
   };
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || !items.length || submitting || submitLock.current) return;
+    if (!ready || cartPending || !payloadItems || !items.length || submitting || submitLock.current) return;
     submitLock.current = true;
     setSubmitting(true);
-    const id = `local-${crypto.randomUUID()}`;
-    const store = MOCK_STORES.find((entry) => entry.id === selectedStore)!;
-    const now = new Date().toISOString();
-    const status = paymentMethod === "COD" ? "CONFIRMED" : "PENDING_PAYMENT";
-    const order: Order = {
-      id,
-      orderCode: `DEMO-${id.slice(-6).toUpperCase()}`,
-      storeId: store.id,
-      storeName: store.name,
+    setSubmitError(null);
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("clucky_access_token") : null;
+    if (!token) {
+      submitLock.current = false;
+      setSubmitting(false);
+      setSubmitError(t("errors.UNAUTHENTICATED"));
+      router.push("/login?redirect=/checkout");
+      return;
+    }
+
+
+    const payload: CreateOrderPayload = {
+      storeId: Number(selectedStore) || 1,
       type: orderType,
-      status,
-      subtotal,
-      discountAmount: voucherDiscount,
+      paymentMethod: paymentMethod,
+      items: payloadItems,
       voucherCode: appliedVoucher?.code,
       pointsUsed: usePoints ? 50 : 0,
-      pointsAmount: pointsDiscount,
-      shippingFee,
-      totalAmount,
-      paymentMethod,
-      paymentStatus: "PENDING",
       receiverName: receiverName.trim(),
-      receiverPhone,
+      receiverPhone: receiverPhone.trim(),
       deliveryAddress:
         orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
-      note: orderNote.trim(),
-      createdAt: now,
-      updatedAt: now,
-      items: items.map((item) => ({
-        id: item.id,
-        slug: item.slug,
-        itemName: item.name,
-        itemType: "PRODUCT",
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        image: item.image,
-        optionsSnapshot: item.options,
-        toppingsSnapshot: item.toppings,
-        note: item.note,
-        lineTotal: item.unitPrice * item.quantity,
-      })),
-      timeline: [
-        {
-          status,
-          title:
-            status === "CONFIRMED"
-              ? t("business.checkout.orderConfirmed")
-              : t("business.checkout.awaitingPayment"),
-          description:
-            status === "CONFIRMED"
-              ? t("business.checkout.yourCashOnDeliveryOrderHasBeenConfirmed")
-              : t("business.checkout.pleaseCompletePaymentSoCluckyCanPrepareYourMeal"),
-          time: now,
-          done: true,
-          current: true,
-        },
-      ],
+      note: orderNote.trim() || undefined,
     };
-    placeDemoOrder(order);
-    router.push(`/orders/${id}`);
+
+    try {
+      const backendOrder = await createOrder(payload);
+      const targetId = String(backendOrder.id);
+      router.push(`/orders/${targetId}`);
+    } catch (err: any) {
+      console.warn("Order creation failed:", err);
+      submitLock.current = false;
+      setSubmitting(false);
+      if (err?.status === 401 || err?.code === "UNAUTHENTICATED") {
+        setSubmitError(getErrorMessage(err));
+        router.push("/login?redirect=/checkout");
+        return;
+      }
+      const message = getErrorMessage(err);
+      setSubmitError(message);
+    }
   };
 
   return (
     <>
-            <main className={`${styles.checkoutContainer} m3-page`}>
+      <main className={`${styles.checkoutContainer} m3-page`}>
         <OrderProgress stage="checkout" />
         <div className={styles.checkoutHeading}>
-          <span className={styles.eyebrow}>{t("business.checkout.completeYourOrder")}</span>
-          <h1 className={styles.title}>{t("business.checkout.checkoutPlaceOrder")}</h1>
-          <p className={styles.subtitle}> {t("business.checkout.checkYourDeliveryDetailsAndChooseAPaymentMethod")} </p>
+          <span className={styles.eyebrow}>
+            {t("business.checkout.completeYourOrder")}
+          </span>
+          <h1 className={styles.title}>
+            {t("business.checkout.checkoutPlaceOrder")}
+          </h1>
+          <p className={styles.subtitle}>
+            {t("business.checkout.checkYourDeliveryDetailsAndChooseAPaymentMethod")}
+          </p>
         </div>
 
         {!ready || submitting ? (
@@ -168,8 +250,12 @@ export default function CheckoutPage() {
           <div className="order-empty">
             <ShoppingBag size={48} />
             <h2>{t("business.checkout.yourCartIsEmpty")}</h2>
-            <p>{t("business.checkout.chooseYourDishesBeforeProceedingToCheckout")}</p>
-            <Link className="btn-primary" href="/menu"> {t("business.checkout.exploreTheMenu")} </Link>
+            <p>
+              {t("business.checkout.chooseYourDishesBeforeProceedingToCheckout")}
+            </p>
+            <Link className="btn-primary" href="/menu">
+              {t("business.checkout.exploreTheMenu")}
+            </Link>
           </div>
         ) : (
           <form
@@ -178,33 +264,75 @@ export default function CheckoutPage() {
             className={styles.checkoutGrid}
           >
             <div className={styles.formSections}>
+              {isAuthenticated === false && (
+                <div
+                  style={{
+                    padding: "14px 18px",
+                    borderRadius: "12px",
+                    backgroundColor: "#fffbeb",
+                    border: "1px solid #fde68a",
+                    color: "#92400e",
+                    marginBottom: "16px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span style={{ fontSize: "14px", fontWeight: 500 }}>
+                    {t("errors.UNAUTHENTICATED")}
+                  </span>
+                  <Link
+                    href="/login?redirect=/checkout"
+                    style={{
+                      fontWeight: 600,
+                      color: "#b45309",
+                      textDecoration: "underline",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {t("auth.login.action")} &rarr;
+                  </Link>
+                </div>
+              )}
               {/* Section 1: Delivery Mode & Receiver Info */}
               <section className={styles.sectionCard}>
                 <div className={styles.sectionHeader}>
                   <span className={styles.stepNumber}>1</span>
-                  <h2 className={styles.sectionTitle}>{t("business.checkout.orderFulfilment")}</h2>
+                  <h2 className={styles.sectionTitle}>
+                    {t("business.checkout.orderFulfilment")}
+                  </h2>
                 </div>
 
                 <div className={styles.typeTabs}>
                   <button
                     type="button"
                     aria-pressed={orderType === "DELIVERY"}
-                    className={`${styles.tabBtn} ${orderType === "DELIVERY" ? styles.tabBtnActive : ""}`}
+                    className={`${styles.tabBtn} ${
+                      orderType === "DELIVERY" ? styles.tabBtnActive : ""
+                    }`}
                     onClick={() => setOrderType("DELIVERY")}
                   >
-                    <Truck size={18} /> {t("business.checkout.homeDelivery")} </button>
+                    <Truck size={18} /> {t("business.checkout.homeDelivery")}
+                  </button>
                   <button
                     type="button"
                     aria-pressed={orderType === "PICKUP"}
-                    className={`${styles.tabBtn} ${orderType === "PICKUP" ? styles.tabBtnActive : ""}`}
+                    className={`${styles.tabBtn} ${
+                      orderType === "PICKUP" ? styles.tabBtnActive : ""
+                    }`}
                     onClick={() => setOrderType("PICKUP")}
                   >
-                    <Store size={18} /> {t("business.checkout.pickUpAtTheStore")} </button>
+                    <Store size={18} /> {t("business.checkout.pickUpAtTheStore")}
+                  </button>
                 </div>
 
                 <div className={styles.fieldGrid}>
                   <div className={styles.fieldGroup}>
-                    <label htmlFor="receiverName" className={styles.fieldLabel}> {t("business.checkout.recipientFullName")} </label>
+                    <label htmlFor="receiverName" className={styles.fieldLabel}>
+                      {t("business.checkout.recipientFullName")}
+                    </label>
                     <input
                       autoComplete="name"
                       minLength={2}
@@ -219,14 +347,15 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className={styles.fieldGroup}>
-                    <label
-                      htmlFor="receiverPhone"
-                      className={styles.fieldLabel}
-                    > {t("business.checkout.contactPhoneNumber")} </label>
+                    <label htmlFor="receiverPhone" className={styles.fieldLabel}>
+                      {t("business.checkout.contactPhoneNumber")}
+                    </label>
                     <input
                       autoComplete="tel"
                       pattern="0[0-9]{9}"
-                      title={t("business.checkout.enterADigitPhoneNumberStartingWith")}
+                      title={t(
+                        "business.checkout.enterADigitPhoneNumberStartingWith",
+                      )}
                       id="receiverPhone"
                       type="tel"
                       required
@@ -242,14 +371,19 @@ export default function CheckoutPage() {
                   <label
                     htmlFor="fulfillmentStore"
                     className={styles.fieldLabel}
-                  > {t("business.checkout.preparingStore")} </label>
+                  >
+                    {t("business.checkout.preparingStore")}
+                  </label>
                   <Select.Root
                     name="storeId"
                     value={selectedStore}
                     onValueChange={(value) => {
                       if (value !== null) setSelectedStore(value);
                     }}
-                    items={MOCK_STORES.map((store) => ({ value: store.id, label: store.name }))}
+                    items={MOCK_STORES.map((store) => ({
+                      value: store.id,
+                      label: store.name,
+                    }))}
                   >
                     <Select.Trigger
                       id="fulfillmentStore"
@@ -257,22 +391,51 @@ export default function CheckoutPage() {
                       aria-describedby="fulfillmentStoreAddress"
                       className={styles.storeTrigger}
                     >
-                      <span className={styles.storeTriggerIcon} aria-hidden="true"><Store size={20} /></span>
+                      <span className={styles.storeTriggerIcon} aria-hidden="true">
+                        <Store size={20} />
+                      </span>
                       <Select.Value className={styles.storeValue} />
-                      <Select.Icon className={styles.storeChevron}><ChevronDown size={18} /></Select.Icon>
+                      <Select.Icon className={styles.storeChevron}>
+                        <ChevronDown size={18} />
+                      </Select.Icon>
                     </Select.Trigger>
                     <Select.Portal>
-                      <Select.Positioner sideOffset={8} align="start" alignItemWithTrigger={false} className={styles.storePositioner}>
+                      <Select.Positioner
+                        sideOffset={8}
+                        align="start"
+                        alignItemWithTrigger={false}
+                        className={styles.storePositioner}
+                      >
                         <Select.Popup className={styles.storePopup}>
                           <Select.List className={styles.storeList}>
                             {MOCK_STORES.map((store) => (
-                              <Select.Item key={store.id} value={store.id} label={store.name} className={styles.storeOption}>
-                                <span className={styles.storeOptionIcon} aria-hidden="true"><Store size={19} /></span>
+                              <Select.Item
+                                key={store.id}
+                                value={store.id}
+                                label={store.name}
+                                className={styles.storeOption}
+                              >
+                                <span
+                                  className={styles.storeOptionIcon}
+                                  aria-hidden="true"
+                                >
+                                  <Store size={19} />
+                                </span>
                                 <div className={styles.storeOptionContent}>
-                                  <Select.ItemText className={styles.storeOptionName}>{store.name}</Select.ItemText>
-                                  <span className={styles.storeOptionAddress}>{store.address}</span>
+                                  <Select.ItemText
+                                    className={styles.storeOptionName}
+                                  >
+                                    {store.name}
+                                  </Select.ItemText>
+                                  <span className={styles.storeOptionAddress}>
+                                    {store.address}
+                                  </span>
                                 </div>
-                                <Select.ItemIndicator className={styles.storeCheck}><Check size={18} strokeWidth={2.5} /></Select.ItemIndicator>
+                                <Select.ItemIndicator
+                                  className={styles.storeCheck}
+                                >
+                                  <Check size={18} strokeWidth={2.5} />
+                                </Select.ItemIndicator>
                               </Select.Item>
                             ))}
                           </Select.List>
@@ -293,7 +456,9 @@ export default function CheckoutPage() {
                     <label
                       htmlFor="deliveryAddress"
                       className={styles.fieldLabel}
-                    > {t("business.checkout.fullDeliveryAddress")} </label>
+                    >
+                      {t("business.checkout.fullDeliveryAddress")}
+                    </label>
                     <input
                       autoComplete="street-address"
                       minLength={8}
@@ -303,19 +468,25 @@ export default function CheckoutPage() {
                       value={deliveryAddress}
                       onChange={(e) => setDeliveryAddress(e.target.value)}
                       className={styles.input}
-                      placeholder={t("business.checkout.houseNumberStreetWardDistrict")}
+                      placeholder={t(
+                        "business.checkout.houseNumberStreetWardDistrict",
+                      )}
                     />
                   </div>
                 ) : null}
 
                 <div className={styles.fieldGroup}>
-                  <label htmlFor="orderNote" className={styles.fieldLabel}> {t("business.checkout.orderNotes")} </label>
+                  <label htmlFor="orderNote" className={styles.fieldLabel}>
+                    {t("business.checkout.orderNotes")}
+                  </label>
                   <textarea
                     id="orderNote"
                     value={orderNote}
                     onChange={(e) => setOrderNote(e.target.value)}
                     className={styles.textarea}
-                    placeholder={t("business.checkout.forExampleCallMinutesBeforeDeliveryLeaveAtTheDoor")}
+                    placeholder={t(
+                      "business.checkout.forExampleCallMinutesBeforeDeliveryLeaveAtTheDoor",
+                    )}
                   />
                 </div>
               </section>
@@ -324,7 +495,9 @@ export default function CheckoutPage() {
               <section className={styles.sectionCard}>
                 <div className={styles.sectionHeader}>
                   <span className={styles.stepNumber}>2</span>
-                  <h2 className={styles.sectionTitle}> {t("business.checkout.promotionsRewards")} </h2>
+                  <h2 className={styles.sectionTitle}>
+                    {t("business.checkout.promotionsRewards")}
+                  </h2>
                 </div>
 
                 <div className={styles.promoBlock}>
@@ -333,14 +506,18 @@ export default function CheckoutPage() {
                     type="text"
                     value={voucherInput}
                     onChange={(e) => setVoucherInput(e.target.value)}
-                    placeholder={t("business.checkout.enterAPromoCodeEGCluckygiam")}
+                    placeholder={t(
+                      "business.checkout.enterAPromoCodeEGCluckygiam",
+                    )}
                     className={`${styles.input} ${styles.promoInput}`}
                   />
                   <button
                     type="button"
                     onClick={handleApplyVoucher}
                     className={styles.applyBtn}
-                  > {t("business.checkout.apply")} </button>
+                  >
+                    {t("business.checkout.apply")}
+                  </button>
                 </div>
 
                 {voucherMsg && (
@@ -352,7 +529,7 @@ export default function CheckoutPage() {
                       color: appliedVoucher ? "#1e7a46" : "#b42318",
                     }}
                   >
-                    {t(voucherMsg)}
+                    {voucherMsg.includes(".") ? t(voucherMsg) : voucherMsg}
                   </p>
                 )}
 
@@ -366,7 +543,9 @@ export default function CheckoutPage() {
                     />
                     <span>{t("business.checkout.useCluckyClubPoints")}</span>
                   </label>
-                  <span className={styles.loyaltyPoints}> {t("business.checkout.pointsAvailableUsePointsForOff")} </span>
+                  <span className={styles.loyaltyPoints}>
+                    {t("business.checkout.pointsAvailableUsePointsForOff")}
+                  </span>
                 </div>
               </section>
 
@@ -374,7 +553,9 @@ export default function CheckoutPage() {
               <section className={styles.sectionCard}>
                 <div className={styles.sectionHeader}>
                   <span className={styles.stepNumber}>3</span>
-                  <h2 className={styles.sectionTitle}> {t("business.checkout.paymentMethod")} </h2>
+                  <h2 className={styles.sectionTitle}>
+                    {t("business.checkout.paymentMethod")}
+                  </h2>
                 </div>
 
                 <div className={styles.paymentOptions}>
@@ -395,11 +576,19 @@ export default function CheckoutPage() {
                         className={styles.paymentRadio}
                       />
                       <div>
-                        <p className={styles.paymentTitle}> {t("business.checkout.automaticVietqrBankTransfer")} </p>
-                        <p className={styles.paymentDesc}> {t("business.checkout.thePaymentCodeWillAppearWhenThePaymentServiceIsConnected")} </p>
+                        <p className={styles.paymentTitle}>
+                          {t("business.checkout.automaticVietqrBankTransfer")}
+                        </p>
+                        <p className={styles.paymentDesc}>
+                          {t(
+                            "business.checkout.thePaymentCodeWillAppearWhenThePaymentServiceIsConnected",
+                          )}
+                        </p>
                       </div>
                     </div>
-                    <span className={styles.paymentBadge}>{t("business.checkout.recommended")}</span>
+                    <span className={styles.paymentBadge}>
+                      {t("business.checkout.recommended")}
+                    </span>
                   </label>
 
                   <label
@@ -417,8 +606,14 @@ export default function CheckoutPage() {
                         className={styles.paymentRadio}
                       />
                       <div>
-                        <p className={styles.paymentTitle}> {t("business.checkout.cashOnDeliveryCod")} </p>
-                        <p className={styles.paymentDesc}> {t("business.checkout.payCashToTheDriverOrTheStoreCashier")} </p>
+                        <p className={styles.paymentTitle}>
+                          {t("business.checkout.cashOnDeliveryCod")}
+                        </p>
+                        <p className={styles.paymentDesc}>
+                          {t(
+                            "business.checkout.payCashToTheDriverOrTheStoreCashier",
+                          )}
+                        </p>
                       </div>
                     </div>
                   </label>
@@ -428,8 +623,12 @@ export default function CheckoutPage() {
 
             {/* Right Column: Order Summary */}
             <aside className={styles.summaryBox}>
-              <div className={styles.receiptLabel}>{t("business.checkout.oneLastCheck")}</div>
-              <h2 className={styles.summaryTitle}>{t("business.checkout.yourMealIsAlmostReady")}</h2>
+              <div className={styles.receiptLabel}>
+                {t("business.checkout.oneLastCheck")}
+              </div>
+              <h2 className={styles.summaryTitle}>
+                {t("business.checkout.yourMealIsAlmostReady")}
+              </h2>
 
               <div className={styles.orderItemsList}>
                 {items.map((item) => (
@@ -438,7 +637,8 @@ export default function CheckoutPage() {
                     <div>
                       <div className={styles.miniItemName}>{item.name}</div>
                       <div className={styles.miniItemQty}>
-                        SL: {item.quantity} {t("business.cart.servings")} </div>
+                        SL: {item.quantity} {t("business.cart.servings")}
+                      </div>
                     </div>
                     <strong className={styles.miniItemPrice}>
                       {formatPrice(item.unitPrice * item.quantity)}
@@ -483,18 +683,42 @@ export default function CheckoutPage() {
                 </strong>
               </div>
 
-              <Link href="/cart" className={styles.editCart}> {t("business.checkout.editCart")} </Link>
+              <Link href="/cart" className={styles.editCart}>
+                {t("business.checkout.editCart")}
+              </Link>
+
+              {submitError && (
+                <div
+                  role="alert"
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: "12px",
+                    background: "#fef3f2",
+                    border: "1px solid #fecdca",
+                    color: "#b42318",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    margin: "12px 0",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {submitError}
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || cartPending || !payloadItems}
                 className={styles.submitBtn}
               >
-                {submitting ? t("business.checkout.processingYourOrder") : t("business.checkout.placeOrderNow")}
+                {submitting
+                  ? t("business.checkout.processingYourOrder")
+                  : t("business.checkout.placeOrderNow")}
               </button>
             </aside>
           </form>
         )}
       </main>
-          </>
+    </>
   );
 }

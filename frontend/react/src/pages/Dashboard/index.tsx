@@ -1,6 +1,7 @@
 import { useLocaleTools } from "../../i18n/hooks";
 import { useTranslation } from "react-i18next";
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useOrders } from '../../context/OrderContext';
 import {
   Button,
   Card,
@@ -42,12 +43,7 @@ export type OrderSummary = {
   storeName?: string;
 };
 
-export const mockOrders: OrderSummary[] = [
-  { key: '1', code: '#CLU-240826', customer: 'Nguyễn Minh Anh', items: 3, status: 'PREPARING', total: 257000, time: '10:42', storeName: 'Nguyễn Trãi' },
-  { key: '2', code: '#CLU-240825', customer: 'Trần Gia Huy', items: 2, status: 'COMPLETED', total: 158000, time: '10:36', storeName: 'Phan Văn Trị' },
-  { key: '3', code: '#CLU-240824', customer: 'Lê Hoàng Nam', items: 5, status: 'SHIPPING', total: 429000, time: '10:21', storeName: 'Nguyễn Trãi' },
-  { key: '4', code: '#CLU-240823', customer: 'Phạm Thuỳ Linh', items: 1, status: 'PENDING', total: 89000, time: '10:05', storeName: 'Lê Văn Việt' },
-];
+export const mockOrders: OrderSummary[] = [];
 
 /**
  * Status color mapping theo quy chuẩn Brand Guidelines:
@@ -361,6 +357,19 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
 
   const [range, setRange] = useState('7d');
   const [selectedStore, setSelectedStore] = useState(storeFilter);
+  const { orders: contextOrders } = useOrders();
+  const recentOrdersData: OrderSummary[] = useMemo(() => {
+    return contextOrders.slice(0, 5).map((o) => ({
+      key: o.id,
+      code: '#' + o.orderCode,
+      customer: o.customerName,
+      items: o.items.reduce((sum, it) => sum + it.quantity, 0),
+      status: o.status === 'CONFIRMED' ? 'PENDING' : (o.status as any),
+      total: o.total,
+      time: o.time || o.createdAt,
+      storeName: o.storeName,
+    }));
+  }, [contextOrders]);
 
   const handleStoreChange = (val: string) => {
     setSelectedStore(val);
@@ -454,7 +463,7 @@ export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', 
               <Button type="link" onClick={() => onNavigate('orders')} style={{ color: '#8F1216', fontWeight: 600 }}> {t("business:dashboard.viewAll")} </Button>
             }
           >
-            <OrdersTable compact />
+            <OrdersTable compact orders={recentOrdersData} />
           </Card>
         </Col>
         <Col xs={24} xl={8}>

@@ -64,10 +64,12 @@ export const VoucherBadge: React.FC<VoucherBadgeProps> = ({
   return (
     <Tag
       bordered={false}
+      aria-label={`Voucher ${code}${discountLabel ? ` (${discountLabel})` : ''}`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
+        maxWidth: '100%',
         color: config.color,
         backgroundColor: config.bg,
         border: `1px solid ${config.border}`,
@@ -88,9 +90,21 @@ export const VoucherBadge: React.FC<VoucherBadgeProps> = ({
           flexShrink: 0,
         }}
       />
-      <span>{code}</span>
+      <span
+        style={{
+          maxWidth: 150,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          display: 'inline-block',
+          verticalAlign: 'bottom',
+        }}
+        title={code}
+      >
+        {code}
+      </span>
       {discountLabel && (
-        <span style={{ opacity: 0.85, fontWeight: 800 }}>({discountLabel})</span>
+        <span style={{ opacity: 0.85, fontWeight: 800, flexShrink: 0 }}>({discountLabel})</span>
       )}
     </Tag>
   );
