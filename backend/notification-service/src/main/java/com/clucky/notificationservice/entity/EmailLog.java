@@ -17,6 +17,12 @@ public class EmailLog {
     @Column(name = "event_id", nullable = true, length = 160)
     private String eventId;
 
+    @Column(name = "correlation_id", nullable = true, length = 128)
+    private String correlationId;
+
+    @Column(name = "variables", columnDefinition = "text")
+    private String variables;
+
     @Column(name = "to_email", nullable = false, length = 255)
     private String toEmail;
 
@@ -52,6 +58,12 @@ public class EmailLog {
 
     public String getEventId() { return eventId; }
     public void setEventId(String eventId) { this.eventId = eventId; }
+
+    public String getCorrelationId() { return correlationId; }
+    public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
+
+    public String getVariables() { return variables; }
+    public void setVariables(String variables) { this.variables = variables; }
 
     public String getToEmail() { return toEmail; }
     public void setToEmail(String toEmail) { this.toEmail = toEmail; }

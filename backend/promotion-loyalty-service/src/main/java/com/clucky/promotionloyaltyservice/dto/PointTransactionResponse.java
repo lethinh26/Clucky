@@ -9,5 +9,10 @@ public record PointTransactionResponse(
         Integer change,
         Integer balanceAfter,
         String type,
-        Instant createdAt
-) {}
+        Instant createdAt,
+        String reason
+) {
+    public PointTransactionResponse(Long id, Long customerId, Long orderId, Integer change, Integer balanceAfter, String type, Instant createdAt) {
+        this(id, customerId, orderId, change, balanceAfter, type, createdAt, null);
+    }
+}
