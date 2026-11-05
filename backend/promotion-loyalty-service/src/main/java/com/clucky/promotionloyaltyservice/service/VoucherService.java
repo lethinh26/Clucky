@@ -1,11 +1,14 @@
 package com.clucky.promotionloyaltyservice.service;
 
+import com.clucky.promotionloyaltyservice.dto.Role;
 import com.clucky.promotionloyaltyservice.dto.ValidateVoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.ValidateVoucherResponse;
 import com.clucky.promotionloyaltyservice.dto.VoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.VoucherResponse;
+import com.clucky.promotionloyaltyservice.exception.ApiException;
 import com.clucky.promotionloyaltyservice.exception.BadRequestException;
 import com.clucky.promotionloyaltyservice.exception.ConflictException;
+import com.clucky.promotionloyaltyservice.exception.ErrorCode;
 import com.clucky.promotionloyaltyservice.exception.ResourceNotFoundException;
 import com.clucky.promotionloyaltyservice.model.Voucher;
 import com.clucky.promotionloyaltyservice.model.VoucherScope;
@@ -36,14 +39,14 @@ public class VoucherService {
     @Transactional(readOnly = true)
     public ValidateVoucherResponse validateVoucher(ValidateVoucherRequest request) {
         if (request == null || request.getCode() == null || request.getCode().trim().isEmpty()) {
-            return ValidateVoucherResponse.invalid("Mã ưu đãi không được để trống.");
+            return ValidateVoucherResponse.invalid(null, ErrorCode.VALIDATION_ERROR.name(), "Mã ưu đãi không được để trống.");
         }
 
         String cleanCode = request.getCode().trim().toUpperCase();
         Optional<Voucher> optVoucher = voucherRepository.findByCodeIgnoreCase(cleanCode);
 
         if (optVoucher.isEmpty()) {
-            return ValidateVoucherResponse.invalid("Mã ưu đãi '" + cleanCode + "' không tồn tại trong hệ thống.");
+            return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_NOT_FOUND.name(), "Mã ưu đãi '" + cleanCode + "' không tồn tại trong hệ thống.");
         }
 
         Voucher voucher = optVoucher.get();
@@ -51,44 +54,44 @@ public class VoucherService {
 
         // 1. Status Check
         if (voucher.getStatus() == VoucherStatus.DISABLED) {
-            return ValidateVoucherResponse.invalid("Mã ưu đãi hiện đang tạm khóa.");
+            return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_INACTIVE.name(), "Mã ưu đãi hiện đang tạm khóa.");
         }
         if (voucher.getStatus() == VoucherStatus.PENDING_APPROVAL) {
-            return ValidateVoucherResponse.invalid("Mã ưu đãi đang trong trạng thái chờ duyệt.");
+            return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_INACTIVE.name(), "Mã ưu đãi đang trong trạng thái chờ duyệt.");
         }
         if (voucher.getStatus() == VoucherStatus.REJECTED) {
-            return ValidateVoucherResponse.invalid("Mã ưu đãi đã bị từ chối phê duyệt.");
+            return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_INACTIVE.name(), "Mã ưu đãi đã bị từ chối phê duyệt.");
         }
         if (voucher.getStatus() != VoucherStatus.ACTIVE) {
-            return ValidateVoucherResponse.invalid("Mã ưu đãi không ở trạng thái khả dụng.");
+            return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_INACTIVE.name(), "Mã ưu đãi không ở trạng thái khả dụng.");
         }
 
         // 2. Temporal Check
         if (now.isBefore(voucher.getStartAt())) {
-            return ValidateVoucherResponse.invalid("Mã ưu đãi chưa đến thời gian áp dụng.");
+            return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_NOT_STARTED.name(), "Mã ưu đãi chưa đến thời gian áp dụng.");
         }
         if (now.isAfter(voucher.getEndAt())) {
-            return ValidateVoucherResponse.invalid("Mã ưu đãi đã hết hạn sử dụng.");
+            return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_EXPIRED.name(), "Mã ưu đãi đã hết hạn sử dụng.");
         }
 
         // 3. Usage Limits
         if (voucher.getTotalLimit() != null && voucher.getTotalLimit() > 0) {
             int used = voucher.getUsedCount() != null ? voucher.getUsedCount() : 0;
             if (used >= voucher.getTotalLimit()) {
-                return ValidateVoucherResponse.invalid("Mã ưu đãi đã hết lượt sử dụng.");
+                return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_EXHAUSTED.name(), "Mã ưu đãi đã hết lượt sử dụng.");
             }
         }
 
         // 4. Scope and Store validation
         if (voucher.getScope() == VoucherScope.STORE) {
             if (voucher.getStoreId() == null) {
-                return ValidateVoucherResponse.invalid("Cấu hình chi nhánh áp dụng của mã không hợp lệ.");
+                return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_SCOPE_MISMATCH.name(), "Cấu hình chi nhánh áp dụng của mã không hợp lệ.");
             }
             if (request.getStoreId() == null) {
-                return ValidateVoucherResponse.invalid("Mã ưu đãi chỉ áp dụng cho chi nhánh #" + voucher.getStoreId() + ". Vui lòng chọn chi nhánh đặt hàng.");
+                return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_SCOPE_MISMATCH.name(), "Mã ưu đãi chỉ áp dụng cho chi nhánh #" + voucher.getStoreId() + ". Vui lòng chọn chi nhánh đặt hàng.");
             }
             if (!voucher.getStoreId().equals(request.getStoreId())) {
-                return ValidateVoucherResponse.invalid("Mã ưu đãi chỉ áp dụng tại chi nhánh #" + voucher.getStoreId() + ", không áp dụng cho chi nhánh hiện tại.");
+                return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_SCOPE_MISMATCH.name(), "Mã ưu đãi chỉ áp dụng tại chi nhánh #" + voucher.getStoreId() + ", không áp dụng cho chi nhánh hiện tại.");
             }
         }
 
@@ -99,6 +102,8 @@ public class VoucherService {
         if (orderAmount.compareTo(minOrder) < 0) {
             BigDecimal missing = minOrder.subtract(orderAmount);
             return ValidateVoucherResponse.invalid(
+                cleanCode,
+                ErrorCode.MIN_ORDER_NOT_MET.name(),
                 String.format("Đơn hàng chưa đạt mức tối thiểu %sđ (còn thiếu %sđ).",
                     minOrder.toPlainString(), missing.toPlainString())
             );
@@ -178,11 +183,115 @@ public class VoucherService {
             request.setStoreId(actorStoreId);
             // By default, manager proposals require Admin approval
             request.setStatus(VoucherStatus.PENDING_APPROVAL);
+        } else if (actorRole != null && !"ADMIN".equalsIgnoreCase(actorRole)) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
         }
 
         Voucher voucher = new Voucher();
         mapDtoToEntity(request, voucher);
         voucher.setCreatedBy(actorId);
+
+        Voucher saved = voucherRepository.save(voucher);
+        return VoucherResponse.fromEntity(saved);
+    }
+
+    /**
+     * Store Manager creates a proposal for a voucher scoped to their assigned store.
+     * Initial status is PENDING_APPROVAL and requires Admin approval before checkout use.
+     * POST /api/promotions/vouchers/store-proposals
+     */
+    @Transactional
+    public VoucherResponse createStoreProposal(VoucherRequest request, Long actorId, String actorRole, Long actorStoreId) {
+        if (actorId == null || actorRole == null) {
+            throw new ApiException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        boolean isManager = Role.STORE_MANAGER.name().equalsIgnoreCase(actorRole);
+        boolean isAdmin = Role.ADMIN.name().equalsIgnoreCase(actorRole);
+        if (!isManager && !isAdmin) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+
+        Long targetStoreId;
+        if (isManager) {
+            if (actorStoreId == null) {
+                throw new BadRequestException("Store Manager chưa được phân công chi nhánh");
+            }
+            // AC-02: Manager A sending storeId of B is forbidden
+            if (request.getStoreId() != null && !request.getStoreId().equals(actorStoreId)) {
+                throw new ApiException(ErrorCode.FORBIDDEN);
+            }
+            targetStoreId = actorStoreId;
+        } else {
+            targetStoreId = request.getStoreId() != null ? request.getStoreId() : actorStoreId;
+            if (targetStoreId == null) {
+                throw new BadRequestException("Cần chỉ định storeId cho voucher chi nhánh");
+            }
+        }
+
+        // Strict enforcement: store scope, target storeId, and pending approval status
+        request.setScope(VoucherScope.STORE);
+        request.setStoreId(targetStoreId);
+        request.setStatus(VoucherStatus.PENDING_APPROVAL);
+
+        Instant now = Instant.now();
+        if (request.getEndAt() != null && request.getEndAt().isBefore(now)) {
+            throw new BadRequestException("Thời gian kết thúc voucher phải ở tương lai");
+        }
+
+        validateVoucherRequest(request, null);
+
+        Voucher voucher = new Voucher();
+        mapDtoToEntity(request, voucher);
+        voucher.setScope(VoucherScope.STORE);
+        voucher.setStoreId(targetStoreId);
+        voucher.setStatus(VoucherStatus.PENDING_APPROVAL);
+        voucher.setCreatedBy(actorId);
+        voucher.setApprovedBy(null);
+        voucher.setUsedCount(0);
+
+        Voucher saved = voucherRepository.save(voucher);
+        return VoucherResponse.fromEntity(saved);
+    }
+
+    /**
+     * Admin approves a voucher proposal, transitioning it from PENDING_APPROVAL to ACTIVE.
+     * Repeated calls on an already-approved voucher return the existing response idempotently.
+     * PUT /api/promotions/vouchers/{id}/approve
+     */
+    @Transactional
+    public VoucherResponse approveVoucher(Long id, Long actorId, String actorRole) {
+        if (actorId == null || actorRole == null) {
+            throw new ApiException(ErrorCode.UNAUTHENTICATED);
+        }
+
+        // AC-04: Manager or any non-ADMIN calling approve is rejected with FORBIDDEN
+        if (!Role.ADMIN.name().equalsIgnoreCase(actorRole)) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+
+        // AC-05: Pessimistic write lock ensures concurrent approve calls are serialized safely
+        Voucher voucher = voucherRepository.findByIdWithLock(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề xuất voucher với id: " + id));
+
+        // Idempotency: repeated call on already active voucher returns current response
+        if (voucher.getStatus() == VoucherStatus.ACTIVE) {
+            return VoucherResponse.fromEntity(voucher);
+        }
+
+        // AC-06: Admin cannot approve an already expired proposal
+        Instant now = Instant.now();
+        if (voucher.getEndAt() != null && voucher.getEndAt().isBefore(now)) {
+            throw new ApiException(ErrorCode.VOUCHER_EXPIRED);
+        }
+
+        if (voucher.getStatus() != VoucherStatus.PENDING_APPROVAL) {
+            throw new BadRequestException("Chỉ có thể phê duyệt voucher đang ở trạng thái chờ duyệt (PENDING_APPROVAL). Trạng thái hiện tại: " + voucher.getStatus());
+        }
+
+        voucher.setStatus(VoucherStatus.ACTIVE);
+        voucher.setApprovedBy(actorId);
+        voucher.setUpdatedAt(now);
 
         Voucher saved = voucherRepository.save(voucher);
         return VoucherResponse.fromEntity(saved);
