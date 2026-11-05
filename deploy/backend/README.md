@@ -42,6 +42,8 @@ The two HTTP origins match the repository's IP-based Nginx example; change to ac
 
 Do not use the documented sample passwords as database/JWT credentials. These infrastructure secrets are separate from user account passwords, which are preserved as requested. Use cryptographically random values, e.g. locally generate with `openssl rand -hex 32` and paste directly into the GitHub Secret, not into chat/Git.
 
+The workflow validates `BACKEND_ENV_JSON` before building images. Errors identify only documented field names and validation rules, never secret values. A manually dispatched run on a non-main branch performs this preflight only; it does not deploy. VPS filesystem, Firebase provisioning and unchanged database credential checks still run during deployment.
+
 Optional BACKEND_ENV_JSON keys:
 - POSTGRES_USER / DB_NAME (default clucky), JWT_ISSUER / JWT_AUDIENCE (clucky-identity / clucky-api), AUTH_COOKIE_SECURE.
 - CATALOG_SERVICE_TOKEN: valid internal-service JWT required by existing Catalog validation; no hardcoded or forged fallback is generated. Supply/rotate according to the domain's S2S contract before checkout acceptance.

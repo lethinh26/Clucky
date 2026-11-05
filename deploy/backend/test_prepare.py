@@ -1,6 +1,8 @@
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -45,6 +47,27 @@ class BackendEnvironmentTest(unittest.TestCase):
             self.assertEqual(target.read_text(), original)
         with self.assertRaises(ValueError):
             prepare(self.root, "../../outside", json.dumps(self.values))
+
+    def test_preflight_reports_only_safe_field_names_without_writing_files(self):
+        command = [sys.executable, str(Path(__file__).with_name("prepare.py")), "--validate"]
+        cases = (
+            ({"JWT_SECRET": "private-value"}, "JWT_SECRET"),
+            ({"AUTH_COOKIE_SECURE": True}, "AUTH_COOKIE_SECURE"),
+            ({"private-key": "private-value"}, "unsupported keys"),
+            ({"FRONTEND_CUSTOMER_URL": "https://[private-value"}, "FRONTEND_CUSTOMER_URL"),
+            ({"MAIL_SENDER_ENABLED": "true"}, "MAIL_SENDER_USERNAME"),
+        )
+        for change, expected in cases:
+            result = subprocess.run(command, input=json.dumps({**self.values, **change}), text=True,
+                                    capture_output=True, cwd=self.root)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn(expected, result.stderr)
+            self.assertNotIn("private-value", result.stdout + result.stderr)
+            self.assertNotIn("private-key", result.stdout + result.stderr)
+        result = subprocess.run(command, input=json.dumps(self.values), text=True,
+                                capture_output=True, cwd=self.root)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.root / "backend").exists())
 
     @unittest.skipUnless(os.name == "posix", "VPS release symlinks")
     def test_database_identity_cannot_change_during_redeployment(self):
