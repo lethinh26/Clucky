@@ -50,7 +50,7 @@ export default function OrderTrackingPage({
   const { locale, money: formatPrice } = useLocaleTools();
   const { id } = use(params);
   const router = useRouter();
-  const { orders, ready, cancelOrder, reorder, demoEnabled } = useOrder();
+  const { orders, ready, cancelOrder, reorder, demoEnabled, runDemoAction } = useOrder();
   useNavigationTask(!ready);
 
   const localOrder = orders.find(
@@ -99,7 +99,21 @@ export default function OrderTrackingPage({
     };
   }, [id]);
 
-  const order = serverOrder || localOrder;
+  const order =
+    serverOrder && localOrder
+      ? localOrder.paymentStatus === "PAID" ||
+        (serverOrder.status === "PENDING_PAYMENT" &&
+          localOrder.status !== "PENDING_PAYMENT") ||
+        localOrder.timeline.length > serverOrder.timeline.length
+        ? {
+            ...serverOrder,
+            status: localOrder.status,
+            paymentStatus: localOrder.paymentStatus,
+            updatedAt: localOrder.updatedAt || serverOrder.updatedAt,
+            timeline: localOrder.timeline,
+          }
+        : serverOrder
+      : serverOrder || localOrder;
 
   if (!ready || !order)
     return (
@@ -413,16 +427,49 @@ export default function OrderTrackingPage({
                 </span>
               </div>
               {awaitingPayment && (
-                <PaymentWidget
-                  key={order.id}
-                  orderCode={order.orderCode}
-                  amount={order.totalAmount}
-                  status={order.paymentStatus}
-                  bankInfo={MOCK_PAYMENT_BANK}
-                  storeName={order.storeName}
-                  embedded
-                  demo
-                />
+                <>
+                  <PaymentWidget
+                    key={order.id}
+                    orderCode={order.orderCode}
+                    amount={order.totalAmount}
+                    status={order.paymentStatus}
+                    bankInfo={MOCK_PAYMENT_BANK}
+                    storeName={order.storeName}
+                    embedded
+                    demo
+                  />
+                  <div style={{ marginTop: "14px", display: "grid", gap: "8px" }}>
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      style={{ width: "100%", justifyContent: "center" }}
+                      onClick={() => {
+                        const res = runDemoAction(order.id, "PAY_SUCCESS");
+                        if (res.ok) {
+                          setFeedback(res.message);
+                        } else {
+                          const now = new Date().toISOString();
+                          setServerOrder((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  status: "CONFIRMED",
+                                  paymentStatus: "PAID",
+                                  updatedAt: now,
+                                }
+                              : prev,
+                          );
+                          setFeedback(
+                            t("business.demoordercontrols.confirmSuccessfulPayment"),
+                          );
+                        }
+                      }}
+                    >
+                      <CheckCircle2 size={17} />{" "}
+                      {t("business.demoordercontrols.confirmSuccessfulPayment")}
+                    </button>
+                  </div>
+                </>
               )}
               {order.refundStatus === "PENDING" && (
                 <p className={styles.refundNotice}>

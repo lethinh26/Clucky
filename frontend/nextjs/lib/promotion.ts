@@ -26,48 +26,48 @@ export {
 export function getLoyaltyTierConfig(locale: Locale = getBrowserLocale()): Record<LoyaltyTier, LoyaltyTierInfo> {
   const t = getTranslator(locale);
   return {
-  MEMBER: {
-    tier: 'MEMBER',
-    label: t("business.promotionUi.memberLabel"),
-    minPoints: 0,
-    discountPercent: 0,
-    badgeColor: '#A16207', // Warm Bronze / Amber
-    benefits: [
-      t("business.promotionUi.earnBenefit"),
-      t("business.promotionUi.redeemBenefit"),
-      t("business.promotionUi.weeklyBenefit"),
-    ],
-    nextTier: 'SILVER',
-    nextTierPoints: 1000,
-  },
-  SILVER: {
-    tier: 'SILVER',
-    label: t("business.promotionUi.silverLabel"),
-    minPoints: 1000,
-    discountPercent: 3,
-    badgeColor: '#64748B', // Silver slate
-    benefits: [
-      t("business.promotionUi.silverBill"),
-      t("business.promotionUi.birthdayBenefit"),
-      t("business.promotionUi.priorityBenefit"),
-    ],
-    nextTier: 'GOLD',
-    nextTierPoints: 5000,
-  },
-  GOLD: {
-    tier: 'GOLD',
-    label: t("business.promotionUi.goldLabel"),
-    minPoints: 5000,
-    discountPercent: 5,
-    badgeColor: '#D97706', // Radiant Gold
-    benefits: [
-      t("business.promotionUi.goldBill"),
-      t("business.promotionUi.supportBenefit"),
-      t("business.promotionUi.giftBenefit"),
-    ],
-    nextTier: null,
-    nextTierPoints: null,
-  },
+    MEMBER: {
+      tier: 'MEMBER',
+      label: t("business.promotionUi.memberLabel"),
+      minPoints: 0,
+      discountPercent: 0,
+      badgeColor: '#A16207',
+      benefits: [
+        t("business.promotionUi.earnBenefit"),
+        t("business.promotionUi.redeemBenefit"),
+        t("business.promotionUi.weeklyBenefit"),
+      ],
+      nextTier: 'SILVER',
+      nextTierPoints: 1000,
+    },
+    SILVER: {
+      tier: 'SILVER',
+      label: t("business.promotionUi.silverLabel"),
+      minPoints: 1000,
+      discountPercent: 3,
+      badgeColor: '#64748B',
+      benefits: [
+        t("business.promotionUi.silverBill"),
+        t("business.promotionUi.birthdayBenefit"),
+        t("business.promotionUi.priorityBenefit"),
+      ],
+      nextTier: 'GOLD',
+      nextTierPoints: 5000,
+    },
+    GOLD: {
+      tier: 'GOLD',
+      label: t("business.promotionUi.goldLabel"),
+      minPoints: 5000,
+      discountPercent: 5,
+      badgeColor: '#D97706',
+      benefits: [
+        t("business.promotionUi.goldBill"),
+        t("business.promotionUi.supportBenefit"),
+        t("business.promotionUi.giftBenefit"),
+      ],
+      nextTier: null,
+      nextTierPoints: null,
+    },
   };
 }
 
@@ -288,14 +288,14 @@ export async function fetchAvailableVouchers(): Promise<Voucher[]> {
     });
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         return data;
       }
     }
   } catch {
-    // Backend offline / network error: fallback smoothly to mock vouchers
+    // Backend network error
   }
-  return MOCK_AVAILABLE_VOUCHERS;
+  return [];
 }
 
 export interface MyLoyaltyResponse {
@@ -307,7 +307,6 @@ export interface MyLoyaltyResponse {
 export async function fetchMyLoyalty(): Promise<MyLoyaltyResponse> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('clucky_access_token') : null;
   if (!token) {
-    // If not logged in, return fallback guest state or mock preview
     return {
       points: {
         customerId: '',
@@ -332,20 +331,24 @@ export async function fetchMyLoyalty(): Promise<MyLoyaltyResponse> {
       return {
         points: data.points ?? {
           customerId: data.customerId ?? 'cus',
-          totalPoints: data.totalPoints ?? 0,
+          totalPoints: Number(data.totalPoints) || 0,
           tier: data.tier ?? 'MEMBER',
         },
-        transactions: data.transactions ?? [],
+        transactions: Array.isArray(data.transactions) ? data.transactions : [],
         isGuest: false,
       };
     }
   } catch {
-    // Fallback to sample member points for preview
+    // Network error
   }
 
   return {
-    points: MOCK_MEMBER_POINTS,
-    transactions: MOCK_POINT_TRANSACTIONS,
+    points: {
+      customerId: '',
+      totalPoints: 0,
+      tier: 'MEMBER',
+    },
+    transactions: [],
     isGuest: false,
   };
 }
@@ -359,4 +362,3 @@ export function calculatePointsDiscount(points: number, redeemRate = 1000): numb
   const safePoints = Math.max(0, Math.floor(Number(points) || 0));
   return safePoints * redeemRate;
 }
-

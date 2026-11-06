@@ -29,12 +29,14 @@ public class PromotionClient {
     public record VoucherValidationRequest(
             String code,
             Long storeId,
+            BigDecimal orderAmount,
             BigDecimal subtotal
     ) {}
 
     public record VoucherValidationResponse(
-            String code,
-            BigDecimal discountAmount
+            boolean valid,
+            BigDecimal discountAmount,
+            String reason
     ) {}
 
     public record VoucherResult(
@@ -120,7 +122,7 @@ public class PromotionClient {
         }
 
         String code = rawCode.trim().toUpperCase();
-        VoucherValidationRequest req = new VoucherValidationRequest(code, storeId, subtotal);
+        VoucherValidationRequest req = new VoucherValidationRequest(code, storeId, subtotal, subtotal);
 
         try {
             VoucherValidationResponse res = restClient.post()
@@ -130,11 +132,14 @@ public class PromotionClient {
                     .retrieve()
                     .body(VoucherValidationResponse.class);
 
-            if (res != null && res.discountAmount() != null && res.discountAmount().compareTo(BigDecimal.ZERO) > 0) {
+            if (res != null && res.valid() && res.discountAmount() != null && res.discountAmount().compareTo(BigDecimal.ZERO) > 0) {
                 return new VoucherResult(true, "Đã áp dụng mã giảm giá thành công", res.discountAmount());
             }
 
-            return new VoucherResult(false, "Mã voucher không hợp lệ hoặc không đủ điều kiện áp dụng", BigDecimal.ZERO);
+            String reason = (res != null && res.reason() != null && !res.reason().isBlank())
+                    ? res.reason()
+                    : "Mã voucher không hợp lệ hoặc không đủ điều kiện áp dụng";
+            return new VoucherResult(false, reason, BigDecimal.ZERO);
         } catch (Exception ex) {
             LOG.warn("Promotion service voucher validation unavailable or rejected code={} storeId={} error={}",
                     code, storeId, ex.getMessage());

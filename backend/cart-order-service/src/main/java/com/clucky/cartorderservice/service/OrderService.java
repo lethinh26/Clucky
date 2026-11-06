@@ -169,11 +169,12 @@ public class OrderService {
         Long customerId = CurrentActor.require().userId();
 
         String userCartKey = RedisConfig.key("cart", customerId.toString());
-        CartDto cart = cartService.getCart(userCartKey);
-
-        List<CartItemDto> items = (cart != null && cart.getItems() != null) ? cart.getItems() : List.of();
-        if (items.isEmpty() && request.items() != null && !request.items().isEmpty()) {
-            items = request.items();
+        List<CartItemDto> items = (request.items() != null && !request.items().isEmpty())
+                ? request.items()
+                : List.of();
+        if (items.isEmpty()) {
+            CartDto cart = cartService.getCart(userCartKey);
+            items = (cart != null && cart.getItems() != null) ? cart.getItems() : List.of();
         }
         if (items.isEmpty()) {
             LOG.warn("event=order_create_failed reason=cart_empty customerId={}", customerId);
@@ -289,10 +290,14 @@ public class OrderService {
             item.setNote(it.getNote());
             item.setLineTotal(unitPrice.add(extraPrice).multiply(BigDecimal.valueOf(it.getQuantity())));
 
-            if (it.getOptionIds() != null && !it.getOptionIds().isEmpty()) {
+            if (it.getOptionsSnapshot() != null) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(it.getOptionsSnapshot()));
+            } else if (it.getOptionIds() != null && !it.getOptionIds().isEmpty()) {
                 item.setOptionsSnapshot(objectMapper.valueToTree(it.getOptionIds()));
             }
-            if (it.getToppingIds() != null && !it.getToppingIds().isEmpty()) {
+            if (it.getToppingsSnapshot() != null) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(it.getToppingsSnapshot()));
+            } else if (it.getToppingIds() != null && !it.getToppingIds().isEmpty()) {
                 item.setToppingsSnapshot(objectMapper.valueToTree(it.getToppingIds()));
             }
             savedItems.add(orderItemRepository.save(item));
@@ -563,13 +568,21 @@ public class OrderService {
             List<Long> optionIds = new ArrayList<>();
             if (it.getOptionsSnapshot() != null && it.getOptionsSnapshot().isArray()) {
                 for (JsonNode n : it.getOptionsSnapshot()) {
-                    optionIds.add(n.asLong());
+                    if (n.isIntegralNumber() && n.asLong() > 0) {
+                        optionIds.add(n.asLong());
+                    } else if (n.hasNonNull("id") && n.get("id").asLong() > 0) {
+                        optionIds.add(n.get("id").asLong());
+                    }
                 }
             }
             List<Long> toppingIds = new ArrayList<>();
             if (it.getToppingsSnapshot() != null && it.getToppingsSnapshot().isArray()) {
                 for (JsonNode n : it.getToppingsSnapshot()) {
-                    toppingIds.add(n.asLong());
+                    if (n.isIntegralNumber() && n.asLong() > 0) {
+                        toppingIds.add(n.asLong());
+                    } else if (n.hasNonNull("id") && n.get("id").asLong() > 0) {
+                        toppingIds.add(n.get("id").asLong());
+                    }
                 }
             }
             CartItemDto cartItem = new CartItemDto(
@@ -583,6 +596,8 @@ public class OrderService {
                     it.getNote(),
                     order.getStoreId()
             );
+            cartItem.setOptionsSnapshot(it.getOptionsSnapshot());
+            cartItem.setToppingsSnapshot(it.getToppingsSnapshot());
             cartService.addItem(cartKey, cartItem, CartService.CUSTOMER_CART_TTL);
         }
 

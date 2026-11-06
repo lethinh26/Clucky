@@ -182,6 +182,16 @@ public class ValidationService {
                     if (optionsValid) {
                         for (String groupName : groupMap.keySet()) {
                             if (!chosenGroups.contains(groupName)) {
+                                List<ProductOption> groupOptions = groupMap.get(groupName);
+                                if (groupOptions != null && !groupOptions.isEmpty()) {
+                                    ProductOption defaultOpt = groupOptions.stream()
+                                            .filter(o -> BigDecimal.ZERO.compareTo(o.getExtraPrice()) == 0)
+                                            .findFirst()
+                                            .orElse(groupOptions.get(0));
+                                    chosenGroups.add(groupName);
+                                    optionExtras = optionExtras.add(defaultOpt.getExtraPrice());
+                                    continue;
+                                }
                                 itemResult.setAvailable(false);
                                 itemResult.setReason("Thiếu tùy chọn bắt buộc cho nhóm '" + groupName + "'.");
                                 allValid = false;

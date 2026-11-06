@@ -88,7 +88,7 @@ export default function LoyaltyPage() {
   }, []);
 
   // Calculate current tier progress
-  const currentPoints = memberPoints?.totalPoints ?? (isGuest ? 0 : 1450);
+  const currentPoints = memberPoints?.totalPoints ?? 0;
   const progressData = useMemo(() => {
     return calculateTierProgress(currentPoints, locale);
   }, [currentPoints, locale]);

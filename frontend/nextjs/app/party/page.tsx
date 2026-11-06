@@ -2,8 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
-import { useState } from "react";
-import { MOCK_STORES } from "@/lib/mock/order-mock-data";
+import { useEffect, useState } from "react";
 import styles from "./party.module.css";
 import { OrderDialog } from "@/components/order/order-dialog";
 import {
@@ -13,7 +12,12 @@ import {
   Users,
   Store,
 } from "lucide-react";
-import { partyOrderApi, getErrorMessage, type BackendPartyOrder } from "@/lib/api";
+import {
+  catalogApi,
+  partyOrderApi,
+  getErrorMessage,
+  type BackendPartyOrder,
+} from "@/lib/api";
 
 export default function PartyOrderPage() {
   const t = useTranslations();
@@ -40,13 +44,16 @@ export default function PartyOrderPage() {
     },
   ];
 
+  const [availableStores, setAvailableStores] = useState<
+    { id: string; name: string; address: string }[]
+  >([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
   const [expectedTime, setExpectedTime] = useState("11:30");
   const [guestCount, setGuestCount] = useState<number>(15);
-  const [selectedStore, setSelectedStore] = useState<string>(MOCK_STORES[0].id);
+  const [selectedStore, setSelectedStore] = useState<string>("");
   const [selectedPackage, setSelectedPackage] =
     useState<string>("pkg-birthday");
   const [notes, setNotes] = useState("");
@@ -56,11 +63,38 @@ export default function PartyOrderPage() {
   const [createdPartyOrder, setCreatedPartyOrder] =
     useState<BackendPartyOrder | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    catalogApi
+      .getStores(true)
+      .then((storesData) => {
+        if (!active || !Array.isArray(storesData)) return;
+        const openStores = storesData
+          .filter((s) => !s.status || s.status === "OPEN")
+          .map((s) => ({
+            id: String(s.id),
+            name: s.name,
+            address: s.address,
+          }));
+        setAvailableStores(openStores);
+        if (openStores.length > 0) {
+          setSelectedStore((prev) =>
+            prev && openStores.some((st) => st.id === prev)
+              ? prev
+              : openStores[0].id,
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setSubmitError(null);
-    const chosenPkg = PARTY_PACKAGES.find((pkg) => pkg.id === selectedPackage);
     const combinedNotes = notes.trim()
       ? `${notes.trim()} (Pkg: ${selectedPackage})`
       : `Pkg: ${selectedPackage}`;
@@ -69,7 +103,8 @@ export default function PartyOrderPage() {
 
     try {
       const result = await partyOrderApi.create({
-        storeId: Number(selectedStore) || 1,
+        storeId:
+          Number(selectedStore) || Number(availableStores[0]?.id) || 1,
         contactName: customerName.trim(),
         phone: customerPhone.trim(),
         contactPhone: customerPhone.trim(),
@@ -281,7 +316,7 @@ export default function PartyOrderPage() {
                 onChange={(e) => setSelectedStore(e.target.value)}
                 className={styles.select}
               >
-                {MOCK_STORES.map((s) => (
+                {availableStores.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} ({s.address})
                   </option>
@@ -330,8 +365,7 @@ export default function PartyOrderPage() {
               {t("business.party.yourDemoPartyRequestIsReady")}
             </h2>
             <p className={styles.modalDesc}>
-              {t("business.party.youHaveCompletedTheFormFor")}{" "}
-              {guestCount}{" "}
+              {t("business.party.youHaveCompletedTheFormFor")} {guestCount}{" "}
               {t("business.party.guestsThisIsAUiPreviewNoRequestHasBeenSentTo")}
             </p>
             <dl className={styles.partyReceipt}>
@@ -357,7 +391,7 @@ export default function PartyOrderPage() {
                 </dt>
                 <dd>
                   {
-                    MOCK_STORES.find((store) => store.id === selectedStore)
+                    availableStores.find((store) => store.id === selectedStore)
                       ?.name
                   }
                 </dd>
@@ -373,9 +407,7 @@ export default function PartyOrderPage() {
               </div>
             </dl>
             {createdPartyOrder?.id && (
-              <p className={styles.saveHint}>
-                ID #{createdPartyOrder.id}
-              </p>
+              <p className={styles.saveHint}>ID #{createdPartyOrder.id}</p>
             )}
             <button
               type="button"

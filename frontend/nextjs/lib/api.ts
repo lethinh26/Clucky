@@ -167,6 +167,8 @@ export interface BackendCartItem {
   itemName: string;
   unitPrice: number;
   quantity: number;
+  optionIds?: number[];
+  toppingIds?: number[];
   optionsSnapshot?: unknown;
   toppingsSnapshot?: unknown;
   note?: string;
@@ -227,6 +229,7 @@ export interface OrderPreviewPayload {
   voucherCode?: string;
   pointsUsed?: number;
   address?: string;
+  receiverAddress?: string;
 }
 
 export interface OrderPreviewResult {
@@ -321,10 +324,17 @@ export const orderApi = {
   preview: (payload: OrderPreviewPayload) =>
     request<OrderPreviewResult>("/api/orders/preview", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        receiverAddress: payload.receiverAddress ?? payload.address,
+      }),
     }).then((res) => ({
       ...res,
-      valid: res.valid ?? res.voucherValid ?? false,
+      valid:
+        res.valid ??
+        (typeof res.subtotal === "number" && res.subtotal > 0
+          ? (payload.voucherCode ? Boolean(res.voucherValid) : true)
+          : Boolean(res.voucherValid)),
       message: res.message ?? res.voucherMessage,
     })),
   create: (payload: CreateOrderPayload) =>

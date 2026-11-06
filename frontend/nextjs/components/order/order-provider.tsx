@@ -12,7 +12,17 @@ import {
   useRef,
 } from "react";
 import { z } from "zod";
-import { addCartItem, cartTotals } from "@/lib/cart";
+import {
+  addCartItem,
+  cartTotals,
+  loadCatalogMetadataFromApi,
+  normalizeCartItem,
+  normalizeOptionsSnapshot,
+  normalizeToppingsSnapshot,
+  resolveCatalogImage,
+  resolveStoreName,
+  toCartItemPayload,
+} from "@/lib/cart";
 import {
   applyDemoAction,
   ensureDemoShipment,
@@ -44,6 +54,8 @@ const cartSchema = z.array(
     quantity: z.number().int().positive(),
     image: z.string(),
     note: z.string().optional(),
+    optionIds: z.array(z.number()).optional(),
+    toppingIds: z.array(z.number()).optional(),
     options: z
       .array(
         z.object({
@@ -82,7 +94,14 @@ const savedOrdersSchema = z.array(
     pointsAmount: z.number().nonnegative(),
     shippingFee: z.number().nonnegative(),
     shipmentStatus: z
-      .enum(["CREATED", "ASSIGNED", "PICKED_UP", "SHIPPING", "DELIVERED", "FAILED"])
+      .enum([
+        "CREATED",
+        "ASSIGNED",
+        "PICKED_UP",
+        "SHIPPING",
+        "DELIVERED",
+        "FAILED",
+      ])
       .optional(),
     totalAmount: z.number().nonnegative(),
     paymentMethod: z.enum(["COD", "BANK_TRANSFER"]),
@@ -142,38 +161,42 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
     itemType: it.itemType,
     unitPrice: Number(it.unitPrice),
     quantity: it.quantity,
-    image: "/images/food-placeholder.svg",
+    image: resolveCatalogImage(it.productId, it.comboId, it.itemName),
     lineTotal: Number(it.lineTotal),
-    optionsSnapshot: it.optionsSnapshot as any,
-    toppingsSnapshot: it.toppingsSnapshot as any,
+    optionsSnapshot: normalizeOptionsSnapshot(it.optionsSnapshot, it.productId),
+    toppingsSnapshot: normalizeToppingsSnapshot(
+      it.toppingsSnapshot,
+      it.productId,
+    ),
     note: it.note,
   }));
 
-  const timeline = (be.timeline && be.timeline.length > 0)
-    ? be.timeline.map((entry, idx, arr) => ({
-        status: (statusMap[entry.toStatus] || "CONFIRMED") as Order["status"],
-        title: entry.toStatus,
-        description: entry.reason || "",
-        time: entry.createdAt,
-        done: idx < arr.length - 1,
-        current: idx === arr.length - 1,
-      }))
-    : [
-        {
-          status: currentStatus,
-          title: currentStatus,
-          description: currentStatus,
-          time: be.createdAt,
-          done: false,
-          current: true,
-        },
-      ];
+  const timeline =
+    be.timeline && be.timeline.length > 0
+      ? be.timeline.map((entry, idx, arr) => ({
+          status: (statusMap[entry.toStatus] || "CONFIRMED") as Order["status"],
+          title: entry.toStatus,
+          description: entry.reason || "",
+          time: entry.createdAt,
+          done: idx < arr.length - 1,
+          current: idx === arr.length - 1,
+        }))
+      : [
+          {
+            status: currentStatus,
+            title: currentStatus,
+            description: currentStatus,
+            time: be.createdAt,
+            done: false,
+            current: true,
+          },
+        ];
 
   return {
     id: String(be.id),
     orderCode: be.orderCode,
     storeId: String(be.storeId),
-    storeName: `Clucky #${be.storeId}`,
+    storeName: resolveStoreName(be.storeId),
     type: be.type,
     status: currentStatus,
     subtotal: Number(be.subtotal),
@@ -183,12 +206,20 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
     pointsAmount: Number(be.pointsAmount),
     shippingFee: Number(be.shippingFee),
     totalAmount: Number(be.totalAmount),
-    paymentMethod: (be.paymentMethod as Order["paymentMethod"]) || (be.status === "PENDING_PAYMENT" ? "BANK_TRANSFER" : "COD"),
-    paymentStatus: be.status === "CANCELLED"
-      ? "FAILED"
-      : (be.paymentMethod === "BANK_TRANSFER" || be.status === "PENDING_PAYMENT")
-        ? (be.status === "PENDING_PAYMENT" ? "PENDING" : "PAID")
-        : (be.status === "COMPLETED" ? "PAID" : "PENDING"),
+    paymentMethod:
+      (be.paymentMethod as Order["paymentMethod"]) ||
+      (be.status === "PENDING_PAYMENT" ? "BANK_TRANSFER" : "COD"),
+    paymentStatus:
+      be.status === "CANCELLED"
+        ? "FAILED"
+        : be.paymentMethod === "BANK_TRANSFER" ||
+            be.status === "PENDING_PAYMENT"
+          ? be.status === "PENDING_PAYMENT"
+            ? "PENDING"
+            : "PAID"
+          : be.status === "COMPLETED"
+            ? "PAID"
+            : "PENDING",
     receiverName: be.receiverName,
     receiverPhone: be.receiverPhone,
     deliveryAddress: be.deliveryAddress,
@@ -201,7 +232,7 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
 }
 
 function mapBackendCartItemToCartItem(be: BackendCartItem): CartItem {
-  return {
+  return normalizeCartItem({
     id: be.itemKey,
     itemKey: be.itemKey,
     productId: be.productId,
@@ -213,11 +244,19 @@ function mapBackendCartItemToCartItem(be: BackendCartItem): CartItem {
     basePrice: Number(be.unitPrice),
     unitPrice: Number(be.unitPrice),
     quantity: be.quantity,
-    image: "/images/food-placeholder.svg",
-    options: be.optionsSnapshot as any,
-    toppings: be.toppingsSnapshot as any,
+    image: resolveCatalogImage(be.productId, be.comboId, be.itemName),
+    optionIds: be.optionIds,
+    toppingIds: be.toppingIds,
+    options: normalizeOptionsSnapshot(
+      be.optionsSnapshot ?? be.optionIds,
+      be.productId,
+    ),
+    toppings: normalizeToppingsSnapshot(
+      be.toppingsSnapshot ?? be.toppingIds,
+      be.productId,
+    ),
     note: be.note,
-  };
+  });
 }
 
 interface OrderContextValue {
@@ -268,13 +307,40 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const refreshOrders = useCallback(async () => {
     try {
+      await loadCatalogMetadataFromApi();
       const page = await orderApi.getMyOrders(0, 50);
       if (page && Array.isArray(page.content)) {
         const serverOrders = page.content.map(mapBackendOrderToOrder);
-        setWorkspace((prev) => ({
-          ...prev,
-          orders: serverOrders,
-        }));
+        setWorkspace((prev) => {
+          const merged = serverOrders.map((sOrder) => {
+            const local = prev.orders.find(
+              (l) => l.id === sOrder.id || l.orderCode === sOrder.orderCode,
+            );
+            if (
+              local &&
+              local.paymentStatus === "PAID" &&
+              sOrder.paymentStatus !== "PAID"
+            ) {
+              return {
+                ...sOrder,
+                status:
+                  sOrder.status === "PENDING_PAYMENT"
+                    ? local.status
+                    : sOrder.status,
+                paymentStatus: "PAID" as const,
+                timeline:
+                  local.timeline.length >= sOrder.timeline.length
+                    ? local.timeline
+                    : sOrder.timeline,
+              };
+            }
+            return sOrder;
+          });
+          return {
+            ...prev,
+            orders: merged,
+          };
+        });
       }
     } catch {
       // Offline/unauthenticated fallback
@@ -286,12 +352,19 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       if (!raw) return;
       try {
         const saved = JSON.parse(raw);
-        const items = cartSchema.parse(saved.items) as CartItem[];
+        const items = (cartSchema.parse(saved.items) as CartItem[]).map(
+          normalizeCartItem,
+        );
         const parsedOrders = savedOrdersSchema.safeParse(saved.orders);
         let orders = parsedOrders.success
           ? (parsedOrders.data as Order[]).map(ensureDemoShipment)
           : [];
-        orders = orders.filter((o) => !o.id.startsWith("demo-") && !o.orderCode.startsWith("DEMO-") && !o.orderCode.startsWith("CLU-24"));
+        orders = orders.filter(
+          (o) =>
+            !o.id.startsWith("demo-") &&
+            !o.orderCode.startsWith("DEMO-") &&
+            !o.orderCode.startsWith("CLU-24"),
+        );
         setWorkspace({ items, orders });
       } catch {
         setStorageError(true);
@@ -304,22 +377,83 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     }
     setReady(true);
 
-    // Sync with Redis Cart backend
-    cartApi.getCart()
-      .then((cartDto) => {
-        if (cartDto && Array.isArray(cartDto.items)) {
-          const serverItems = cartDto.items.map(mapBackendCartItemToCartItem);
-          if (serverItems.length > 0) {
-            setWorkspace((prev) => ({ ...prev, items: serverItems }));
-          }
-        }
+    // Load live catalog + store metadata from Backend API, then re-normalize cart & sync Redis
+    loadCatalogMetadataFromApi()
+      .then(() => {
+        setWorkspace((prev) => ({
+          ...prev,
+          items: prev.items.map(normalizeCartItem),
+          orders: prev.orders.map((ord) => ({
+            ...ord,
+            storeName: resolveStoreName(ord.storeId),
+            items: ord.items.map((it) => ({
+              ...it,
+              image: resolveCatalogImage(
+                undefined,
+                undefined,
+                it.itemName,
+                it.image,
+              ),
+            })),
+          })),
+        }));
       })
-      .catch(() => {
-        // Fallback to local items
-      });
+      .finally(() => {
+        // Sync with Redis Cart backend
+        cartApi
+          .getCart()
+          .then((cartDto) => {
+            if (cartDto && Array.isArray(cartDto.items)) {
+              const serverItems = cartDto.items.map(
+                mapBackendCartItemToCartItem,
+              );
+              if (serverItems.length > 0) {
+                setWorkspace((prev) => {
+                  const merged = serverItems.map((sItem) => {
+                    const localMatch = prev.items.find(
+                      (lItem) =>
+                        lItem.itemKey === sItem.itemKey ||
+                        (lItem.productId &&
+                          lItem.productId === sItem.productId) ||
+                        (lItem.comboId && lItem.comboId === sItem.comboId) ||
+                        lItem.name === sItem.name,
+                    );
+                    if (!localMatch) return sItem;
+                    return normalizeCartItem({
+                      ...sItem,
+                      slug: localMatch.slug || sItem.slug,
+                      category: localMatch.category || sItem.category,
+                      image:
+                        localMatch.image &&
+                        localMatch.image !== "/images/food-placeholder.svg"
+                          ? localMatch.image
+                          : sItem.image,
+                      options: localMatch.options?.length
+                        ? localMatch.options
+                        : sItem.options,
+                      toppings: localMatch.toppings?.length
+                        ? localMatch.toppings
+                        : sItem.toppings,
+                      optionIds: localMatch.optionIds?.length
+                        ? localMatch.optionIds
+                        : sItem.optionIds,
+                      toppingIds: localMatch.toppingIds?.length
+                        ? localMatch.toppingIds
+                        : sItem.toppingIds,
+                    });
+                  });
+                  return { ...prev, items: merged };
+                });
+              }
+            }
+          })
+          .catch(() => {
+            // Fallback to local items
+          });
 
-    // Sync orders with backend if user has token
-    refreshOrders();
+        // Sync orders with backend if user has token
+        refreshOrders();
+      });
 
     const sync = (event: StorageEvent) => {
       if (event.key === storageKey) {
@@ -342,23 +476,13 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = useCallback(
     (item: CartItem) => {
-      if (!cartSchema.safeParse([item]).success) return;
+      const normalized = normalizeCartItem(item);
+      if (!cartSchema.safeParse([normalized]).success) return;
       setWorkspace((prev) => ({
         ...prev,
-        items: addCartItem(prev.items, item),
+        items: addCartItem(prev.items, normalized),
       }));
-      const pId = item.productId ?? (Number(item.id) || undefined);
-      const cId = item.comboId;
-      cartApi.addItem({
-        productId: pId,
-        comboId: cId,
-        itemName: item.name,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        optionsSnapshot: item.options,
-        toppingsSnapshot: item.toppings,
-        note: item.note,
-      }).catch((err) => {
+      cartApi.addItem(toCartItemPayload(normalized)).catch((err) => {
         console.warn("Cart backend sync:", err);
       });
     },
@@ -380,9 +504,13 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           .filter((item) => item.quantity > 0),
       }));
       if (newQty > 0) {
-        cartApi.updateItem(id, newQty).catch((err) => console.warn("Cart updateItem:", err));
+        cartApi
+          .updateItem(id, newQty)
+          .catch((err) => console.warn("Cart updateItem:", err));
       } else {
-        cartApi.removeItem(id).catch((err) => console.warn("Cart removeItem:", err));
+        cartApi
+          .removeItem(id)
+          .catch((err) => console.warn("Cart removeItem:", err));
       }
     },
     [setWorkspace],
@@ -398,7 +526,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       }));
       const current = workspaceRef.current.items.find((it) => it.id === id);
       if (current) {
-        cartApi.updateItem(id, current.quantity, note).catch((err) => console.warn("Cart updateNote:", err));
+        cartApi
+          .updateItem(id, current.quantity, note)
+          .catch((err) => console.warn("Cart updateNote:", err));
       }
     },
     [setWorkspace],
@@ -410,7 +540,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         ...prev,
         items: prev.items.filter((item) => item.id !== id),
       }));
-      cartApi.removeItem(id).catch((err) => console.warn("Cart removeItem:", err));
+      cartApi
+        .removeItem(id)
+        .catch((err) => console.warn("Cart removeItem:", err));
     },
     [setWorkspace],
   );
@@ -436,14 +568,27 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   const createOrder = useCallback(
     async (payload: CreateOrderPayload): Promise<BackendOrder> => {
-      const backendOrder = await orderApi.create(payload);
-      const mappedOrder = mapBackendOrderToOrder(backendOrder);
-      setWorkspace((prev) => ({
-        items: [],
-        orders: [ensureDemoShipment(mappedOrder), ...prev.orders],
-      }));
-      cartApi.clearCart().catch(() => {});
-      return backendOrder;
+      await loadCatalogMetadataFromApi();
+      // Clear stale Redis cart before creating the order so cart-order-service
+      // uses payload.items (which includes normalized optionIds/toppingIds and selected storeId).
+      await cartApi.clearCart().catch(() => {});
+      try {
+        const backendOrder = await orderApi.create(payload);
+        const mappedOrder = mapBackendOrderToOrder(backendOrder);
+        setWorkspace((prev) => ({
+          items: [],
+          orders: [ensureDemoShipment(mappedOrder), ...prev.orders],
+        }));
+        cartApi.clearCart().catch(() => {});
+        return backendOrder;
+      } catch (err) {
+        // Restore cart items in Redis if order creation failed
+        const currentItems = workspaceRef.current.items;
+        for (const it of currentItems) {
+          cartApi.addItem(toCartItemPayload(it)).catch(() => {});
+        }
+        throw err;
+      }
     },
     [setWorkspace],
   );
@@ -456,7 +601,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         const mapped = mapBackendOrderToOrder(updatedBackend);
         setWorkspace((prev) => ({
           ...prev,
-          orders: prev.orders.map((o) => (o.id === id || o.orderCode === id ? mapped : o)),
+          orders: prev.orders.map((o) =>
+            o.id === id || o.orderCode === id ? mapped : o,
+          ),
         }));
       } catch (err) {
         console.error("Cancel order backend error:", err);
@@ -469,6 +616,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const reorder = useCallback(
     async (order: Order) => {
       try {
+        await loadCatalogMetadataFromApi();
         const cartDto = await orderApi.reorder(order.id);
         if (cartDto && Array.isArray(cartDto.items)) {
           const cartItems = cartDto.items.map(mapBackendCartItemToCartItem);
@@ -479,13 +627,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       } catch (err) {
-        console.warn("Backend reorder error, putting items back into local cart:", err);
+        console.warn(
+          "Backend reorder error, putting items back into local cart:",
+          err,
+        );
       }
       const incoming: CartItem[] = order.items.map((item) => ({
         id: crypto.randomUUID(),
         slug: item.slug ?? `reorder-${order.id}-${item.id}`,
         name: item.itemName,
-        category: getTranslator(getBrowserLocale())("business.orderprovider.reorder"),
+        category: getTranslator(getBrowserLocale())(
+          "business.orderprovider.reorder",
+        ),
         basePrice: item.unitPrice,
         unitPrice: item.unitPrice,
         quantity: item.quantity,
@@ -505,17 +658,29 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const runDemoAction = useCallback(
     (id: string, action: DemoAction) => {
       const previous = workspaceRef.current.orders.find(
-        (order) => order.id === id,
+        (order) => order.id === id || order.orderCode === id,
       );
-      if (!previous) return { ok: false, message: getTranslator(getBrowserLocale())("business.orderprovider.orderNotFound") };
+      if (!previous)
+        return {
+          ok: false,
+          message: getTranslator(getBrowserLocale())(
+            "business.orderprovider.orderNotFound",
+          ),
+        };
       const result = applyDemoAction(previous, action, DEMO_CONTROLS_ENABLED);
-      if (result.ok)
+      if (result.ok) {
         setWorkspace((prev) => ({
           ...prev,
           orders: prev.orders.map((order) =>
-            order.id === id ? result.order : order,
+            order.id === id || order.orderCode === id ? result.order : order,
           ),
         }));
+        if (action === "PAY_FAILED") {
+          orderApi
+            .cancel(previous.id, "Thanh toán không thành công")
+            .catch(() => {});
+        }
+      }
       return { ok: result.ok, message: result.message };
     },
     [setWorkspace],

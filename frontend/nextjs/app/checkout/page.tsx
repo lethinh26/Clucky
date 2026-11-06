@@ -6,16 +6,17 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import Link from "@/components/ui-loader/navigation-link";
 import { Select } from "@base-ui/react/select";
-import { MOCK_STORES } from "@/lib/mock/order-mock-data";
 import { OrderType, PaymentMethod } from "@/lib/types/order";
-import { FoodImage } from "@/components/order/food-image";
 import styles from "./checkout.module.css";
 import { useOrder } from "@/components/order/order-provider";
+import { loadCatalogMetadataFromApi, toCartItemPayload } from "@/lib/cart";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import { ShippingFeeCard } from "@/components/shipping";
 import {
+  catalogApi,
   orderApi,
+  promotionApi,
   getErrorMessage,
   type CartItemPayload,
   type CreateOrderPayload,
@@ -40,15 +41,14 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("clucky_access_token") : null;
-    setIsAuthenticated(!!token);
-  }, []);
+  const [availableStores, setAvailableStores] = useState<
+    { id: string; name: string; address: string }[]
+  >([]);
+  const [availablePoints, setAvailablePoints] = useState<number>(0);
 
   // Form states
   const [orderType, setOrderType] = useState<OrderType>("DELIVERY");
-  const [selectedStore, setSelectedStore] = useState<string>(MOCK_STORES[0].id);
+  const [selectedStore, setSelectedStore] = useState<string>("");
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -74,72 +74,131 @@ export default function CheckoutPage() {
     totalAmount?: number;
   } | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("clucky_access_token")
+        : null;
+    setIsAuthenticated(!!token);
+
+    loadCatalogMetadataFromApi().catch(() => {});
+
+    catalogApi
+      .getStores(true)
+      .then((storesData) => {
+        if (!active || !Array.isArray(storesData)) return;
+        const openStores = storesData
+          .filter((s) => !s.status || s.status === "OPEN")
+          .map((s) => ({
+            id: String(s.id),
+            name: s.name,
+            address: s.address,
+          }));
+        setAvailableStores(openStores);
+        if (openStores.length > 0) {
+          setSelectedStore((prev) =>
+            prev && openStores.some((st) => st.id === prev)
+              ? prev
+              : openStores[0].id,
+          );
+        }
+      })
+      .catch(() => {});
+
+    if (token) {
+      promotionApi
+        .getMyLoyalty()
+        .then((res) => {
+          if (!active || !res) return;
+          const pts = Number(
+            res.points?.totalPoints ?? (res as any).totalPoints ?? 0,
+          );
+          setAvailablePoints(Number.isFinite(pts) && pts > 0 ? pts : 0);
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const pointsToRedeem =
+    usePoints && availablePoints > 0 ? Math.min(availablePoints, 50) : 0;
+
   // Cost calculations with server preview or graceful local fallback
-  const baseShippingFee = orderType === "DELIVERY" ? 20000 : 0;
+  const hasValidPreview =
+    previewData !== null &&
+    typeof previewData.subtotal === "number" &&
+    previewData.subtotal > 0;
+  const effectiveSubtotal = hasValidPreview ? previewData.subtotal! : subtotal;
+  const baseShippingFee =
+    orderType === "DELIVERY" ? (effectiveSubtotal >= 150000 ? 0 : 15000) : 0;
   const shippingFee =
-    previewData?.shippingFee !== undefined
+    hasValidPreview && previewData?.shippingFee !== undefined
       ? previewData.shippingFee
       : baseShippingFee;
-  const voucherDiscount =
-    previewData?.discountAmount !== undefined
-      ? previewData.discountAmount
-      : appliedVoucher?.code === "CLUCKYFREESHIP"
-        ? shippingFee
-        : (appliedVoucher?.discount ?? 0);
+  const voucherDiscount = appliedVoucher
+    ? appliedVoucher.code === "CLUCKYFREESHIP"
+      ? shippingFee
+      : Math.max(
+          hasValidPreview ? (previewData?.discountAmount ?? 0) : 0,
+          appliedVoucher.discount,
+        )
+    : hasValidPreview
+      ? (previewData?.discountAmount ?? 0)
+      : 0;
   const pointsDiscount =
-    previewData?.pointsAmount !== undefined
+    hasValidPreview && previewData?.pointsAmount !== undefined
       ? previewData.pointsAmount
-      : usePoints
-        ? 5000
-        : 0;
-  const totalAmount =
-    previewData?.totalAmount !== undefined
-      ? previewData.totalAmount
-      : Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
+      : 0;
+  const totalAmount = Math.max(
+    0,
+    effectiveSubtotal + shippingFee - voucherDiscount - pointsDiscount,
+  );
 
   // Preview breakdown sync
   useEffect(() => {
-    if (!items.length) {
+    if (!items.length || !selectedStore) {
       setPreviewData(null);
       return;
     }
     let active = true;
-    const payloadItems: CartItemPayload[] = items.map((it) => ({
-      productId:
-        it.productId ||
-        Number(it.slug?.replace(/\D/g, "")) ||
-        Number(it.id?.replace(/\D/g, "")) ||
-        undefined,
-      comboId: it.comboId,
-      itemName: it.name,
-      unitPrice: it.unitPrice,
-      quantity: it.quantity,
-      optionsSnapshot: it.options,
-      toppingsSnapshot: it.toppings,
-      note: it.note,
-    }));
+    const trimmedAddress =
+      orderType === "DELIVERY" ? deliveryAddress.trim() : undefined;
 
-    orderApi
-      .preview({
-        storeId: Number(selectedStore) || 1,
-        type: orderType,
-        items: payloadItems,
-        voucherCode: appliedVoucher?.code,
-        pointsUsed: usePoints ? 50 : 0,
-        address: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+    loadCatalogMetadataFromApi()
+      .then(() => {
+        if (!active) return null;
+        const payloadItems: CartItemPayload[] = items.map(toCartItemPayload);
+        return orderApi.preview({
+          storeId: Number(selectedStore),
+          type: orderType,
+          items: payloadItems,
+          voucherCode: appliedVoucher?.code,
+          pointsUsed: pointsToRedeem,
+          address: trimmedAddress,
+          receiverAddress: trimmedAddress,
+        });
       })
       .then((res) => {
         if (!active || !res) return;
-        setPreviewData({
-          subtotal: res.subtotal,
-          discountAmount: res.discountAmount,
-          pointsAmount: res.pointsAmount,
-          shippingFee: res.shippingFee,
-          totalAmount: res.totalAmount,
-        });
+        if (typeof res.subtotal === "number" && res.subtotal > 0) {
+          setPreviewData({
+            subtotal: Number(res.subtotal),
+            discountAmount: Number(res.discountAmount) || 0,
+            pointsAmount: Number(res.pointsAmount) || 0,
+            shippingFee: Number(res.shippingFee) || 0,
+            totalAmount: Number(res.totalAmount) || 0,
+          });
+        } else {
+          setPreviewData(null);
+        }
       })
       .catch((err) => {
         console.warn("Order preview fallback to local:", err);
+        if (active) setPreviewData(null);
       });
 
     return () => {
@@ -150,11 +209,11 @@ export default function CheckoutPage() {
     orderType,
     selectedStore,
     appliedVoucher,
-    usePoints,
+    pointsToRedeem,
     deliveryAddress,
   ]);
 
-  const handleApplyVoucher = (e: React.FormEvent) => {
+  const handleApplyVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = voucherInput.trim().toUpperCase();
     if (!cleanCode) {
@@ -162,43 +221,66 @@ export default function CheckoutPage() {
       setVoucherMsg("");
       return;
     }
-    const payloadItems: CartItemPayload[] = items.map((it) => ({
-      productId:
-        it.productId ||
-        Number(it.slug?.replace(/\D/g, "")) ||
-        Number(it.id?.replace(/\D/g, "")) ||
-        undefined,
-      comboId: it.comboId,
-      itemName: it.name,
-      unitPrice: it.unitPrice,
-      quantity: it.quantity,
-      optionsSnapshot: it.options,
-      toppingsSnapshot: it.toppings,
-      note: it.note,
-    }));
-    orderApi
-      .preview({
-        storeId: Number(selectedStore) || 1,
+    await loadCatalogMetadataFromApi();
+    const payloadItems: CartItemPayload[] = items.map(toCartItemPayload);
+    const trimmedAddress =
+      orderType === "DELIVERY" ? deliveryAddress.trim() : undefined;
+    const storeIdNum = Number(selectedStore) || 1;
+
+    try {
+      const res = await orderApi.preview({
+        storeId: storeIdNum,
         type: orderType,
         items: payloadItems,
         voucherCode: cleanCode,
-        pointsUsed: usePoints ? 50 : 0,
-        address: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
-      })
-      .then((res) => {
-        if (res && res.valid && res.discountAmount > 0) {
-          setAppliedVoucher({ code: cleanCode, discount: res.discountAmount });
-          setVoucherMsg("business.checkout.theDiscountHasBeenApplied");
-        } else {
-          setAppliedVoucher(null);
-          setVoucherMsg(res?.message || "business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
-        }
-      })
-      .catch((err: any) => {
-        setAppliedVoucher(null);
-        const msg = getErrorMessage(err);
-        setVoucherMsg(msg || "business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit");
+        pointsUsed: pointsToRedeem,
+        address: trimmedAddress,
+        receiverAddress: trimmedAddress,
       });
+
+      if (res && res.voucherValid && Number(res.discountAmount) > 0) {
+        setAppliedVoucher({
+          code: cleanCode,
+          discount: Number(res.discountAmount),
+        });
+        setVoucherMsg(t("business.checkout.theDiscountHasBeenApplied"));
+        return;
+      }
+
+      // Direct validation against promotion-loyalty-service if preview did not resolve voucher
+      const directRes = await promotionApi.validateVoucher({
+        code: cleanCode,
+        orderAmount: effectiveSubtotal,
+        storeId: storeIdNum,
+      });
+      if (
+        directRes &&
+        directRes.valid &&
+        Number(directRes.discountAmount) > 0
+      ) {
+        setAppliedVoucher({
+          code: cleanCode,
+          discount: Number(directRes.discountAmount),
+        });
+        setVoucherMsg(t("business.checkout.theDiscountHasBeenApplied"));
+        return;
+      }
+
+      setAppliedVoucher(null);
+      setVoucherMsg(
+        directRes?.reason ||
+          res?.voucherMessage ||
+          res?.message ||
+          t("business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit"),
+      );
+    } catch (err: any) {
+      setAppliedVoucher(null);
+      const msg = getErrorMessage(err);
+      setVoucherMsg(
+        msg ||
+          t("business.checkout.theVoucherIsInvalidOrHasReachedItsUsageLimit"),
+      );
+    }
   };
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -208,7 +290,10 @@ export default function CheckoutPage() {
     setSubmitting(true);
     setSubmitError(null);
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("clucky_access_token") : null;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("clucky_access_token")
+        : null;
     if (!token) {
       submitLock.current = false;
       setSubmitting(false);
@@ -217,28 +302,18 @@ export default function CheckoutPage() {
       return;
     }
 
-    const payloadItems: CartItemPayload[] = items.map((it) => ({
-      productId:
-        it.productId ||
-        Number(it.slug?.replace(/\D/g, "")) ||
-        Number(it.id?.replace(/\D/g, "")) ||
-        undefined,
-      comboId: it.comboId,
-      itemName: it.name,
-      unitPrice: it.unitPrice,
-      quantity: it.quantity,
-      optionsSnapshot: it.options,
-      toppingsSnapshot: it.toppings,
-      note: it.note,
-    }));
+    await loadCatalogMetadataFromApi();
+    const payloadItems: CartItemPayload[] = items.map(toCartItemPayload);
+    const storeIdNum =
+      Number(selectedStore) || Number(availableStores[0]?.id) || 1;
 
     const payload: CreateOrderPayload = {
-      storeId: Number(selectedStore) || 1,
+      storeId: storeIdNum,
       type: orderType,
       paymentMethod: paymentMethod,
       items: payloadItems,
       voucherCode: appliedVoucher?.code,
-      pointsUsed: usePoints ? 50 : 0,
+      pointsUsed: pointsToRedeem,
       receiverName: receiverName.trim(),
       receiverPhone: receiverPhone.trim(),
       deliveryAddress:
@@ -276,7 +351,9 @@ export default function CheckoutPage() {
             {t("business.checkout.checkoutPlaceOrder")}
           </h1>
           <p className={styles.subtitle}>
-            {t("business.checkout.checkYourDeliveryDetailsAndChooseAPaymentMethod")}
+            {t(
+              "business.checkout.checkYourDeliveryDetailsAndChooseAPaymentMethod",
+            )}
           </p>
         </div>
 
@@ -360,7 +437,8 @@ export default function CheckoutPage() {
                     }`}
                     onClick={() => setOrderType("PICKUP")}
                   >
-                    <Store size={18} /> {t("business.checkout.pickUpAtTheStore")}
+                    <Store size={18} />{" "}
+                    {t("business.checkout.pickUpAtTheStore")}
                   </button>
                 </div>
 
@@ -383,7 +461,10 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className={styles.fieldGroup}>
-                    <label htmlFor="receiverPhone" className={styles.fieldLabel}>
+                    <label
+                      htmlFor="receiverPhone"
+                      className={styles.fieldLabel}
+                    >
                       {t("business.checkout.contactPhoneNumber")}
                     </label>
                     <input
@@ -416,7 +497,7 @@ export default function CheckoutPage() {
                     onValueChange={(value) => {
                       if (value !== null) setSelectedStore(value);
                     }}
-                    items={MOCK_STORES.map((store) => ({
+                    items={availableStores.map((store) => ({
                       value: store.id,
                       label: store.name,
                     }))}
@@ -427,7 +508,10 @@ export default function CheckoutPage() {
                       aria-describedby="fulfillmentStoreAddress"
                       className={styles.storeTrigger}
                     >
-                      <span className={styles.storeTriggerIcon} aria-hidden="true">
+                      <span
+                        className={styles.storeTriggerIcon}
+                        aria-hidden="true"
+                      >
                         <Store size={20} />
                       </span>
                       <Select.Value className={styles.storeValue} />
@@ -444,7 +528,7 @@ export default function CheckoutPage() {
                       >
                         <Select.Popup className={styles.storePopup}>
                           <Select.List className={styles.storeList}>
-                            {MOCK_STORES.map((store) => (
+                            {availableStores.map((store) => (
                               <Select.Item
                                 key={store.id}
                                 value={store.id}
@@ -482,8 +566,9 @@ export default function CheckoutPage() {
                   <p id="fulfillmentStoreAddress" className={styles.storeHint}>
                     <MapPin size={14} />{" "}
                     {
-                      MOCK_STORES.find((store) => store.id === selectedStore)
-                        ?.address
+                      availableStores.find(
+                        (store) => store.id === selectedStore,
+                      )?.address
                     }
                   </p>
                 </div>
@@ -565,7 +650,9 @@ export default function CheckoutPage() {
                       color: appliedVoucher ? "#1e7a46" : "#b42318",
                     }}
                   >
-                    {voucherMsg.includes(".") ? t(voucherMsg) : voucherMsg}
+                    {typeof voucherMsg === "string" && t.has(voucherMsg)
+                      ? t(voucherMsg)
+                      : voucherMsg}
                   </p>
                 )}
 
@@ -574,13 +661,14 @@ export default function CheckoutPage() {
                     <input
                       type="checkbox"
                       checked={usePoints}
+                      disabled={availablePoints <= 0}
                       onChange={(e) => setUsePoints(e.target.checked)}
                       style={{ width: 18, height: 18, accentColor: "#8f1216" }}
                     />
                     <span>{t("business.checkout.useCluckyClubPoints")}</span>
                   </label>
                   <span className={styles.loyaltyPoints}>
-                    {t("business.checkout.pointsAvailableUsePointsForOff")}
+                    {availablePoints} điểm hiện có
                   </span>
                 </div>
               </section>
@@ -685,12 +773,10 @@ export default function CheckoutPage() {
 
               <div className={styles.costRow}>
                 <span>{t("business.cart.subtotal")}</span>
-                <strong>{formatPrice(subtotal)}</strong>
+                <strong>{formatPrice(effectiveSubtotal)}</strong>
               </div>
 
-              {orderType === "DELIVERY" && (
-                <ShippingFeeCard fee={shippingFee} />
-              )}
+              {orderType === "DELIVERY" && <ShippingFeeCard fee={shippingFee} />}
 
               {voucherDiscount > 0 && (
                 <div className={styles.costRow}>
@@ -738,7 +824,9 @@ export default function CheckoutPage() {
                     lineHeight: 1.4,
                   }}
                 >
-                  {submitError.includes(".") ? t(submitError) : submitError}
+                  {typeof submitError === "string" && t.has(submitError)
+                    ? t(submitError)
+                    : submitError}
                 </div>
               )}
 

@@ -7,6 +7,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { FoodImage } from "@/components/order/food-image";
 import Link from "@/components/ui-loader/navigation-link";
 import { useOrder } from "@/components/order/order-provider";
+import { parseCatalogNumericId, syncCatalogMetadata } from "@/lib/cart";
 import { type Product } from "@/lib/products";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Check } from "lucide-react";
 
@@ -110,10 +111,12 @@ export function ProductDetailClient({ product, storeId }: ProductDetailClientPro
 
   const handleAddToCart = () => {
     if (!ready || isSoldOut || isAddedSuccess) return;
+    syncCatalogMetadata([product]);
     addItem({
       id: crypto.randomUUID(),
-      productId: Number(product.id),
-      itemType: "PRODUCT",
+      productId: (product.comboItems?.length || product.slug?.startsWith("combo-")) ? undefined : (parseCatalogNumericId(product.id) ?? parseCatalogNumericId(product.slug)),
+      comboId: (product.comboItems?.length || product.slug?.startsWith("combo-")) ? (parseCatalogNumericId(product.id) ?? parseCatalogNumericId(product.slug)) : undefined,
+      itemType: (product.comboItems?.length || product.slug?.startsWith("combo-")) ? "COMBO" : "PRODUCT",
       slug: product.slug,
       name: product.name,
       category: product.categoryName || product.category || '',
@@ -122,6 +125,12 @@ export function ProductDetailClient({ product, storeId }: ProductDetailClientPro
       quantity,
       image: product.imageUrl || product.image,
       note: specialNote.trim(),
+      optionIds: Object.values(selectedOptions)
+        .map((id) => parseCatalogNumericId(id) ?? 0)
+        .filter((id) => !isNaN(id) && id > 0),
+      toppingIds: selectedToppings
+        .map((id) => parseCatalogNumericId(id) ?? 0)
+        .filter((id) => !isNaN(id) && id > 0),
       options: product.options?.flatMap((group) => {
         const choice = group.choices.find(
           (entry) => entry.id === selectedOptions[group.id],

@@ -21,15 +21,14 @@ import {
 import Link from '@/components/ui-loader/navigation-link';
 import { useNavigationTask } from '@/components/ui-loader';
 import { VoucherBadge } from '@/components/promotion/voucher-badge';
-import type { Voucher, VoucherStatus, VoucherType, VoucherScope } from '@/lib/types/promotion';
+import type { Voucher } from '@/lib/types/promotion';
 import {
   fetchAvailableVouchers,
-  validateVoucherForOrder,
   formatVoucherDiscount,
   formatVoucherCondition,
   getVoucherStatus,
 } from '@/lib/promotion';
-import { stores } from '@/lib/products';
+import { catalogApi, promotionApi, getErrorMessage, type StoreItem } from '@/lib/api';
 import styles from './vouchers.module.css';
 
 type TabStatus = 'ALL' | 'ACTIVE' | 'UPCOMING' | 'EXPIRED';
@@ -39,8 +38,8 @@ export default function VouchersPage() {
   const t = useTranslations();
   const { locale, money: formatPrice } = useLocaleTools();
 
-
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [storeList, setStoreList] = useState<StoreItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,8 +70,14 @@ export default function VouchersPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchAvailableVouchers();
-      setVouchers(data);
+      const [voucherData, storesData] = await Promise.all([
+        fetchAvailableVouchers(),
+        catalogApi.getStores(false).catch(() => [] as StoreItem[]),
+      ]);
+      setVouchers(voucherData);
+      if (Array.isArray(storesData)) {
+        setStoreList(storesData);
+      }
     } catch {
       setError(t("business.promotionUi.vouchersLoadError"));
     } finally {
@@ -101,8 +106,8 @@ export default function VouchersPage() {
     showToast(t("business.promotionUi.copiedCode", { code: code }));
   };
 
-  // Quick checker handler
-  const handleCheckVoucher = (e: React.FormEvent) => {
+  // Quick checker handler via Backend API (/api/promotions/vouchers/validate)
+  const handleCheckVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = checkCode.trim().toUpperCase();
     if (!cleanCode) {
@@ -116,34 +121,33 @@ export default function VouchersPage() {
     }
 
     const matched = vouchers.find(
-      (v) => v.code.toUpperCase() === cleanCode
+      (v) => v.code.toUpperCase() === cleanCode,
     );
 
-    if (!matched) {
+    try {
+      const apiRes = await promotionApi.validateVoucher({
+        code: cleanCode,
+        orderAmount: checkAmount,
+        storeId: checkStoreId ? Number(checkStoreId) : null,
+      });
+
+      setCheckResult({
+        tested: true,
+        valid: Boolean(apiRes?.valid),
+        discount: Number(apiRes?.discountAmount) || 0,
+        reason: apiRes?.reason,
+        voucher: matched ?? apiRes?.voucher,
+      });
+    } catch (err: any) {
       setCheckResult({
         tested: true,
         valid: false,
         discount: 0,
-        reason: t("business.promotionUi.unknownCode", { code: cleanCode }),
+        reason:
+          getErrorMessage(err) ||
+          t("business.promotionUi.unknownCode", { code: cleanCode }),
       });
-      return;
     }
-
-    const validation = validateVoucherForOrder(
-      matched,
-      checkAmount,
-      checkStoreId ? Number(checkStoreId) : null,
-      new Date(),
-      locale
-    );
-
-    setCheckResult({
-      tested: true,
-      valid: validation.valid,
-      discount: validation.discountAmount,
-      reason: validation.reason,
-      voucher: matched,
-    });
   };
 
   // Filter vouchers
@@ -251,7 +255,7 @@ export default function VouchersPage() {
               className={styles.inputField}
             >
               <option value="">{t("business.promotionUi.allStores")}</option>
-              {stores.map((s) => (
+              {storeList.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -283,15 +287,15 @@ export default function VouchersPage() {
                     </div>
                   </div>
                 </div>
-                {checkResult.voucher && (
+                {(checkResult.voucher || checkCode.trim()) && (
                   <button
                     type="button"
-                    onClick={() => handleCopyCode(checkResult.voucher!.code)}
+                    onClick={() => handleCopyCode(checkResult.voucher?.code || checkCode.trim().toUpperCase())}
                     className={styles.copyCodeBtn}
                     style={{ background: '#ffffff' }}
                   >
                     <Copy size={13} aria-hidden="true" />
-                    {t("business.promotionUi.getCode")} {checkResult.voucher.code}
+                    {t("business.promotionUi.getCode")} {checkResult.voucher?.code || checkCode.trim().toUpperCase()}
                   </button>
                 )}
               </div>
@@ -507,7 +511,7 @@ export default function VouchersPage() {
                     {voucher.scope === 'STORE' ? (
                       <span className={styles.ticketMetaItem} style={{ color: '#0369a1' }}>
                         <StoreIcon size={13} aria-hidden="true" />
-                        <span>{voucher.storeName || t("business.promotionUi.selectedStores")}</span>
+                        <span>{voucher.storeName || storeList.find((s) => s.id === Number(voucher.storeId))?.name || t("business.promotionUi.selectedStores")}</span>
                       </span>
                     ) : (
                       <span className={styles.ticketMetaItem} style={{ color: '#15803d' }}>
@@ -626,4 +630,3 @@ export default function VouchersPage() {
     </div>
   );
 }
-
