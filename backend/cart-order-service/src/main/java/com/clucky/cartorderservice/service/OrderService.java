@@ -572,18 +572,18 @@ public class OrderService {
             List<Long> optionIds = new ArrayList<>();
             if (it.getOptionsSnapshot() != null && it.getOptionsSnapshot().isArray()) {
                 for (JsonNode n : it.getOptionsSnapshot()) {
-                    long id = n.isObject() ? n.path("id").asLong() : n.asLong();
-                    if (id > 0) {
-                        optionIds.add(id);
+                    long optId = n.isObject() ? n.path("id").asLong() : n.asLong();
+                    if (optId > 0) {
+                        optionIds.add(optId);
                     }
                 }
             }
             List<Long> toppingIds = new ArrayList<>();
             if (it.getToppingsSnapshot() != null && it.getToppingsSnapshot().isArray()) {
                 for (JsonNode n : it.getToppingsSnapshot()) {
-                    long id = n.isObject() ? n.path("id").asLong() : n.asLong();
-                    if (id > 0) {
-                        toppingIds.add(id);
+                    long topId = n.isObject() ? n.path("id").asLong() : n.asLong();
+                    if (topId > 0) {
+                        toppingIds.add(topId);
                     }
                 }
             }
