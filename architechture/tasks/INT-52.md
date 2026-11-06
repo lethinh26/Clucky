@@ -1,6 +1,6 @@
 # [INT-52] Tích hợp refund: duyệt/từ chối, cập nhật thanh toán, thông báo và nghiệm thu
 
-> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
 
 ## Thông tin quản lý
 
@@ -31,6 +31,18 @@ Duyệt/từ chối/ghi nhận hoàn tiền đồng bộ Order–Payment–Notif
 
 Không thực hiện chuyển tiền ngân hàng tự động; không bỏ kiểm chứng vì API trả 200.
 
+### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
+
+Refund UI/modal và BE-46/32 có phạm vi riêng về request/approve/refunded; task gộp INT-66 và TEST-03/11 nên phải giữ đầy đủ regression ở đây. Không coi API approve trả 200 là đã hoàn tiền.
+
+- [frontend/react/src/pages/Orders/components/RefundModal.tsx](../../frontend/react/src/pages/Orders/components/RefundModal.tsx)
+- [frontend/react/src/pages/Payments](../../frontend/react/src/pages/Payments)
+- [architechture/tasks/BE-46.md](../../architechture/tasks/BE-46.md)
+- [architechture/tasks/BE-32.md](../../architechture/tasks/BE-32.md)
+- [architechture/tasks/BE-39.md](../../architechture/tasks/BE-39.md)
+
+Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
+
 ## 3. Đầu vào, đầu ra và contract
 
 | Thành phần | Chi tiết cần bàn giao |
@@ -41,11 +53,18 @@ Không thực hiện chuyển tiền ngân hàng tự động; không bỏ kiể
 
 Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
 
-## 4. Luồng xử lý / cách thực hiện
+### Mapping phải ghi trước khi nối luồng
 
-1. Khách/nhân sự tạo request đúng điều kiện
-2. Manager/Admin quyết định theo store
-3. Ghi trạng thái xử lý hoàn và event, đối chiếu UI/backend
+RefundRequest ID khác payment/order IDs; PENDING→APPROVED/REJECTED và REFUNDED sau xử lý hợp lệ. Actor/store/reason/evidence fields theo contract; thông báo approved không được nói money refunded. Không có tự chuyển tiền ngân hàng trong scope.
+
+## 4. Thứ tự thực hiện cụ thể
+
+1. Lập matrix request/approve/reject/mark-refunded với source of truth từng state và actor được phép.
+2. Chuẩn bị request đủ điều kiện, thiếu lý do, đã xử lý và quán khác; dữ liệu hoàn tiền chỉ fixture được phép.
+3. Nối create/decision pending/error/conflict và readback; reject/approve phải lưu lý do/evidence theo rule, không lấy local state làm chuẩn.
+4. Nối Payment REFUNDED theo hợp đồng sau quyết định và xác nhận xử lý; không tự gọi provider hoàn tiền hoặc tự đổi PAID ngay khi approve.
+5. Theo event tới notification/email/audit đúng semantic; duplicate decision/refund giữ idempotency, không notify hai lần.
+6. Bàn giao regression gộp gồm cross-store, STAFF forbidden, concurrent approve/reject và failure giữa các bước; so state cả request/payment/order/UI.
 
 ## 5. Quy tắc và điểm cần chốt
 
@@ -54,6 +73,10 @@ Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint �
 **Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
 
 Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+### Quyết định có owner và phần bị chặn
+
+PIC Order/Payment/Notification chốt quyền, evidence và thời điểm thông báo từng state. Partial refund chỉ thêm nếu contract đã có, không tự tạo policy.
 
 ## 6. Dependency và bàn giao
 
@@ -74,28 +97,31 @@ Phương án được ghi là “cần chốt/đề xuất” chưa phải quy�
 
 **Task nhận đầu ra theo dependency đã khai báo:** [INT-64](INT-64.md), [TEST-22](TEST-22.md)
 
-## 7. Tiêu chí nghiệm thu
+## 7. Tiêu chí nghiệm thu cụ thể
 
-| AC | Điều kiện / thao tác | Kết quả mong đợi |
+| AC | Fixture / thao tác | Kết quả mong đợi |
 |---|---|---|
-| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Refund E2E với approve/reject/refunded, audit/notification và chống lặp. |
+| AC-01 | Request hợp lệ → approve → bước xử lý được xác nhận → REFUNDED | Từng state có evidence riêng, chỉ bước cuối thông báo đã hoàn tiền |
 | AC-02 | Reject thiếu điều kiện/lý do theo contract | Không ghi thành công giả |
 | AC-03 | Duplicate approve/refund | Không hoàn/notify hai lần |
 | AC-04 | Manager quán A duyệt B | Bị chặn |
+| AC-05 | Hai tab approve/reject hoặc retry mark-refunded | Một outcome hợp lệ theo concurrency rule, không hoàn/notify lặp |
+| AC-06 | Manager A duyệt B, STAFF approve hoặc reject thiếu reason bắt buộc | Không đổi state trái quyền/validation, UI giữ nội dung để sửa |
 
-Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
 
 ## 8. Checklist và bằng chứng bàn giao
 
 - [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
-- [ ] AC-02: Reject thiếu điều kiện/lý do theo contract — ghi kết quả và evidence.
-- [ ] AC-03: Duplicate approve/refund — ghi kết quả và evidence.
-- [ ] AC-04: Manager quán A duyệt B — ghi kết quả và evidence.
 - [ ] Bàn giao bằng chứng cụ thể: Full state sequence, permission/replay cases, order/payment/email/audit evidence.
 - [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
 
 - Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
+
+- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
+- [ ] Bàn giao state ownership map, evidence từng bước và regression gộp INT-66/TEST-03/11; không mở lại các ID đã gộp.
+- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
+- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
 
 ## 9. Truy vết gộp task
 
@@ -103,19 +129,14 @@ INT-66: Admin refund approval + payment reconciliation E2E; TEST-03: E2E cancel�
 
 Không mở lại các ID đã gộp; phần việc gộp phải được kiểm chứng cùng task đích.
 
-## 10. Tài liệu nguồn
+## 10. Tài liệu và source cần đọc
 
-- [SRS.md](../../architechture/docs/SRS.md)
-- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
-- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
-- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
-- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
-- [schema.sql](../../architechture/database/schema.sql)
-- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
-- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
-- [Danh mục error code](../../contracts/errors.json)
-- [Brand Guidelines](../docs/Brand_Guidelines.md)
-- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+- [frontend/react/src/pages/Orders/components/RefundModal.tsx](../../frontend/react/src/pages/Orders/components/RefundModal.tsx)
+- [frontend/react/src/pages/Payments](../../frontend/react/src/pages/Payments)
+- [architechture/tasks/BE-46.md](../../architechture/tasks/BE-46.md)
+- [architechture/tasks/BE-32.md](../../architechture/tasks/BE-32.md)
+- [architechture/tasks/BE-39.md](../../architechture/tasks/BE-39.md)
+- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
 
 ## 11. Metadata và lịch sử kế hoạch
 

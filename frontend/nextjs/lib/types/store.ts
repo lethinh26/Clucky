@@ -71,4 +71,5 @@ export interface Store {
   status: StoreStatus;
   deliveryArea: string;
   managerName?: string;
+  isOpenNow?: boolean;
 }

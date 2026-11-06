@@ -15,6 +15,9 @@ public class User {
     @Column(name = "email", nullable = false, length = 255, unique = true)
     private String email;
 
+    @Column(name = "firebase_uid", length = 128, unique = true)
+    private String firebaseUid;
+
     @Column(name = "phone", nullable = true, length = 30, unique = true)
     private String phone;
 
@@ -54,6 +57,9 @@ public class User {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getFirebaseUid() { return firebaseUid; }
+    public void setFirebaseUid(String firebaseUid) { this.firebaseUid = firebaseUid; }
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }

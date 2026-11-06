@@ -1,6 +1,6 @@
 # [INT-53] Identity → Gateway security integration: JWT claims, role, storeId propagation
 
-> Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
+> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
 
 ## Thông tin quản lý
 
@@ -30,6 +30,17 @@ JWT do Identity phát được Gateway và từng service xác minh, role/storeI
 
 Không backend policy cụ thể của mọi endpoint thay INT-67; collection tổng hợp ở DEP-09.
 
+### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
+
+Gateway SecurityConfig đã kiểm tra issuer/audience/JWT key, revocation qua Redis và deny internal/webhook paths. Identity auth transport dùng HttpOnly refresh cookie; cần nối cấu hình/claims thật, không thay matcher bằng permitAll để chạy được.
+
+- [backend/api-gateway/src/main/java/com/clucky/apigateway/config/SecurityConfig.java](../../backend/api-gateway/src/main/java/com/clucky/apigateway/config/SecurityConfig.java)
+- [backend/identity-service](../../backend/identity-service)
+- [config-repo/api-gateway.yml](../../config-repo/api-gateway.yml)
+- [architechture/tasks/BE-17.md](../../architechture/tasks/BE-17.md)
+
+Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
+
 ## 3. Đầu vào, đầu ra và contract
 
 | Thành phần | Chi tiết cần bàn giao |
@@ -40,11 +51,18 @@ Không backend policy cụ thể của mọi endpoint thay INT-67; collection t�
 
 Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
 
-## 4. Luồng xử lý / cách thực hiện
+### Mapping phải ghi trước khi nối luồng
 
-1. Lấy JWT thật từ Identity
-2. Gọi route qua Gateway và service kiểm tra lại
-3. Thử token/header/body tamper và service-to-service boundary
+issuer/audience/expiry/session claims, role/storeId từ JWT → Gateway → service trust boundary; public allowlist theo method/path. Refresh/logout cookie không bắt Bearer trái docs; X-Role/X-User/store headers client không là nguồn quyền.
+
+## 4. Thứ tự thực hiện cụ thể
+
+1. Đối chiếu Identity token generation và validators ở Gateway/service; cấu hình qua Config Server/env, không ghi JWT secret vào repo.
+2. Lập route public/auth/internal và service-to-service/webhook exception với owner; không publish endpoint nội bộ cho browser.
+3. Chuẩn bị token thật từng role cùng expired/wrong issuer/audience/tampered fixture an toàn; không log token values.
+4. Nối Bearer forwarding và correlation, xử lý 401/403 cùng error shape; service kiểm tra quyền riêng không tin header tự khai.
+5. Đối chiếu CORS credentials/refresh cookie và logout revocation, lỗi Redis theo policy bảo mật; không bypass kiểm tra khi dependency down.
+6. Bàn giao route/discovery smoke gộp DEP-15 và tamper matrix cho INT-67; collection tổng hợp giao DEP-09.
 
 ## 5. Quy tắc và điểm cần chốt
 
@@ -53,6 +71,10 @@ Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint �
 **Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
 
 Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
+
+### Quyết định có owner và phần bị chặn
+
+PIC Identity/Gateway/domain chốt S2S auth, webhook ingress và policy session dependency lỗi. JWT hợp lệ không chứng minh endpoint RBAC đúng; INT-67 kiểm từng API.
 
 ## 6. Dependency và bàn giao
 
@@ -72,28 +94,31 @@ Phương án được ghi là “cần chốt/đề xuất” chưa phải quy�
 
 **Task nhận đầu ra theo dependency đã khai báo:** [DEP-09](DEP-09.md), [INT-05](INT-05.md), [INT-07](INT-07.md), [INT-67](INT-67.md)
 
-## 7. Tiêu chí nghiệm thu
+## 7. Tiêu chí nghiệm thu cụ thể
 
-| AC | Điều kiện / thao tác | Kết quả mong đợi |
+| AC | Fixture / thao tác | Kết quả mong đợi |
 |---|---|---|
-| AC-01 | Đủ đầu vào hợp lệ và contract đã được xác nhận | Security integration login→Gateway→service, auth/authorization error contract nhất quán. |
+| AC-01 | Login Identity rồi gọi public/protected route qua Gateway bằng role hợp lệ | Đúng route, protected nhận actor/store từ token và public vẫn truy cập theo allowlist |
 | AC-02 | Token thiếu/sai/hết hạn | Không tới nghiệp vụ thành công |
 | AC-03 | Client giả X-Role/store header | Không nâng quyền |
 | AC-04 | Endpoint public | Không bị vô tình bắt đăng nhập |
+| AC-05 | Token sai/hết hạn/thu hồi hoặc client thêm X-Role=ADMIN | Không nâng quyền hoặc thành công nghiệp vụ, error không lộ token/secret |
+| AC-06 | Refresh/logout bằng cookie theo docs và request internal từ browser | Transport auth đúng contract; internal vẫn bị chặn, không blanket permitAll |
 
-Các AC chưa có kết quả trong lần biên soạn này. Với task UI, fixture chỉ nghiệm thu giao diện; E2E thật thuộc task INT/TEST tương ứng.
+Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
 
 ## 8. Checklist và bằng chứng bàn giao
 
 - [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] AC-01: Đủ đầu vào hợp lệ và contract đã được xác nhận — ghi kết quả và evidence.
-- [ ] AC-02: Token thiếu/sai/hết hạn — ghi kết quả và evidence.
-- [ ] AC-03: Client giả X-Role/store header — ghi kết quả và evidence.
-- [ ] AC-04: Endpoint public — ghi kết quả và evidence.
 - [ ] Bàn giao bằng chứng cụ thể: JWT claim matrix, Gateway/service response và đường public/protected/internal.
 - [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
 
 - Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
+
+- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
+- [ ] Bàn giao claims/route trust matrix, redacted 401/403 traces và runtime config names; DEP-15 smoke không bao gồm collection thay DEP-09.
+- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
+- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
 
 ## 9. Truy vết gộp task
 
@@ -101,19 +126,13 @@ DEP-15: Gateway route/discovery smoke và API collection (đã gộp)
 
 Không mở lại các ID đã gộp; phần việc gộp phải được kiểm chứng cùng task đích.
 
-## 10. Tài liệu nguồn
+## 10. Tài liệu và source cần đọc
 
-- [SRS.md](../../architechture/docs/SRS.md)
-- [Đặc tả API.md](../../architechture/docs/%C4%90%E1%BA%B7c%20t%E1%BA%A3%20API.md)
-- [Kiến trúc hệ thống.md](../../architechture/docs/Ki%E1%BA%BFn%20tr%C3%BAc%20h%E1%BB%87%20th%E1%BB%91ng.md)
-- [Ma trận phân quyền.md](../../architechture/docs/Ma%20tr%E1%BA%ADn%20ph%C3%A2n%20quy%E1%BB%81n.md)
-- [Thiết kế cơ sở dữ liệu.md](../../architechture/docs/Thi%E1%BA%BFt%20k%E1%BA%BF%20c%C6%A1%20s%E1%BB%9F%20d%E1%BB%AF%20li%E1%BB%87u.md)
-- [schema.sql](../../architechture/database/schema.sql)
-- [Kế hoạch gốc trong Git (lịch sử)](https://github.com/lethinh26/Clucky/blob/2cc31a09689e718fb49d2d0a80f5813057547c17/architechture/plans/BACKLOG-REPLAN-PROPOSAL-2026-10-29.md)
-- [Danh mục lỗi và quy tắc sinh mã](../../contracts/README.md)
-- [Danh mục error code](../../contracts/errors.json)
-- [Brand Guidelines](../docs/Brand_Guidelines.md)
-- [Backlog tổng hợp và quy ước ước lượng](../../docs/backlog.md)
+- [backend/api-gateway/src/main/java/com/clucky/apigateway/config/SecurityConfig.java](../../backend/api-gateway/src/main/java/com/clucky/apigateway/config/SecurityConfig.java)
+- [backend/identity-service](../../backend/identity-service)
+- [config-repo/api-gateway.yml](../../config-repo/api-gateway.yml)
+- [architechture/tasks/BE-17.md](../../architechture/tasks/BE-17.md)
+- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
 
 ## 11. Metadata và lịch sử kế hoạch
 

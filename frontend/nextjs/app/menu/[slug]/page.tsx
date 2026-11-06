@@ -2,7 +2,7 @@ import { getTranslations } from 'next-intl/server';
 import Link from '@/components/ui-loader/navigation-link';
 import { ProductDetailClient } from '@/components/product-detail-client';
 import type { Product } from '@/lib/products';
-import { catalogApi } from '@/lib/api';
+import { catalogApi } from '@/lib/catalog-and-stores.api';
 
 export default async function ProductPage({
   params,
@@ -61,7 +61,7 @@ export default async function ProductPage({
 
   return (
     <main>
-      <ProductDetailClient product={product} storeId={storeId} />
+      <ProductDetailClient product={product} storeId={storeId} itemType={isCombo ? "COMBO" : "PRODUCT"} />
     </main>
   );
 }

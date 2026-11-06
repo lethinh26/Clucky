@@ -51,7 +51,8 @@ public final class DomainMapper {
                 entity.getProduct() != null ? entity.getProduct().getId() : null,
                 entity.getGroupName(),
                 entity.getName(),
-                entity.getExtraPrice()
+                entity.getExtraPrice(),
+                entity.getIsRequired()
         );
     }
 

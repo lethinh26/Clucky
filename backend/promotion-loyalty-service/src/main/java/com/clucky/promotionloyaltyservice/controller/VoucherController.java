@@ -1,9 +1,13 @@
 package com.clucky.promotionloyaltyservice.controller;
 
+import com.clucky.promotionloyaltyservice.config.CurrentActor;
+import com.clucky.promotionloyaltyservice.dto.Role;
 import com.clucky.promotionloyaltyservice.dto.ValidateVoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.ValidateVoucherResponse;
 import com.clucky.promotionloyaltyservice.dto.VoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.VoucherResponse;
+import com.clucky.promotionloyaltyservice.exception.ApiException;
+import com.clucky.promotionloyaltyservice.exception.ErrorCode;
 import com.clucky.promotionloyaltyservice.model.VoucherScope;
 import com.clucky.promotionloyaltyservice.model.VoucherStatus;
 import com.clucky.promotionloyaltyservice.service.VoucherService;
@@ -53,14 +57,19 @@ public class VoucherController {
         @RequestParam(name = "scope", required = false) VoucherScope scope,
         @RequestParam(name = "storeId", required = false) Long storeId,
         @RequestParam(name = "status", required = false) VoucherStatus status,
-        @RequestParam(name = "keyword", required = false) String keyword,
-        @RequestHeader(name = "X-User-Role", required = false) String actorRole,
-        @RequestHeader(name = "X-Store-Id", required = false) Long actorStoreId
+        @RequestParam(name = "keyword", required = false) String keyword
     ) {
-        // Enforce storeId restriction if caller is a Store Manager
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() != Role.ADMIN && actor.role() != Role.STORE_MANAGER) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
         Long effectiveStoreId = storeId;
-        if ("STORE_MANAGER".equalsIgnoreCase(actorRole)) {
-            effectiveStoreId = actorStoreId;
+        if (actor.role() == Role.STORE_MANAGER) {
+            if (actor.storeId() == null || (storeId != null && !storeId.equals(actor.storeId()))) {
+                throw new ApiException(ErrorCode.FORBIDDEN);
+            }
+            effectiveStoreId = actor.storeId();
+            scope = VoucherScope.STORE;
         }
 
         List<VoucherResponse> vouchers = voucherService.getVouchers(scope, effectiveStoreId, status, keyword);
@@ -73,7 +82,15 @@ public class VoucherController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<VoucherResponse> getVoucherById(@PathVariable("id") Long id) {
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() != Role.ADMIN && actor.role() != Role.STORE_MANAGER) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
         VoucherResponse voucher = voucherService.getVoucherById(id);
+        if (actor.role() == Role.STORE_MANAGER
+                && (actor.storeId() == null || !actor.storeId().equals(voucher.getStoreId()))) {
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
         return ResponseEntity.ok(voucher);
     }
 
@@ -83,13 +100,53 @@ public class VoucherController {
      */
     @PostMapping
     public ResponseEntity<VoucherResponse> createVoucher(
-        @Valid @RequestBody VoucherRequest request,
-        @RequestHeader(name = "X-User-Id", required = false) Long actorId,
-        @RequestHeader(name = "X-User-Role", required = false) String actorRole,
-        @RequestHeader(name = "X-Store-Id", required = false) Long actorStoreId
+        @Valid @RequestBody VoucherRequest request
     ) {
-        VoucherResponse created = voucherService.createVoucher(request, actorId, actorRole, actorStoreId);
+        CurrentActor actor = CurrentActor.require();
+        VoucherResponse created = voucherService.createVoucher(
+            request,
+            actor.userId(),
+            actor.role() != null ? actor.role().name() : null,
+            actor.storeId()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    /**
+     * Store proposal endpoint for Store Manager to submit a voucher proposal.
+     * Enforces storeId from authenticated actor, scope STORE, and status PENDING_APPROVAL.
+     * POST /api/promotions/vouchers/store-proposals
+     */
+    @PostMapping("/store-proposals")
+    public ResponseEntity<VoucherResponse> createStoreProposal(
+        @Valid @RequestBody VoucherRequest request
+    ) {
+        CurrentActor actor = CurrentActor.require();
+        VoucherResponse created = voucherService.createStoreProposal(
+            request,
+            actor.userId(),
+            actor.role() != null ? actor.role().name() : null,
+            actor.storeId()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    /**
+     * Admin approves a voucher proposal, transitioning it from PENDING_APPROVAL to ACTIVE.
+     * Manager or unauthorized caller is rejected with FORBIDDEN.
+     * PUT /api/promotions/vouchers/{id}/approve
+     */
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<VoucherResponse> approveVoucher(
+        @PathVariable("id") Long id
+    ) {
+        CurrentActor actor = CurrentActor.require();
+        VoucherResponse approved = voucherService.approveVoucher(
+            id,
+            actor.userId(),
+            actor.role() != null ? actor.role().name() : null
+        );
+        return ResponseEntity.ok(approved);
     }
 
     /**
@@ -99,12 +156,16 @@ public class VoucherController {
     @PutMapping("/{id}")
     public ResponseEntity<VoucherResponse> updateVoucher(
         @PathVariable("id") Long id,
-        @Valid @RequestBody VoucherRequest request,
-        @RequestHeader(name = "X-User-Id", required = false) Long actorId,
-        @RequestHeader(name = "X-User-Role", required = false) String actorRole,
-        @RequestHeader(name = "X-Store-Id", required = false) Long actorStoreId
+        @Valid @RequestBody VoucherRequest request
     ) {
-        VoucherResponse updated = voucherService.updateVoucher(id, request, actorId, actorRole, actorStoreId);
+        CurrentActor actor = CurrentActor.require();
+        VoucherResponse updated = voucherService.updateVoucher(
+            id,
+            request,
+            actor.userId(),
+            actor.role() != null ? actor.role().name() : null,
+            actor.storeId()
+        );
         return ResponseEntity.ok(updated);
     }
 
@@ -114,13 +175,16 @@ public class VoucherController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteVoucher(
-        @PathVariable("id") Long id,
-        @RequestHeader(name = "X-User-Id", required = false) Long actorId,
-        @RequestHeader(name = "X-User-Role", required = false) String actorRole,
-        @RequestHeader(name = "X-Store-Id", required = false) Long actorStoreId
+        @PathVariable("id") Long id
     ) {
-        voucherService.deleteVoucher(id, actorId, actorRole, actorStoreId);
+        CurrentActor actor = CurrentActor.require();
+        voucherService.deleteVoucher(
+            id,
+            actor.userId(),
+            actor.role() != null ? actor.role().name() : null,
+            actor.storeId()
+        );
         return ResponseEntity.noContent().build();
     }
-}
 
+}

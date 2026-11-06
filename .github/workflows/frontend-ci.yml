@@ -1,4 +1,4 @@
-name: Frontend CI/CD
+name: Clucky full-stack CI/CD
 
 on:
   push:
@@ -120,8 +120,27 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  preflight:
+    name: Validate backend configuration
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: frontend-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate backend secret without logging values
+        env:
+          BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
+        shell: bash
+        run: printf '%s' "$BACKEND_ENV_JSON" | python3 deploy/backend/prepare.py --validate
+
   images:
     name: Package frontend images
+    needs: preflight
     # PR checks gate merging; main packages the merged revision without retesting.
     if: >-
       github.ref == 'refs/heads/main' &&
@@ -135,7 +154,7 @@ jobs:
       FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
       FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
       FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-      CUSTOMER_DEMO_ENABLED: ${{ vars.NEXT_PUBLIC_M3_DEMO_ENABLED || 'true' }}
+      CUSTOMER_DEMO_ENABLED: ${{ vars.NEXT_PUBLIC_M3_DEMO_ENABLED || 'false' }}
     steps:
       - name: Checkout checked revision
         uses: actions/checkout@v4
@@ -145,6 +164,11 @@ jobs:
       - name: Identify release bundle
         id: release
         run: echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Require public Firebase configuration
+        shell: bash
+        run: |
+          [[ -n "$FIREBASE_API_KEY" && -n "$FIREBASE_AUTH_DOMAIN" && -n "$FIREBASE_PROJECT_ID" ]] || { echo 'Set the three NEXT_PUBLIC_FIREBASE_* repository Variables before deploying.' >&2; exit 1; }
 
       - name: Build production images on GitHub runner
         shell: bash
@@ -213,15 +237,49 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
-  deploy:
-    name: Deploy frontend to VPS
+  backend_images:
+    name: Package all backend images
     needs: images
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
+    env:
+      RELEASE_ID: ${{ needs.images.outputs.release_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build versioned Java images without running tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          images=()
+          for service in config-server discovery-server identity-service catalog-store-service cart-order-service payment-service promotion-loyalty-service shipping-service notification-service review-report-service audit-service api-gateway; do
+            image="clucky-$service:$RELEASE_ID"
+            docker build --build-arg "SERVICE_NAME=$service" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              -f deploy/backend/Dockerfile --tag "$image" backend
+            images+=("$image")
+          done
+          mkdir -p backend-bundle
+          docker save "${images[@]}" | gzip -1 > backend-bundle/backend.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-images-${{ env.RELEASE_ID }}
+          path: backend-bundle/backend.tar.gz
+          compression-level: 0
+          retention-days: 3
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy infrastructure, backend and frontends to VPS
+    needs: [images, backend_images]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment: frontend-production
     concurrency:
-      group: clucky-frontend-production
+      group: clucky-full-stack-production
       cancel-in-progress: false
     env:
       # Retain the packaged ID when only a failed deployment job is rerun.
@@ -251,9 +309,16 @@ jobs:
           name: frontend-images-${{ env.RELEASE_ID }}
           path: bundle
 
+      - name: Download backend images
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-images-${{ env.RELEASE_ID }}
+          path: backend-bundle
+
       - name: Prepare SSH and release manifest
         env:
           SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
         shell: bash
         run: |
           set -euo pipefail
@@ -261,26 +326,48 @@ jobs:
           [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo 'Invalid or missing VPS_USER' >&2; exit 1; }
           [[ "$VPS_WORKDIR" =~ ^/([A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*$ ]] || { echo 'VPS_WORKDIR must be an absolute path without spaces, dot segments or a trailing slash.' >&2; exit 1; }
           [[ "$DEPLOY_PORT" =~ ^[0-9]{1,5}$ ]] && ((10#$DEPLOY_PORT >= 1 && 10#$DEPLOY_PORT <= 65535)) || { echo 'Invalid SSH port' >&2; exit 1; }
-          [[ -n "$SSH_PRIVATE_KEY" ]] || { echo 'Configure VPS_SSH_KEY first.' >&2; exit 1; }
+          [[ -n "$SSH_PRIVATE_KEY" && -n "$SSH_KNOWN_HOSTS" ]] || { echo 'Configure VPS_SSH_KEY and verified VPS_SSH_KNOWN_HOSTS first.' >&2; exit 1; }
           umask 077
           printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$RUNNER_TEMP/frontend_key"
-          # Trust the first connection; reuse its host key throughout this job.
-          : > "$RUNNER_TEMP/frontend_known_hosts"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > "$RUNNER_TEMP/frontend_known_hosts"
           cp deploy/frontend/compose.yml deploy/frontend/deploy.sh bundle/
           printf 'IMAGE_TAG=%s\n' "$RELEASE_ID" > bundle/release.env
-          cd bundle
-          sha256sum customer.tar.gz admin.tar.gz compose.yml deploy.sh release.env > SHA256SUMS
+          (cd bundle && sha256sum customer.tar.gz admin.tar.gz compose.yml deploy.sh release.env > SHA256SUMS)
+          cp deploy/backend/compose.yml deploy/backend/deploy.sh deploy/backend/prepare.py backend-bundle/
+          cp deploy/identity/firebase_secret.py backend-bundle/install-firebase.py
+          mkdir -p backend-bundle/config-repo
+          cp config-repo/*.yml backend-bundle/config-repo/
+          (cd backend-bundle && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 
-      - name: Transfer and activate release
+      - name: Provision secrets and deploy complete stack
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
+          EXPECTED_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
         shell: bash
         run: |
           set -euo pipefail
+          [[ -n "$FIREBASE_SERVICE_ACCOUNT_JSON" && -n "$BACKEND_ENV_JSON" ]] || { echo 'Configure FIREBASE_SERVICE_ACCOUNT_JSON and BACKEND_ENV_JSON.' >&2; exit 1; }
+          python3 - <<'PY'
+          import json, os, sys
+          try:
+              project = json.loads(os.environ['FIREBASE_SERVICE_ACCOUNT_JSON'])['project_id']
+              if project != os.environ['EXPECTED_FIREBASE_PROJECT_ID']:
+                  raise ValueError()
+          except (ValueError, KeyError, TypeError):
+              sys.exit('Firebase server credential and frontend project must match.')
+          PY
           target="$DEPLOY_USER@$DEPLOY_HOST"
           incoming="$VPS_WORKDIR/frontend/incoming/$RELEASE_ID"
+          backend_incoming="$VPS_WORKDIR/backend/incoming/$RELEASE_ID"
           options=(-i "$RUNNER_TEMP/frontend_key" -o BatchMode=yes -o IdentitiesOnly=yes
-            -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$RUNNER_TEMP/frontend_known_hosts"
+            -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/frontend_known_hosts"
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
-          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "mkdir -p '$incoming'"
+          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "set -e; umask 077; mkdir -p '$incoming' '$backend_incoming'; command -v python3 >/dev/null; command -v flock >/dev/null; docker compose version >/dev/null"
+          scp -r -P "$DEPLOY_PORT" "${options[@]}" backend-bundle/. "$target:$backend_incoming/"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "python3 '$backend_incoming/install-firebase.py' '$VPS_WORKDIR'"
+          printf '%s' "$BACKEND_ENV_JSON" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "python3 '$backend_incoming/prepare.py' '$VPS_WORKDIR' '$RELEASE_ID'"
+          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "VPS_WORKDIR='$VPS_WORKDIR' bash '$backend_incoming/deploy.sh' apply '$RELEASE_ID'"
           scp -P "$DEPLOY_PORT" "${options[@]}" \
             bundle/customer.tar.gz bundle/admin.tar.gz bundle/compose.yml \
             bundle/deploy.sh bundle/release.env bundle/SHA256SUMS "$target:$incoming/"

@@ -17,7 +17,24 @@ public class OpenApiConfig {
     OpenAPI openAPI(@Value("${spring.application.name}") String serviceName) {
         Components components = new Components().addSecuritySchemes("bearerAuth", new SecurityScheme()
                 .type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT"));
-        for (Class<?> contract : new Class<?>[] {ApiError.class, PageResponse.class, DomainEvent.class, VoucherValidationRequest.class, VoucherValidationResponse.class, LoyaltyPreviewRequest.class, LoyaltyPreviewResponse.class}) {
+        for (Class<?> contract : new Class<?>[] {
+                ApiError.class,
+                PageResponse.class,
+                DomainEvent.class,
+                VoucherValidationRequest.class,
+                VoucherValidationResponse.class,
+                ValidateVoucherRequest.class,
+                ValidateVoucherResponse.class,
+                LoyaltyPreviewRequest.class,
+                LoyaltyPreviewResponse.class,
+                EarnPointsRequest.class,
+                RedeemPointsRequest.class,
+                LoyaltyReleaseRequest.class,
+                VoucherReleaseRequest.class,
+                MemberPointsResponse.class,
+                PointTransactionResponse.class,
+                LoyaltyConfigResponse.class
+        }) {
             ModelConverters.getInstance().readAll(contract).forEach(components::addSchemas);
         }
         return new OpenAPI().info(new Info().title("Clucky " + serviceName).version("v1"))

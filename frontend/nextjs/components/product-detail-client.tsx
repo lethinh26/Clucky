@@ -7,20 +7,20 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { FoodImage } from "@/components/order/food-image";
 import Link from "@/components/ui-loader/navigation-link";
 import { useOrder } from "@/components/order/order-provider";
-import { parseCatalogNumericId, syncCatalogMetadata } from "@/lib/cart";
 import { type Product } from "@/lib/products";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Check } from "lucide-react";
 
 interface ProductDetailClientProps {
   product: Product;
   storeId?: number;
+  itemType: "PRODUCT" | "COMBO";
 }
 
-export function ProductDetailClient({ product, storeId }: ProductDetailClientProps) {
+export function ProductDetailClient({ product, storeId, itemType }: ProductDetailClientProps) {
   const t = useTranslations();
 
   const { money: formatPrice } = useLocaleTools();
-  const { addItem, ready } = useOrder();
+  const { addItem, ready, cartPending } = useOrder();
 
   // Selected single options (one choice per group)
   const [selectedOptions, setSelectedOptions] = useState<
@@ -109,14 +109,15 @@ export function ProductDetailClient({ product, storeId }: ProductDetailClientPro
     };
   }, [product, selectedOptions, selectedToppings, quantity]);
 
-  const handleAddToCart = () => {
-    if (!ready || isSoldOut || isAddedSuccess) return;
-    syncCatalogMetadata([product]);
-    addItem({
+  const handleAddToCart = async () => {
+    if (!ready || cartPending || isSoldOut || isAddedSuccess) return;
+    const added = await addItem({
       id: crypto.randomUUID(),
-      productId: (product.comboItems?.length || product.slug?.startsWith("combo-")) ? undefined : (parseCatalogNumericId(product.id) ?? parseCatalogNumericId(product.slug)),
-      comboId: (product.comboItems?.length || product.slug?.startsWith("combo-")) ? (parseCatalogNumericId(product.id) ?? parseCatalogNumericId(product.slug)) : undefined,
-      itemType: (product.comboItems?.length || product.slug?.startsWith("combo-")) ? "COMBO" : "PRODUCT",
+      productId: itemType === "PRODUCT" ? Number(product.id) : undefined,
+      comboId: itemType === "COMBO" ? Number(product.id) : undefined,
+      itemType,
+      optionIds: Object.values(selectedOptions).map(Number),
+      toppingIds: selectedToppings.map(Number),
       slug: product.slug,
       name: product.name,
       category: product.categoryName || product.category || '',
@@ -125,12 +126,6 @@ export function ProductDetailClient({ product, storeId }: ProductDetailClientPro
       quantity,
       image: product.imageUrl || product.image,
       note: specialNote.trim(),
-      optionIds: Object.values(selectedOptions)
-        .map((id) => parseCatalogNumericId(id) ?? 0)
-        .filter((id) => !isNaN(id) && id > 0),
-      toppingIds: selectedToppings
-        .map((id) => parseCatalogNumericId(id) ?? 0)
-        .filter((id) => !isNaN(id) && id > 0),
       options: product.options?.flatMap((group) => {
         const choice = group.choices.find(
           (entry) => entry.id === selectedOptions[group.id],
@@ -138,6 +133,7 @@ export function ProductDetailClient({ product, storeId }: ProductDetailClientPro
         return choice
           ? [
               {
+                id: Number(choice.id),
                 groupName: group.name,
                 name: choice.name,
                 extraPrice: choice.priceAdjustment,
@@ -147,8 +143,9 @@ export function ProductDetailClient({ product, storeId }: ProductDetailClientPro
       }),
       toppings: product.toppings
         ?.filter((top) => selectedToppings.includes(top.id))
-        .map((top) => ({ name: top.name, extraPrice: top.price })),
+        .map((top) => ({ id: Number(top.id), name: top.name, extraPrice: top.price })),
     });
+    if (!added) return;
     setIsAddedSuccess(true);
     if (addTimer.current) clearTimeout(addTimer.current);
     addTimer.current = setTimeout(() => {
@@ -678,7 +675,7 @@ export function ProductDetailClient({ product, storeId }: ProductDetailClientPro
             <button
               type="button"
               onClick={handleAddToCart}
-              disabled={isSoldOut || !ready || isAddedSuccess}
+              disabled={isSoldOut || !ready || cartPending || isAddedSuccess}
               data-added={isAddedSuccess}
               className="btn-primary"
               style={{

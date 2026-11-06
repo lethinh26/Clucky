@@ -41,6 +41,8 @@ export default function LoginPage() {
       if (!task.isCurrent()) return;
       if (typeof window !== "undefined") {
         localStorage.setItem("clucky_access_token", tokens.accessToken);
+        // refresh token stored in HttpOnly cookie; role guides post-login routing
+        if (tokens.role) localStorage.setItem("clucky_user_role", tokens.role);
         // refresh token stored in HttpOnly cookie
         const guestSession = localStorage.getItem("clucky_guest_session_id");
         if (guestSession) {

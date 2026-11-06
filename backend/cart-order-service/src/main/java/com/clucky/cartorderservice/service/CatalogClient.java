@@ -12,6 +12,8 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @Component
 public class CatalogClient {
@@ -19,13 +21,16 @@ public class CatalogClient {
 
     private final RestClient restClient;
     private final String catalogServiceUrl;
+    private final String serviceToken;
 
     public CatalogClient(
             RestClient restClient,
-            @Value("${clucky.catalog.service-url:http://catalog-store-service}") String catalogServiceUrl
+            @Value("${clucky.catalog.service-url:http://catalog-store-service}") String catalogServiceUrl,
+            @Value("${clucky.catalog.service-token:}") String serviceToken
     ) {
         this.restClient = restClient;
         this.catalogServiceUrl = catalogServiceUrl;
+        this.serviceToken = serviceToken;
     }
 
     public record ValidateItemRequest(
@@ -50,7 +55,9 @@ public class CatalogClient {
             Integer quantity,
             BigDecimal lineTotal,
             boolean available,
-            String reason
+            String reason,
+            List<JsonNode> optionsSnapshot,
+            List<JsonNode> toppingsSnapshot
     ) {}
 
     public record CatalogValidationResponse(
@@ -78,10 +85,14 @@ public class CatalogClient {
         )).toList();
 
         CatalogValidationRequest requestBody = new CatalogValidationRequest(storeId, itemRequests);
+        if (serviceToken == null || serviceToken.isBlank()) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
 
         try {
             CatalogValidationResponse response = restClient.post()
                     .uri(catalogServiceUrl + "/api/catalog/internal/validate-items")
+                    .headers(headers -> headers.setBearerAuth(serviceToken))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
@@ -92,6 +103,21 @@ public class CatalogClient {
                 throw new ApiException(ErrorCode.INTERNAL_ERROR, "Dịch vụ danh mục phản hồi không hợp lệ");
             }
 
+            if (response.valid()) {
+                if (response.subtotal() == null || response.items() == null || response.items().size() != items.size()) {
+                    throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+                }
+                for (int index = 0; index < items.size(); index++) {
+                    ValidatedCatalogItem validated = response.items().get(index);
+                    CartItemDto requested = items.get(index);
+                    if (!validated.available() || validated.unitPrice() == null || validated.name() == null
+                            || !Objects.equals(validated.productId(), requested.getProductId())
+                            || !Objects.equals(validated.comboId(), requested.getComboId())
+                            || validated.optionsSnapshot() == null || validated.toppingsSnapshot() == null) {
+                        throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+                    }
+                }
+            }
             return response;
         } catch (ApiException e) {
             throw e;

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 
@@ -17,20 +18,22 @@ public class PromotionClient {
 
     private final RestClient restClient;
     private final String promotionServiceUrl;
+    private final String serviceToken;
 
     public PromotionClient(
             RestClient restClient,
-            @Value("${clucky.promotion.service-url:http://promotion-loyalty-service}") String promotionServiceUrl
+            @Value("${clucky.promotion.service-url:http://promotion-loyalty-service}") String promotionServiceUrl,
+            @Value("${clucky.promotion.service-token:}") String serviceToken
     ) {
         this.restClient = restClient;
         this.promotionServiceUrl = promotionServiceUrl;
+        this.serviceToken = serviceToken;
     }
 
     public record VoucherValidationRequest(
             String code,
             Long storeId,
-            BigDecimal orderAmount,
-            BigDecimal subtotal
+            BigDecimal orderAmount
     ) {}
 
     public record VoucherValidationResponse(
@@ -105,6 +108,7 @@ public class PromotionClient {
         try {
             restClient.post()
                     .uri(promotionServiceUrl + "/api/loyalty/release")
+                    .headers(headers -> headers.setBearerAuth(serviceToken))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(req)
                     .retrieve()
@@ -122,7 +126,7 @@ public class PromotionClient {
         }
 
         String code = rawCode.trim().toUpperCase();
-        VoucherValidationRequest req = new VoucherValidationRequest(code, storeId, subtotal, subtotal);
+        VoucherValidationRequest req = new VoucherValidationRequest(code, storeId, subtotal);
 
         try {
             VoucherValidationResponse res = restClient.post()
@@ -132,19 +136,26 @@ public class PromotionClient {
                     .retrieve()
                     .body(VoucherValidationResponse.class);
 
-            if (res != null && res.valid() && res.discountAmount() != null && res.discountAmount().compareTo(BigDecimal.ZERO) > 0) {
+            if (res == null) {
+                throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            }
+            if (res.valid() && res.discountAmount() != null && res.discountAmount().signum() >= 0) {
                 return new VoucherResult(true, "Đã áp dụng mã giảm giá thành công", res.discountAmount());
             }
 
-            String reason = (res != null && res.reason() != null && !res.reason().isBlank())
-                    ? res.reason()
-                    : "Mã voucher không hợp lệ hoặc không đủ điều kiện áp dụng";
-            return new VoucherResult(false, reason, BigDecimal.ZERO);
+            return new VoucherResult(false, res.reason(), BigDecimal.ZERO);
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 400 || ex.getStatusCode().value() == 404
+                    || ex.getStatusCode().value() == 409) {
+                return new VoucherResult(false, ErrorCode.VOUCHER_INACTIVE.message(), BigDecimal.ZERO);
+            }
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         } catch (Exception ex) {
             LOG.warn("Promotion service voucher validation unavailable or rejected code={} storeId={} error={}",
                     code, storeId, ex.getMessage());
-            // In accordance with P1-02: Do NOT invent fake fallback vouchers. Unverified vouchers cannot grant discounts.
-            return new VoucherResult(false, "Hệ thống khuyến mãi chưa sẵn sàng hoặc mã không hợp lệ", BigDecimal.ZERO);
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
     }
 
@@ -152,24 +163,7 @@ public class PromotionClient {
         if (requestedPoints == null || requestedPoints <= 0) {
             return new LoyaltyResult(true, 0, BigDecimal.ZERO, null);
         }
-
-        LoyaltyPreviewRequest req = new LoyaltyPreviewRequest(requestedPoints, orderAmount);
-        try {
-            LoyaltyPreviewResponse res = restClient.post()
-                    .uri(promotionServiceUrl + "/api/loyalty/preview")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(req)
-                    .retrieve()
-                    .body(LoyaltyPreviewResponse.class);
-
-            if (res != null && res.pointsAmount() != null) {
-                return new LoyaltyResult(true, res.pointsUsed(), res.pointsAmount(), null);
-            }
-            return new LoyaltyResult(false, 0, BigDecimal.ZERO, "Không đủ điểm thưởng hoặc điểm không hợp lệ");
-        } catch (Exception ex) {
-            LOG.warn("Promotion loyalty preview unavailable or rejected points={} error={}", requestedPoints, ex.getMessage());
-            // In accordance with P1-02: Unverified points cannot be redeemed.
-            return new LoyaltyResult(false, 0, BigDecimal.ZERO, "Hệ thống tích điểm tạm thời chưa khả dụng để đổi điểm");
-        }
+        // ponytail: keep checkout redemption closed until the debit/compensation saga is wired.
+        return new LoyaltyResult(false, 0, BigDecimal.ZERO, "Loyalty redemption is not available yet");
     }
 }

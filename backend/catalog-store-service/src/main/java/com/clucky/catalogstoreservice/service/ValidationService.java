@@ -8,12 +8,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
 public class ValidationService {
+
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final StoreRepository storeRepository;
     private final ProductRepository productRepository;
@@ -22,6 +25,7 @@ public class ValidationService {
     private final ComboRepository comboRepository;
     private final StoreProductRepository storeProductRepository;
     private final StoreInventoryRepository storeInventoryRepository;
+    private final StoreService storeService;
 
     public ValidationService(StoreRepository storeRepository,
                              ProductRepository productRepository,
@@ -29,7 +33,8 @@ public class ValidationService {
                              ProductToppingRepository toppingRepository,
                              ComboRepository comboRepository,
                              StoreProductRepository storeProductRepository,
-                             StoreInventoryRepository storeInventoryRepository) {
+                             StoreInventoryRepository storeInventoryRepository,
+                             StoreService storeService) {
         this.storeRepository = storeRepository;
         this.productRepository = productRepository;
         this.optionRepository = optionRepository;
@@ -37,6 +42,7 @@ public class ValidationService {
         this.comboRepository = comboRepository;
         this.storeProductRepository = storeProductRepository;
         this.storeInventoryRepository = storeInventoryRepository;
+        this.storeService = storeService;
     }
 
     public ValidationDto.Response validateOrderItems(ValidationDto.Request request) {
@@ -60,12 +66,19 @@ public class ValidationService {
         }
 
         Store store = storeOpt.get();
-        if (store.getStatus() == StoreStatus.CLOSED_TEMP || store.getStatus() == StoreStatus.INACTIVE) {
+        if (!storeService.isStoreServingNow(store)) {
             response.setStoreOpen(false);
             response.setValid(false);
-            String message = store.getStatus() == StoreStatus.INACTIVE
-                    ? "Chi nhánh '" + store.getName() + "' hiện đã ngừng kinh doanh."
-                    : "Chi nhánh '" + store.getName() + "' hiện đang tạm đóng cửa.";
+            String message;
+            if (store.getStatus() == StoreStatus.INACTIVE) {
+                message = "Chi nhánh '" + store.getName() + "' hiện đã ngừng kinh doanh.";
+            } else if (store.getStatus() == StoreStatus.CLOSED_TEMP) {
+                message = "Chi nhánh '" + store.getName() + "' hiện đang tạm đóng cửa.";
+            } else {
+                String openStr = store.getOpenTime() != null ? store.getOpenTime().format(TIME_FORMAT) : "";
+                String closeStr = store.getCloseTime() != null ? store.getCloseTime().format(TIME_FORMAT) : "";
+                message = "Chi nhánh '" + store.getName() + "' hiện đang ngoài giờ phục vụ (Giờ mở cửa: " + openStr + " - " + closeStr + "). Vui lòng quay lại trong giờ hoạt động.";
+            }
             response.setMessage(message);
         }
 
@@ -177,21 +190,16 @@ public class ValidationService {
                             break;
                         }
                         optionExtras = optionExtras.add(opt.getExtraPrice());
+                        itemResult.getOptionsSnapshot().add(new ValidationDto.OptionSnapshot(
+                                opt.getId(), opt.getGroupName(), opt.getName(), opt.getExtraPrice()));
                     }
 
                     if (optionsValid) {
-                        for (String groupName : groupMap.keySet()) {
-                            if (!chosenGroups.contains(groupName)) {
-                                List<ProductOption> groupOptions = groupMap.get(groupName);
-                                if (groupOptions != null && !groupOptions.isEmpty()) {
-                                    ProductOption defaultOpt = groupOptions.stream()
-                                            .filter(o -> BigDecimal.ZERO.compareTo(o.getExtraPrice()) == 0)
-                                            .findFirst()
-                                            .orElse(groupOptions.get(0));
-                                    chosenGroups.add(groupName);
-                                    optionExtras = optionExtras.add(defaultOpt.getExtraPrice());
-                                    continue;
-                                }
+                        for (Map.Entry<String, List<ProductOption>> entry : groupMap.entrySet()) {
+                            String groupName = entry.getKey();
+                            boolean isRequired = entry.getValue().stream()
+                                    .anyMatch(opt -> opt.getIsRequired() == null || Boolean.TRUE.equals(opt.getIsRequired()));
+                            if (isRequired && !chosenGroups.contains(groupName)) {
                                 itemResult.setAvailable(false);
                                 itemResult.setReason("Thiếu tùy chọn bắt buộc cho nhóm '" + groupName + "'.");
                                 allValid = false;
@@ -219,6 +227,8 @@ public class ValidationService {
                             break;
                         }
                         toppingExtras = toppingExtras.add(top.getExtraPrice());
+                        itemResult.getToppingsSnapshot().add(new ValidationDto.ToppingSnapshot(
+                                top.getId(), top.getToppingName(), top.getExtraPrice()));
                     }
 
                     if (optionsValid && toppingsValid && itemResult.isAvailable()) {

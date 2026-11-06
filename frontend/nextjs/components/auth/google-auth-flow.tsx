@@ -72,6 +72,9 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
         setError(
           "auth.google.sessionExpired",
         );
+      } else if (status === 409 || status === undefined || status >= 500) {
+        setPending(null);
+        setError("auth.google.restartSignIn");
       } else {
         setError(err);
       }

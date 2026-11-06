@@ -22,12 +22,14 @@ export type PartyOrderStatus =
   "NEW" | "CONTACTED" | "QUOTED" | "CONFIRMED" | "CLOSED";
 
 export interface CartItemOption {
+  id?: number;
   groupName: string;
   name: string;
   extraPrice: number;
 }
 
 export interface CartItemTopping {
+  id?: number;
   name: string;
   extraPrice: number;
 }
@@ -38,6 +40,8 @@ export interface CartItem {
   comboId?: number;
   itemType?: "PRODUCT" | "COMBO";
   itemKey?: string;
+  optionIds?: number[];
+  toppingIds?: number[];
   slug: string;
   name: string;
   category: string;
