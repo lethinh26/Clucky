@@ -13,7 +13,7 @@ function getBaseUrl(): string {
       "http://localhost:8080"
     );
   }
-  return process.env.NEXT_PUBLIC_API_URL ?? "";
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 }
 
 export { getErrorMessage } from "./i18n/core";

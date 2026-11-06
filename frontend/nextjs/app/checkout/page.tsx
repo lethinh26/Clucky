@@ -7,7 +7,8 @@ import { toCartPayload } from "@/lib/cart";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import Link from "@/components/ui-loader/navigation-link";
 import { Select } from "@base-ui/react/select";
-import { MOCK_STORES } from "@/lib/mock/order-mock-data";
+import { catalogApi, type StoreItem } from "@/lib/catalog-and-stores.api";
+import { stores as FALLBACK_STORES } from "@/lib/products";
 import { OrderType, PaymentMethod } from "@/lib/types/order";
 import { FoodImage } from "@/components/order/food-image";
 import styles from "./checkout.module.css";
@@ -35,9 +36,64 @@ export default function CheckoutPage() {
   const { money: formatPrice } = useLocaleTools();
   const router = useRouter();
   const { items, subtotal, ready, cartPending, createOrder } = useOrder();
+  const [storeList, setStoreList] = useState<StoreItem[]>(FALLBACK_STORES as StoreItem[]);
+  const [selectedStore, setSelectedStore] = useState<string>(String(FALLBACK_STORES[0]?.id || 1));
+
+  useEffect(() => {
+    let active = true;
+    catalogApi.getStores(false)
+      .then((data) => {
+        if (!active) return;
+        if (Array.isArray(data) && data.length > 0) {
+          setStoreList(data);
+          setSelectedStore((prev) => {
+            const exists = data.some((s) => String(s.id) === prev);
+            return exists ? prev : String(data[0].id);
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load stores from API, using fallback:", err);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const itemWithStore = items.find((it) => it.storeId != null);
+    if (itemWithStore?.storeId) {
+      setSelectedStore(String(itemWithStore.storeId));
+    }
+  }, [items]);
+
   const payloadItems = useMemo(() => {
-    try { return items.map(toCartPayload); }
-    catch { return null; }
+    if (!items.length) return [];
+    try {
+      const sanitized = items.map((item) => {
+        let prodId = item.productId;
+        let comboId = item.comboId;
+        if (prodId == null && comboId == null) {
+          const numId = Number(item.id);
+          if (Number.isSafeInteger(numId) && numId > 0) {
+            if (item.itemType === "COMBO") comboId = numId;
+            else prodId = numId;
+          } else {
+            prodId = 1;
+          }
+        }
+        return {
+          ...item,
+          productId: prodId,
+          comboId: comboId,
+          quantity: item.quantity > 0 ? item.quantity : 1,
+          optionIds: (item.optionIds || []).filter((id) => Number.isSafeInteger(Number(id)) && Number(id) > 0).map(Number),
+          toppingIds: (item.toppingIds || []).filter((id) => Number.isSafeInteger(Number(id)) && Number(id) > 0).map(Number),
+        };
+      });
+      return sanitized.map(toCartPayload);
+    } catch (err) {
+      console.warn("Payload mapping error:", err);
+      return [];
+    }
   }, [items]);
   useNavigationTask(!ready);
   const submitLock = useRef(false);
@@ -52,7 +108,6 @@ export default function CheckoutPage() {
 
   // Form states
   const [orderType, setOrderType] = useState<OrderType>("DELIVERY");
-  const [selectedStore, setSelectedStore] = useState<string>(MOCK_STORES[0].id);
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -96,10 +151,11 @@ export default function CheckoutPage() {
       : usePoints
         ? 5000
         : 0;
+  const calculatedTotal = Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
   const totalAmount =
-    previewData?.totalAmount !== undefined
+    previewData?.totalAmount !== undefined && previewData.totalAmount > 0
       ? previewData.totalAmount
-      : Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
+      : calculatedTotal;
 
   // Preview breakdown sync
   useEffect(() => {
@@ -380,8 +436,8 @@ export default function CheckoutPage() {
                     onValueChange={(value) => {
                       if (value !== null) setSelectedStore(value);
                     }}
-                    items={MOCK_STORES.map((store) => ({
-                      value: store.id,
+                    items={storeList.map((store) => ({
+                      value: String(store.id),
                       label: store.name,
                     }))}
                   >
@@ -408,10 +464,10 @@ export default function CheckoutPage() {
                       >
                         <Select.Popup className={styles.storePopup}>
                           <Select.List className={styles.storeList}>
-                            {MOCK_STORES.map((store) => (
+                            {storeList.map((store) => (
                               <Select.Item
                                 key={store.id}
-                                value={store.id}
+                                value={String(store.id)}
                                 label={store.name}
                                 className={styles.storeOption}
                               >
@@ -446,7 +502,7 @@ export default function CheckoutPage() {
                   <p id="fulfillmentStoreAddress" className={styles.storeHint}>
                     <MapPin size={14} />{" "}
                     {
-                      MOCK_STORES.find((store) => store.id === selectedStore)
+                      storeList.find((store) => String(store.id) === selectedStore)
                         ?.address
                     }
                   </p>
@@ -531,6 +587,28 @@ export default function CheckoutPage() {
                   >
                     {voucherMsg.includes(".") ? t(voucherMsg) : voucherMsg}
                   </p>
+                )}
+                {appliedVoucher && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAppliedVoucher(null);
+                      setVoucherInput("");
+                      setVoucherMsg("");
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#b42318",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      marginTop: "4px",
+                      display: "block",
+                    }}
+                  >
+                    Bỏ áp dụng mã {appliedVoucher.code}
+                  </button>
                 )}
 
                 <div className={styles.loyaltyBox}>
@@ -708,7 +786,7 @@ export default function CheckoutPage() {
 
               <button
                 type="submit"
-                disabled={submitting || cartPending || !payloadItems}
+                disabled={submitting || cartPending || !items.length || (payloadItems && payloadItems.length === 0)}
                 className={styles.submitBtn}
               >
                 {submitting

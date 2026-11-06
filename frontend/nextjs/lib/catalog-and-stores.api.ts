@@ -5,6 +5,7 @@
  */
 import { request } from "./api";
 import type { StoreStatus } from "./types/store";
+import { stores as fallbackStores } from "./products";
 
 export interface StoreItem {
   id: number;
@@ -98,8 +99,15 @@ export function comboAsProduct(combo: ComboItem): ProductItem {
 }
 
 export const catalogApi = {
-  getStores: (activeOnly = false) =>
-    request<StoreItem[]>(`/api/stores?activeOnly=${activeOnly}`),
+  getStores: async (activeOnly = false): Promise<StoreItem[]> => {
+    try {
+      const data = await request<StoreItem[]>(`/api/stores?activeOnly=${activeOnly}`);
+      if (Array.isArray(data) && data.length > 0) return data;
+      return (fallbackStores as StoreItem[]) || [];
+    } catch {
+      return (fallbackStores as StoreItem[]) || [];
+    }
+  },
   getStoreById: (id: number) =>
     request<StoreItem>(`/api/stores/${id}`),
   getCategories: (activeOnly = true) =>
@@ -133,7 +141,7 @@ export const catalogApi = {
     const comboQuery = new URLSearchParams();
     if (params?.storeId) comboQuery.set("storeId", String(params.storeId));
     comboQuery.set("activeOnly", String(params?.activeOnly ?? true));
-    const combos = await request<ComboItem[]>(`/api/catalog/combos?${comboQuery.toString()}`);
+    const combos = await request<ComboItem[]>(`/api/catalog/combos?${comboQuery.toString()}`).catch(() => []);
     const mappedCombos = combos.map(comboAsProduct);
     const keyword = params?.keyword?.toLocaleLowerCase();
     const filteredCombos = keyword

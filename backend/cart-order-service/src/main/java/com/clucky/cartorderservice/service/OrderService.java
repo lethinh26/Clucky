@@ -185,19 +185,21 @@ public class OrderService {
             if (it.getStoreId() != null && !it.getStoreId().equals(request.storeId())) {
                 LOG.warn("event=order_create_failed reason=store_mismatch itemStoreId={} requestStoreId={}",
                         it.getStoreId(), request.storeId());
-                throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Món trong giỏ thuộc chi nhánh khác (" + it.getStoreId() + "). Vui lòng chọn đúng chi nhánh.");
             }
         }
 
         // Validate items with Catalog Service (P1-01: Client price is NEVER trusted)
         CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(request.storeId(), items);
         if (!catalogValidation.valid()) {
-            LOG.warn("event=order_create_failed reason=catalog_items_invalid message={}", catalogValidation.message());
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : ErrorCode.RESOURCE_CONFLICT.message();
+            LOG.warn("event=order_create_failed reason=catalog_items_invalid message={}", msg);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, msg);
         }
         if (!catalogValidation.storeOpen()) {
-            LOG.warn("event=order_create_failed reason=store_closed message={}", catalogValidation.message());
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : "Chi nhánh hiện đang ngoài giờ phục vụ";
+            LOG.warn("event=order_create_failed reason=store_closed message={}", msg);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, msg);
         }
 
         BigDecimal subtotal = catalogValidation.subtotal();
