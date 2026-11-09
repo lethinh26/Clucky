@@ -77,6 +77,9 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.GET, "/api/stores", "/api/stores/{id}",
                             "/api/catalog/categories", "/api/catalog/products", "/api/catalog/products/{id}",
                             "/api/catalog/combos", "/api/promotions/banners", "/api/reviews/products/{id}").permitAll();
+                    auth.requestMatchers(HttpMethod.POST, "/api/loyalty/earn", "/api/loyalty/redeem", "/api/loyalty/release")
+                            .hasRole("INTERNAL_SERVICE");
+                    auth.requestMatchers("/api/loyalty/me", "/api/loyalty/history").hasRole("CUSTOMER");
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify-otp",
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete",

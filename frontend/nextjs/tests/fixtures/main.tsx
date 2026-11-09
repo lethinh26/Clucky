@@ -8,6 +8,7 @@ import { PaymentWidget } from "../../components/payment/payment-widget";
 import { ShipmentCard } from "../../components/shipping/shipment-card";
 import { ShippingFeeCard } from "../../components/shipping/shipping-fee-card";
 import { PaymentStatusBadge } from "../../components/payment/payment-status-badge";
+import { Toaster } from "../../components/feedback";
 const params = new URLSearchParams(location.search);
 const qr = params.has("qr");
 document.body.style.cssText =
@@ -47,5 +48,5 @@ createRoot(document.getElementById("root")!).render(
     <SessionBoundary><GoogleAuthFlow>
       <p>Đăng nhập bằng email</p>
     </GoogleAuthFlow></SessionBoundary>
-  )}</NextIntlClientProvider>,
+  )}<Toaster locale="vi" /></NextIntlClientProvider>,
 );

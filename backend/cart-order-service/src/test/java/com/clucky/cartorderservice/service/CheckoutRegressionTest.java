@@ -43,10 +43,18 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class CheckoutRegressionTest {
     @Test
+    void guestCheckoutCannotRedeemPointsWithoutAnAuthenticatedOwner() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        var client = new LoyaltyClient(RestClient.builder().build(), "http://promotion", "service-test-token");
+        assertEquals(ErrorCode.UNAUTHENTICATED,
+                assertThrows(ApiException.class, () -> client.preview(100, new BigDecimal("200000"))).getCode());
+        assertEquals(0, client.preview(0, new BigDecimal("200000")).pointsUsed());
+    }
+    @Test
     void voucherUsesOrderAmountAndDoesNotHideDependencyFailures() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        PromotionClient client = new PromotionClient(builder.build(), "http://promotion");
+        PromotionClient client = new PromotionClient(builder.build(), "http://promotion", "service-test-token");
         server.expect(requestTo("http://promotion/api/promotions/vouchers/validate"))
                 .andExpect(content().json("{\"code\":\"SAVE\",\"storeId\":1,\"orderAmount\":100000}", true))
                 .andRespond(withSuccess("{\"valid\":true,\"discountAmount\":20000}", MediaType.APPLICATION_JSON));

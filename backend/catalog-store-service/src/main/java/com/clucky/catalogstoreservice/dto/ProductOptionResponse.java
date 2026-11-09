@@ -7,5 +7,10 @@ public record ProductOptionResponse(
         Long productId,
         String groupName,
         String name,
-        BigDecimal extraPrice
-) {}
+        BigDecimal extraPrice,
+        Boolean isRequired
+) {
+    public ProductOptionResponse(Long id, Long productId, String groupName, String name, BigDecimal extraPrice) {
+        this(id, productId, groupName, name, extraPrice, true);
+    }
+}

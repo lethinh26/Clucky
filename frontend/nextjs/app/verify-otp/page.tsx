@@ -87,7 +87,7 @@ function VerifyOtpForm() {
     setResending(true);
     setError(null);
     try {
-      await authApi.register({ fullName: "", email, password: "" });
+      await authApi.resendOtp(email);
       if (!task.isCurrent()) return;
       setCooldown(60);
       setSuccess("auth.otp.resent");

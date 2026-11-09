@@ -166,6 +166,7 @@ services:
       PROMOTION_SERVICE_URL: http://promotion-loyalty-service
       LOYALTY_INTERNAL_TOKEN: ${LOYALTY_INTERNAL_TOKEN:-}
       CATALOG_SERVICE_TOKEN: ${CATALOG_SERVICE_TOKEN:-}
+      PROMOTION_SERVICE_TOKEN: ${PROMOTION_SERVICE_TOKEN:-}
 
   payment-service:
     <<: *java
@@ -197,6 +198,9 @@ services:
   review-report-service:
     <<: *java
     image: clucky-review-report-service:${IMAGE_TAG:?IMAGE_TAG is required}
+    environment:
+      <<: *environment
+      REPORT_REVENUE_EVENT: ${REPORT_REVENUE_EVENT:-false}
 
   audit-service:
     <<: *java

@@ -50,6 +50,7 @@ class GoogleAuthServiceTest {
                 .filter(user -> call.getArgument(0).equals(user.getFirebaseUid())).findFirst());
         when(users.findByEmailForGoogle(anyString())).thenAnswer(call -> Optional.ofNullable(storedUsers.get(call.getArgument(0))));
         when(users.findByEmail(anyString())).thenAnswer(call -> Optional.ofNullable(storedUsers.get(call.getArgument(0))));
+        when(users.findByLogin(anyString())).thenAnswer(call -> Optional.ofNullable(storedUsers.get(call.getArgument(0))));
         when(users.existsByEmail(anyString())).thenAnswer(call -> storedUsers.containsKey(call.getArgument(0)));
         when(users.saveAndFlush(any(User.class))).thenAnswer(call -> {
             User user = call.getArgument(0);

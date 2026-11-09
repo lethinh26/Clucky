@@ -1,8 +1,10 @@
 package com.clucky.catalogstoreservice.controller;
 
+import com.clucky.catalogstoreservice.dto.PageResponse;
 import com.clucky.catalogstoreservice.dto.ProductDto;
 import com.clucky.catalogstoreservice.service.ProductService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,12 +26,24 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProductDto.Response>> listProducts(
+    public ResponseEntity<?> listProducts(
             @RequestParam(name = "storeId", required = false) Long storeId,
             @RequestParam(name = "categoryId", required = false) Long categoryId,
             @RequestParam(name = "keyword", required = false) String keyword,
             @RequestParam(name = "spicyLevel", required = false) Integer spicyLevel,
-            @RequestParam(name = "activeOnly", defaultValue = "false") boolean activeOnly) {
+            @RequestParam(name = "activeOnly", defaultValue = "false") boolean activeOnly,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "size", required = false) Integer size) {
+
+        if (page != null || size != null) {
+            int pageNum = page != null ? Math.max(0, page) : 0;
+            int pageSize = size != null ? Math.max(1, size) : 20;
+            PageResponse<ProductDto.Response> pageResponse = productService.getProductsPaged(
+                    storeId, categoryId, keyword, spicyLevel, activeOnly, PageRequest.of(pageNum, pageSize));
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
+                    .body(pageResponse);
+        }
 
         List<ProductDto.Response> list = productService.getProducts(storeId, categoryId, keyword, spicyLevel, activeOnly);
         return ResponseEntity.ok()

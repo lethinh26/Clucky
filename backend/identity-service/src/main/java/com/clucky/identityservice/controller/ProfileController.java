@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -83,17 +84,20 @@ public class ProfileController {
     }
 
     @GetMapping("/addresses")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public List<SavedAddress> list(@AuthenticationPrincipal Jwt jwt) {
         return addresses.findByUserIdOrderByIdAsc(user(jwt, false).getId()).stream().map(SavedAddress::from).toList();
     }
 
     @PostMapping("/addresses")
+    @PreAuthorize("hasRole('CUSTOMER')")
     @ResponseStatus(HttpStatus.CREATED)
     public SavedAddress create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AddressInput input) {
         return save(user(jwt, true), null, input);
     }
 
     @PutMapping("/addresses/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public SavedAddress updateAddress(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
             @Valid @RequestBody AddressInput input) {
         return save(user(jwt, true), id, input);
@@ -123,6 +127,7 @@ public class ProfileController {
     }
 
     @DeleteMapping("/addresses/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         User user = user(jwt, true);

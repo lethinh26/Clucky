@@ -5,38 +5,76 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import axios from 'axios';
 
-test('cookie-auth requests omit stale bearer tokens while business requests retain them', async () => {
-  const source = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8')
-    .replace('import.meta.env.VITE_API_URL', 'undefined');
-  const { outputText } = ts.transpileModule(source, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
-  });
-  const module = { exports: {} };
-  vm.runInNewContext(outputText, {
-    module,
-    exports: module.exports,
-    localStorage: { getItem: () => 'expired-access-token' },
-    require: (name) => {
-      if (name === 'axios') return axios;
-      if (name === '../i18n/core') return { getBrowserLocale: () => 'vi', getErrorMessage: () => '' };
-      throw new Error(`Unexpected import: ${name}`);
-    },
-  });
-  const { api, authApi } = module.exports;
-  assert.equal(api.defaults.baseURL, '');
+function load(handler) {
   const requests = [];
-  api.defaults.adapter = async (config) => {
-    requests.push(config);
-    return { status: 200, statusText: 'OK', data: {}, headers: {}, config };
+  const user = { userId: 7, role: 'ADMIN', email: 'admin@example.com', fullName: 'Admin' };
+  const context = {
+    Headers, DOMException, AbortController,
+    window: { addEventListener() {} },
+    localStorage: { getItem: () => 'legacy-token', removeItem() {}, setItem() {} },
+    fetch: async (url, options) => {
+      requests.push({ url, options });
+      const response = await handler?.(url, options);
+      return response ?? { ok: true, status: 200, json: async () => user };
+    },
   };
-  await authApi.refresh();
-  await authApi.logout();
-  await authApi.login({ email: 'test@example.com', password: 'Password1' });
-  await api.post('/api/auth/refresh', undefined, { headers: { Authorization: 'Bearer stale' } });
-  for (const request of requests) {
-    assert.equal(request.headers.get('Authorization'), undefined);
-    assert.equal(request.withCredentials, true);
+  function compile(path, require = () => { throw new Error('Unexpected import'); }) {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8').replace('import.meta.env.VITE_API_URL', '""');
+    const { outputText } = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
+    });
+    const module = { exports: {} };
+    vm.runInNewContext(outputText, { ...context, module, exports: module.exports, require });
+    return module.exports;
   }
-  await api.get('/api/orders');
-  assert.equal(requests.at(-1).headers.get('Authorization'), 'Bearer expired-access-token');
+  const session = compile('../src/lib/session.ts');
+  const exports = compile('../src/lib/api.ts', name => {
+    if (name === 'axios') return axios;
+    if (name === './session') return session;
+    if (name === '../i18n/core') return { getBrowserLocale: () => 'vi', getErrorMessage: () => '' };
+    throw new Error(`Unexpected import: ${name}`);
+  });
+  return { ...exports, requests };
+}
+
+test('concurrent admin 401s refresh once and replay with cookies, never bearer tokens', async () => {
+  let refreshed = false;
+  let replays = 0;
+  const app = load(async url => {
+    if (url === '/api/auth/session') return { ok: false, status: 401, json: async () => ({ code: 'UNAUTHENTICATED' }) };
+    await new Promise(resolve => setTimeout(resolve, 10));
+    refreshed = true;
+  });
+  app.api.defaults.adapter = async config => {
+    assert.equal(config.headers.get('Authorization'), undefined);
+    assert.equal(config.headers.get('X-Clucky-Client'), 'admin');
+    assert.equal(config.withCredentials, true);
+    if (!refreshed) throw new axios.AxiosError('expired', 'ERR_BAD_REQUEST', config, null, { status: 401, config });
+    replays++;
+    return { status: 200, data: {}, headers: {}, config };
+  };
+  await Promise.all([app.api.get('/api/orders'), app.api.get('/api/users/me')]);
+  assert.equal(app.requests.filter(request => request.url === '/api/auth/refresh').length, 1);
+  assert.equal(app.requests.length, 2);
+  assert.equal(replays, 2);
+});
+
+test('auth and business requests discard stale bearer tokens and use the admin cookie scope', async () => {
+  const app = load();
+  assert.equal(app.api.defaults.baseURL, '');
+  await app.authApi.refresh();
+  await app.authApi.logout();
+  await app.authApi.login({ email: 'admin@example.com', password: 'Password1' });
+  for (const { options } of app.requests) {
+    assert.equal(options.headers.get('Authorization'), null);
+    assert.equal(options.headers.get('X-Clucky-Client'), 'admin');
+    assert.equal(options.credentials, 'include');
+  }
+  app.api.defaults.adapter = async config => {
+    assert.equal(config.headers.get('Authorization'), undefined);
+    assert.equal(config.headers.get('X-Clucky-Client'), 'admin');
+    assert.equal(config.withCredentials, true);
+    return { status: 200, data: {}, headers: {}, config };
+  };
+  await app.api.get('/api/orders', { headers: { Authorization: 'Bearer stale' } });
 });

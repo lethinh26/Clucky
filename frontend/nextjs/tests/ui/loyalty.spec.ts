@@ -20,7 +20,7 @@ test('new member has zero real points and an empty history', async ({ page }) =>
 test('API failure shows retry rather than demo balance', async ({ page }) => {
   await page.route('**/api/loyalty/me?*', route => route.fulfill({ status: 503, json: { code: 'DEPENDENCY_UNAVAILABLE' } }));
   await page.goto('http://127.0.0.1:4174/loyalty');
-  await expect(page.getByRole('alert')).toContainText('Chưa tải được dữ liệu thành viên');
+  await expect(page.locator('main').getByRole('alert')).toContainText('Chưa tải được dữ liệu thành viên');
   await expect(page.locator('main')).not.toContainText('1.450');
   await expect(page.getByText('Điểm có thể sử dụng', { exact: true })).toHaveCount(0);
 });

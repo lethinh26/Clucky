@@ -235,6 +235,8 @@
     "addOptionGroup": "Add option group",
     "groupNameEGSize": "Group name (e.g. Size)",
     "required": "Required",
+    "requiredLabel": "Required group",
+    "optional": "Optional",
     "optionNameEGLarge": "Option name (e.g. Large)",
     "priceAdjustmentVnd": "Price adjustment (+VND)",
     "addOptionToGroup": "Add option to group",

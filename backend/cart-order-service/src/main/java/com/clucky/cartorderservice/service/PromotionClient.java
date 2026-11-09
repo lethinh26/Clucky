@@ -18,13 +18,16 @@ public class PromotionClient {
 
     private final RestClient restClient;
     private final String promotionServiceUrl;
+    private final String serviceToken;
 
     public PromotionClient(
             RestClient restClient,
-            @Value("${clucky.promotion.service-url:http://promotion-loyalty-service}") String promotionServiceUrl
+            @Value("${clucky.promotion.service-url:http://promotion-loyalty-service}") String promotionServiceUrl,
+            @Value("${clucky.promotion.service-token:}") String serviceToken
     ) {
         this.restClient = restClient;
         this.promotionServiceUrl = promotionServiceUrl;
+        this.serviceToken = serviceToken;
     }
 
     public record VoucherValidationRequest(

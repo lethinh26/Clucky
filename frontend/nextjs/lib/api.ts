@@ -25,7 +25,7 @@ export function getGuestSessionId(): string {
   return sessionId;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Accept-Language", getBrowserLocale());
   if (typeof window !== "undefined" && (path.startsWith("/api/cart") || path.startsWith("/api/orders"))) {
@@ -77,6 +77,11 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  resendOtp: (email: string) =>
+    request<{ message?: string }>("/api/auth/resend-otp", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
   verifyOtp: (body: VerifyOtpPayload) =>
     signIn<AuthTokens>("/api/auth/verify-otp", body),
   session: loadSession,
@@ -89,6 +94,61 @@ export const authApi = {
     }),
   resetPassword: (body: ResetPasswordPayload) =>
     endSession("/api/auth/reset-password", body),
+};
+
+/* ---------- BE-18: self profile + address book ---------- */
+export interface ProfileResponse {
+  id: number;
+  email: string;
+  phone: string | null;
+  fullName: string;
+  avatarUrl: string | null;
+  role: string;
+  storeId: number | null;
+  status: string;
+  emailVerified: boolean;
+}
+export interface AddressResponse {
+  id: number;
+  userId: number;
+  receiverName: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detail: string;
+  isDefault: boolean;
+}
+export interface AddressPayload {
+  receiverName: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detail: string;
+  isDefault: boolean;
+}
+
+export const profileApi = {
+  get: () => request<ProfileResponse>("/api/users/me"),
+  update: (body: { fullName: string; phone: string }) =>
+    request<ProfileResponse>("/api/users/me", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  listAddresses: () => request<AddressResponse[]>("/api/users/me/addresses"),
+  createAddress: (body: AddressPayload) =>
+    request<AddressResponse>("/api/users/me/addresses", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateAddress: (id: number, body: AddressPayload) =>
+    request<AddressResponse>(`/api/users/me/addresses/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteAddress: (id: number) =>
+    request<void>(`/api/users/me/addresses/${id}`, { method: "DELETE" }),
 };
 
 /* ---------- Cart ---------- */
@@ -354,6 +414,7 @@ export const refundApi = {
 import type { StoreStatus } from "./types/store";
 
 export interface StoreItem {
+  isOpenNow?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   id: number;
@@ -452,17 +513,20 @@ export const catalogApi = {
     request<StoreItem>(`/api/stores/${id}`),
   getCategories: (activeOnly = true) =>
     request<CategoryItem[]>(`/api/catalog/categories?activeOnly=${activeOnly}`),
-  getProducts: async (params?: { storeId?: number; categoryId?: number; keyword?: string; spicyLevel?: number; activeOnly?: boolean }): Promise<ProductItem[]> => {
+  getProducts: async (params?: { storeId?: number; categoryId?: number; keyword?: string; spicyLevel?: number; activeOnly?: boolean; page?: number; size?: number }): Promise<ProductItem[]> => {
     const query = new URLSearchParams();
     if (params?.storeId) query.set('storeId', String(params.storeId));
     if (params?.categoryId) query.set('categoryId', String(params.categoryId));
     if (params?.keyword) query.set('keyword', params.keyword);
     if (params?.spicyLevel !== undefined) query.set('spicyLevel', String(params.spicyLevel));
     if (params?.activeOnly !== undefined) query.set('activeOnly', String(params.activeOnly));
+    if (params?.page !== undefined) query.set('page', String(params.page));
+    if (params?.size !== undefined) query.set('size', String(params.size));
     const qs = query.toString();
 
-    const products = await request<ProductItem[]>(`/api/catalog/products${qs ? `?${qs}` : ''}`);
-    if (params?.categoryId !== undefined) return products;
+    const response = await request<ProductItem[] | { content: ProductItem[] }>(`/api/catalog/products${qs ? `?${qs}` : ''}`);
+    const products = Array.isArray(response) ? response : response.content;
+    if (params?.categoryId !== undefined || params?.page !== undefined || params?.size !== undefined) return products;
 
     const comboQuery = new URLSearchParams();
     if (params?.storeId) comboQuery.set('storeId', String(params.storeId));

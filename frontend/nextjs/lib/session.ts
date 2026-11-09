@@ -95,9 +95,11 @@ export function refreshSession(): Promise<SessionUser> {
 
 export async function sessionRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const revision = state.revision;
+  const publicRead = (!options.method || options.method === "GET")
+    && /^\/api\/(?:stores(?:\/\d+)?|catalog\/(?:products|categories|combos)(?:\/\d+)?)(?:\?|$)/.test(path);
   try {
     const result = await send<T>(path, options);
-    if (revision !== state.revision && path !== "/api/auth/session") throw new DOMException("Session changed", "AbortError");
+    if (revision !== state.revision && path !== "/api/auth/session" && !publicRead) throw new DOMException("Session changed", "AbortError");
     return result;
   } catch (error) {
     if ((error as { status?: number }).status !== 401

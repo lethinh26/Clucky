@@ -64,6 +64,12 @@ public class AuthController {
         return authService.register(request);
     }
 
+    @PostMapping("/resend-otp")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MessageResponse resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        return authService.resendRegisterOtp(request.email());
+    }
+
     @PostMapping("/verify-otp")
     public AuthResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request,
             @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,

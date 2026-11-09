@@ -17,9 +17,10 @@ def validate_environment(raw):
         raise BackendEnvironmentError("BACKEND_ENV_JSON must contain valid JSON") from None
     allowed = {
         "POSTGRES_USER", "POSTGRES_PASSWORD", "DB_NAME", "JWT_SECRET", "JWT_ISSUER", "JWT_AUDIENCE",
-        "FRONTEND_CUSTOMER_URL", "FRONTEND_ADMIN_URL", "AUTH_COOKIE_SECURE", "CATALOG_SERVICE_TOKEN",
+        "FRONTEND_CUSTOMER_URL", "FRONTEND_ADMIN_URL", "AUTH_COOKIE_SECURE", "CATALOG_SERVICE_TOKEN", "PROMOTION_SERVICE_TOKEN",
         "SEPAY_WEBHOOK_SECRET", "CLOUDINARY_ENABLED", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY",
         "CLOUDINARY_API_SECRET", "MAIL_SENDER_ENABLED", "MAIL_SENDER_USERNAME", "MAIL_SENDER_APP_PASSWORD",
+        "REPORT_REVENUE_EVENT",
     }
     if not isinstance(values, dict):
         raise BackendEnvironmentError("BACKEND_ENV_JSON must be a JSON object")
@@ -56,6 +57,8 @@ def validate_environment(raw):
             for key in required:
                 if not values.get(key):
                     raise BackendEnvironmentError(f"{key} is required when {flag} is true")
+    if values.get("REPORT_REVENUE_EVENT", "false") not in ("false", "order.completed", "payment.confirmed"):
+        raise BackendEnvironmentError("REPORT_REVENUE_EVENT must be false, order.completed or payment.confirmed")
     return values
 
 def prepare(root, release, raw):

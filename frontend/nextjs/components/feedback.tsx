@@ -3,19 +3,20 @@
 import { useEffect, type ReactNode } from "react";
 import { Toaster as Sonner, toast } from "sonner";
 import { getBrowserLocale } from "../lib/i18n/locale";
+import { getTranslator } from "../lib/i18n/translator";
 import "./feedback.css";
 
 type Kind = "success" | "error" | "warning" | "info" | "loading";
+const titleKeys = {
+  success: "common.toast.success", error: "common.toast.error", warning: "common.toast.warning",
+  info: "common.toast.info", loading: "common.toast.loading",
+} as const;
 type Content = string | { content: ReactNode; key?: string | number; duration?: number };
-const titles = {
-  vi: { success: "Thành công", error: "Không thể hoàn tất", warning: "Cần chú ý", info: "Thông báo", loading: "Đang xử lý" },
-  en: { success: "Success", error: "Unable to complete", warning: "Attention needed", info: "Notice", loading: "Working" },
-};
 
 function show(kind: Kind, input: Content, seconds?: number) {
   const options: Exclude<Content, string> = typeof input === "string" ? { content: input } : input;
   const duration = options.duration ?? seconds;
-  return toast[kind](titles[getBrowserLocale()][kind], {
+  return toast[kind](getTranslator(getBrowserLocale())(titleKeys[kind]), {
     description: options.content,
     id: options.key ?? (typeof options.content === "string" ? kind + ":" + options.content : undefined),
     duration: kind === "loading" || duration === 0 ? Infinity : duration != null ? duration * 1000 : kind === "error" ? 8000 : 5000,
@@ -37,8 +38,9 @@ export function useFeedback(content: string | null | undefined | false, kind: Ki
 }
 
 export function Toaster({ locale }: { locale: string }) {
+  const translate = getTranslator(locale === "en" ? "en" : "vi");
   return <Sonner theme="light" position="top-right" expand closeButton visibleToasts={3}
     offset={{ top: 24, right: 24 }} mobileOffset={{ top: 16, right: 16, left: 16 }} gap={12}
-    containerAriaLabel={locale === "en" ? "Notifications" : "Thông báo"}
-    toastOptions={{ className: "clucky-toast", closeButtonAriaLabel: locale === "en" ? "Dismiss notification" : "Đóng thông báo" }} />;
+    containerAriaLabel={translate("common.toast.notifications")}
+    toastOptions={{ className: "clucky-toast", closeButtonAriaLabel: translate("common.toast.dismiss") }} />;
 }

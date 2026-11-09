@@ -55,8 +55,7 @@ class ReportSafetyTest {
             assertEquals("attachment; filename=\"revenue-report-store3-2026-11-01-2026-11-05.xlsx\"",
                     file.getHeaders().getFirst("Content-Disposition"));
             authenticate("STAFF");
-            controller.getDashboard(null, null, null);
-            verify(reports).getDashboard(7L, "STAFF", 3L, null, null, null);
+            assertThrows(AccessDeniedException.class, () -> controller.getDashboard(null, null, null));
             assertThrows(AccessDeniedException.class, () -> controller.getRevenueReport(null, null, null));
             assertThrows(AccessDeniedException.class, () -> controller.exportReport("pdf", null, null, null));
             for (String role : List.of("CUSTOMER", "SHIPPER")) {
@@ -70,22 +69,9 @@ class ReportSafetyTest {
     }
 
     @Test
-    void staffSeesOnlyTodaysStoreOrderCount() {
-        LocalDate today = LocalDate.now();
-        when(repository.findByStoreIdAndStatDate(3L, today)).thenReturn(Optional.of(stats(3L, today)));
-        var dashboard = service.getDashboard(7L, "STAFF", 3L, null, null, null);
-        assertEquals("STORE_DAY", dashboard.scope());
-        assertEquals(3L, dashboard.storeId());
-        assertEquals(today, dashboard.from());
-        assertEquals(today, dashboard.to());
-        assertEquals(2, dashboard.todayOrderCount());
-        assertNull(dashboard.todayRevenue());
-        assertNull(dashboard.todayCodAmount());
-        assertNull(dashboard.todayTransferAmount());
-        assertNull(dashboard.periodRevenue());
-        assertNull(dashboard.periodOrderCount());
-        verify(repository).findByStoreIdAndStatDate(3L, today);
-        verifyNoMoreInteractions(repository);
+    void staffCannotReadDashboardEvenForOwnStore() {
+        assertThrows(ForbiddenException.class, () -> service.getDashboard(7L, "STAFF", 3L, null, null, null));
+        verifyNoInteractions(repository);
         verifyNoInteractions(exporter);
     }
 

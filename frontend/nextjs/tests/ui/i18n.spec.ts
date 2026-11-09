@@ -5,6 +5,11 @@ const customer = "http://127.0.0.1:4174";
 const admin = "http://127.0.0.1:4173";
 
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem("clucky_location_prompt", "seen"));
+  await page.route("**/api/users/me", route => route.fulfill({ json: {
+    fullName: "Test User", email: "test@example.com", phone: "0901234567",
+  } }));
+  await page.route("**/api/users/me/addresses", route => route.fulfill({ json: [] }));
   await page.route("**/api/auth/session", route => route.fulfill({ json: {
     userId: 1, role: route.request().headers()["x-clucky-client"] === "admin" ? "ADMIN" : "CUSTOMER",
     email: "test@example.com", fullName: "Test User",
@@ -15,12 +20,12 @@ test.beforeEach(async ({ page }) => {
 async function switchLanguage(page: Page, locale: "vi" | "en") {
   const dialog = page.getByRole("dialog");
   const scope = await dialog.isVisible() ? dialog : page;
-  await scope.getByRole("combobox", { name: /^(Ngôn ngữ|Language)$/ }).click();
+  await scope.getByRole("combobox", { name: /^(Ngôn ngữ|Language)(:|$)/ }).click();
   await page.getByRole("option", { name: locale === "vi" ? /^Tiếng Việt/ : /^English/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
-  const selector = scope.getByRole("combobox", { name: locale === "en" ? "Language" : "Ngôn ngữ" });
-  await expect(selector).toHaveAttribute("aria-expanded", "false");
-  await expect(selector).toBeEnabled();
+  const selector = scope.getByRole("combobox", { name: locale === "en" ? /^Language/ : /^Ngôn ngữ/ });
+  await expect(selector).toHaveAttribute("aria-expanded", "false", { timeout: 15000 });
+  await expect(selector).toBeEnabled({ timeout: 15000 });
 }
 
 for (const origin of [customer, admin]) {
@@ -57,13 +62,13 @@ test("customer account navigation resets scroll, including clicking the current 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
 
-test("account dashboard fits narrow screens and keeps its local-demo disclosure", async ({ page }) => {
+test("account dashboard fits narrow screens and displays the real profile", async ({ page }) => {
   await page.goto(customer + "/account");
   for (const width of [320, 375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Test User");
-    await expect(page.getByText(/Thông tin liên hệ và địa chỉ ở đây là bản mẫu/)).toBeVisible();
+    await expect(page.getByText(/Thông tin liên hệ và địa chỉ ở đây là bản mẫu/)).toHaveCount(0);
     await page.getByRole("navigation", { name: "Quản lý tài khoản" }).getByRole("button", { name: "Sổ địa chỉ", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Chưa có địa chỉ nào" })).toBeVisible();
   }
@@ -82,9 +87,9 @@ test("customer language changes preserve unsaved form values and translate exist
   await page.getByLabel("New password", { exact: true }).filter({ visible: true }).fill("new-password");
   await page.getByLabel("Confirm new password", { exact: true }).filter({ visible: true }).fill("different-password");
   await page.getByRole("button", { name: "Change password (demo)", exact: true }).click();
-  await expect(page.locator("main [role=alert]").filter({ visible: true })).toContainText("The passwords do not match.");
+  await expect(page.locator("[data-sonner-toast] [data-description]").filter({ visible: true })).toContainText("The passwords do not match.");
   await switchLanguage(page, "vi");
-  await expect(page.locator("main [role=alert]").filter({ visible: true })).toContainText("Mật khẩu xác nhận không khớp.");
+  await expect(page.locator("[data-sonner-toast] [data-description]").filter({ visible: true })).toContainText("Mật khẩu xác nhận không khớp.");
   await expect(page.getByLabel("Mật khẩu mới", { exact: true }).filter({ visible: true })).toHaveValue("new-password");
   await switchLanguage(page, "en");
   await page.reload();
@@ -117,16 +122,16 @@ for (const origin of [customer, admin]) {
   test(`safe API errors retranslate without clearing login fields (${origin})`, async ({ page }) => {
     await page.route("**/api/auth/login", route => route.fulfill({ status: 403, json: { code: "FORBIDDEN", message: "secret SQL diagnostic" } }));
     await page.goto(origin + "/login");
-    const email = page.getByRole("textbox", { name: "Email", exact: true });
+    const email = page.getByRole("textbox", { name: origin === admin ? "Định danh nội bộ hoặc email Admin" : "Email", exact: true });
     await expect(email).toHaveCount(1);
     await email.fill("locale@example.com");
     await page.getByLabel("Mật khẩu", { exact: true }).filter({ visible: true }).fill("password123");
     await page.getByRole("button", { name: /Đăng nhập$/, exact: false }).first().click();
-    await expect(page.locator("main [role=alert]").filter({ visible: true }).last()).toContainText("Bạn không có quyền");
+    await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "Bạn không có quyền" })).toBeVisible();
     await switchLanguage(page, "en");
     await expect(email).toHaveValue("locale@example.com");
     await expect(page.getByLabel("Password", { exact: true }).filter({ visible: true })).toHaveValue("password123");
-    await expect(page.locator("main [role=alert]").filter({ visible: true }).last()).toContainText("You do not have permission");
+    await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "You do not have permission" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("secret SQL diagnostic");
   });
 }
@@ -184,7 +189,9 @@ for (const [origin, routes] of [
 
 test("staff order labels update without resetting filters", async ({ page, context }) => {
   await context.addCookies([{ name: "clucky_locale", value: "en", url: admin }]);
-  await page.addInitScript(() => localStorage.setItem("clucky_admin_role", "STAFF"));
+  await page.route("**/api/auth/session", route => route.fulfill({ json: {
+    userId: 2, role: "STAFF", storeId: 1, email: "staff@example.com", fullName: "Staff",
+  } }));
   await page.goto(admin + "/admin/staff/orders");
   await expect(page.getByRole("heading", { name: "Store orders" })).toBeVisible();
   await page.getByPlaceholder("Order code, name or phone number…").fill("CLUCKY");

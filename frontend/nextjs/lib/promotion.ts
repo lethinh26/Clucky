@@ -1,6 +1,4 @@
 import { getTranslator } from "./i18n/translator.ts";
-import request from "./api";
-import { loadSession } from "./session";
 import { getBrowserLocale, type Locale } from "./i18n/locale.ts";
 import type {
   Voucher,
@@ -280,6 +278,7 @@ export function calculateTierProgress(pointsInput: number, locale: Locale = getB
 }
 
 export async function fetchAvailableVouchers(): Promise<Voucher[]> {
+  const { default: request } = await import("./api");
   return request<Voucher[]>("/api/promotions/vouchers/available");
 }
 
@@ -290,6 +289,8 @@ export interface MyLoyaltyResponse {
 }
 
 export async function fetchMyLoyalty(): Promise<MyLoyaltyResponse> {
+  const { default: request } = await import("./api");
+  const { loadSession } = await import("./session");
   const user = await loadSession();
   if (!user) return {
     points: { customerId: '', totalPoints: 0, tier: 'MEMBER' },

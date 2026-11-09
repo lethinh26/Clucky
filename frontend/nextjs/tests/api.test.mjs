@@ -7,6 +7,13 @@ import ts from 'typescript';
 const customer = { userId: 7, role: 'CUSTOMER', email: 'customer@example.com', fullName: 'Customer' };
 const result = (status, data = {}) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
 
+test('paged catalog responses are unwrapped without appending unpaged combos', async () => {
+  const products = [{ id: 1, name: 'Chicken' }];
+  const app = load('customer', () => result(200, { content: products }));
+  assert.deepEqual(await app.api.catalogApi.getProducts({ page: 0, size: 5 }), products);
+  assert.deepEqual(app.requests.map(request => request.path), ['/api/catalog/products']);
+});
+
 function locks() {
   let queue = Promise.resolve();
   return { request: (_name, action) => {
@@ -57,6 +64,15 @@ function load(client, handler, sharedLocks = locks()) {
 }
 
 for (const client of ['customer', 'admin']) {
+  if (client === 'customer') test('public store reads survive initial session discovery', async () => {
+    let complete;
+    const app = load(client, path => path === '/api/auth/login' ? result(200, customer)
+      : new Promise(resolve => { complete = () => resolve(result(200, [{ id: 1 }])); }));
+    const stores = app.api.catalogApi.getStores();
+    await app.api.authApi.login({ email: customer.email, password: 'Password123' });
+    complete();
+    assert.deepEqual(await stores, [{ id: 1 }]);
+  });
   const user = { ...customer, role: client === 'admin' ? 'ADMIN' : 'CUSTOMER' };
   test(`${client}: concurrent 401s refresh once and retry once without exposing tokens`, async () => {
     let valid = false;

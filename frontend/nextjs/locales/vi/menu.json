@@ -50,5 +50,18 @@
     "view": "Xem chi tiết {name}",
     "customise": "Xem và chọn món {name}"
   },
-  "categoryIcon": "Biểu tượng {name}"
+  "categoryIcon": "Biểu tượng {name}",
+  "pagination": {
+    "pageIndicator": "(Trang {current}/{total})",
+    "prev": "Trước",
+    "next": "Sau",
+    "prevAria": "Trang trước",
+    "nextAria": "Trang sau"
+  },
+  "storeStatus": {
+    "openNow": "● Đang mở cửa",
+    "outsideHours": "○ Ngoài giờ phục vụ (Mở lúc {openTime})",
+    "closedTemp": "✕ Tạm đóng cửa",
+    "closed": "✕ Đã đóng cửa"
+  }
 }

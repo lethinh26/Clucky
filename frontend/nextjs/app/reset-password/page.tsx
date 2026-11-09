@@ -78,6 +78,7 @@ function ResetPasswordForm() {
           value={otp}
           onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
           required
+          disabled={loading}
           placeholder={t("auth.otp.placeholder")}
         />
         <Input
@@ -87,6 +88,7 @@ function ResetPasswordForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          disabled={loading}
         />
         <Input
           label={t("auth.fields.confirmPassword")}
@@ -95,6 +97,7 @@ function ResetPasswordForm() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required
+          disabled={loading}
           error={
             password !== confirm && confirm
               ? t("auth.validation.confirmMismatch")

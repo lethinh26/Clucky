@@ -1,4 +1,5 @@
 import { message } from "../../../components/feedback";
+import { useTranslation } from "react-i18next";
 import React, { useState, useMemo } from 'react';
 import { Alert, Tag, Button, Space, Modal, Typography, Select, Tooltip } from "antd";
 import { TableColumnsType } from "antd";
@@ -21,6 +22,7 @@ import type { VoucherProposal } from '../../../types/promotion';
 const { Text, Title, Paragraph } = Typography;
 
 export const ProposalBacklogSection: React.FC = () => {
+  const { t } = useTranslation();
   const [proposals, setProposals] = useState<VoucherProposal[]>(MOCK_PROPOSALS);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -58,7 +60,7 @@ export const ProposalBacklogSection: React.FC = () => {
       await navigator.clipboard.writeText(code);
       message.success('Đã sao chép mã đề xuất "' + code + '"');
     } catch {
-      message.error('Không thể sao chép. Vui lòng chọn và sao chép nội dung thủ công.');
+      message.error(t("common:feedback.copyFailed"));
     }
   };
 

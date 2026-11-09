@@ -43,7 +43,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   expect(additions[0]).toMatchObject({ productId: 901, optionIds: [12], toppingIds: [22] });
   expect(additions[0].comboId).toBeUndefined();
   await expect(page.getByRole("button", { name: /Đã thêm/ })).toBeVisible();
-  await page.goto(`${customer}/cart`);
+  await page.getByRole("link", { name: "Giỏ hàng", exact: true }).first().click();
   await expect(page.getByText("Heat: Hot")).toBeVisible();
   await expect(page.getByText(/Cheese/)).toBeVisible();
   const increase = page.getByRole("button", { name: /Tăng.*Regression Chicken/ });
@@ -52,7 +52,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await expect(increase).toBeEnabled();
   rejectUpdate = true;
   await increase.click();
-  await expect(page.getByRole("alert").filter({ hasText: /Dịch vụ/ })).toBeVisible();
+  await expect(page.locator("[data-sonner-toast] [data-description]").last().filter({ hasText: /Dịch vụ/ })).toBeVisible();
   expect(items[0].quantity).toBe(2);
   await expect(page.getByRole("group", { name: /Thay đổi số lượng/ }).locator("span")).toHaveText("2");
   rejectUpdate = false;
@@ -84,7 +84,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await expect.poll(() => submitted?.items?.[0]?.comboId).toBe(901);
   expect(submitted.items[0].productId).toBeUndefined();
   expect(submitted.paymentMethod).toBe("BANK_TRANSFER");
-  await expect(page.locator("main [role=alert]")).toBeVisible();
+  await expect(page.locator("[data-sonner-toast] [data-description]")).toBeVisible();
   await expect(page.locator("#receiverName")).toHaveValue("Regression Customer");
   await expect(page.locator("#receiverPhone")).toHaveValue("0901234567");
   expect(items).toHaveLength(1);

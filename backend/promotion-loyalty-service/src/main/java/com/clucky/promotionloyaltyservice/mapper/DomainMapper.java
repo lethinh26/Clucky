@@ -53,7 +53,8 @@ public final class DomainMapper {
                 entity.getChange(),
                 entity.getBalanceAfter(),
                 entity.getType(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getReason()
         );
     }
 

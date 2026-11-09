@@ -1,4 +1,5 @@
 {
+  "toast": {"success":"Thành công","error":"Không thể hoàn tất","warning":"Cần chú ý","info":"Thông báo","loading":"Đang xử lý","notifications":"Thông báo","dismiss":"Đóng thông báo"},
   "feedback": {"cartAdded":"Đã thêm món vào giỏ hàng.","cartBusy":"Giỏ hàng đang đồng bộ. Vui lòng chờ một chút rồi thử lại.","copied":"Đã sao chép.","copyFailed":"Không thể sao chép. Vui lòng chọn và sao chép nội dung thủ công.","orderCreated":"Đã đặt hàng thành công.","signedIn":"Đăng nhập thành công.","signedOut":"Đã đăng xuất."}, 
   "language": "Ngôn ngữ",
   "errors": {

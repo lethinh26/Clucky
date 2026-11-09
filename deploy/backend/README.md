@@ -50,6 +50,7 @@ Optional BACKEND_ENV_JSON keys:
 - SEPAY_WEBHOOK_SECRET: passed only to Payment; webhook business implementation is still its separate task.
 - CLOUDINARY_ENABLED / CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET: supplied only to Catalog; enabled requires the three credentials.
 - MAIL_SENDER_ENABLED / MAIL_SENDER_USERNAME / MAIL_SENDER_APP_PASSWORD: supplied only to Notification; enabled requires both credentials. This remains the system mailbox/App Password, not customer Google credentials.
+- REPORT_REVENUE_EVENT: supplied only to Review/Report; defaults to `false` (listener disabled). Enable `order.completed` or `payment.confirmed` only after the INT-45 revenue/refund policy, producer contract and projection baseline are approved; see `backend/review-report-service/README.md`.
 
 Values must be strings with no newline/control character/single quote; JSON standard quoting is required. Dollar signs, hashes, equals signs and double quotes are preserved as literal Compose env values. Unknown keys are rejected rather than silently injecting arbitrary process options.
 

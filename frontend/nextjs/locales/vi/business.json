@@ -228,6 +228,7 @@
     "backToForm": "Quay lại biểu mẫu"
   },
   "stores": {
+    "outsideHours": "○ Ngoài giờ phục vụ (Mở cửa lúc {openTime})",
     "eyebrow": "Tìm cửa hàng Clucky gần bạn",
     "cluckyStores": "Hệ thống Cửa hàng Clucky",
     "pickUpAHotCrispyMealAtAStoreOrChooseYour": "Ghé lấy món nóng giòn trực tiếp tại cửa hàng hoặc chọn chi nhánh gần bạn nhất để nhận đơn giao siêu tốc.",

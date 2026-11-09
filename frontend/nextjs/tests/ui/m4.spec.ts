@@ -70,13 +70,13 @@ test("Google password step validates and never persists session tokens", async (
   await expect(page.getByLabel("Mật khẩu mới")).toBeFocused();
   expect(await page.evaluate(() => localStorage.length)).toBe(0);
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
+  await expect(page.locator("[data-sonner-toast] [data-description]").first()).toHaveText(
     "Mật khẩu phải có ít nhất 8 ký tự.",
   );
   await page.getByLabel("Mật khẩu mới").fill("Password123");
   await page.getByLabel("Nhập lại mật khẩu").fill("different");
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
+  await expect(page.locator("[data-sonner-toast] [data-description]").first()).toHaveText(
     "Mật khẩu nhập lại không khớp.",
   );
   await page.getByLabel("Nhập lại mật khẩu").fill("Password123");
@@ -138,7 +138,7 @@ test("Google existing account, cancellation and expired pending session", async 
   );
   await page.goto(fixture + "?cancel");
   await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
-  await expect(page.getByRole("alert")).toContainText("đóng đăng nhập Google");
+  await expect(page.locator("[data-sonner-toast] [data-description]").first()).toContainText("đóng đăng nhập Google");
   await page.route("**/api/auth/google", (route) =>
     route.fulfill({
       json: { status: "REQUIRES_PASSWORD", pendingToken: "expired" },
@@ -152,7 +152,7 @@ test("Google existing account, cancellation and expired pending session", async 
   await page.getByLabel("Mật khẩu mới").fill("Password123");
   await page.getByLabel("Nhập lại mật khẩu").fill("Password123");
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
-  await expect(page.getByRole("alert")).toContainText("hết hạn");
+  await expect(page.locator("[data-sonner-toast] [data-description]").first()).toContainText("hết hạn");
   await expect(
     page.getByRole("button", { name: "Đăng nhập bằng Google" }),
   ).toBeEnabled();
@@ -170,11 +170,11 @@ test("Google registration failure restarts safely and never stores pending token
   await page.getByLabel("Mật khẩu mới").fill("lowercase123");
   await page.getByLabel("Nhập lại mật khẩu").fill("lowercase123");
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
-  await expect(page.getByRole("alert")).toContainText("chữ hoa");
+  await expect(page.locator("[data-sonner-toast] [data-description]").first()).toContainText("chữ hoa");
   await page.getByLabel("Mật khẩu mới").fill("Password123");
   await page.getByLabel("Nhập lại mật khẩu").fill("Password123");
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
-  await expect(page.getByRole("alert")).toContainText("Hãy đăng nhập Google lại");
+  await expect(page.locator("[data-sonner-toast] [data-description]").first()).toContainText("Hãy đăng nhập Google lại");
   await expect(page.getByLabel("Mật khẩu mới")).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem("clucky_access_token"))).toBeNull();
   await page.route("**/api/auth/google", (route) => route.fulfill({ json: customerSession }));
@@ -355,7 +355,7 @@ test("Google request loading and error can be retried without storing a pending 
     page.getByRole("button", { name: "Đang mở Google…" }),
   ).toBeDisabled();
   release();
-  await expect(page.getByRole("alert")).toHaveText("Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.");
+  await expect(page.locator("[data-sonner-toast] [data-description]").first()).toHaveText("Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.");
   await expect(
     page.getByRole("button", { name: "Đăng nhập bằng Google" }),
   ).toBeEnabled();

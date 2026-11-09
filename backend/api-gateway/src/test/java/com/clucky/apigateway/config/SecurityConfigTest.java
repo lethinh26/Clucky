@@ -66,9 +66,11 @@ class SecurityConfigTest {
                     "clucky.auth.admin-origins", "http://localhost:3001")));
             context.register(WebConfig.class);
             context.refresh();
-            WebTestClient client = WebTestClient.bindToApplicationContext(context).build();
+            WebTestClient client = WebTestClient.bindToApplicationContext(context)
+                    .configureClient().baseUrl("http://localhost:8080").build();
             for (String path : new String[]{"/api/auth/logout", "/api/auth/refresh"}) {
-                client.post().uri(path).cookie("clucky_refresh_token", "opaque-refresh-token")
+                client.post().uri(path).cookie("clucky_customer_refresh", "opaque-refresh-token")
+                        .header("X-Clucky-Client", "customer")
                         .header("Origin", "http://localhost:3000").exchange().expectStatus().isOk();
             }
             client.get().uri("/api/orders").exchange().expectStatus().isUnauthorized();
