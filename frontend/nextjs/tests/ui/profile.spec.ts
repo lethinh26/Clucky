@@ -38,6 +38,6 @@ test("profile loads after a shared refresh and persists an allowed update", asyn
   await fullName.fill("Updated Customer");
   await page.getByRole("button", { name: /Lưu thay đổi|Save changes/ }).click();
   await expect.poll(() => updates).toBe(1);
-  await expect(page.locator("[data-sonner-toast]")).toBeVisible();
+  await expect(page.locator('[data-sonner-toast][data-type="success"]')).toBeVisible();
   expect(profile.fullName).toBe("Updated Customer");
 });
