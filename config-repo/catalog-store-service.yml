@@ -25,3 +25,7 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY:}
   api-secret: ${CLOUDINARY_API_SECRET:}
   folder: ${CLOUDINARY_FOLDER:clucky}
+
+clucky:
+  maps:
+    mapbox-geocoding-token: ${MAPBOX_GEOCODING_TOKEN:}

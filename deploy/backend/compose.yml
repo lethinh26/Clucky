@@ -141,6 +141,7 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:?AUTH_COOKIE_SECURE is required}
       AUTH_ALLOWED_ORIGINS: ${FRONTEND_CUSTOMER_URL},${FRONTEND_ADMIN_URL}
+      BRANCH_MIGRATION_BACKUP_REFERENCE: ${BRANCH_MIGRATION_BACKUP_REFERENCE:-}
     volumes:
       - ${VPS_WORKDIR:?VPS_WORKDIR is required}/secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
 
@@ -149,6 +150,7 @@ services:
     image: clucky-catalog-store-service:${IMAGE_TAG:?IMAGE_TAG is required}
     environment:
       <<: *environment
+      MAPBOX_GEOCODING_TOKEN: ${MAPBOX_GEOCODING_TOKEN:-}
       CLOUDINARY_ENABLED: ${CLOUDINARY_ENABLED:-false}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
@@ -162,6 +164,7 @@ services:
       CATALOG_SERVICE_URL: http://catalog-store-service
       SHIPPING_SERVICE_URL: http://shipping-service
       PROMOTION_SERVICE_URL: http://promotion-loyalty-service
+      LOYALTY_INTERNAL_TOKEN: ${LOYALTY_INTERNAL_TOKEN:-}
       CATALOG_SERVICE_TOKEN: ${CATALOG_SERVICE_TOKEN:-}
       PROMOTION_SERVICE_TOKEN: ${PROMOTION_SERVICE_TOKEN:-}
 
@@ -175,6 +178,9 @@ services:
   promotion-loyalty-service:
     <<: *java
     image: clucky-promotion-loyalty-service:${IMAGE_TAG:?IMAGE_TAG is required}
+    environment:
+      <<: *environment
+      LOYALTY_INTERNAL_TOKEN: ${LOYALTY_INTERNAL_TOKEN:-}
 
   shipping-service:
     <<: *java

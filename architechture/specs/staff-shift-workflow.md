@@ -1,5 +1,7 @@
 # SPEC — Quy trình Ca trực Nhân viên (Staff)
 
+> Lưu ý 08/11/2026: yêu cầu ca/check-in cá nhân, dashboard Staff, quyền kho, hủy từ PREPARING và thu thủ công đã được thay bởi [bộ spec RBAC và vận hành chi nhánh](rbac-branch-operations/README.md). Giữ tài liệu này để tra cứu lịch sử, không triển khai phần mâu thuẫn. Party và Shipping nâng cao vẫn ngoài phạm vi hiện tại.
+
 Phiên bản: 0.2 (đã chốt Q1, Q2, Q3, Q5, Q6; còn Q4) — 28/10/2026
 Nguồn: `docs/SRS.md` (FR-STF-01..10, Mục 5.1–5.4), `docs/Ma trận phân quyền.md` (#13–#25, #40), `docs/Đặc tả API.md`, `TASK-PLAN.md`.
 Màn hình: React admin — `frontend/react/src/pages/Staff/StaffOrdersPage.tsx`.

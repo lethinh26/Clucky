@@ -73,6 +73,8 @@ Firebase provision runs automatically, then backend env validation, then infrast
 
 Config Server → Eureka → all business services → Gateway start with health gates. Migrations apply through each service's Flyway; sample seed migrations execute normally on fresh DBs. Backend current link changes only after health/Eureka readiness. The existing frontend activation then updates both frontends and retains its automatic frontend rollback behavior.
 
+Before infrastructure startup, a disposable Kafka container assigns its data volume directory to Kafka's UID/GID 1000. Only the directory owner changes, not its contents; the broker still runs as the image's non-root user. This prevents fresh Docker volumes owned by root from failing KRaft initialization.
+
 No automatic database rollback is attempted. If backend migration/readiness fails, the job fails and retains data, private release files, images and backup for diagnosis. Some services may already have switched to the new release: this is an in-place demo deployment, not blue/green or zero downtime. Frontends are not activated after a backend failure.
 
 Database name/user/password must remain stable across redeploys. Changing POSTGRES_PASSWORD only changes a container environment, not an initialized PostgreSQL user password; prepare.py rejects that change. Rotate database credentials via an explicit procedure, not by replacing this Secret alone.

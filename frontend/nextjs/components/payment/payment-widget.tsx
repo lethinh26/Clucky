@@ -1,4 +1,5 @@
 "use client";
+import { notify, useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -57,7 +58,7 @@ export function PaymentWidget({
   );
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
-  const [copyFeedback, setCopyFeedback] = useState("");
+  useFeedback(failedSrc && t("business.paymentwidget.unableToLoadTheQrCode"));
   useEffect(() => {
     if (
       expiresMs == null ||
@@ -108,9 +109,9 @@ export function PaymentWidget({
   async function copyValue(value: string, label: string) {
     try {
       await navigator.clipboard.writeText(value);
-      setCopyFeedback(t("business.paymentwidget.copied", { value1: label }));
+      notify.success(t("business.paymentwidget.copied", { value1: label }));
     } catch {
-      setCopyFeedback(
+      notify.error(
         t("business.paymentwidget.unableToCopyAutomaticallySelectAndCopyTheDetailsBelow"),
       );
     }
@@ -256,9 +257,6 @@ export function PaymentWidget({
               </dd>
             </div>
           </dl>
-          <p className={styles.copyFeedback} role="status">
-            {copyFeedback}
-          </p>
           <p className={styles.paymentNote}> {t("business.paymentwidget.scanWithAVietqrCompatibleBankingAppKeepTheAmountAndTransfer")} </p>
         </>
       )}

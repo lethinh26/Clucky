@@ -61,6 +61,8 @@ public class RefreshTokenService {
             throw new ApiException(ErrorCode.TOKEN_REVOKED);
         }
 
+        User user = userRepository.findByIdForUpdate(claims.userId())
+                .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
         String tokenHash = hash(rawRefreshToken);
         RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ApiException(ErrorCode.TOKEN_REVOKED));
@@ -76,8 +78,9 @@ public class RefreshTokenService {
             throw new ApiException(ErrorCode.TOKEN_REVOKED);
         }
 
-        User user = userRepository.findById(claims.userId())
-                .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
+        if (sessionRevocationService.isUserRevoked(user.getId(), claims.issuedAt())) {
+            throw new ApiException(ErrorCode.TOKEN_REVOKED);
+        }
 
         if (!"ACTIVE".equals(user.getStatus())) {
             throw new ApiException(ErrorCode.ACCOUNT_LOCKED);

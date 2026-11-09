@@ -39,4 +39,3 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_point_transactions_operation_key
 
 CREATE INDEX IF NOT EXISTS idx_point_transactions_customer_created
     ON promotion_service.point_transactions (customer_id, created_at DESC);
-

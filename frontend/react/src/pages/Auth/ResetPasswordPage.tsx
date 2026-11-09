@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useFeedback } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import React from "react";
 import { useSearchParams, Link } from "react-router-dom";
@@ -16,7 +17,9 @@ export const ResetPasswordPage: React.FC = () => {
   const [params] = useSearchParams();
   const email = params.get("email") ?? "";
   const [error, setError] = React.useState<unknown>(null);
+  useFeedback(error ? (typeof error === "string" && i18n.exists(error) ? t(error) : errorMessage(error)) : null);
   const [success, setSuccess] = React.useState<string | null>(null);
+  useFeedback(success && t(success), "success");
   const [loading, setLoading] = React.useState(false);
 
   const onFinish = async (values: {

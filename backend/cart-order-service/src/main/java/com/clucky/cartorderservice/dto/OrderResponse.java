@@ -27,7 +27,8 @@ public record OrderResponse(
         Instant updatedAt,
         String paymentMethod,
         List<OrderItemResponse> items,
-        List<OrderStatusHistoryResponse> timeline
+        List<OrderStatusHistoryResponse> timeline,
+        String paymentStatus
 ) {
     public OrderResponse(
             Long id,
@@ -55,7 +56,7 @@ public record OrderResponse(
         this(id, orderCode, customerId, storeId, type, status, subtotal, discountAmount,
                 pointsUsed, pointsAmount, shippingFee, totalAmount, voucherCode, receiverName,
                 receiverPhone, deliveryAddress, note, scheduledAt, createdAt, updatedAt,
-                paymentMethod, List.of(), List.of());
+                paymentMethod, List.of(), List.of(), "PENDING");
     }
 
     public OrderResponse(
@@ -83,6 +84,6 @@ public record OrderResponse(
         this(id, orderCode, customerId, storeId, type, status, subtotal, discountAmount,
                 pointsUsed, pointsAmount, shippingFee, totalAmount, voucherCode, receiverName,
                 receiverPhone, deliveryAddress, note, scheduledAt, createdAt, updatedAt,
-                "COD", List.of(), List.of());
+                "COD", List.of(), List.of(), "PENDING");
     }
 }

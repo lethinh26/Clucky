@@ -545,6 +545,19 @@
 @media (prefers-reduced-motion: reduce) {
   .storeTrigger, .storeChevron, .storeOption { transition: none; }
 }
+.checkoutContainer :global(.btn-secondary) {
+  color:#8f1216; background:#fff; border:1px solid #cfb9a6; min-height:42px; padding:10px 16px; border-radius:12px;
+}
+.checkoutContainer :global(.btn-secondary):hover { color:#730e11; background:#f8ede5; border-color:#8f1216; }
+.checkoutContainer :global(.btn-secondary):focus-visible { outline:3px solid #c9a227; outline-offset:3px; }
+.quotePending { color:#75675e; font-size:15px; font-weight:600; }
+.submitStatus { margin:16px 0; padding:14px; border:1px solid #e4d7bf; border-radius:12px; background:#fcf5e7; color:#655338; font-size:12px; line-height:1.7; }
+.submitStatus>div { display:flex; align-items:flex-start; gap:8px; }
+.submitStatus svg { flex-shrink:0; margin-top:2px; }
+.submitStatus strong { display:block; margin-bottom:3px; font-size:13px; }
+.submitStatusError { color:#8c2821; border-color:#edc6bc; background:#fff1ec; }
+.submitStatus :global(.btn-secondary) { margin-top:10px; width:100%; }
+.checkoutContainer .submitBtn:disabled { background:#e5ddd4; color:#71655b; box-shadow:none; opacity:1; cursor:not-allowed; }
 .miniImage {
   width: 46px;
   height: 46px;

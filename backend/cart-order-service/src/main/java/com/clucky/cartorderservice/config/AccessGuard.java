@@ -6,7 +6,14 @@ import org.springframework.security.access.AccessDeniedException;
 
 @Component
 public final class AccessGuard {
+    public void requireCustomer() {
+        if (CurrentActor.require().role() != Role.CUSTOMER) {
+            throw new AccessDeniedException("Access denied");
+        }
+    }
+
     public void requireOwner(Long ownerId) {
+        requireCustomer();
         if (ownerId == null || !ownerId.equals(CurrentActor.require().userId())) {
             throw new AccessDeniedException("Access denied");
         }

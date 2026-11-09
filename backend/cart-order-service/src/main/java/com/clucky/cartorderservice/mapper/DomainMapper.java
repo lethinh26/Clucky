@@ -44,7 +44,8 @@ public final class DomainMapper {
                 entity.getUpdatedAt(),
                 entity.getPaymentMethod(),
                 itemResponses,
-                historyResponses
+                historyResponses,
+                entity.getPaymentStatus()
         );
     }
 

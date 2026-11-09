@@ -1,8 +1,12 @@
 import { useTranslation } from "react-i18next";
+import { useFeedback } from "../feedback";
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Result, Button } from 'antd';
-import { useAuth } from '../../context/AuthContext';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Result, Button, Spin, Alert } from 'antd';
+import { useAuthState } from '../../context/AuthContext';
+import { loadSession } from '../../lib/session';
+import { getErrorMessage } from '../../lib/api';
+import { roleHome } from '../../lib/role-home';
 
 export interface ProtectedRouteProps {
   allowedRoles: Array<'ADMIN' | 'STORE_MANAGER' | 'STAFF'>;
@@ -11,8 +15,13 @@ export interface ProtectedRouteProps {
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children }) => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, ready, error } = useAuthState();
+  useFeedback(error ? getErrorMessage(error) : null);
   const navigate = useNavigate();
+
+  if (!ready) return <Spin />;
+  if (error) return <Alert type="error" message={getErrorMessage(error)} action={<Button onClick={() => { void loadSession(true).catch(() => {}); }}>{t('common:retry')}</Button>} />;
+  if (!user) return <Navigate to="/login" replace />;
 
   if (!allowedRoles.includes(user.role)) {
     return (
@@ -30,7 +39,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, ch
           extra={
             <Button
               type="primary"
-              onClick={() => navigate('/admin/dashboard')}
+              onClick={() => navigate(roleHome(user.role))}
               style={{
                 backgroundColor: '#8F1216',
                 borderColor: '#8F1216',
@@ -48,7 +57,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, ch
     );
   }
 
-  return <>{children}</>;
+  return <React.Fragment key={`${user.id}:${user.role}:${user.storeId ?? ""}`}>{children}</React.Fragment>;
 };
 
 export default ProtectedRoute;

@@ -1,6 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addCartItem, cartTotals, mapBackendCart, toCartPayload } from "../lib/cart.ts";
+import { addCartItem, cartTotals, mapBackendCart, toCartPayload, catalogSelectionId } from "../lib/cart.ts";
+
+test("catalog option and topping IDs become numeric cart IDs without accepting malformed IDs", () => {
+  assert.equal(catalogSelectionId("opt-8", "opt"), 8);
+  assert.equal(catalogSelectionId("top-3", "top"), 3);
+  assert.equal(catalogSelectionId("8", "opt"), 8);
+  for (const invalid of ["opt-0", "opt--1", "opt-8oops", "top-8", "8.2", "", "9007199254740992"]) {
+    assert.ok(Number.isNaN(catalogSelectionId(invalid, "opt")));
+  }
+  const payload = toCartPayload({ productId: 3, quantity: 1, unitPrice: 69000,
+    name: "Burger", optionIds: [catalogSelectionId("opt-8", "opt")], toppingIds: [catalogSelectionId("top-3", "top")] });
+  assert.deepEqual(payload.optionIds, [8]);
+  assert.deepEqual(payload.toppingIds, [3]);
+  assert.throws(() => toCartPayload({ ...payload, optionIds: [catalogSelectionId("bad", "opt")] }));
+});
 
 test("checkout preserves combo and selection IDs without guessing IDs from a slug", () => {
   const combo = { id: "uuid", slug: "combo-999", comboId: 1, name: "Combo", quantity: 2, unitPrice: 100 };

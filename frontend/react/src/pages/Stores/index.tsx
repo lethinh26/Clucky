@@ -1,18 +1,8 @@
+import { message } from "../../components/feedback";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  Space,
-  Tag,
-  Tooltip,
-  Form,
-  Input,
-  Select,
-  TimePicker,
-  Radio,
-  message,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Button, Space, Tag, Tooltip, Form, Input, Select, TimePicker, Radio } from "antd";
+import { TableColumnsType } from "antd";
 import dayjs from 'dayjs';
 import {
   PlusOutlined,
@@ -28,41 +18,41 @@ import {
 import { AdminTable } from '../../components/ui/AdminTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { AdminModal } from '../../components/ui/AdminModal';
+import { StoreLocationPicker, type StorePoint } from '../../components/StoreLocationPicker';
 import { useAuth } from '../../context/AuthContext';
 import { getStoreStatusMeta, normalizeStoreStatus, type StoreStatus } from '../../types/store';
-import { storesApi, usersApi, getErrorMessage, type AdminUser, type Store } from '../../lib/api';
+import { storesApi, getErrorMessage, type Store } from '../../lib/api';
 
 export const StoresPage: React.FC = () => {
   const { t } = useTranslation();
 
   const { user, isAdmin } = useAuth();
   const [stores, setStores] = useState<Store[]>([]);
-  const [managers, setManagers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [missingOnly, setMissingOnly] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [form] = Form.useForm();
+  const [locationStore, setLocationStore] = useState<Store | null>(null);
+  const [locationPoint, setLocationPoint] = useState<StorePoint>({ latitude: null, longitude: null });
+  const [savingLocation, setSavingLocation] = useState(false);
+  const locationLock = React.useRef(false);
+  const createKey = React.useRef(crypto.randomUUID());
 
   const fetchStores = useCallback(async () => {
     try {
       setLoading(true);
-      const [list, managerList] = await Promise.all([
-        storesApi.list(false),
-        isAdmin ? usersApi.list({ role: 'STORE_MANAGER' }) : Promise.resolve([]),
-      ]);
-      setManagers(managerList);
-      setStores(list.map((store) => {
-        const manager = managerList.find((candidate) => candidate.storeId === store.id);
-        return { ...store, managerId: manager?.id, managerName: manager?.fullName };
-      }));
+      setStores(await storesApi.list(false));
+      setLoadError('');
     } catch (err) {
-      message.error(getErrorMessage(err));
+      setLoadError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, t]);
 
   useEffect(() => {
     fetchStores();
@@ -83,11 +73,12 @@ export const StoresPage: React.FC = () => {
         s.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (s.district?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
         s.phone.includes(searchTerm);
-      return matchStatus && matchSearch;
+      return matchStatus && matchSearch && (!missingOnly || s.latitude == null || s.longitude == null);
     });
-  }, [scopedStores, statusFilter, searchTerm]);
+  }, [scopedStores, statusFilter, searchTerm, missingOnly]);
 
   const handleOpenCreateModal = () => {
+    createKey.current = crypto.randomUUID();
     setEditingStore(null);
     form.resetFields();
     setModalOpen(true);
@@ -112,8 +103,10 @@ export const StoresPage: React.FC = () => {
 
   const handleFormSubmit = async () => {
     try {
-      const values = await form.validateFields();
+      const values = await form.validateFields(isAdmin ? undefined : ['openTime', 'closeTime', 'status']);
       const storePayload: Partial<Store> = {
+        latitude: editingStore?.latitude ?? null,
+        longitude: editingStore?.longitude ?? null,
         name: values.name,
         address: values.address,
         district: values.district,
@@ -123,19 +116,22 @@ export const StoresPage: React.FC = () => {
         closeTime: values.closeTime.format('HH:mm'),
         deliveryArea: values.deliveryArea,
         status: values.status,
+        recoveryEmail: editingStore ? undefined : values.recoveryEmail,
       };
 
       if (editingStore) {
-        const updated = await storesApi.update(editingStore.id, storePayload);
-        if (values.managerId) await usersApi.assignStore(values.managerId, updated.id);
+        const updated = isAdmin
+          ? await storesApi.update(editingStore.id, storePayload)
+          : await storesApi.updateOperation(editingStore.id, {
+              openTime: storePayload.openTime, closeTime: storePayload.closeTime, status: storePayload.status,
+            });
         setStores((prev) => prev.map((store) => store.id === updated.id ? updated : store));
         message.success(t("business:stores.storeDetailsUpdatedFor", { value1: updated.name }));
       } else {
-        const created = await storesApi.create(storePayload);
+        const created = await storesApi.create(storePayload, createKey.current);
         setEditingStore(created);
-        if (values.managerId) await usersApi.assignStore(values.managerId, created.id);
         setStores((prev) => [created, ...prev]);
-        message.success(t("business:stores.storeCreatedSuccessfully", { value1: created.name }));
+        message.info(t("accounts:pending"));
       }
 
       await fetchStores();
@@ -203,6 +199,12 @@ export const StoresPage: React.FC = () => {
       ),
     },
     {
+      title: t('maps:mapLabel'),
+      key: 'location',
+      width: 150,
+      render: (_, record) => <Tag color={record.latitude != null && record.longitude != null ? 'green' : 'orange'}>{t(record.latitude != null && record.longitude != null ? 'maps:locationConfirmed' : 'maps:missingLocations')}</Tag>,
+    },
+    {
       title: t("business:stores.openingTime"),
       key: 'hours',
       width: 150,
@@ -228,7 +230,7 @@ export const StoresPage: React.FC = () => {
       render: (manager) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
           <UserOutlined style={{ color: '#C9A227' }} />
-          <span style={{ fontWeight: 600, color: '#16100D' }}>{manager || t("business:stores.unassigned")}</span>
+          <span style={{ fontWeight: 600, color: '#16100D' }}>{manager || t('errors:NOT_IMPLEMENTED')}</span>
         </div>
       ),
     },
@@ -255,6 +257,7 @@ export const StoresPage: React.FC = () => {
       align: 'right',
       render: (_, record) => (
         <Space size={6}>
+          <Tooltip title={t('maps:viewLocation')}><Button type="text" icon={<CompassOutlined />} onClick={() => { setLocationStore(record); setLocationPoint({ latitude: record.latitude ?? null, longitude: record.longitude ?? null }); }} /></Tooltip>
           <Tooltip title={t("business:stores.editStore")}>
             <Button
               type="text"
@@ -286,6 +289,7 @@ export const StoresPage: React.FC = () => {
     },
   ];
 
+  if (loadError) return <div role="alert"><p>{loadError}</p><Button onClick={fetchStores}>{t('common:retry')}</Button></div>;
   return (
     <div>
       {/* Header Info */}
@@ -346,6 +350,7 @@ export const StoresPage: React.FC = () => {
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         filterNodes={
+          <Space wrap><Select value={missingOnly ? 'missing' : 'all'} onChange={value => setMissingOnly(value === 'missing')} style={{ width: 180 }} options={[{ value: 'all', label: t('maps:allLocations') }, { value: 'missing', label: t('maps:missingLocations') }]} />
           <Select
             value={statusFilter}
             onChange={setStatusFilter}
@@ -356,13 +361,26 @@ export const StoresPage: React.FC = () => {
               { value: 'CLOSED_TEMP', label: t("business:stores.temporarilyClosedIndicator") },
               { value: 'INACTIVE', label: t("business:stores.inactiveLabel") },
             ]}
-          />
+          /></Space>
         }
         emptyTitle={t("business:stores.noStoresFound")}
         emptyDescription={t("business:stores.tryADifferentDistrictOrStatus")}
       />
 
       {/* Create / Edit Store Modal */}
+      <AdminModal open={Boolean(locationStore)} confirmLoading={savingLocation} onCancel={() => { if (!savingLocation) setLocationStore(null); }} title={t('maps:viewLocation')} subtitle={locationStore?.name} width={740}
+        onOk={async () => {
+          if (!locationStore || locationLock.current) return;
+          if ((locationPoint.latitude == null) !== (locationPoint.longitude == null)) { message.error(t('maps:pinHint')); return; }
+          locationLock.current = true; setSavingLocation(true);
+          try {
+            const saved = await storesApi.updateLocation(locationStore.id, locationPoint);
+            setStores(current => current.map(store => store.id === saved.id ? { ...store, ...saved } : store)); setLocationStore(null);
+          } catch (error) { message.error(getErrorMessage(error)); }
+          finally { locationLock.current = false; setSavingLocation(false); }
+        }}>
+        {locationStore && <StoreLocationPicker key={locationStore.id} address={locationStore.address} value={locationPoint} onChange={savingLocation ? undefined : setLocationPoint} />}
+      </AdminModal>
       <AdminModal
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
@@ -371,7 +389,9 @@ export const StoresPage: React.FC = () => {
         subtitle={t("business:stores.detailsShownInTheCustomerAppAndUsedForOrderRouting")}
         width={680}
       >
-        <Form form={form} layout="vertical">
+        {!isAdmin && <p>{t('errors:NOT_IMPLEMENTED')}: {t('business:stores.storeHotline')} / {t('business:stores.supportedDeliveryAreaRadiusNearbyDistricts')}</p>}
+        <Form form={form} layout="vertical" disabled={!isAdmin}>
+          {!editingStore && <Form.Item name="recoveryEmail" label={t("accounts:recovery")} rules={[{ required: true, type: 'email', max: 255 }]}><Input autoComplete="email" /></Form.Item>}
           <Form.Item
             name="name"
             label={t("business:stores.storeName")}
@@ -412,7 +432,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.openingTime")}
               rules={[{ required: true, message: t("business:stores.chooseOpeningTime") }]}
             >
-              <TimePicker format="HH:mm" style={{ width: '100%', height: 40 }} />
+              <TimePicker disabled={false} format="HH:mm" style={{ width: '100%', height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -420,7 +440,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.closingTime")}
               rules={[{ required: true, message: t("business:stores.chooseClosingTime") }]}
             >
-              <TimePicker format="HH:mm" style={{ width: '100%', height: 40 }} />
+              <TimePicker disabled={false} format="HH:mm" style={{ width: '100%', height: 40 }} />
             </Form.Item>
           </div>
 
@@ -446,17 +466,16 @@ export const StoresPage: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <Form.Item name="managerId" label={t("business:stores.assignAStoreManager")}>
               <Select
+                disabled
+                title={t('errors:NOT_IMPLEMENTED')}
                 placeholder={t("business:stores.chooseTheResponsibleManager")}
                 style={{ height: 40 }}
-                options={managers.map((manager) => ({
-                  value: manager.id,
-                  label: manager.phone ? `${manager.fullName} (${manager.phone})` : manager.fullName,
-                }))}
+                options={[]}
               />
             </Form.Item>
 
             <Form.Item name="status" label={t("business:stores.activityStatus")}>
-              <Radio.Group style={{ marginTop: 6 }}>
+              <Radio.Group disabled={false} style={{ marginTop: 6 }}>
                 <Radio value="OPEN">{t("business:stores.open")}</Radio>
                 <Radio value="CLOSED_TEMP">{t("business:stores.temporarilyClosed")}</Radio>
                 <Radio value="INACTIVE">{t("business:stores.salesStopped")}</Radio>

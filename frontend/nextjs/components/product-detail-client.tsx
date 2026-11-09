@@ -8,6 +8,7 @@ import { FoodImage } from "@/components/order/food-image";
 import Link from "@/components/ui-loader/navigation-link";
 import { useOrder } from "@/components/order/order-provider";
 import { type Product } from "@/lib/products";
+import { catalogSelectionId } from "@/lib/cart";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Check } from "lucide-react";
 
 interface ProductDetailClientProps {
@@ -116,8 +117,8 @@ export function ProductDetailClient({ product, storeId, itemType }: ProductDetai
       productId: itemType === "PRODUCT" ? Number(product.id) : undefined,
       comboId: itemType === "COMBO" ? Number(product.id) : undefined,
       itemType,
-      optionIds: Object.values(selectedOptions).map(Number),
-      toppingIds: selectedToppings.map(Number),
+      optionIds: Object.values(selectedOptions).map(value => catalogSelectionId(value, "opt")),
+      toppingIds: selectedToppings.map(value => catalogSelectionId(value, "top")),
       slug: product.slug,
       name: product.name,
       category: product.categoryName || product.category || '',
@@ -133,7 +134,7 @@ export function ProductDetailClient({ product, storeId, itemType }: ProductDetai
         return choice
           ? [
               {
-                id: Number(choice.id),
+                id: catalogSelectionId(choice.id, "opt"),
                 groupName: group.name,
                 name: choice.name,
                 extraPrice: choice.priceAdjustment,
@@ -143,7 +144,7 @@ export function ProductDetailClient({ product, storeId, itemType }: ProductDetai
       }),
       toppings: product.toppings
         ?.filter((top) => selectedToppings.includes(top.id))
-        .map((top) => ({ id: Number(top.id), name: top.name, extraPrice: top.price })),
+        .map((top) => ({ id: catalogSelectionId(top.id, "top"), name: top.name, extraPrice: top.price })),
     });
     if (!added) return;
     setIsAddedSuccess(true);

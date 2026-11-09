@@ -51,6 +51,7 @@ on_failure() {
 trap on_failure ERR
 
 compose config --quiet
+compose run --rm --no-deps --user 0 --entrypoint chown kafka 1000:1000 /tmp/kraft-combined-logs
 # ponytail: in-place deployment; use blue/green plus compatible migrations when zero downtime is required.
 compose up -d --wait --wait-timeout 240 postgres redis kafka
 backup="$ROOT/backups/$RELEASE_ID-$(date -u +%Y%m%dT%H%M%SZ).dump"

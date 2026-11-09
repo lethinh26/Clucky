@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useFeedback } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import React from "react";
 import { useDeferredAction } from "../../components/ui-loader/use-deferred-action";
@@ -7,15 +8,15 @@ import { useScopedNavigate as useNavigate } from "../../components/ui-loader/use
 import { Form, Input, Button, Alert } from "antd";
 import { AuthLayout } from "./AuthLayout";
 import { authApi } from "../../lib/api";
-import { useAuth } from "../../context/AuthContext";
+import { roleHome } from "../../lib/role-home";
 
 export const LoginPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { errorMessage } = useLocaleTools();
   const navigate = useNavigate();
   const startAction = useDeferredAction();
-  const { switchRole } = useAuth();
   const [error, setError] = React.useState<unknown>(null);
+  useFeedback(error ? (typeof error === "string" && i18n.exists(error) ? t(error) : errorMessage(error)) : null);
   const [loading, setLoading] = React.useState(false);
 
   const onFinish = async (values: { email: string; password: string }) => {
@@ -24,19 +25,9 @@ export const LoginPage: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      const tokens = await authApi.login(values);
+      const session = await authApi.login(values);
       if (!task.isCurrent()) return;
-      localStorage.setItem("clucky_admin_access_token", tokens.accessToken);
-      // refresh token stored in HttpOnly cookie
-      // Map API role → UI role for mock RBAC
-      if (
-        tokens.role === "ADMIN" ||
-        tokens.role === "STORE_MANAGER" ||
-        tokens.role === "STAFF"
-      ) {
-        switchRole(tokens.role);
-      }
-      navigate("/admin/dashboard");
+      navigate(roleHome(session.role));
     } catch (err) {
       if (!task.isCurrent()) return;
       setError(err);
@@ -65,17 +56,16 @@ export const LoginPage: React.FC = () => {
           />
         )}
         <Form.Item
-          label="Email"
+          label={t("accounts:login")}
           name="email"
           rules={[
             { required: true, message: t("auth:validation.emailRequired") },
-            { type: "email", message: t("auth:validation.emailInvalid") },
           ]}
         >
           <Input
             size="large"
-            placeholder="ban@clucky.local"
-            autoComplete="email"
+            placeholder="manager.1 / staff.1 / admin@example.com"
+            autoComplete="username"
           />
         </Form.Item>
         <Form.Item
@@ -100,7 +90,7 @@ export const LoginPage: React.FC = () => {
           }}
         >
           <Link to="/forgot-password" style={{ color: "#8F1216" }}>
-            {t("auth:login.forgotPassword")}{" "}</Link>
+            {t("accounts:access")}{" "}</Link>
         </div>
         <Button
           type="primary"

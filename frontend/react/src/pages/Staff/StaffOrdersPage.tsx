@@ -1,14 +1,8 @@
+import { message } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
-import {
-  App as AntApp,
-  Button,
-  Input,
-  Select,
-  Skeleton,
-  Popconfirm,
-} from "antd";
+import { Button, Input, Select, Skeleton } from "antd";
 import {
   Search,
   ChefHat,
@@ -53,11 +47,10 @@ export function StaffOrdersPage() {
   ["ALL", t("business:stafforderspage.all")],
 ];
 
-  const { message } = AntApp.useApp();
   const {
     orders,
     updateStatus,
-    confirmCOD,
+    refreshOrders,
     loading,
     storageError,
     actionError,
@@ -148,11 +141,7 @@ export function StaffOrdersPage() {
       );
     return result;
   };
-  const collect = async (id: string) => {
-    const ok = await confirmCOD(id);
-    if (ok) message.success(t("business:orderdetaildrawer.codCollectionConfirmedInTheDemo"));
-    else message.warning(actionError || t("business:orderdetaildrawer.thisOrderNoLongerHasACodPaymentToConfirm"));
-  };
+  if (storageError) return <div role="alert"><p>{storageError}</p><Button onClick={refreshOrders}>{t('common:retry')}</Button></div>;
   return (
     <div className={`${styles.staffContainer} m3-admin-page`}>
       <header className={styles.pageHeader}>
@@ -341,12 +330,8 @@ export function StaffOrdersPage() {
                 <span>
                   <Wallet size={15} />
                   {order.paymentMethod === "COD" ? "COD" : t("business:id.bankTransfer")}
-                  <b data-paid={order.paymentStatus === "PAID"}>
-                    {order.paymentStatus === "PAID"
-                      ? t("business:orderdetaildrawer.collected")
-                      : order.paymentStatus === "FAILED"
-                        ? t("business:orderdetaildrawer.failed")
-                        : t("business:orderspage.notCollected")}
+                  <b data-paid={["PAID", "COLLECTED"].includes(order.paymentStatus)}>
+                    {t(`admin:paymentStates.${order.paymentStatus}`)}
                   </b>
                 </span>
                 <strong>{formatMoney(order.total)}</strong>
@@ -354,16 +339,11 @@ export function StaffOrdersPage() {
               {order.paymentMethod === "COD" &&
                 order.paymentStatus === "PENDING" &&
                 !["CANCELLED", "COMPLETED"].includes(order.status) && (
-                  <Popconfirm
-                    title={t("business:stafforderspage.confirmCashOnDeliveryPaymentCollected")}
-                    description={t("business:stafforderspage.recordForOrderInTheDemo", { value1: formatMoney(order.total), value2: order.orderCode })}
-                    okText={t("business:stafforderspage.paymentCollected")}
-                    cancelText={t("business:orderdetaildrawer.close")}
-                    onConfirm={() => collect(order.id)}
-                  >
-                    <button type="button" className={styles.codButton}>
+                  <div>
+                    <button type="button" disabled className={styles.codButton}>
                       <Wallet size={16} /> {t("business:orderdetaildrawer.confirmCodCollection")} </button>
-                  </Popconfirm>
+                    <p>{t('admin:collectionUnavailable')}</p>
+                  </div>
                 )}
               <div className={styles.cardActions}>
                 <button
@@ -391,9 +371,9 @@ export function StaffOrdersPage() {
                 {["READY", "SHIPPING"].includes(order.status) && (
                   <button
                     type="button"
-                    disabled={order.paymentStatus !== "PAID"}
+                    disabled={!["PAID", "COLLECTED"].includes(order.paymentStatus)}
                     title={
-                      order.paymentStatus !== "PAID"
+                      !["PAID", "COLLECTED"].includes(order.paymentStatus)
                         ? t("business:stafforderspage.confirmCashCollectionBeforeCompletion")
                         : undefined
                     }

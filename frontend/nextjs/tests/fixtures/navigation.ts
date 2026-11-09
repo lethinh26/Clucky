@@ -3,6 +3,9 @@ export function useRouter() {
     push(path: string) {
       document.body.dataset.destination = path;
     },
+    replace(path: string) {
+      document.body.dataset.destination = path;
+    },
   };
 }
 

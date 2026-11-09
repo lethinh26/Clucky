@@ -1,6 +1,8 @@
 # MA TRẬN PHÂN QUYỀN (RBAC)
 ## Hệ thống website bán hàng thức ăn nhanh
 
+> **Hiệu chỉnh F1–F4 (08/11/2026), ưu tiên hơn các ô cũ bên dưới:** Staff vào orders, không dashboard/revenue/export, không kiểm kê quantity/threshold/giá nhưng được báo hết món quán mình; Manager chỉ sửa field vận hành được hỗ trợ của quán mình; voucher quản trị Admin-only, chưa có proposal. Không tạo/promote Admin từ ứng dụng. Hủy chỉ PENDING_PAYMENT/CONFIRMED, mọi vai trò phải có lý do. Thu COD/hoàn tiền không đồng nghĩa đổi Order COMPLETED/Refund APPROVED. Ca/check-in cá nhân không phải điều kiện tác nghiệp. Party và UI chưa tích hợp đang khóa, không suy từ quyền nghiệp vụ rằng đã triển khai. Xem [ma trận endpoint và checklist F1–F4](../specs/rbac-branch-operations/F1-F4-handoff.md); **chưa nghiệm thu chức năng**. Việc đồng bộ toàn bộ bảng A–E thuộc E1.
+
 Ký hiệu: ✅ = Được phép | ❌ = Không được phép | 🔶 = Được phép trong phạm vi giới hạn (xem Ghi chú)
 Phạm vi dữ liệu: Staff và Store Manager bị ép `storeId` của chi nhánh được gán ở backend (JWT + kiểm tra tại từng service), không chỉ ẩn giao diện.
 

@@ -11,6 +11,7 @@ import com.clucky.promotionloyaltyservice.exception.ErrorCode;
 import com.clucky.promotionloyaltyservice.model.VoucherScope;
 import com.clucky.promotionloyaltyservice.model.VoucherStatus;
 import com.clucky.promotionloyaltyservice.service.VoucherService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -53,6 +54,7 @@ public class VoucherController {
      * GET /api/promotions/vouchers
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<VoucherResponse>> getVouchers(
         @RequestParam(name = "scope", required = false) VoucherScope scope,
         @RequestParam(name = "storeId", required = false) Long storeId,
@@ -81,6 +83,7 @@ public class VoucherController {
      * GET /api/promotions/vouchers/{id}
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VoucherResponse> getVoucherById(@PathVariable("id") Long id) {
         CurrentActor actor = CurrentActor.require();
         if (actor.role() != Role.ADMIN && actor.role() != Role.STORE_MANAGER) {
@@ -99,6 +102,7 @@ public class VoucherController {
      * POST /api/promotions/vouchers
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VoucherResponse> createVoucher(
         @Valid @RequestBody VoucherRequest request
     ) {
@@ -154,6 +158,7 @@ public class VoucherController {
      * PUT /api/promotions/vouchers/{id}
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VoucherResponse> updateVoucher(
         @PathVariable("id") Long id,
         @Valid @RequestBody VoucherRequest request
@@ -174,6 +179,7 @@ public class VoucherController {
      * DELETE /api/promotions/vouchers/{id}
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteVoucher(
         @PathVariable("id") Long id
     ) {

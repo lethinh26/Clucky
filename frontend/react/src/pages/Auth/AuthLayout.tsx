@@ -31,9 +31,9 @@ export const AuthLayout: React.FC<{
               Clucky<small>WORKSPACE</small>
             </span>
           </Link>
-          <LanguageSwitcher />
           <span className={styles.headerNote}>
             {t("admin:auth.eyebrow")}{" "}</span>
+          <LanguageSwitcher />
         </header>
         <div className={styles.layout}>
           <section

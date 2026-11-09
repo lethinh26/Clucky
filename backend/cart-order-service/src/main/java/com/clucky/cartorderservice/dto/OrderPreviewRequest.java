@@ -12,7 +12,13 @@ public record OrderPreviewRequest(
         String voucherCode,
         @PositiveOrZero Integer pointsUsed,
         String receiverAddress,
-        Double latitude,
-        Double longitude,
+        @jakarta.validation.constraints.DecimalMin("-90") @jakarta.validation.constraints.DecimalMax("90") Double latitude,
+        @jakarta.validation.constraints.DecimalMin("-180") @jakarta.validation.constraints.DecimalMax("180") Double longitude,
         List<@Valid CartItemDto> items
-) {}
+) {
+    @jakarta.validation.constraints.AssertTrue
+    public boolean isCoordinatePairValid() {
+        return (latitude == null && longitude == null) || (latitude != null && longitude != null
+                && Double.isFinite(latitude) && Double.isFinite(longitude));
+    }
+}

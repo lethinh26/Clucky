@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import { signIn, endSession, loadSession, refreshSession, expireSession, getSessionState, type SessionUser } from './session';
 import { getBrowserLocale, getErrorMessage as resolveError } from '../i18n/core';
 import type { StoreStatus } from '../types/store';
 import type { AdminVoucher, VoucherPayload } from '../types/promotion';
@@ -51,6 +52,10 @@ export interface Combo {
 }
 
 export interface Store {
+  accountReadiness?: 'LEGACY' | 'PENDING' | 'PROVISIONED' | 'READY';
+  recoveryEmail?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   id: number;
   name: string;
   address: string;
@@ -99,80 +104,48 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('clucky_admin_access_token');
-  if (config.url?.startsWith('/api/auth/')) config.headers.delete('Authorization');
-  else if (token) config.headers.Authorization = `Bearer ${token}`;
+  config.headers.delete('Authorization');
+  config.headers['X-Clucky-Client'] = 'admin';
+  const scoped = config as typeof config & { sessionRevision?: number };
+  scoped.sessionRevision ??= getSessionState().revision;
   config.headers['Accept-Language'] = getBrowserLocale();
   return config;
 });
 
-/* ---------- INT-05: 401 handling with single-flight refresh ---------- */
-let refreshPromise: Promise<boolean> | null = null;
-
-function tryRefresh(): Promise<boolean> {
-  if (!refreshPromise) {
-    refreshPromise = api
-      .post<AuthTokens>('/api/auth/refresh')
-      .then((r) => {
-        const token = r.data?.accessToken;
-        if (typeof token !== 'string' || !token) return false;
-        if (typeof token === 'string') {
-          localStorage.setItem('clucky_admin_access_token', token);
-        }
-        return true;
-      })
-      .catch(() => false)
-      .finally(() => {
-        refreshPromise = null;
-      });
-  }
-  return refreshPromise;
-}
-
-type RetriableConfig = import('axios').InternalAxiosRequestConfig & { _retried?: boolean };
-
-api.interceptors.response.use(
-  (response) => response,
-  async (error: import('axios').AxiosError) => {
-    const status = error.response?.status;
-    const original = error.config as RetriableConfig | undefined;
-    const url: string = original?.url ?? '';
-    const isAuthPath = url.startsWith('/api/auth/');
-    if (status === 401 && original && !original._retried && !isAuthPath) {
-      original._retried = true;
-      if (await tryRefresh()) {
-        return api.request(original);
-      }
-      localStorage.removeItem('clucky_admin_access_token');
-      window.location.assign('/login');
-    }
-    return Promise.reject(error);
-  },
-);
+api.interceptors.response.use(response => {
+  const config = response.config as typeof response.config & { sessionRevision?: number };
+  if (config.sessionRevision !== getSessionState().revision) throw new axios.CanceledError('Session changed');
+  return response;
+}, async (error: AxiosError) => {
+  const config = error.config as (NonNullable<AxiosError['config']> & { retried?: boolean; sessionRevision?: number }) | undefined;
+  if (error.response?.status !== 401 || !config || config.url?.startsWith('/api/auth/')) throw error;
+  if (config.sessionRevision !== getSessionState().revision) throw new axios.CanceledError('Session changed');
+  if (config.retried) { expireSession(); throw error; }
+  config.retried = true;
+  const userId = getSessionState().user?.userId;
+  const user = await refreshSession();
+  if (userId && userId !== user.userId) throw error;
+  config.sessionRevision = getSessionState().revision;
+  return api.request(config);
+});
 
 export function getErrorMessage(err: unknown, _fallback?: string): string {
   return resolveError(err);
 }
 
 /* ---------- Auth ---------- */
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken?: string;
-  role?: string;
-  storeId?: number;
-  email?: string;
-  fullName?: string;
-}
-
 export interface LoginPayload { email: string; password: string }
 export interface ForgotPasswordPayload { email: string }
 export interface ResetPasswordPayload { email: string; otp: string; newPassword: string }
+export type AuthTokens = SessionUser;
+
 export const authApi = {
-  login: (body: LoginPayload) => api.post<AuthTokens>('/api/auth/login', body).then((r) => r.data),
-  refresh: () => api.post<AuthTokens>('/api/auth/refresh').then((r) => r.data),
-  logout: () => api.post<{ message: string }>('/api/auth/logout').then((r) => r.data),
+  login: (body: LoginPayload) => signIn<AuthTokens>('/api/auth/login', body),
+  session: loadSession,
+  refresh: refreshSession,
+  logout: () => endSession(),
   forgotPassword: (body: ForgotPasswordPayload) => api.post('/api/auth/forgot-password', body).then((r) => r.data),
-  resetPassword: (body: ResetPasswordPayload) => api.post('/api/auth/reset-password', body).then((r) => r.data),
+  resetPassword: (body: ResetPasswordPayload) => endSession('/api/auth/reset-password', body),
 };
 
 /* ---------- Admin users ---------- */
@@ -230,6 +203,7 @@ export interface BackendOrder {
   type: 'DELIVERY' | 'PICKUP';
   status: string;
   paymentMethod?: string;
+  paymentStatus?: 'PENDING' | 'PAID' | 'COLLECTED' | 'REFUNDED';
   subtotal: number;
   discountAmount: number;
   pointsUsed: number;
@@ -274,7 +248,8 @@ export const ordersApi = {
         if (r.data && Array.isArray(r.data.content)) {
           return r.data.content as BackendOrder[];
         }
-        return Array.isArray(r.data) ? (r.data as BackendOrder[]) : [];
+        if (Array.isArray(r.data)) return r.data as BackendOrder[];
+        throw { code: 'UPSTREAM_ERROR' };
       }),
   getById: (id: string | number, signal?: AbortSignal) =>
     api.get<BackendOrder>(`/api/orders/${id}`, { signal }).then((r) => r.data),
@@ -287,7 +262,7 @@ export const ordersApi = {
     api
       .put<BackendOrder>(
         `/api/orders/${id}/status`,
-        { status, reason },
+        { status, note: reason },
         { signal }
       )
       .then((r) => r.data),
@@ -322,7 +297,8 @@ export const refundsApi = {
         if (r.data && Array.isArray(r.data.content)) {
           return r.data.content as BackendRefund[];
         }
-        return Array.isArray(r.data) ? (r.data as BackendRefund[]) : [];
+        if (Array.isArray(r.data)) return r.data as BackendRefund[];
+        throw { code: 'UPSTREAM_ERROR' };
       }),
   review: (
     id: string | number,
@@ -484,12 +460,14 @@ export const catalogApi = {
 
 /* ---------- Stores ---------- */
 export const storesApi = {
-  list: (activeOnly?: boolean) =>
-    api.get<Store[]>('/api/stores', { params: { activeOnly } }).then((r) => r.data),
+  updateLocation: (id: number, point: { latitude: number | null; longitude: number | null }) =>
+    api.put<Store>('/api/stores/' + id + '/location', point).then(response => response.data),
+  list: (activeOnly?: boolean, signal?: AbortSignal) =>
+    api.get<Store[]>('/api/stores', { params: { activeOnly }, signal }).then((r) => r.data),
   get: (id: number) =>
     api.get<Store>(`/api/stores/${id}`).then((r) => r.data),
-  create: (data: Partial<Store>) =>
-    api.post<Store>('/api/stores', data).then((r) => r.data),
+  create: (data: Partial<Store>, idempotencyKey: string) =>
+    api.post<Store>('/api/stores', data, { headers: { 'Idempotency-Key': idempotencyKey } }).then((r) => r.data),
   update: (id: number, data: Partial<Store>) =>
     api.put<Store>(`/api/stores/${id}`, data).then((r) => r.data),
   delete: (id: number) =>

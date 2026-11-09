@@ -98,6 +98,8 @@ jobs:
       # plus the admin production preview and the Google/payment fixture server.
       - name: Build customer for UI tests
         run: npm run build
+        env:
+          NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "pk.playwright-test-token"
 
       - name: Build admin for UI tests
         run: npm run build

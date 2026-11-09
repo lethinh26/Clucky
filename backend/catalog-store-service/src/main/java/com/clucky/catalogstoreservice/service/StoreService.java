@@ -63,6 +63,8 @@ public class StoreService {
         Store store = new Store();
         store.setName(request.getName());
         store.setAddress(request.getAddress());
+        store.setLatitude(request.getLatitude());
+        store.setLongitude(request.getLongitude());
         store.setDistrict(request.getDistrict());
         store.setCity(request.getCity());
         store.setPhone(request.getPhone());
@@ -90,8 +92,11 @@ public class StoreService {
         Store store = storeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + id));
 
+        ensureReady(store, request.getStatus());
         store.setName(request.getName());
         store.setAddress(request.getAddress());
+        store.setLatitude(request.getLatitude());
+        store.setLongitude(request.getLongitude());
         store.setDistrict(request.getDistrict());
         store.setCity(request.getCity());
         store.setPhone(request.getPhone());
@@ -109,6 +114,7 @@ public class StoreService {
         Store store = storeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + id));
 
+        ensureReady(store, request.getStatus());
         if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime()));
         if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime()));
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
@@ -116,6 +122,12 @@ public class StoreService {
         Store saved = storeRepository.save(store);
         cacheService.evictStoreMenuCache(id);
         return toResponse(saved);
+    }
+
+    private void ensureReady(Store store, String status) {
+        if (status != null && StoreStatus.fromString(status) == StoreStatus.OPEN
+                && !List.of("READY", "LEGACY").contains(store.getAccountReadiness()))
+            throw new com.clucky.catalogstoreservice.exception.ApiException(com.clucky.catalogstoreservice.exception.ErrorCode.RESOURCE_CONFLICT);
     }
 
     public void deleteStore(Long id) {
@@ -145,7 +157,7 @@ public class StoreService {
     }
 
     public StoreDto.Response toResponse(Store store) {
-        StoreDto.Response resp = new StoreDto.Response(
+        StoreDto.Response response = new StoreDto.Response(
                 store.getId(),
                 store.getName(),
                 store.getAddress(),
@@ -157,8 +169,18 @@ public class StoreService {
                 store.getStatus(),
                 store.getDeliveryArea()
         );
-        resp.setIsOpenNow(isStoreServingNow(store));
-        return resp;
+        response.setAccountReadiness(store.getAccountReadiness());
+        response.setIsOpenNow(isStoreServingNow(store));
+        response.setLatitude(store.getLatitude());
+        response.setLongitude(store.getLongitude());
+        return response;
+    }
+
+    public StoreDto.Response updateLocation(Long id, StoreDto.LocationRequest request) {
+        Store store = storeRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Store not found"));
+        store.setLatitude(request.latitude());
+        store.setLongitude(request.longitude());
+        return toResponse(storeRepository.save(store));
     }
 
     private LocalTime parseTime(String timeStr) {

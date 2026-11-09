@@ -1,20 +1,4 @@
-spring:
-  cloud:
-    gateway:
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOriginPatterns:
-              - "${FRONTEND_CUSTOMER_URL}"
-              - "${FRONTEND_ADMIN_URL}"
-              - "${CORS_ALLOWED_ORIGINS:https://*.clucky.vn}"
-            allowedMethods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - OPTIONS
-            allowedHeaders: "*"
-            allowCredentials: true
-            exposedHeaders:
-              - X-Correlation-ID
+clucky:
+  auth:
+    customer-origins: ${AUTH_CUSTOMER_ORIGINS:${FRONTEND_CUSTOMER_URL}}
+    admin-origins: ${AUTH_ADMIN_ORIGINS:${FRONTEND_ADMIN_URL}}

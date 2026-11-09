@@ -1,5 +1,7 @@
 "use client";
+import { notify, useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
+import { getErrorMessage } from "@/lib/api";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
 import { useState, useEffect, use } from "react";
@@ -36,7 +38,8 @@ import {
   OrderItemCard,
   OrderSummaryCard,
 } from "@/components/order";
-import { orderApi } from "@/lib/api";
+import { orderApi, catalogApi, type ProductItem } from "@/lib/api";
+import { fillOrderImages } from "@/lib/order-images";
 import type { Order } from "@/lib/types/order";
 import styles from "./tracking.module.css";
 
@@ -57,10 +60,17 @@ export default function OrderTrackingPage({
     (entry) => entry.id === id || entry.orderCode === id,
   );
   const [serverOrder, setServerOrder] = useState<Order | null>(null);
+  const [imageCatalog, setImageCatalog] = useState<ProductItem[]>([]);
+  useEffect(() => {
+    let active = true;
+    catalogApi.getProducts().then(products => { if (active) setImageCatalog(products); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
   const [isPolling, setIsPolling] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  useFeedback(loadError);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [feedback, setFeedback] = useState("");
 
   // INT-68: 5-second polling interval for order status until terminal status
   useEffect(() => {
@@ -74,6 +84,7 @@ export default function OrderTrackingPage({
         if (!isMounted || !beOrder) return;
         const mapped = mapBackendOrderToOrder(beOrder);
         setServerOrder(mapped);
+        setLoadError("");
 
         if (["COMPLETED", "CANCELLED"].includes(mapped.status)) {
           if (timer) {
@@ -84,8 +95,9 @@ export default function OrderTrackingPage({
         } else {
           setIsPolling(true);
         }
-      } catch {
-        // Fallback gracefully to local mock if server is offline or order is local
+      } catch (error) {
+        if (!isMounted) return;
+        setLoadError(getErrorMessage(error));
         setIsPolling(false);
       }
     };
@@ -99,7 +111,8 @@ export default function OrderTrackingPage({
     };
   }, [id]);
 
-  const order = serverOrder || localOrder;
+  const sourceOrder = serverOrder || localOrder;
+  const order = sourceOrder ? fillOrderImages([sourceOrder], imageCatalog)[0] : undefined;
 
   if (!ready || !order)
     return (
@@ -128,6 +141,21 @@ export default function OrderTrackingPage({
     order.status === "PENDING_PAYMENT";
   const terminal = ["COMPLETED", "CANCELLED"].includes(order.status);
   const paymentCopy = {
+    COLLECTED: {
+      label: t("business.paymentstatusbadge.codCollected"),
+      message: t("business.id.yourPaymentHasBeenReceivedThankYouForChoosingClucky"),
+      icon: CheckCircle2,
+    },
+    REFUNDED: {
+      label: t("business.paymentstatusbadge.refunded"),
+      message: t("business.paymentstatusbadge.refunded"),
+      icon: RotateCcw,
+    },
+    UNKNOWN: {
+      label: t("business.id.orderValue"),
+      message: t("business.paymentstatusbadge.unknownStatus"),
+      icon: CircleAlert,
+    },
     PAID: {
       label: t("business.id.amountPaid"),
       message: t("business.id.yourPaymentHasBeenReceivedThankYouForChoosingClucky"),
@@ -159,14 +187,19 @@ export default function OrderTrackingPage({
     try {
       await cancelOrder(order.id, cancelReason.trim());
       setCancelOpen(false);
-      setFeedback(t("business.id.yourOrderHasBeenCancelled"));
+      notify.success(t("business.id.yourOrderHasBeenCancelled"));
       try {
-        const updated = await orderApi.getById(id);
+        const updated = await orderApi.getById(order.id);
         if (updated) setServerOrder(mapBackendOrderToOrder(updated));
       } catch {}
-    } catch (err: any) {
-      setCancelOpen(false);
-      setFeedback(err?.message || t("business.orderprovider.orderNotFound"));
+    } catch (err: unknown) {
+      notify.error(getErrorMessage(err));
+      try {
+        const updated = await orderApi.getById(order.id);
+        setServerOrder(mapBackendOrderToOrder(updated));
+      } catch (reloadError) {
+        setLoadError(getErrorMessage(reloadError));
+      }
     }
   };
 
@@ -261,12 +294,6 @@ export default function OrderTrackingPage({
           updatedAt={order.updatedAt ?? order.createdAt}
           history={order.timeline}
         />
-        {feedback && (
-          <p className={styles.feedback} role="status">
-            <CheckCircle2 size={16} />
-            {feedback}
-          </p>
-        )}
         {demoEnabled && (
           <details className={styles.demoDisclosure} open>
             <summary>{t("business.id.orderStatusSimulator")}</summary>

@@ -1,16 +1,8 @@
+import { message } from "../../../components/feedback";
+import { useTranslation } from "react-i18next";
 import React, { useState, useMemo } from 'react';
-import {
-  Alert,
-  Tag,
-  Button,
-  Space,
-  Modal,
-  Typography,
-  Select,
-  Tooltip,
-  message,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Alert, Tag, Button, Space, Modal, Typography, Select, Tooltip } from "antd";
+import { TableColumnsType } from "antd";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -30,6 +22,7 @@ import type { VoucherProposal } from '../../../types/promotion';
 const { Text, Title, Paragraph } = Typography;
 
 export const ProposalBacklogSection: React.FC = () => {
+  const { t } = useTranslation();
   const [proposals, setProposals] = useState<VoucherProposal[]>(MOCK_PROPOSALS);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -62,9 +55,13 @@ export const ProposalBacklogSection: React.FC = () => {
     );
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard?.writeText(code);
-    message.success('Đã sao chép mã đề xuất "' + code + '"');
+  const handleCopyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      message.success('Đã sao chép mã đề xuất "' + code + '"');
+    } catch {
+      message.error(t("common:feedback.copyFailed"));
+    }
   };
 
   // Status counts for KPI cards

@@ -1,4 +1,5 @@
 "use client";
+import { useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -27,6 +28,7 @@ export function DemoOrderControls({ order }: { order: Order }) {
   const { money: formatPrice } = useLocaleTools();
   const { demoEnabled, runDemoAction } = useOrder();
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string }>();
+  useFeedback(feedback?.message, feedback?.ok ? "success" : "error");
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   if (!demoEnabled) return null;

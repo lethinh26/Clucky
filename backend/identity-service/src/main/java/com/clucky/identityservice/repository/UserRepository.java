@@ -9,6 +9,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select account from User account where account.loginName = :login or (account.loginName is null and account.email = :login)")
+    Optional<User> findByLogin(@Param("login") String login);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select account from User account where account.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id") Long id);
     Optional<User> findByIdAndStoreId(Long id, Long storeId);
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);

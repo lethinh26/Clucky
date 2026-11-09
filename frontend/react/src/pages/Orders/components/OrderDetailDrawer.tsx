@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../../i18n/hooks";
 import { useState } from "react";
-import { App as AntApp, Drawer, Button, Modal, Input, Popconfirm } from "antd";
+import { Drawer, Button, Modal, Input } from "antd";
 import {
   Clock3,
   UserRound,
@@ -49,18 +49,11 @@ export function OrderDetailDrawer({
 
 
   const { locale, money: money } = useLocaleTools();
-  const { confirmCOD, actionError } = useOrders();
+  const { actionError } = useOrders();
   const { isStaff } = useAuth();
-  const { message } = AntApp.useApp();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
   if (!order) return null;
-  const collect = async () => {
-    const ok = await confirmCOD(order.id);
-    if (ok)
-      message.success(t("business:orderdetaildrawer.codCollectionConfirmedInTheDemo"));
-    else message.warning(t("business:orderdetaildrawer.thisOrderNoLongerHasACodPaymentToConfirm"));
-  };
   return (
     <>
       <Drawer
@@ -201,12 +194,8 @@ export function OrderDetailDrawer({
             </div>
             <div>
               <dt>{t("business:catalog.status")}</dt>
-              <dd data-paid={order.paymentStatus === "PAID"}>
-                {order.paymentStatus === "PAID"
-                  ? t("business:demoordercontrols.paid")
-                  : order.paymentStatus === "FAILED"
-                    ? t("business:orderdetaildrawer.failed")
-                    : t("business:paymentstatusbadge.unpaid")}
+              <dd data-paid={["PAID", "COLLECTED"].includes(order.paymentStatus)}>
+                {t(`admin:paymentStates.${order.paymentStatus}`)}
               </dd>
             </div>
             <div>
@@ -250,20 +239,13 @@ export function OrderDetailDrawer({
             {order.paymentMethod === "COD" &&
               order.paymentStatus === "PENDING" &&
               !["CANCELLED", "COMPLETED"].includes(order.status) && (
-                <Popconfirm
-                  title={t("business:orderdetaildrawer.confirmCodCollected")}
-                  description={`${money(order.total)} · ${order.orderCode}`}
-                  okText={t("business:orderdetaildrawer.collected")}
-                  cancelText={t("business:orderdetaildrawer.close")}
-                  onConfirm={collect}
-                >
-                  <Button icon={<Wallet size={16} />}>{t("business:orderdetaildrawer.confirmCodCollection")}</Button>
-                </Popconfirm>
+                <div><Button disabled icon={<Wallet size={16} />}>{t("business:orderdetaildrawer.confirmCodCollection")}</Button>
+                  <p>{t('admin:collectionUnavailable')}</p></div>
               )}
             {["READY", "SHIPPING"].includes(order.status) && (
               <Button
                 type="primary"
-                disabled={order.paymentStatus !== "PAID"}
+                disabled={!["PAID", "COLLECTED"].includes(order.paymentStatus)}
                 icon={<CheckCircle2 size={16} />}
                 onClick={() => onStatusChange(order.id, "COMPLETED")}
               > {t("business:orderdetaildrawer.completeOrder")} </Button>
@@ -283,7 +265,7 @@ export function OrderDetailDrawer({
             )}
           </div>
           {["READY", "SHIPPING"].includes(order.status) &&
-            order.paymentStatus !== "PAID" && (
+            !["PAID", "COLLECTED"].includes(order.paymentStatus) && (
               <p className={styles.actionHint}> {t("business:orderdetaildrawer.confirmPaymentCollectionBeforeCompletingTheOrder")} </p>
             )}
         </section>
@@ -295,8 +277,8 @@ export function OrderDetailDrawer({
         okText={t("business:id.confirmCancellation")}
         cancelText={t("business:id.keepOrder")}
         okButtonProps={{ danger: true, disabled: !reason.trim() }}
-        onOk={() => {
-          if (onStatusChange(order.id, "CANCELLED", reason.trim()))
+        onOk={async () => {
+          if (await onStatusChange(order.id, "CANCELLED", reason.trim()))
             setCancelOpen(false);
         }}
       >

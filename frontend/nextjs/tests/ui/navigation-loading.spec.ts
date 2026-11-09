@@ -1,9 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
+import { seedApi, testStore } from "../fixtures/api";
 
 const customer = "http://127.0.0.1:4174";
 const admin = "http://127.0.0.1:4173";
 const fixture = "http://127.0.0.1:4175/loading.html";
 const overlay = (page: Page) => page.locator("[data-page-loader]");
+
+test.beforeEach(async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await seedApi(page);
+});
 
 async function observeLoading(page: Page) {
   await page.evaluate(() => {
@@ -118,7 +124,7 @@ test("customer history fragment and cancelled link never create navigation work"
 }) => {
   await page.goto(customer + "/menu?q=ga%20ran");
   await expect(
-    page.getByRole("button", { name: /Mở giỏ hàng nhanh/ }),
+    page.getByRole("banner").getByRole("link", { name: "Giỏ hàng", exact: true }),
   ).toBeVisible();
   await observeLoading(page);
   await page.evaluate(() => {
@@ -156,7 +162,7 @@ test("customer real route loading ends with content and cannot reappear", async 
   try {
     await page.goto(customer + "/menu");
     await expect(
-      page.getByRole("button", { name: /Mở giỏ hàng nhanh/ }),
+      page.getByRole("banner").getByRole("link", { name: "Giỏ hàng", exact: true }),
     ).toBeVisible();
     await page
       .locator('nav[aria-label="Điều hướng chính"] a[href="/stores"]')
@@ -164,11 +170,11 @@ test("customer real route loading ends with content and cannot reappear", async 
     await expect(overlay(page)).toBeVisible();
     await expect(overlay(page).getByRole("status")).toHaveCount(1);
     await expect(
-      page.getByRole("button", { name: /Mở giỏ hàng nhanh/ }),
-    ).toHaveCount(0);
+      page.getByRole("banner").getByRole("link", { name: "Giỏ hàng", exact: true }),
+    ).toBeVisible();
     release();
     await expect(
-      page.getByRole("heading", { name: "Hệ thống Cửa hàng Clucky" }),
+      page.getByRole("heading", { name: "Tìm Clucky gần bạn" }),
     ).toBeVisible();
     await expect(overlay(page)).toHaveCount(0);
     await observeLoading(page);
@@ -189,7 +195,7 @@ test("customer can replace a pending route through the header", async ({
   try {
     await page.goto(customer + "/menu");
     await expect(
-      page.getByRole("button", { name: /Mở giỏ hàng nhanh/ }),
+      page.getByRole("banner").getByRole("link", { name: "Giỏ hàng", exact: true }),
     ).toBeVisible();
     const nav = page.getByRole("navigation", {
       name: "Điều hướng chính",
@@ -212,10 +218,8 @@ test("customer can replace a pending route through the header", async ({
 test("customer cached route/query history and reload settle without a trailing loader", async ({
   page,
 }) => {
-  await page.goto(customer + "/");
-  const category = page.locator('a[href^="/menu?cat="]').first();
-  await category.click();
-  await expect(page).toHaveURL(/\/menu\?cat=/);
+  await page.goto(customer + "/menu?q=ga");
+  await expect(page.getByRole("banner").getByRole("link", { name: "Giỏ hàng", exact: true })).toBeVisible();
   const queryUrl = page.url();
   await expect(overlay(page)).toHaveCount(0);
   await page
@@ -237,7 +241,7 @@ test("customer cached route/query history and reload settle without a trailing l
   );
   await page.reload();
   await expect(
-    page.getByRole("button", { name: /Mở giỏ hàng nhanh/ }),
+    page.getByRole("banner").getByRole("link", { name: "Giỏ hàng", exact: true }),
   ).toBeVisible();
   await observeLoading(page);
   await page.waitForTimeout(1000);
@@ -269,62 +273,56 @@ test("customer mobile navigation stays above the content loader", async ({
   }
 });
 
-test("admin initial Users request is page-scoped; refresh remains local", async ({
-  page,
-}) => {
+async function seedBranchAccounts(page: Page) {
+  await page.route("**/api/stores/1/accounts-status", route => route.fulfill({ json: { readiness: "READY", error: null } }));
+  await page.route("**/api/auth/branch/stores/1", route => route.fulfill({ json: {
+    storeId: 1, readiness: "READY", recoveryEmail: "branch@clucky.test", verified: true,
+    accounts: [{ id: 99, storeId: 1, login: "clucky.staff.1", role: "STAFF", status: "ACTIVE", activated: true, current: true }],
+  } }));
+}
+
+async function selectBranch(page: Page) {
+  await page.getByRole("combobox", { name: "Chọn chi nhánh", exact: true }).click();
+  await page.getByText("1 — Clucky Test", { exact: true }).click();
+}
+
+test("admin initial branch request is page-scoped; refresh remains local", async ({ page }) => {
+  await seedBranchAccounts(page);
   let release!: () => void;
-  let gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const users = [
-    {
-      id: 1,
-      fullName: "Khách kiểm thử",
-      email: "test@clucky.local",
-      phone: "0900000000",
-      role: "CUSTOMER",
-      status: "ACTIVE",
-    },
-  ];
-  await page.route("**/api/users", async (route) => {
+  let gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/stores?activeOnly=false", async route => {
     await gate;
-    await route.fulfill({ json: users }).catch(() => {});
+    await route.fulfill({ json: [testStore] }).catch(() => {});
   });
   try {
     await page.goto(admin + "/admin/users");
     await expect(overlay(page)).toBeVisible();
     release();
-    await expect(page.getByText("test@clucky.local")).toBeVisible();
     await expect(overlay(page)).toHaveCount(0);
-    gate = new Promise<void>((resolve) => {
-      release = resolve;
+    await selectBranch(page);
+    await expect(page.getByText("clucky.staff.1", { exact: true })).toBeVisible();
+    gate = new Promise<void>(resolve => { release = resolve; });
+    await page.route("**/api/auth/branch/stores/1", async route => {
+      await gate;
+      await route.fallback().catch(() => {});
     });
     await observeLoading(page);
-    await page.getByRole("button", { name: "Làm mới danh sách" }).click();
-    await expect(
-      page.getByRole("status", { name: "Đang tải dữ liệu" }),
-    ).toBeVisible();
-    await expect(page.locator("body")).toHaveAttribute(
-      "data-loader-seen",
-      "false",
-    );
+    const refresh = page.getByRole("button", { name: /Tải lại$/ }).first();
+    await refresh.click();
+    await expect(refresh).toHaveClass(/ant-btn-loading/);
+    await expect(page.locator("body")).toHaveAttribute("data-loader-seen", "false");
     release();
-    await expect(page.getByText("test@clucky.local")).toBeVisible();
-  } finally {
-    release();
-  }
+    await expect(refresh).not.toHaveClass(/ant-btn-loading/);
+    await expect(page.getByText("clucky.staff.1", { exact: true })).toBeVisible();
+  } finally { release(); }
 });
 
-test("admin can leave pending Users; a late response cannot relock the new route", async ({
-  page,
-}) => {
+test("admin can leave pending branch request; a late response cannot relock the new route", async ({ page }) => {
   let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/api/users", async (route) => {
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/stores?activeOnly=false", async route => {
     await gate;
-    await route.fulfill({ json: [] }).catch(() => {});
+    await route.fulfill({ json: [testStore] }).catch(() => {});
   });
   try {
     await page.goto(admin + "/admin/users");
@@ -335,102 +333,69 @@ test("admin can leave pending Users; a late response cannot relock the new route
     release();
     await page.waitForTimeout(400);
     await expect(overlay(page)).toHaveCount(0);
-  } finally {
-    release();
-  }
+  } finally { release(); }
 });
 
-test("admin Users errors settle into the existing fallback, not an endless loader", async ({
-  page,
-}) => {
-  await page.route("**/api/users", (route) =>
-    route.fulfill({ status: 503, json: { message: "Unavailable" } }),
-  );
+test("admin branch errors settle into an explicit error and can be retried without demo data", async ({ page }) => {
+  let failed = true;
+  await page.route("**/api/stores?activeOnly=false", route => route.fulfill(failed
+    ? { status: 503, json: { code: "DEPENDENCY_UNAVAILABLE" } } : { json: [testStore] }));
   await page.goto(admin + "/admin/users");
-  await expect(page.getByText("Dữ liệu mẫu", { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("Dịch vụ");
+  await expect(page.getByText("Dữ liệu mẫu", { exact: true })).toHaveCount(0);
   await expect(overlay(page)).toHaveCount(0);
+  failed = false;
+  await page.getByRole("button", { name: "Tải lại", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await selectBranch(page);
 });
 
-test("admin role change invalidates a pending Users request", async ({
-  page,
-}) => {
+test("server session role change invalidates a pending branch request", async ({ page }) => {
+  let role = "ADMIN";
+  await page.route("**/api/auth/session", route => route.fulfill({ json: { userId: 1, role, storeId: 1, fullName: "Test", email: "test@clucky.test" } }));
   let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/api/users", async (route) => {
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/stores?activeOnly=false", async route => {
     await gate;
-    await route
-      .fulfill({
-        json: [
-          {
-            id: 99,
-            fullName: "Old request",
-            email: "stale@clucky.test",
-            role: "CUSTOMER",
-            status: "ACTIVE",
-          },
-        ],
-      })
-      .catch(() => {});
+    await route.fulfill({ json: [{ ...testStore, name: "stale@clucky.test" }] }).catch(() => {});
   });
   try {
     await page.goto(admin + "/admin/users");
     await expect(overlay(page)).toBeVisible();
-    await page.locator(".admin-header-role").click();
-    await page
-      .locator(".ant-select-item-option-content")
-      .filter({ hasText: "Role: Staff Chi nhánh" })
-      .click();
+    role = "STAFF";
+    await page.evaluate(() => window.dispatchEvent(new StorageEvent("storage", { key: "clucky-admin-session-change", newValue: "changed" })));
     await expect(page.getByText("403 — Không có quyền truy cập")).toBeVisible();
     release();
     await expect(overlay(page)).toHaveCount(0);
     await expect(page.getByText("stale@clucky.test")).toHaveCount(0);
-  } finally {
-    release();
-  }
+  } finally { release(); }
 });
 
-test("admin modal action keeps loading local and cannot be dismissed mid-request", async ({
-  page,
-}) => {
-  const user = {
-    id: 99,
-    fullName: "Khách kiểm thử",
-    email: "test@clucky.local",
-    role: "CUSTOMER",
-    status: "ACTIVE",
-  };
-  await page.route("**/api/users", (route) => route.fulfill({ json: [user] }));
+test("admin modal action keeps loading local and cannot be dismissed mid-request", async ({ page }) => {
+  await seedBranchAccounts(page);
   let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/api/users/99/lock", async (route) => {
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/auth/branch/accounts/99/lock?locked=true", async route => {
+    expect(route.request().method()).toBe("PUT");
     await gate;
     await route.fulfill({ json: {} }).catch(() => {});
   });
   try {
     await page.goto(admin + "/admin/users");
+    await selectBranch(page);
     await page.getByRole("button", { name: "Khóa", exact: true }).click();
     const dialog = page.getByRole("dialog");
-    await dialog
-      .getByRole("button", { name: "Khóa tài khoản", exact: true })
-      .click();
-    await expect(
-      dialog.getByRole("button", { name: "Hủy", exact: true }),
-    ).toBeDisabled();
+    await dialog.getByRole("button", { name: /OK|Đồng ý/ }).click();
+    await expect(dialog.getByRole("button", { name: /Cancel|Hủy/ })).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();
     await expect(overlay(page)).toHaveCount(0);
     release();
     await expect(dialog).toHaveCount(0);
-  } finally {
-    release();
-  }
+  } finally { release(); }
 });
 
-for (const app of [customer, admin]) {
+for (const app of [customer]) {
   test(`leaving a completed forgot-password form cancels its delayed redirect: ${app}`, async ({
     page,
   }) => {
@@ -460,6 +425,29 @@ for (const app of [customer, admin]) {
     await expect(overlay(page)).toHaveCount(0);
   });
 }
+
+test("leaving a pending branch recovery challenge cannot replace the login route", async ({ page }) => {
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/auth/branch/challenge", async route => {
+    expect(route.request().postDataJSON()).toEqual({ login: "clucky.staff.1", purpose: "RESET" });
+    await gate;
+    await route.fulfill({ json: { challengeId: "00000000-0000-4000-8000-000000000001" } }).catch(() => {});
+  });
+  try {
+    await page.goto(admin + "/forgot-password");
+    await page.getByRole("textbox", { name: "Định danh nội bộ hoặc email Admin" }).fill("clucky.staff.1");
+    await page.getByRole("button", { name: "Gửi mã", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Gửi mã$/ })).toHaveClass(/ant-btn-loading/);
+    await page.getByRole("link", { name: "Về đăng nhập" }).click();
+    await expect(page).toHaveURL(admin + "/login");
+    release();
+    await page.waitForTimeout(1500);
+    await expect(page).toHaveURL(admin + "/login");
+    await expect(overlay(page)).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Mã challenge (từ email)" })).toHaveCount(0);
+  } finally { release(); }
+});
 
 // Capture comparable samples for review; hardware-dependent FPS is not a CI gate.
 test("capture loading frame timing at rest and while scrolling", async ({
@@ -523,10 +511,9 @@ for (const role of ["ADMIN", "STORE_MANAGER", "STAFF"]) {
   test(`admin routes retain role scope and synchronous navigation: ${role}`, async ({
     page,
   }) => {
-    await page.addInitScript(
-      (role) => localStorage.setItem("clucky_admin_role", role),
-      role,
-    );
+    await page.route("**/api/auth/session", route => route.fulfill({ json: {
+      userId: 1, role, storeId: role === "ADMIN" ? null : 1, fullName: "Test", email: "test@clucky.test",
+    } }));
     await page.goto(admin + "/admin/dashboard");
     await observeLoading(page);
     await page.getByRole("menuitem", { name: /Tồn kho Chi nhánh/ }).click();

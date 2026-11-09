@@ -43,10 +43,12 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class CheckoutRegressionTest {
     @Test
-    void checkoutCannotDiscountPointsWithoutADebitSaga() {
-        var client = new PromotionClient(RestClient.builder().build(), "http://promotion", "service-test-token");
-        assertFalse(client.validateLoyalty(100, new BigDecimal("200000")).valid());
-        assertTrue(client.validateLoyalty(0, new BigDecimal("200000")).valid());
+    void guestCheckoutCannotRedeemPointsWithoutAnAuthenticatedOwner() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        var client = new LoyaltyClient(RestClient.builder().build(), "http://promotion", "service-test-token");
+        assertEquals(ErrorCode.UNAUTHENTICATED,
+                assertThrows(ApiException.class, () -> client.preview(100, new BigDecimal("200000"))).getCode());
+        assertEquals(0, client.preview(0, new BigDecimal("200000")).pointsUsed());
     }
     @Test
     void voucherUsesOrderAmountAndDoesNotHideDependencyFailures() {
@@ -73,7 +75,9 @@ class CheckoutRegressionTest {
     void catalogUsesServiceCredentialAndRejectsIncompleteSnapshots() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        CatalogClient client = new CatalogClient(builder.build(), "http://catalog", "test-service-token");
+        CatalogCredential credential = mock(CatalogCredential.class);
+        when(credential.token()).thenReturn("test-service-token");
+        CatalogClient client = new CatalogClient(builder.build(), "http://catalog", credential);
         CartItemDto item = new CartItemDto(1L, null, "Client name", 1, BigDecimal.ONE, List.of(11L), List.of(22L), null, 1L);
         server.expect(requestTo("http://catalog/api/catalog/internal/validate-items"))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer test-service-token"))
@@ -82,7 +86,7 @@ class CheckoutRegressionTest {
                 .andRespond(withSuccess("{\"valid\":true,\"subtotal\":100,\"items\":[]}", MediaType.APPLICATION_JSON));
         assertEquals(ErrorCode.UPSTREAM_ERROR, assertThrows(ApiException.class, () -> client.validateItems(1L, List.of(item))).getCode());
         server.verify();
-        CatalogClient missingCredential = new CatalogClient(builder.build(), "http://catalog", "");
+        CatalogClient missingCredential = new CatalogClient(builder.build(), "http://catalog", mock(CatalogCredential.class));
         assertEquals(ErrorCode.DEPENDENCY_UNAVAILABLE,
                 assertThrows(ApiException.class, () -> missingCredential.validateItems(1L, List.of(item))).getCode());
     }
@@ -103,11 +107,11 @@ class CheckoutRegressionTest {
         when(promotion.validateVoucher(anyString(), anyLong(), any()))
                 .thenReturn(new PromotionClient.VoucherResult(false, "Expired", BigDecimal.ZERO));
         OrderService service = new OrderService(orders, mock(OrderItemRepository.class), mock(OrderStatusHistoryRepository.class),
-                carts, mock(AccessGuard.class), new ObjectMapper(), mock(OrderEventPublisher.class), catalog, promotion, shipping);
+                carts, mock(AccessGuard.class), new ObjectMapper(), mock(OrderEventPublisher.class), catalog, promotion, shipping, mock(LoyaltyClient.class));
         Jwt jwt = Jwt.withTokenValue("test").header("alg", "HS256").subject("1").claim("role", "CUSTOMER").build();
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt, List.of()));
         try {
-            CreateOrderRequest request = new CreateOrderRequest(1L, "PICKUP", "Customer", "0900000000", null, null, "COD", "SAVE", 0, null, null);
+            CreateOrderRequest request = new CreateOrderRequest(1L, "PICKUP", "Customer", "0900000000", null, null, "COD", "SAVE", 0, null, null, null, null, null);
             assertEquals(ErrorCode.VOUCHER_INACTIVE, assertThrows(ApiException.class, () -> service.createOrder(request)).getCode());
             verifyNoInteractions(orders);
             verify(carts, never()).clearCart(anyString());

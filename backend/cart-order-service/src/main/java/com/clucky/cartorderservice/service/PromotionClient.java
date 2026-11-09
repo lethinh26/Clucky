@@ -48,25 +48,8 @@ public class PromotionClient {
             BigDecimal discountAmount
     ) {}
 
-    public record LoyaltyPreviewRequest(
-            Integer pointsToRedeem,
-            BigDecimal orderAmount
-    ) {}
 
-    public record LoyaltyPreviewResponse(
-            int availablePoints,
-            int pointsUsed,
-            BigDecimal pointsAmount,
-            int pointsToEarn,
-            String tier
-    ) {}
 
-    public record LoyaltyResult(
-            boolean valid,
-            int pointsUsed,
-            BigDecimal pointsAmount,
-            String message
-    ) {}
 
     public record VoucherReleaseRequest(
             String code,
@@ -74,11 +57,6 @@ public class PromotionClient {
             Long customerId
     ) {}
 
-    public record LoyaltyReleaseRequest(
-            Long customerId,
-            Integer points,
-            Long orderId
-    ) {}
 
     public void releaseVoucher(String rawCode, Long orderId, Long customerId) {
         if (rawCode == null || rawCode.isBlank()) {
@@ -100,25 +78,6 @@ public class PromotionClient {
         }
     }
 
-    public void releaseLoyaltyPoints(Long customerId, Integer points, Long orderId) {
-        if (customerId == null || points == null || points <= 0) {
-            return;
-        }
-        LoyaltyReleaseRequest req = new LoyaltyReleaseRequest(customerId, points, orderId);
-        try {
-            restClient.post()
-                    .uri(promotionServiceUrl + "/api/loyalty/release")
-                    .headers(headers -> headers.setBearerAuth(serviceToken))
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(req)
-                    .retrieve()
-                    .toBodilessEntity();
-            LOG.info("event=loyalty_points_released customerId={} points={} orderId={}", customerId, points, orderId);
-        } catch (Exception ex) {
-            LOG.warn("event=loyalty_points_release_failed customerId={} points={} orderId={} error={}",
-                    customerId, points, orderId, ex.getMessage());
-        }
-    }
 
     public VoucherResult validateVoucher(String rawCode, Long storeId, BigDecimal subtotal) {
         if (rawCode == null || rawCode.isBlank()) {
@@ -131,6 +90,11 @@ public class PromotionClient {
         try {
             VoucherValidationResponse res = restClient.post()
                     .uri(promotionServiceUrl + "/api/promotions/vouchers/validate")
+                    .headers(headers -> {
+                        if (org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()
+                                instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken authentication)
+                            headers.setBearerAuth(authentication.getToken().getTokenValue());
+                    })
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(req)
                     .retrieve()
@@ -159,11 +123,4 @@ public class PromotionClient {
         }
     }
 
-    public LoyaltyResult validateLoyalty(Integer requestedPoints, BigDecimal orderAmount) {
-        if (requestedPoints == null || requestedPoints <= 0) {
-            return new LoyaltyResult(true, 0, BigDecimal.ZERO, null);
-        }
-        // ponytail: keep checkout redemption closed until the debit/compensation saga is wired.
-        return new LoyaltyResult(false, 0, BigDecimal.ZERO, "Loyalty redemption is not available yet");
-    }
 }

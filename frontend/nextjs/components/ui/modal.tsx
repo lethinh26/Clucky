@@ -37,6 +37,8 @@ const Modal: React.FC<ModalProps> = ({
 
   const dialogRef = React.useRef<HTMLDivElement>(null);
   const previouslyFocused = React.useRef<HTMLElement | null>(null);
+  const onOpenChangeRef = React.useRef(onOpenChange);
+  React.useEffect(() => { onOpenChangeRef.current = onOpenChange; }, [onOpenChange]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -45,7 +47,7 @@ const Modal: React.FC<ModalProps> = ({
     node?.focus();
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && dismissible) onOpenChange(false);
+      if (e.key === "Escape" && dismissible) onOpenChangeRef.current(false);
       // keep Tab inside the modal
       if (e.key === "Tab" && node) {
         const focusable = node.querySelectorAll<HTMLElement>(
@@ -79,7 +81,7 @@ const Modal: React.FC<ModalProps> = ({
       document.body.style.overflow = prevOverflow;
       previouslyFocused.current?.focus?.();
     };
-  }, [open, dismissible, onOpenChange]);
+  }, [open, dismissible]);
 
   if (!open) return null;
 

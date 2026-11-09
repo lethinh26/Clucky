@@ -7,6 +7,8 @@ import java.math.BigDecimal;
 public class InventoryDto {
 
     public static class AvailabilityUpdateRequest {
+        @com.fasterxml.jackson.annotation.JsonAnySetter
+        public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }
         private Boolean isAvailable;
         private Boolean isSoldOut;
         @DecimalMin(value = "0.0")
@@ -85,6 +87,8 @@ public class InventoryDto {
     }
 
     public static class InventoryUpdateRequest {
+        @com.fasterxml.jackson.annotation.JsonAnySetter
+        public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }
         @Min(0)
         private Integer quantityAvailable;
         @Min(0)

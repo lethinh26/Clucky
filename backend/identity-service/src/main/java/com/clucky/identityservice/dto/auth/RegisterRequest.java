@@ -24,5 +24,8 @@ public record RegisterRequest(
                 message = "Password must be 8-72 characters long and include at least one uppercase letter, one lowercase letter, and one number"
         )
         String password
-) {}
+) {
+    @com.fasterxml.jackson.annotation.JsonAnySetter
+    public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }
+}
 

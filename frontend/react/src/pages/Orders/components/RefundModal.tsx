@@ -1,7 +1,8 @@
+import { message } from "../../../components/feedback";
 import { useLocaleTools } from "../../../i18n/hooks";
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
-import { Modal, Input, Radio, Typography, Space, App as AntApp } from "antd";
+import { Modal, Input, Radio, Typography, Space } from "antd";
 import { AdminOrder } from "../../../types/order";
 
 interface RefundModalProps {
@@ -24,7 +25,6 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   const { t } = useTranslation();
   const { locale } = useLocaleTools();
 
-  const { message } = AntApp.useApp();
   const [action, setAction] = useState<"APPROVED" | "REJECTED">("APPROVED");
   const [reviewNote, setReviewNote] = useState("");
 

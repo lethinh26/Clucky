@@ -24,6 +24,10 @@ export function useNavigationRouter() {
     ) => {
       if (!mounted.current) return;
       const target = new URL(href, location.href);
+      if (target.origin === location.origin && navigationKey(target) === navigationKey(location)
+          && !target.hash && options?.scroll !== false) {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      }
       if (
         target.origin !== location.origin ||
         navigationKey(target) === navigationKey(location)

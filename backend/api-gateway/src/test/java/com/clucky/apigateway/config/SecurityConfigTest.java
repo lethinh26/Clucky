@@ -61,22 +61,41 @@ class SecurityConfigTest {
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("jwt", Map.of(
                     "clucky.security.jwt.secret", SECRET, "clucky.security.jwt.issuer", "clucky-identity",
-                    "clucky.security.jwt.audience", "clucky-api")));
+                    "clucky.security.jwt.audience", "clucky-api",
+                    "clucky.auth.customer-origins", "http://localhost:3000",
+                    "clucky.auth.admin-origins", "http://localhost:3001")));
             context.register(WebConfig.class);
             context.refresh();
-            WebTestClient client = WebTestClient.bindToApplicationContext(context).build();
+            WebTestClient client = WebTestClient.bindToApplicationContext(context)
+                    .configureClient().baseUrl("http://localhost:8080").build();
             for (String path : new String[]{"/api/auth/logout", "/api/auth/refresh"}) {
-                client.post().uri(path).cookie("clucky_refresh_token", "opaque-refresh-token")
+                client.post().uri(path).cookie("clucky_customer_refresh", "opaque-refresh-token")
+                        .header("X-Clucky-Client", "customer")
                         .header("Origin", "http://localhost:3000").exchange().expectStatus().isOk();
             }
             client.get().uri("/api/orders").exchange().expectStatus().isUnauthorized();
+            client.get().uri("/api/orders").header("Origin", "http://localhost:3000")
+                    .header("X-Clucky-Client", "customer").cookie("clucky_customer_access", "expired-token")
+                    .exchange().expectStatus().isUnauthorized()
+                    .expectHeader().valueEquals("Access-Control-Allow-Origin", "http://localhost:3000")
+                    .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true");
+            client.options().uri("/api/orders").header("Origin", "http://localhost:3001")
+                    .header("Access-Control-Request-Method", "POST")
+                    .header("Access-Control-Request-Headers", "X-Clucky-Client,Content-Type")
+                    .exchange().expectStatus().isOk();
+            client.post().uri("/api/auth/logout").header("Origin", "https://evil.example")
+                    .header("X-Clucky-Client", "customer").exchange().expectStatus().isForbidden();
+            client.post().uri("/api/auth/refresh").header("Origin", "http://localhost:3000")
+                    .header("X-Clucky-Client", "admin").exchange().expectStatus().isForbidden();
+            client.post().uri("/api/cart/items").header("X-Clucky-Client", "customer")
+                    .cookie("clucky_customer_access", "token").exchange().expectStatus().isForbidden();
         }
     }
 
     @Configuration(proxyBeanMethods = false)
     @EnableWebFlux
     @EnableWebFluxSecurity
-    @Import(SecurityConfig.class)
+    @Import({SecurityConfig.class, BrowserSessionConfig.class})
     static class WebConfig {
         @Bean
         ReactiveStringRedisTemplate redis() { return mock(ReactiveStringRedisTemplate.class); }

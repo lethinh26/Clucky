@@ -1,5 +1,6 @@
 import { useLocaleTools } from "./i18n/hooks";
 import React from "react";
+import { Toaster } from "./components/feedback";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ConfigProvider, App as AntApp } from "antd";
 import viVN from "antd/locale/vi_VN";
@@ -7,26 +8,28 @@ import enUS from "antd/locale/en_US";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AdminLayout } from "./layouts/AdminLayout";
-import Dashboard from "./pages/Dashboard";
+import { UnavailableFeature } from "./components/UnavailableFeature";
+import { roleHome } from "./lib/role-home";
 import { CatalogPage } from "./pages/Catalog";
 import { StoresPage } from "./pages/Stores";
 import { StaffInventoryPage } from "./pages/Staff/Inventory";
 import { OrdersPage } from "./pages/Orders";
 import { StaffOrdersPage } from "./pages/Staff/StaffOrdersPage";
-import { ReviewsPage } from "./pages/Reviews";
-import { ReportsPage } from "./pages/Reports";
-import { PaymentsPage } from "./pages/Payments";
 import { PromotionsPage } from "./pages/Promotions";
-import { UsersPage } from "./pages/Users";
 import { LoginPage } from "./pages/Auth/LoginPage";
-import { ForgotPasswordPage } from "./pages/Auth/ForgotPasswordPage";
-import { ResetPasswordPage } from "./pages/Auth/ResetPasswordPage";
+import { BranchAccessPage } from "./pages/Auth/BranchAccessPage";
+import { BranchAccountsPage } from "./pages/Users/BranchAccountsPage";
 
 import { OrderProvider } from "./context/OrderContext";
 import { PageLoadingProvider } from "./components/ui-loader/page-loading";
 function OrdersRoute() {
   const { isStaff } = useAuth();
   return isStaff ? <StaffOrdersPage /> : <OrdersPage />;
+}
+
+function RoleHome() {
+  const { user } = useAuth();
+  return <Navigate to={roleHome(user.role)} replace />;
 }
 
 export const App: React.FC = () => {
@@ -68,6 +71,7 @@ export const App: React.FC = () => {
       }}
     >
       <AntApp message={{ maxCount: 3 }}>
+        <Toaster locale={locale} />
         <AuthProvider>
           <OrderProvider>
             <BrowserRouter>
@@ -75,7 +79,7 @@ export const App: React.FC = () => {
                 <Routes>
                   <Route
                     path="/"
-                    element={<Navigate to="/admin/dashboard" replace />}
+                    element={<Navigate to="/admin" replace />}
                   />
 
                   {/* Public auth routes */}
@@ -91,19 +95,19 @@ export const App: React.FC = () => {
                   />
                   <Route
                     path="/forgot-password"
-                    element={<ForgotPasswordPage />}
+                    element={<BranchAccessPage />}
                   />
                   <Route
                     path="/reset-password"
-                    element={<ResetPasswordPage />}
+                    element={<BranchAccessPage />}
                   />
 
-                  <Route path="/admin" element={<AdminLayout />}>
+                  <Route path="/admin" element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}><AdminLayout /></ProtectedRoute>}>
                     <Route
                       index
-                      element={<Navigate to="/admin/dashboard" replace />}
+                      element={<RoleHome />}
                     />
-                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="dashboard" element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}><UnavailableFeature /></ProtectedRoute>} />
                     <Route
                       path="catalog"
                       element={
@@ -138,7 +142,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
                         >
-                          <ReviewsPage />
+                          <UnavailableFeature />
                         </ProtectedRoute>
                       }
                     />
@@ -148,7 +152,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
-                          <ReportsPage />
+                          <UnavailableFeature />
                         </ProtectedRoute>
                       }
                     />
@@ -168,7 +172,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
-                          <UsersPage />
+                          <BranchAccountsPage />
                         </ProtectedRoute>
                       }
                     />
@@ -178,7 +182,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
-                          <PaymentsPage />
+                          <UnavailableFeature />
                         </ProtectedRoute>
                       }
                     />
@@ -188,23 +192,22 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
-                          <PromotionsPage />
+                          <ProtectedRoute allowedRoles={["ADMIN"]}><PromotionsPage /></ProtectedRoute>
                         </ProtectedRoute>
                       }
                     />
                     <Route
                       path="staff/orders"
                       element={
-                        <ProtectedRoute allowedRoles={["STAFF"]}>
-                          <StaffOrdersPage />
-                        </ProtectedRoute>
+                        <Navigate to="/admin/orders" replace />
                       }
                     />
                     <Route
                       path="*"
-                      element={<Navigate to="/admin/dashboard" replace />}
+                      element={<RoleHome />}
                     />
                   </Route>
+                  <Route path="*" element={<Navigate to="/admin" replace />} />
                 </Routes>
               </PageLoadingProvider>
             </BrowserRouter>

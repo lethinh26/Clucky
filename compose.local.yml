@@ -1,0 +1,100 @@
+x-java-build: &java-build
+  context: ./backend
+  dockerfile: ../deploy/backend/Dockerfile
+
+services:
+  config-server:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: config-server
+  discovery-server:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: discovery-server
+  identity-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: identity-service
+  catalog-store-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: catalog-store-service
+  cart-order-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: cart-order-service
+  payment-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: payment-service
+  promotion-loyalty-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: promotion-loyalty-service
+  shipping-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: shipping-service
+  notification-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: notification-service
+  review-report-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: review-report-service
+  audit-service:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: audit-service
+  api-gateway:
+    build:
+      <<: *java-build
+      args:
+        SERVICE_NAME: api-gateway
+  customer:
+    build:
+      context: ./frontend/nextjs
+      args:
+        NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}
+        NEXT_PUBLIC_API_URL: http://localhost:8080
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:?Set Firebase web config in frontend/nextjs/.env}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:?Set Firebase web config in frontend/nextjs/.env}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:?Set Firebase web config in frontend/nextjs/.env}
+        NEXT_PUBLIC_M3_DEMO_ENABLED: "false"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+  admin:
+    build:
+      context: ./frontend/react
+      args:
+        VITE_MAPBOX_ACCESS_TOKEN: ${VITE_MAPBOX_ACCESS_TOKEN:-}
+        VITE_API_URL: http://localhost:8080
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+
+networks:
+  default:
+    name: clucky-local
+    external: false
+
+volumes:
+  postgres-data:
+    name: clucky-local-postgres-data
+  redis-data:
+    name: clucky-local-redis-data
+  kafka-data:
+    name: clucky-local-kafka-data

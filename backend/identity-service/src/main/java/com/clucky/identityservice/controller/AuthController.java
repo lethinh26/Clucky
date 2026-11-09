@@ -1,6 +1,9 @@
 package com.clucky.identityservice.controller;
 
 import com.clucky.identityservice.config.AuthProperties;
+import com.clucky.identityservice.dto.Role;
+import com.clucky.identityservice.exception.ApiException;
+import com.clucky.identityservice.exception.ErrorCode;
 import com.clucky.identityservice.dto.auth.*;
 import com.clucky.identityservice.service.AuthService;
 import com.clucky.identityservice.service.GoogleAuthService;
@@ -8,6 +11,9 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,20 +38,23 @@ public class AuthController {
     @PostMapping("/google")
     @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(
             oneOf = {AuthResponse.class, GoogleAuthDto.Pending.class})))
-    public Object google(@Valid @RequestBody GoogleAuthDto.SignIn request, HttpServletResponse response) {
+    public Object google(@Valid @RequestBody GoogleAuthDto.SignIn request,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
+            HttpServletResponse response) {
         GoogleAuthService.LoginResult result = googleAuthService.login(request.idToken());
         if (result.session() == null) {
             return new GoogleAuthDto.Pending("REQUIRES_PASSWORD", result.pendingToken());
         }
-        setRefreshCookie(response, result.session().refreshToken());
+        setSessionCookies(response, result.session(), client);
         return toAuthResponse(result.session());
     }
 
     @PostMapping("/google/complete")
     public AuthResponse completeGoogle(@Valid @RequestBody GoogleAuthDto.Complete request,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
             HttpServletResponse response) {
         AuthService.AuthResult result = googleAuthService.complete(request.pendingToken(), request.password());
-        setRefreshCookie(response, result.refreshToken());
+        setSessionCookies(response, result, client);
         return toAuthResponse(result);
     }
 
@@ -62,36 +71,53 @@ public class AuthController {
     }
 
     @PostMapping("/verify-otp")
-    public AuthResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request, HttpServletResponse response) {
+    public AuthResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
+            HttpServletResponse response) {
         AuthService.AuthResult result = authService.verifyOtp(request);
-        setRefreshCookie(response, result.refreshToken());
+        setSessionCookies(response, result, client);
         return toAuthResponse(result);
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest request,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
+            HttpServletResponse response) {
         AuthService.AuthResult result = authService.login(request);
-        setRefreshCookie(response, result.refreshToken());
+        setSessionCookies(response, result, client);
         return toAuthResponse(result);
     }
 
     @PostMapping("/refresh")
     public AuthResponse refresh(
-            @CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshToken,
+            HttpServletRequest request,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
             HttpServletResponse response
     ) {
-        AuthService.AuthResult result = authService.refresh(refreshToken);
-        setRefreshCookie(response, result.refreshToken());
-        return toAuthResponse(result);
+        try {
+            AuthService.AuthResult result = authService.refresh(refreshCookie(request, client));
+            setSessionCookies(response, result, client);
+            return toAuthResponse(result);
+        } catch (ApiException failure) {
+            if (failure.getCode().httpStatus() == 401 || failure.getCode() == ErrorCode.ACCOUNT_LOCKED) {
+                clearSessionCookies(response, client);
+            }
+            throw failure;
+        }
     }
 
     @PostMapping("/logout")
     public MessageResponse logout(
-            @CookieValue(name = REFRESH_COOKIE_NAME, required = false) String refreshToken,
+            HttpServletRequest request,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
             HttpServletResponse response
     ) {
-        authService.logout(refreshToken);
-        clearRefreshCookie(response);
+        try {
+            authService.logout(refreshCookie(request, client));
+        } catch (ApiException failure) {
+            if (failure.getCode().httpStatus() != 401) throw failure;
+        }
+        clearSessionCookies(response, client);
         return new MessageResponse("Đăng xuất thành công.");
     }
 
@@ -103,38 +129,76 @@ public class AuthController {
     @PostMapping("/reset-password")
     public MessageResponse resetPassword(
             @Valid @RequestBody ResetPasswordRequest request,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
             HttpServletResponse response
     ) {
         MessageResponse res = authService.resetPassword(request);
-        clearRefreshCookie(response);
+        clearSessionCookies(response, client);
         return res;
     }
 
-    private void setRefreshCookie(HttpServletResponse response, String refreshToken) {
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, refreshToken)
+    @GetMapping("/session")
+    public AuthResponse session(@AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client) {
+        AuthResponse session = authService.session(Long.valueOf(jwt.getSubject()));
+        validateRole(client, session.role());
+        return session;
+    }
+
+    private String prefix(String client) {
+        if (!"customer".equals(client) && !"admin".equals(client)) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        return "clucky_" + client;
+    }
+
+    private void validateRole(String client, Role role) {
+        prefix(client);
+        boolean allowed = "customer".equals(client) ? role == Role.CUSTOMER
+                : role == Role.ADMIN || role == Role.STORE_MANAGER || role == Role.STAFF;
+        if (!allowed) throw new ApiException(ErrorCode.FORBIDDEN);
+    }
+
+    private String refreshCookie(HttpServletRequest request, String client) {
+        String name = prefix(client) + "_refresh";
+        if (request.getCookies() != null) {
+            for (var cookie : request.getCookies()) {
+                if (name.equals(cookie.getName())) return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    private void setSessionCookies(HttpServletResponse response, AuthService.AuthResult result, String client) {
+        try {
+            validateRole(client, result.user().getRole());
+        } catch (ApiException failure) {
+            authService.logout(result.refreshToken());
+            throw failure;
+        }
+        setCookie(response, prefix(client) + "_access", result.accessToken(), "/api", authProperties.refreshTtl().toSeconds());
+        setCookie(response, prefix(client) + "_refresh", result.refreshToken(), "/api/auth", authProperties.refreshTtl().toSeconds());
+        setCookie(response, REFRESH_COOKIE_NAME, "", "/api/auth", 0);
+    }
+
+    private void setCookie(HttpServletResponse response, String name, String value, String path, long maxAge) {
+        ResponseCookie cookie = ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(authProperties.cookie().secure())
                 .sameSite("Lax")
-                .path("/api/auth")
-                .maxAge(authProperties.refreshTtl().toSeconds())
+                .path(path)
+                .maxAge(maxAge)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
-    private void clearRefreshCookie(HttpServletResponse response) {
-        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE_NAME, "")
-                .httpOnly(true)
-                .secure(authProperties.cookie().secure())
-                .sameSite("Lax")
-                .path("/api/auth")
-                .maxAge(0)
-                .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    private void clearSessionCookies(HttpServletResponse response, String client) {
+        setCookie(response, prefix(client) + "_access", "", "/api", 0);
+        setCookie(response, prefix(client) + "_refresh", "", "/api/auth", 0);
+        setCookie(response, REFRESH_COOKIE_NAME, "", "/api/auth", 0);
     }
 
     private AuthResponse toAuthResponse(AuthService.AuthResult result) {
         return new AuthResponse(
-                result.accessToken(),
+                result.user().getId(),
                 result.user().getRole(),
                 result.user().getStoreId(),
                 result.user().getEmail(),

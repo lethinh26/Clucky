@@ -24,3 +24,8 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY:}
   api-secret: ${CLOUDINARY_API_SECRET:}
   folder: ${CLOUDINARY_FOLDER:clucky}
+
+clucky:
+  loyalty:
+    internal-token: ${LOYALTY_INTERNAL_TOKEN:}
+    order-url: ${ORDER_SERVICE_URL:http://cart-order-service}

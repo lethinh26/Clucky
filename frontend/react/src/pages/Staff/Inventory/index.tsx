@@ -1,22 +1,8 @@
+import { message } from "../../../components/feedback";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  Space,
-  Tag,
-  Switch,
-  Image,
-  Form,
-  InputNumber,
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Tooltip,
-  Select,
-  message,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Button, Space, Tag, Switch, Image, Form, InputNumber, Card, Row, Col, Statistic, Tooltip, Select } from "antd";
+import { TableColumnsType } from "antd";
 import {
   ShopOutlined,
   WarningOutlined,
@@ -38,6 +24,7 @@ export const StaffInventoryPage: React.FC = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'LOW_STOCK' | 'SOLD_OUT'>('ALL');
   const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId ?? 0);
@@ -63,11 +50,12 @@ export const StaffInventoryPage: React.FC = () => {
         : [];
       setStores(storeList);
       setInventory(invList);
+      setLoadError('');
       if (isAdmin && selectedStoreId && selectedStoreId !== adminSelectedStoreId) {
         setAdminSelectedStoreId(selectedStoreId);
       }
     } catch (err) {
-      message.error(getErrorMessage(err));
+      setLoadError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -293,6 +281,7 @@ export const StaffInventoryPage: React.FC = () => {
       render: (_, record) => (
         <Button
           size="small"
+          disabled={isStaff}
           icon={<EditOutlined />}
           onClick={() => handleOpenUpdateModal(record)}
           style={{
@@ -306,6 +295,7 @@ export const StaffInventoryPage: React.FC = () => {
     },
   ];
 
+  if (loadError) return <div role="alert"><p>{loadError}</p><Button onClick={fetchInventory}>{t('common:retry')}</Button></div>;
   return (
     <div>
       {/* Header Info */}
@@ -483,7 +473,7 @@ export const StaffInventoryPage: React.FC = () => {
             label={t("business:inventory.actualRemainingQuantityServings")}
             rules={[{ required: true, message: t("business:inventory.pleaseEnterTheInventoryQuantity") }]}
           >
-            <InputNumber min={0} max={9999} style={{ width: '100%', height: 40 }} />
+            <InputNumber disabled={isStaff} min={0} max={9999} style={{ width: '100%', height: 40 }} />
           </Form.Item>
 
           <Form.Item

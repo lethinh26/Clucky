@@ -125,6 +125,10 @@ public class OtpService {
         limitAttempts("issue", identifier, purpose);
     }
 
+    public void limitVerification(String identifier, String purpose) {
+        limitAttempts("verify", identifier, purpose);
+    }
+
     private void limitAttempts(String action, String identifier, String purpose) {
         Long count;
         try {

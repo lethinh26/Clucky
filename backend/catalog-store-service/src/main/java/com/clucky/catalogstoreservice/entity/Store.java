@@ -36,11 +36,23 @@ public class Store {
     @Column(nullable = false, length = 20)
     private StoreStatus status = StoreStatus.OPEN;
 
+    @Column(name = "account_readiness", nullable = false)
+    private String accountReadiness = "LEGACY";
+    public String getAccountReadiness() { return accountReadiness; }
+    public void setAccountReadiness(String readiness) { this.accountReadiness = readiness; }
+
     @Column(name = "delivery_area", columnDefinition = "TEXT")
     private String deliveryArea;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    private java.math.BigDecimal latitude;
+    private java.math.BigDecimal longitude;
+    public Double getLatitude() { return latitude == null ? null : latitude.doubleValue(); }
+    public void setLatitude(Double latitude) { this.latitude = latitude == null ? null : java.math.BigDecimal.valueOf(latitude); }
+    public Double getLongitude() { return longitude == null ? null : longitude.doubleValue(); }
+    public void setLongitude(Double longitude) { this.longitude = longitude == null ? null : java.math.BigDecimal.valueOf(longitude); }
 
     public Store() {}
 

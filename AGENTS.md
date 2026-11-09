@@ -30,6 +30,6 @@ Clucky is a Vietnamese fast-food ordering platform. Keep the two frontends and e
 - Preserve `logo_primary.png` and `favicon.png` in both frontend public/static assets; update both applications when branding paths change.
 
 ## Verification
-- Người dùng tự kiểm thử. Không tự chạy test, lint, typecheck, build hoặc kiểm thử qua trình duyệt; chỉ chạy khi người dùng yêu cầu rõ.
-- Với công việc UI, không tự bật Docker, backend hoặc chạy các kiểm tra hạ tầng.
+- Sau mỗi lần sửa mã hoặc cấu hình ảnh hưởng ứng dụng, chỉ rebuild/cập nhật các service bị ảnh hưởng bằng `./start-docker.ps1 -Services ...`, kể cả UI, trừ khi người dùng yêu cầu không rebuild. Không rebuild cả stack nếu không cần. Chờ script hoàn tất và báo trạng thái container; giữ nguyên dữ liệu/volumes.
+- Người dùng tự kiểm thử chức năng. Không tự chạy test, lint, typecheck riêng hoặc kiểm thử qua trình duyệt; chỉ chạy khi người dùng yêu cầu rõ. Các bước build/lint/typecheck và healthcheck có sẵn trong quy trình Docker được phép chạy để áp dụng thay đổi.
 - Khi bàn giao, nêu rõ những phần đã sửa và việc chưa chạy kiểm thử theo yêu cầu; không tuyên bố đã test nếu chưa thực hiện.

@@ -71,11 +71,12 @@ public class SecurityConfig {
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                    auth.requestMatchers(HttpMethod.POST, "/api/stores/internal/{id}/prepare-migration").permitAll();
                     auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
                     if (docsEnabled) {
                         auth.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
                     }
-                    auth.requestMatchers(HttpMethod.GET, "/api/stores", "/api/stores/{id}",
+                    auth.requestMatchers(HttpMethod.GET, "/api/locations/search", "/api/locations/reverse", "/api/stores", "/api/stores/{id}",
                             "/api/catalog/categories", "/api/catalog/categories/{id}",
                             "/api/catalog/products", "/api/catalog/products/{id}",
                             "/api/catalog/combos", "/api/catalog/combos/{id}",

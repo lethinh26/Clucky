@@ -1,4 +1,6 @@
 {
+  "toast": {"success":"Success","error":"Unable to complete","warning":"Attention needed","info":"Notice","loading":"Working","notifications":"Notifications","dismiss":"Dismiss notification"},
+  "feedback": { "copyFailed": "Unable to copy. Please select and copy the text manually." },
   "language": "Language",
   "errors": {
     "timeout": "The connection timed out. Please try again.",

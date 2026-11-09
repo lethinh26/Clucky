@@ -16,11 +16,15 @@ import org.springframework.util.backoff.FixedBackOff;
 @EnableKafka
 public class KafkaConfig {
     @Bean
-    DefaultErrorHandler kafkaErrorHandler() {
+    DefaultErrorHandler kafkaErrorHandler(org.springframework.kafka.core.KafkaTemplate<String, String> kafka) {
         DefaultErrorHandler handler = new DefaultErrorHandler((record, failure) -> {
-            throw new IllegalStateException("Event recovery requires a configured durable DLQ handler");
-        }, new FixedBackOff(1000L, 2L));
-        handler.setAckAfterHandle(false);
+            try {
+                kafka.send(record.topic() + ".DLT", String.valueOf(record.key()), String.valueOf(record.value()))
+                        .get(10, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception sendFailure) { throw new IllegalStateException("Loyalty DLQ unavailable", sendFailure); }
+        }, new FixedBackOff(2000L, 5L));
+        handler.setAckAfterHandle(true);
+        handler.setCommitRecovered(true);
         handler.setRetryListeners(KafkaLogging::failedDelivery);
         return handler;
     }
@@ -29,7 +33,7 @@ public class KafkaConfig {
     KafkaAdmin.NewTopics domainTopics(@Value("${clucky.kafka.partitions:3}") int partitions,
             @Value("${clucky.kafka.replicas:1}") int replicas) {
         if (partitions < 1 || replicas < 1) { throw new IllegalArgumentException("Invalid topic settings"); }
-        NewTopic[] topics = List.of("order.created", "order.status-changed", "order.completed", "order.cancelled",
+        NewTopic[] topics = List.of("order.created", "order.status-changed", "order.completed", "order.cancelled", "order.created.DLT", "order.completed.DLT", "order.cancelled.DLT",
                 "payment.confirmed", "payment.failed", "promotion.approved", "audit.recorded").stream()
                 .map(name -> TopicBuilder.name(name).partitions(partitions).replicas(replicas).build())
                 .toArray(NewTopic[]::new);

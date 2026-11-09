@@ -1,24 +1,10 @@
+import { message } from "../components/feedback";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import React, { useState } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import {
-  Layout,
-  Menu,
-  Breadcrumb,
-  Button,
-  Badge,
-  Dropdown,
-  Avatar,
-  Tag,
-  Flex,
-  Select,
-  Typography,
-  App as AntApp,
-  Drawer,
-  Grid,
-} from "antd";
-import type { MenuProps } from "antd";
+import { Layout, Menu, Breadcrumb, Button, Badge, Dropdown, Avatar, Tag, Flex, Typography, Drawer, Grid } from "antd";
+import { MenuProps } from "antd";
 import {
   DashboardOutlined,
   CoffeeOutlined,
@@ -31,11 +17,12 @@ import {
   BellOutlined,
   UserOutlined,
   LogoutOutlined,
-  SwapOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext";
+import { getErrorMessage } from "../lib/api";
+import { roleHome } from "../lib/role-home";
 import { AdminFooter } from "../components/AdminFooter";
 import { PageLoadingContent } from "../components/ui-loader/page-loading";
 import { AdminNotificationCenter } from "../components/ui/AdminNotificationCenter";
@@ -57,12 +44,11 @@ const routeBreadcrumbMap: Record<string, string> = {
 
 export const AdminLayout: React.FC = () => {
   const { t } = useTranslation();
-  const { message } = AntApp.useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const screens = Grid.useBreakpoint();
   const isMobile = screens.lg === false;
-  const { user, switchRole, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -105,9 +91,8 @@ export const AdminLayout: React.FC = () => {
       "reviews",
       "reports",
       "payments",
-      "promotions",
     ],
-    STAFF: ["dashboard", "inventory", "staff-orders", "orders", "reviews"],
+    STAFF: ["inventory", "orders", "reviews"],
   };
 
   const navItems: MenuProps["items"] = [
@@ -187,7 +172,7 @@ export const AdminLayout: React.FC = () => {
   const roleLabelMap: Record<string, { label: string; color: string }> = {
     ADMIN: { label: t("admin:roles.hqAdmin"), color: "#8F1216" },
     STORE_MANAGER: { label: t("admin:nav.stores"), color: "#C9A227" },
-    STAFF: { label: t("admin:roles.shiftStaff"), color: "#1E7A46" },
+    STAFF: { label: t("admin:roles.staff"), color: "#1E7A46" },
   };
 
   const profileMenuItems: MenuProps["items"] = [
@@ -211,40 +196,17 @@ export const AdminLayout: React.FC = () => {
     },
     { type: "divider" },
     {
-      key: "switch-role-admin",
-      label: t("admin:demo.switchAdmin"),
-      icon: <SwapOutlined />,
-      onClick: () => {
-        switchRole("ADMIN");
-        message.success(t("admin:demo.switchedAdmin"));
-      },
-    },
-    {
-      key: "switch-role-manager",
-      label: t("admin:demo.switchManager"),
-      icon: <SwapOutlined />,
-      onClick: () => {
-        switchRole("STORE_MANAGER");
-        message.success(t("admin:demo.switchedManager"));
-      },
-    },
-    {
-      key: "switch-role-staff",
-      label: t("admin:demo.switchStaff"),
-      icon: <SwapOutlined />,
-      onClick: () => {
-        switchRole("STAFF");
-        message.success(t("admin:demo.switchedStaff"));
-      },
-    },
-    { type: "divider" },
-    {
       key: "logout",
       label: t("common:signOut"),
       icon: <LogoutOutlined />,
-      onClick: () => {
-        logout();
-        message.info(t("common:signedOut"));
+      onClick: async () => {
+        try {
+          await logout();
+          message.info(t("common:signedOut"));
+          navigate("/login", { replace: true });
+        } catch (error) {
+          message.error(getErrorMessage(error));
+        }
       },
     },
   ];
@@ -447,7 +409,7 @@ export const AdminLayout: React.FC = () => {
             />
             <Breadcrumb
               items={[
-                { title: <Link to="/admin/dashboard">Clucky HQ</Link> },
+                { title: <Link to={roleHome(user.role)}>Clucky</Link> },
                 { title: currentTitle },
               ]}
               style={{ fontFamily: "Quicksand, sans-serif", fontWeight: 600 }}
@@ -474,24 +436,11 @@ export const AdminLayout: React.FC = () => {
               >
                 <ShopOutlined />
                 <span>
-                  {t("admin:storeLabel")}{" "}{user.storeName || t("admin:demo.store")}
+                  {t("admin:storeLabel")}{" "}{user.storeName || (user.storeId ? `#${user.storeId}` : t('errors:FORBIDDEN'))}
                 </span>
               </Tag>
             )}
 
-            {/* Quick role selector for testing and demo */}
-            <Select
-              className="admin-header-role"
-              size="small"
-              value={user.role}
-              onChange={(val) => switchRole(val)}
-              style={{ width: 170, fontFamily: "Quicksand, sans-serif" }}
-              options={[
-                { value: "ADMIN", label: "🛡️ Role: Admin HQ" },
-                { value: "STORE_MANAGER", label: "🏪 Role: Store Manager" },
-                { value: "STAFF", label: t("admin:demo.staffRole") },
-              ]}
-            />
 
             {/* Notification Center */}
             <AdminNotificationCenter />

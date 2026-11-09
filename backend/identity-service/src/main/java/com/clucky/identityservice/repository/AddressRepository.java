@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AddressRepository extends JpaRepository<Address, Long> {
+    java.util.List<Address> findByUserIdOrderByIdAsc(Long userId);
     Optional<Address> findByIdAndUserId(Long id, Long userId);
 
     List<Address> findByUserIdOrderByIsDefaultDescIdAsc(Long userId);

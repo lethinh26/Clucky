@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/party-orders")
+@org.springframework.security.access.prepost.PreAuthorize("denyAll()")
 public class PartyOrderController {
     private final PartyOrderService partyOrderService;
 

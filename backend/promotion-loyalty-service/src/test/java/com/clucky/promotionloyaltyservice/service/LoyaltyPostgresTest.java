@@ -44,8 +44,8 @@ class LoyaltyPostgresTest {
             return factory;
         }
         @Bean JpaTransactionManager transactionManager(EntityManagerFactory factory) { return new JpaTransactionManager(factory); }
-        @Bean LoyaltyService service(MemberPointsRepository members, PointTransactionRepository ledger, LoyaltyConfigRepository config) {
-            return new LoyaltyService(members, ledger, config);
+        @Bean LoyaltyService service(DataSource source) {
+            return new LoyaltyService(new JdbcTemplate(source));
         }
         @Bean VoucherService vouchers(VoucherRepository repository) { return new VoucherService(repository); }
     }
@@ -73,12 +73,24 @@ class LoyaltyPostgresTest {
     @Test
     void concurrentOrderRetriesHaveOneBalanceEffectPerOperation() throws Exception {
         long customer = ThreadLocalRandom.current().nextLong(1_000_000, Long.MAX_VALUE);
-        race(() -> service.earnPoints(new EarnPointsRequest(customer, 101L, null, 500, "earn", null)));
-        assertEquals(500, service.getMyLoyalty(customer).points().totalPoints());
-        race(() -> service.redeemPoints(new RedeemPointsRequest(customer, 102, 102L, "redeem", null)));
-        assertEquals(398, service.getMyLoyalty(customer).points().totalPoints());
-        race(() -> service.releasePoints(new LoyaltyReleaseRequest(customer, 102, 102L, "release", null)));
-        assertEquals(500, service.getMyLoyalty(customer).points().totalPoints());
+        long order = ThreadLocalRandom.current().nextLong(1_000_000, Long.MAX_VALUE - 1);
+        var amount = new java.math.BigDecimal("5000000");
+        var quote = service.preview(new LoyaltyData.PreviewInput(customer, 0, amount));
+        var reservation = new LoyaltyData.ReserveInput(order, customer, 0, amount, quote.policyVersion(), quote.pointsAmount(), quote.tierDiscount());
+        race(() -> service.reserve(reservation));
+        race(() -> service.settle(order, customer, "COMPLETED", "event", "correlation"));
+        assertEquals(500, service.overview(customer, 0, 10, "ALL").points().totalPoints());
+        var redemption = service.preview(new LoyaltyData.PreviewInput(customer, 102, amount));
+        var next = new LoyaltyData.ReserveInput(order + 1, customer, 102, amount, redemption.policyVersion(), redemption.pointsAmount(), redemption.tierDiscount());
+        race(() -> service.reserve(next));
+        assertEquals(398, service.overview(customer, 0, 10, "ALL").points().availablePoints());
+        assertThrows(com.clucky.promotionloyaltyservice.exception.ConflictException.class,
+                () -> service.settle(order + 1, customer + 1, "CANCELLED", "wrong-owner", "correlation"));
+        race(() -> service.settle(order + 1, customer, "CANCELLED", "cancelled", "correlation"));
+        service.settle(order + 1, customer, "COMPLETED", "late-completion", "correlation");
+        var balance = service.overview(customer, 0, 10, "ALL").points();
+        assertEquals(500, balance.totalPoints());
+        assertEquals(0, balance.reservedPoints());
         assertEquals(3, new JdbcTemplate(source).queryForObject("SELECT count(*) FROM promotion_service.point_transactions WHERE customer_id = ?", Integer.class, customer));
     }
 

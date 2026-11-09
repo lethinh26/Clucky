@@ -1,102 +1,55 @@
 package com.clucky.promotionloyaltyservice.service;
 
-import com.clucky.promotionloyaltyservice.config.CurrentActor;
 import com.clucky.promotionloyaltyservice.controller.LoyaltyController;
-import com.clucky.promotionloyaltyservice.dto.*;
-import com.clucky.promotionloyaltyservice.entity.*;
-import com.clucky.promotionloyaltyservice.exception.ApiException;
-import com.clucky.promotionloyaltyservice.repository.*;
+import com.clucky.promotionloyaltyservice.dto.LoyaltyData.*;
+import com.clucky.promotionloyaltyservice.exception.BadRequestException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class LoyaltySafetyTest {
-    private final MemberPointsRepository members = mock(MemberPointsRepository.class);
-    private final PointTransactionRepository ledger = mock(PointTransactionRepository.class);
-    private final LoyaltyConfigRepository configs = mock(LoyaltyConfigRepository.class);
-    private final LoyaltyService service = new LoyaltyService(members, ledger, configs);
+    private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
+    private final LoyaltyService service = new LoyaltyService(jdbc);
 
     @AfterEach
     void clearActor() { SecurityContextHolder.clearContext(); }
 
-    private MemberPoints member(int balance) {
-        var member = new MemberPoints();
-        member.setCustomerId(7L);
-        member.setTotalPoints(balance);
-        member.setTier("SILVER");
-        when(members.findByCustomerIdForUpdate(7L)).thenReturn(Optional.of(member));
-        when(members.findByCustomerId(7L)).thenReturn(Optional.of(member));
-        return member;
+    @Test
+    void overviewUsesAuthenticatedOwnerAndRejectsAnonymous() {
+        var loyalty = mock(LoyaltyService.class);
+        var controller = new LoyaltyController(loyalty);
+        assertThrows(RuntimeException.class, () -> controller.me(0, 10, "ALL"));
+        var token = Jwt.withTokenValue("test").header("alg", "HS256").subject("7").claim("role", "CUSTOMER").build();
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(token, List.of()));
+        controller.me(0, 10, "EARN");
+        verify(loyalty).overview(7L, 0, 10, "EARN");
     }
 
     @Test
-    void internalMutationsRejectAnonymousAndEveryBusinessRole() {
-        var controller = new LoyaltyController(service);
-        var request = new EarnPointsRequest(7L, 1L, BigDecimal.TEN, null, null, null);
-        assertThrows(RuntimeException.class, () -> controller.earnPoints(request));
-        for (String role : List.of("CUSTOMER", "STAFF", "STORE_MANAGER", "ADMIN", "SHIPPER")) {
-            var token = Jwt.withTokenValue("test").header("alg", "HS256").subject("7").claim("role", role).build();
-            SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(token, List.of()));
-            assertThrows(ApiException.class, () -> controller.earnPoints(request));
-        }
-        verifyNoInteractions(members, ledger);
+    void historyRejectsUnboundedAndUnknownFiltersBeforeQuerying() {
+        assertThrows(BadRequestException.class, () -> service.overview(7, -1, 10, "ALL"));
+        assertThrows(BadRequestException.class, () -> service.overview(7, 0, 51, "ALL"));
+        assertThrows(BadRequestException.class, () -> service.overview(7, 0, 10, "UNKNOWN"));
+        verifyNoInteractions(jdbc);
     }
 
     @Test
-    void orderReplayIsLockedAndCannotBeReissuedUnderAnotherKey() {
-        var member = member(200);
-        var existing = new PointTransaction();
-        existing.setCustomerId(7L);
-        existing.setChange(10);
-        existing.setBalanceAfter(200);
-        when(ledger.findByOperationKey("EARN:cus:7:order:1")).thenReturn(Optional.of(existing));
-        var result = service.earnPoints(new EarnPointsRequest(7L, 1L, BigDecimal.TEN, 10, "new-key", null));
-        assertEquals(200, result.balanceAfter());
-        var ordered = inOrder(members, ledger);
-        ordered.verify(members).initCustomerPoints(7L);
-        ordered.verify(members).findByCustomerIdForUpdate(7L);
-        ordered.verify(ledger).findByOperationKey("EARN:cus:7:order:1");
-        verify(members, never()).save(any());
-        assertEquals("SILVER", member.getTier());
-    }
-
-    @Test
-    void releaseCannotMintPointsAndReadsLedgerOnlyAfterLocking() {
-        member(200);
-        assertNull(service.releasePoints(new LoyaltyReleaseRequest(7L, 40, 1L, "release", null)));
-        var ordered = inOrder(members, ledger);
-        ordered.verify(members).initCustomerPoints(7L);
-        ordered.verify(members).findByCustomerIdForUpdate(7L);
-        ordered.verify(ledger).findByOperationKey(anyString());
-        ordered.verify(ledger).findByCustomerIdAndOrderIdAndType(7L, 1L, "REDEEM");
-        verify(members, never()).save(any());
-        assertThrows(ApiException.class, () -> service.releasePoints(new LoyaltyReleaseRequest(7L, 40, null, "release", null)));
-    }
-
-    @Test
-    void previewIsOwnerScopedAndCannotDiscountMoreThanTheOrder() {
-        member(200);
-        assertThrows(ApiException.class, () -> service.previewLoyalty(new LoyaltyPreviewRequest(100, BigDecimal.TEN, 8L), 7L));
-        var preview = service.previewLoyalty(new LoyaltyPreviewRequest(100, new BigDecimal("2500")), 7L);
-        assertEquals(2, preview.pointsUsed());
-        assertEquals(new BigDecimal("2000"), preview.pointsAmount());
-        verify(members, never()).save(any());
-    }
-
-    @Test
-    void overflowDoesNotWrapTheBalance() {
-        var member = member(Integer.MAX_VALUE);
-        assertThrows(ArithmeticException.class, () -> service.earnPoints(new EarnPointsRequest(7L, 1L, null, 1, null, null)));
-        assertEquals(Integer.MAX_VALUE, member.getTotalPoints());
-        verify(members, never()).save(any());
+    void previewCannotDiscountMoreThanTheOrderAndDoesNotWrite() {
+        var policy = new Policy(1, 10000, 1000, 1000, 5000, 3, 5);
+        when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<RowMapper<Policy>>any())).thenReturn(List.of(policy));
+        when(jdbc.query(anyString(), org.mockito.ArgumentMatchers.<RowMapper<Balance>>any(), eq(7L)))
+                .thenReturn(List.of(new Balance(7, 200, 0, 200, 200, "MEMBER")));
+        var quote = service.preview(new PreviewInput(7L, 100, new BigDecimal("2500")));
+        assertEquals(2, quote.pointsUsed());
+        assertEquals(0, new BigDecimal("2000").compareTo(quote.pointsAmount()));
+        verify(jdbc, never()).update(anyString(), any(Object[].class));
     }
 }

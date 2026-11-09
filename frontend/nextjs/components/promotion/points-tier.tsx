@@ -1,4 +1,5 @@
 'use client';
+import { useFeedback } from "@/components/feedback";
 
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
@@ -46,6 +47,7 @@ export function PointsTier({
   className = '',
 }: PointsTierProps) {
   const t = useTranslations();
+  useFeedback(error);
   const { locale } = useLocaleTools();
   const LOYALTY_TIER_CONFIG = getLoyaltyTierConfig(locale);
 

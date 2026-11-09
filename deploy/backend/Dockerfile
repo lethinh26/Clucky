@@ -1,7 +1,8 @@
 FROM gradle:8.14-jdk21 AS build
 WORKDIR /src
 COPY . .
-RUN gradle bootJar --no-daemon --max-workers=2
+ARG SERVICE_NAME
+RUN gradle :${SERVICE_NAME}:bootJar --no-daemon --max-workers=2
 
 FROM eclipse-temurin:21-jre
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*

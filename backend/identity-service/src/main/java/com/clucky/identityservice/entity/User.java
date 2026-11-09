@@ -12,7 +12,7 @@ public class User {
     @Column(name = "id", nullable = false)
     private Long id;
 
-    @Column(name = "email", nullable = false, length = 255, unique = true)
+    @Column(name = "email", length = 255, unique = true)
     private String email;
 
     @Column(name = "firebase_uid", length = 128, unique = true)
@@ -21,8 +21,15 @@ public class User {
     @Column(name = "phone", nullable = true, length = 30, unique = true)
     private String phone;
 
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
+
+    @Column(name = "login_name", length = 80, unique = true)
+    private String loginName;
+    @Column(name = "current_branch_account", nullable = false)
+    private boolean currentBranchAccount;
+    public String getLoginName() { return loginName; }
+    public boolean isCurrentBranchAccount() { return currentBranchAccount; }
 
     @Column(name = "full_name", nullable = false, length = 160)
     private String fullName;

@@ -21,16 +21,16 @@ public class CatalogClient {
 
     private final RestClient restClient;
     private final String catalogServiceUrl;
-    private final String serviceToken;
+    private final CatalogCredential credential;
 
     public CatalogClient(
             RestClient restClient,
             @Value("${clucky.catalog.service-url:http://catalog-store-service}") String catalogServiceUrl,
-            @Value("${clucky.catalog.service-token:}") String serviceToken
+            CatalogCredential credential
     ) {
         this.restClient = restClient;
         this.catalogServiceUrl = catalogServiceUrl;
-        this.serviceToken = serviceToken;
+        this.credential = credential;
     }
 
     public record ValidateItemRequest(
@@ -85,6 +85,7 @@ public class CatalogClient {
         )).toList();
 
         CatalogValidationRequest requestBody = new CatalogValidationRequest(storeId, itemRequests);
+        String serviceToken = credential.token();
         if (serviceToken == null || serviceToken.isBlank()) {
             throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }

@@ -3,10 +3,12 @@ import { resources } from "../../lib/i18n/resources";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { GoogleAuthFlow } from "../../components/auth/google-auth-flow";
+import { SessionBoundary } from "../../components/auth/session-boundary";
 import { PaymentWidget } from "../../components/payment/payment-widget";
 import { ShipmentCard } from "../../components/shipping/shipment-card";
 import { ShippingFeeCard } from "../../components/shipping/shipping-fee-card";
 import { PaymentStatusBadge } from "../../components/payment/payment-status-badge";
+import { Toaster } from "../../components/feedback";
 const params = new URLSearchParams(location.search);
 const qr = params.has("qr");
 document.body.style.cssText =
@@ -43,8 +45,8 @@ createRoot(document.getElementById("root")!).render(
       />
     </>
   ) : (
-    <GoogleAuthFlow>
+    <SessionBoundary><GoogleAuthFlow>
       <p>Đăng nhập bằng email</p>
-    </GoogleAuthFlow>
-  )}</NextIntlClientProvider>,
+    </GoogleAuthFlow></SessionBoundary>
+  )}<Toaster locale="vi" /></NextIntlClientProvider>,
 );

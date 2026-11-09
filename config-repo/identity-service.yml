@@ -32,6 +32,8 @@ cloudinary:
   folder: ${CLOUDINARY_FOLDER:clucky}
 
 clucky:
+  branch:
+    approved-backup: ${BRANCH_MIGRATION_BACKUP_REFERENCE:}
   auth:
     google:
       enabled: ${FIREBASE_AUTH_ENABLED:false}
@@ -41,4 +43,4 @@ clucky:
     otp-ttl: ${AUTH_OTP_TTL:5m}
     cookie:
       secure: ${AUTH_COOKIE_SECURE:false}
-    allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    allowed-origins: ${AUTH_ALLOWED_ORIGINS:${FRONTEND_CUSTOMER_URL:http://localhost:3000},${FRONTEND_ADMIN_URL:http://localhost:3001},http://localhost:5173}

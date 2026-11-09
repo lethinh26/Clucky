@@ -1,8 +1,9 @@
 'use client';
+import { notify, useFeedback } from "@/components/feedback";
 
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Tag,
   Copy,
@@ -43,6 +44,7 @@ export default function VouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  useFeedback(error);
 
   // Filters & Search
   const [activeTab, setActiveTab] = useState<TabStatus>('ALL');
@@ -60,10 +62,7 @@ export default function VouchersPage() {
     reason?: string;
     voucher?: Voucher;
   } | null>(null);
-
-  // Copy toast state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useFeedback(checkResult ? (checkResult.valid ? t("business.promotionUi.applied") : checkResult.reason) : null, checkResult?.valid ? "success" : "warning");
 
   useNavigationTask(loading);
 
@@ -82,23 +81,16 @@ export default function VouchersPage() {
 
   useEffect(() => {
     loadVouchers();
-    return () => {
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    };
   }, []);
 
-  const showToast = (message: string) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToastMessage(message);
-    toastTimerRef.current = setTimeout(() => {
-      setToastMessage(null);
-    }, 2500);
-  };
-
-  const handleCopyCode = (code: string) => {
+  const handleCopyCode = async (code: string) => {
     if (!code) return;
-    navigator.clipboard?.writeText(code).catch(() => {});
-    showToast(t("business.promotionUi.copiedCode", { code: code }));
+    try {
+      await navigator.clipboard.writeText(code);
+      notify.success(t("business.promotionUi.copiedCode", { code }));
+    } catch {
+      notify.error(t("common.feedback.copyFailed"));
+    }
   };
 
   // Quick checker handler
@@ -616,13 +608,6 @@ export default function VouchersPage() {
         </div>
       </section>
 
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className={styles.toast} role="status" aria-live="polite">
-          <Check size={16} color="#10b981" aria-hidden="true" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
     </div>
   );
 }

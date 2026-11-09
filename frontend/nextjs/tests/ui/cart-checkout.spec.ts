@@ -4,6 +4,11 @@ const customer = "http://127.0.0.1:4174";
 
 test("cart preserves combo/options and server keys; failed mutations keep the cart", async ({ page }) => {
   const items: any[] = [];
+  let signedIn = false;
+  await page.route("**/api/auth/session", route => route.fulfill(signedIn
+    ? { json: { userId: 7, role: "CUSTOMER", fullName: "Customer", email: "customer@example.com" } }
+    : { status: 401, json: { code: "UNAUTHENTICATED" } }));
+  await page.route("**/api/auth/refresh", route => route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } }));
   const additions: any[] = [];
   const mutationKeys: string[] = [];
   let rejectUpdate = false;
@@ -12,6 +17,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await page.route(/\/api\/cart(?:\/|$)/, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === "/api/cart/merge") return route.fulfill({ json: response() });
     if (request.method() === "POST") {
       const body = request.postDataJSON();
       additions.push(body);
@@ -37,7 +43,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   expect(additions[0]).toMatchObject({ productId: 901, optionIds: [12], toppingIds: [22] });
   expect(additions[0].comboId).toBeUndefined();
   await expect(page.getByRole("button", { name: /Đã thêm/ })).toBeVisible();
-  await page.goto(`${customer}/cart`);
+  await page.getByRole("link", { name: "Giỏ hàng", exact: true }).first().click();
   await expect(page.getByText("Heat: Hot")).toBeVisible();
   await expect(page.getByText(/Cheese/)).toBeVisible();
   const increase = page.getByRole("button", { name: /Tăng.*Regression Chicken/ });
@@ -46,7 +52,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await expect(increase).toBeEnabled();
   rejectUpdate = true;
   await increase.click();
-  await expect(page.getByRole("alert").filter({ hasText: /Dịch vụ/ })).toBeVisible();
+  await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: /Dịch vụ/ })).toBeVisible();
   expect(items[0].quantity).toBe(2);
   await expect(page.getByRole("group", { name: /Thay đổi số lượng/ }).locator("span")).toHaveText("2");
   rejectUpdate = false;
@@ -60,12 +66,16 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   expect(additions[1]).toMatchObject({ comboId: 901, optionIds: [], toppingIds: [] });
   expect(additions[1].productId).toBeUndefined();
   await expect(page.getByRole("button", { name: /Đã thêm/ })).toBeVisible();
-  await page.evaluate(() => localStorage.setItem("clucky_access_token", "test-customer-token"));
+  signedIn = true;
   await page.route("**/api/orders/preview", (route) => route.fulfill({ json: {
     subtotal: 120000, discountAmount: 0, pointsAmount: 0, pointsUsed: 0,
-    shippingFee: 20000, totalAmount: 140000, voucherValid: false,
+    shippingFee: 20000, totalAmount: 140000, voucherValid: false, orderValid: true,
   } }));
   let submitted: any;
+  await page.addInitScript(() => sessionStorage.setItem("clucky_location_prompt", "seen"));
+  await page.route("**/api/stores?*", route => route.fulfill({ json: [{ id: 1, name: "Clucky Test", status: "OPEN", address: "Test street" }] }));
+  await page.route("**/api/users/me/addresses", route => route.fulfill({ json: [] }));
+  await page.route("**/api/loyalty/me?*", route => route.fulfill({ json: { points: { availablePoints: 0 } } }));
   await page.route(/\/api\/orders$/, (route) => {
     submitted = route.request().postDataJSON();
     return route.fulfill({ status: 409, json: { code: "VOUCHER_INACTIVE" } });
@@ -78,7 +88,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await expect.poll(() => submitted?.items?.[0]?.comboId).toBe(901);
   expect(submitted.items[0].productId).toBeUndefined();
   expect(submitted.paymentMethod).toBe("BANK_TRANSFER");
-  await expect(page.locator("main [role=alert]")).toBeVisible();
+  await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "Mã giảm giá hiện không khả dụng." })).toBeVisible();
   await expect(page.locator("#receiverName")).toHaveValue("Regression Customer");
   await expect(page.locator("#receiverPhone")).toHaveValue("0901234567");
   expect(items).toHaveLength(1);

@@ -1,0 +1,18 @@
+{
+  "title": "Tài khoản chi nhánh", "login": "Định danh nội bộ hoặc email Admin", "access": "Kích hoạt / khôi phục tài khoản",
+  "activation": "Kích hoạt", "reset": "Đặt lại mật khẩu", "request": "Gửi mã", "challenge": "Mã challenge (từ email)", "otp": "OTP 8 chữ số",
+  "newOtp": "OTP tại email mới", "password": "Mật khẩu mới (8–72 ký tự, có chữ hoa, chữ thường và số)", "confirm": "Xác nhận",
+  "sent": "Nếu tài khoản đủ điều kiện, mã sẽ được gửi đến email đã lưu. Mã cũ cùng mục đích không còn hiệu lực.",
+  "done": "Đã hoàn tất. Các phiên cũ của tài khoản bị ảnh hưởng đã bị thu hồi.", "back": "Về đăng nhập", "store": "Chọn chi nhánh",
+  "reload": "Tải lại", "retry": "Thử lại provisioning", "pending": "Đã lưu quán; chưa sẵn sàng mở bán. Theo dõi cặp tài khoản trong mục Tài khoản.",
+  "recovery": "Email khôi phục chung", "changeRecovery": "Đổi email khôi phục", "currentPassword": "Mật khẩu hiện tại của bạn", "newEmail": "Email khôi phục mới",
+  "target": "Tài khoản đích", "purpose": "Mục đích", "lock": "Khóa", "unlock": "Mở khóa", "lockConfirm": "Thay đổi trạng thái và thu hồi toàn bộ phiên của tài khoản này?",
+  "account": "Tài khoản", "role": "Vai trò", "status": "Trạng thái", "activated": "Đã kích hoạt", "current": "Tài khoản hiện hành", "yes": "Có", "no": "Không",
+  "inventory": "Kiểm kê dữ liệu cũ", "migration": "Duyệt chuyển đổi", "manager": "Chọn Manager giữ lại", "staff": "Chọn Staff giữ lại", "backup": "Tham chiếu backup được operator xác nhận",
+  "migrationWarning": "Không tự chọn tài khoản. Chuyển đổi giữ nguyên ID; khóa tài khoản dư, thu hồi phiên, đóng quán và yêu cầu kích hoạt lại cặp giữ. Không tự mở bán.",
+  "migrationDisabled": "Chuyển đổi đang khóa. Operator phải backup và cấu hình BRANCH_MIGRATION_BACKUP_REFERENCE trước.", "migrationConfirm": "Xác nhận đúng cặp tài khoản và email này? Tài khoản dư sẽ bị khóa; tất cả phiên chi nhánh sẽ bị thu hồi.",
+  "report": "Báo cáo trước / sau", "audit": "Audit tài khoản / phiên", "auditNotice": "Tài khoản dùng chung và session không xác định danh tính nhân viên. Manager chỉ xem hành động Staff tại quán mình.",
+  "action": "Thao tác", "session": "Phiên", "time": "Thời gian", "result": "Kết quả", "legacy": "Chưa có cặp hiện hành. Kiểm kê và duyệt chuyển đổi; không coi dữ liệu cũ là đã hoàn tất.",
+  "adminHelp": "Hỗ trợ Admin: OTP chính gửi tới email Admin đã lưu. Đổi recovery cần cả OTP email mới.", "managerHelp": "Đổi recovery cần mật khẩu hiện tại và OTP tại cả email cũ lẫn email mới.",
+  "manageSent": "Đã tạo challenge. Kiểm tra email đúng người nhận; challenge gắn với phiên hiện tại.", "readiness": "Sẵn sàng tài khoản", "next": "Trang tiếp"
+}

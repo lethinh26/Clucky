@@ -1,4 +1,21 @@
-# [DEP-06] Smoke test VPS: login, menu, COD, transfer
+# [DEP-06] Xác minh bản triển khai trên VPS bằng luồng đăng nhập, duyệt menu, tạo đơn COD và chuyển khoản trong phạm vi được phép
+
+> **Đã đồng bộ Lark 08/11/2026.** Title, scope, AC/DoD và SP kế hoạch đã cập nhật; giữ PIC/trạng thái/sprint/lịch thực tế trên Lark. Các ghi chú “chưa đồng bộ” và tiến độ bên dưới là snapshot lịch sử. [Kết quả đồng bộ và chênh lệch sprint](../docs/Lark_Backlog_Sync_2026-11-08.md).
+
+## Phân loại hiện hành — 07/11/2026
+
+| Thuộc tính | Giá trị hiện hành |
+|---|---|
+| Mã | DEP-06 |
+| Loại | TASK — task chính, không có parent/subtask |
+| Nhóm | DEP |
+| Mã gốc | DEP-06 |
+| Dependency triển khai | [DEP-04](DEP-04.md), [DEP-05](DEP-05.md), [BE-25](BE-25.md), [BE-17](BE-17.md), [BE-20](BE-20.md), [BE-23](BE-23.md), [BE-24](BE-24.md), [BE-32](BE-32.md), [UI-09](UI-09.md), [UI-11](UI-11.md), [UI-17](UI-17.md), [UI-18](UI-18.md), [UI-30](UI-30.md), [BE-29](BE-29.md), [BE-30](BE-30.md), [UI-19](UI-19.md), [UI-44](UI-44.md) |
+| Nhận thêm phạm vi/AC/DoD | Không có gói gộp mới |
+| Ước lượng | Giữ snapshot, chưa xác nhận remaining thực tế |
+
+Áp dụng [phân loại 07/11](../docs/Backlog_Reclassification_2026-11-07.md). Metadata/lịch/nhãn cũ bên dưới là lịch sử, bị thay thế khi khác bảng hiện hành. AC/DoD nhận thêm ở cuối file thuộc TASK này, không phải subtask. Chưa đồng bộ Lark, chưa xác nhận nghiệm thu mới.
+
 
 > Detail biên soạn lại ngày 02/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới là lịch sử, không phải xác nhận tiến độ mới.
 
@@ -54,6 +71,8 @@ Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint �
 Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
 
 ## 6. Dependency và bàn giao
+
+> Bảng handoff bên dưới giữ tham chiếu trước gộp. Dependency triển khai hiện hành là bảng đầu file; ID INT/TEST cũ chỉ là truy vết qua trang chuyển hướng, không phải task phải giao lại.
 
 ### Tiên quyết đã có trong backlog
 
@@ -126,7 +145,7 @@ Không có ID gộp trực tiếp vào task này.
 **Bắt đầu:** Chưa xếp lịch
 **Deadline:** Chưa xếp lịch
 **Múi giờ:** Asia/Ho_Chi_Minh (UTC+7)
-**Loại:** Sub Task
+**Loại (snapshot trước phân loại):** Sub Task
 **Mã Lark:** Mail-4567 / reczz28Rid5Xi1oH
 **Record:** https://msgmclt9kdj2.sg.larksuite.com/base/ByTkbHQcYaPOMAsoU4jl41pdgSd?table=tblXgna1HdN3POFK&record=reczz28Rid5Xi1oH
 **Cập nhật:** 30/10/2026 — kế hoạch hai sprint đã được duyệt
@@ -150,3 +169,15 @@ Chỉ sizing backlog; không cam kết ngày bắt đầu/deadline và không k�
 ## Quy ước kiểm chứng
 
 Việc cập nhật detail không chạy test, lint, typecheck, build, Docker hoặc trình duyệt. Checklist là điều kiện nghiệm thu để người phụ trách thực hiện, không phải báo cáo PASS. Giữ trạng thái snapshot, kể cả DONE; chưa xác nhận lại trên Lark.
+
+## AC/DoD bắt buộc của TASK chính — 07/11/2026
+
+- [ ] Dev tự kiểm thử từng AC thuộc phần mình triển khai: happy path, validation/boundary, lỗi dependency, quyền/ownership/storeId và retry/concurrency/idempotency khi có; ghi PASS/FAIL/BLOCKED, không đánh PASS vì có code hoặc UI mock.
+- [ ] Ghi commit, môi trường, contract, fixture/actor/store, bước tái hiện, expected/actual và evidence đã mask. Dùng lại evidence hợp lệ; không chạy/tính công lặp giữa các task.
+- [ ] UI gọi Gateway, đủ loading/empty/error/retry; backend kiểm quyền, DTO/error shape, Config Server/Eureka, schema riêng/migration mới. UI giữ brand, vi/en, responsive, keyboard/focus theo phạm vi.
+- [ ] Event có eventId/correlationId, replay không nhân side effect; email lỗi không rollback Order/Payment; không lộ credential/OTP/token hoặc dữ liệu ngoài quyền.
+- [ ] AC xuyên service: dev chịu phần mình sở hữu, đầu mối tổng hợp một bộ evidence chung. Thiếu handoff ghi BLOCKED/prerequisite/PIC, không kết luận toàn luồng từ kiểm thử cục bộ.
+- [ ] Sửa lỗi trong phạm vi và tự retest tại TASK này; bug có một PIC. Bàn giao contract/evidence cho task phụ thuộc; không lập lại INT/TEST subtask để chuyển trách nhiệm kiểm thử.
+- [ ] DONE snapshot là lịch sử, không xác nhận AC mới đã đạt. AC fail/blocked chưa được coi hoàn tất; mục hoãn có nhãn riêng, không tự kéo backlog/Phase 2 vào sprint.
+
+Mục không áp dụng ghi N/A kèm lý do; không bỏ security/AC đã chỉ định. Đây là yêu cầu dev tự kiểm thử, không phải kết quả chạy của lần sửa tài liệu.

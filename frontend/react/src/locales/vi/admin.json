@@ -1,4 +1,7 @@
 {
+  "paymentStates": { "PENDING": "Chờ thanh toán", "PAID": "Đã thanh toán", "COLLECTED": "Đã thu", "REFUNDED": "Đã hoàn tiền", "FAILED": "Thanh toán thất bại", "UNKNOWN": "Chưa xác minh thanh toán" },
+  "integrationUnavailable": "Chưa tích hợp dữ liệu và thao tác thực. Tính năng tạm khóa; không hiển thị dữ liệu mẫu hoặc ghi nhận thành công cục bộ.",
+  "collectionUnavailable": "Chưa có nghiệp vụ ghi nhận thu tiền thực. Không thể thu COD hoặc hoàn tất đơn chưa có bằng chứng thanh toán.",
   "nav": {
     "overview": "Tổng quan",
     "catalog": "Quản lý Thực đơn & Sản phẩm",

@@ -81,7 +81,10 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/resend-otp",
                             "/api/auth/verify-otp",
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/auth/forgot-password",
-                            "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll();
+                            "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete",
+                            "/api/auth/branch/challenge", "/api/auth/branch/finish").permitAll();
+                    auth.requestMatchers(HttpMethod.PUT, "/api/auth/internal/branch-accounts/{storeId}").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/auth/internal/branch-accounts/{storeId}").permitAll();
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })

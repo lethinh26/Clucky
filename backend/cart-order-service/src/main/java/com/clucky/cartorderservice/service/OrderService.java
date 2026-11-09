@@ -51,6 +51,7 @@ public class OrderService {
     private final OrderEventPublisher orderEventPublisher;
     private final CatalogClient catalogClient;
     private final PromotionClient promotionClient;
+    private final LoyaltyClient loyaltyClient;
     private final ShippingClient shippingClient;
     private final Random random = new SecureRandom();
 
@@ -64,7 +65,8 @@ public class OrderService {
             OrderEventPublisher orderEventPublisher,
             CatalogClient catalogClient,
             PromotionClient promotionClient,
-            ShippingClient shippingClient
+            ShippingClient shippingClient,
+            LoyaltyClient loyaltyClient
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -76,9 +78,11 @@ public class OrderService {
         this.catalogClient = catalogClient;
         this.promotionClient = promotionClient;
         this.shippingClient = shippingClient;
+        this.loyaltyClient = loyaltyClient;
     }
 
     public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
+        accessGuard.requireCustomer();
         List<CartItemDto> items = resolvePreviewItems(request, httpRequest);
         if (items.isEmpty()) {
             return new OrderPreviewResponse(
@@ -130,10 +134,11 @@ public class OrderService {
         BigDecimal discountAmount = voucherCalc.discountAmount();
 
         // Validate loyalty points with Promotion Service (P1-02)
-        PromotionClient.LoyaltyResult loyaltyCalc = promotionClient.validateLoyalty(
+        LoyaltyClient.Quote loyaltyCalc = loyaltyClient.preview(
                 request.pointsUsed(),
-                subtotal.subtract(discountAmount).add(shippingFee)
+                subtotal.subtract(discountAmount).max(BigDecimal.ZERO)
         );
+        discountAmount = discountAmount.add(loyaltyCalc.tierDiscount());
         int pointsUsed = loyaltyCalc.pointsUsed();
         BigDecimal pointsAmount = loyaltyCalc.pointsAmount();
 
@@ -160,12 +165,15 @@ public class OrderService {
                 totalAmount,
                 voucherCalc.valid(),
                 voucherCalc.message(),
-                items
+                items,
+                loyaltyCalc.tierDiscount(),
+                true
         );
     }
 
-    @Transactional
+    @Transactional(timeout = 60)
     public OrderResponse createOrder(CreateOrderRequest request) {
+        accessGuard.requireCustomer();
         Long customerId = CurrentActor.require().userId();
 
         String userCartKey = RedisConfig.key("cart", customerId.toString());
@@ -221,10 +229,11 @@ public class OrderService {
         BigDecimal discountAmount = voucherCalc.discountAmount();
 
         // Validate loyalty points with Promotion Service (P1-02: Verified reservation)
-        PromotionClient.LoyaltyResult loyaltyCalc = promotionClient.validateLoyalty(
+        LoyaltyClient.Quote loyaltyCalc = loyaltyClient.preview(
                 request.pointsUsed(),
-                subtotal.subtract(discountAmount).add(shippingFee)
+                subtotal.subtract(discountAmount).max(BigDecimal.ZERO)
         );
+        discountAmount = discountAmount.add(loyaltyCalc.tierDiscount());
         int pointsUsed = loyaltyCalc.pointsUsed();
         BigDecimal pointsAmount = loyaltyCalc.pointsAmount();
 
@@ -242,6 +251,9 @@ public class OrderService {
             totalAmount = BigDecimal.ZERO;
         }
 
+        if (request.expectedTotal() != null && totalAmount.compareTo(request.expectedTotal()) != 0) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
         String paymentMethod = request.paymentMethod() != null ? request.paymentMethod().trim().toUpperCase() : "COD";
         String initialStatus = "COD".equalsIgnoreCase(paymentMethod)
                 ? OrderStatus.CONFIRMED.name()
@@ -264,9 +276,13 @@ public class OrderService {
         order.setReceiverName(request.receiverName().trim());
         order.setReceiverPhone(request.receiverPhone().trim());
         order.setDeliveryAddress(request.deliveryAddress());
+        order.setLatitude("DELIVERY".equals(type) ? request.latitude() : null);
+        order.setLongitude("DELIVERY".equals(type) ? request.longitude() : null);
         order.setNote(request.note());
         order.setScheduledAt(request.scheduledAt());
         order = orderRepository.save(order);
+
+        loyaltyClient.reserve(order.getId(), customerId, subtotal.subtract(voucherCalc.discountAmount()).max(BigDecimal.ZERO), loyaltyCalc);
 
         List<OrderItem> savedItems = new ArrayList<>();
         for (int i = 0; i < items.size(); i++) {
@@ -322,11 +338,7 @@ public class OrderService {
         accessGuard.requireOwner(order.getCustomerId());
 
         String currentStatus = order.getStatus();
-        if (!OrderStatus.PENDING_PAYMENT.name().equalsIgnoreCase(currentStatus)
-                && !OrderStatus.CONFIRMED.name().equalsIgnoreCase(currentStatus)) {
-            LOG.warn("event=order_cancel_conflict orderId={} status={}", order.getId(), currentStatus);
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
-        }
+        String reason = cancellationReason(order, request == null ? null : request.reason());
 
         order.setStatus(OrderStatus.CANCELLED.name());
         order = orderRepository.save(order);
@@ -337,8 +349,7 @@ public class OrderService {
         history.setToStatus(OrderStatus.CANCELLED.name());
         history.setChangedBy(CurrentActor.require().userId());
         history.setChangedRole("CUSTOMER");
-        history.setReason(request != null && request.reason() != null && !request.reason().isBlank()
-                ? request.reason().trim() : "Cancelled by customer");
+        history.setReason(reason);
         history.setCreatedAt(Instant.now());
         orderStatusHistoryRepository.save(history);
 
@@ -350,9 +361,6 @@ public class OrderService {
         // P1.1: Release voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
             promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
-        }
-        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
-            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
         }
 
         // Publish order.cancelled Kafka event via Transactional Outbox
@@ -369,11 +377,7 @@ public class OrderService {
         accessGuard.requireStore(order.getStoreId());
 
         String currentStatus = order.getStatus();
-        if (OrderStatus.COMPLETED.name().equalsIgnoreCase(currentStatus)
-                || OrderStatus.CANCELLED.name().equalsIgnoreCase(currentStatus)) {
-            LOG.warn("event=order_reject_conflict orderId={} status={}", order.getId(), currentStatus);
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
-        }
+        String reason = cancellationReason(order, request == null ? null : request.reason());
 
         CurrentActor actor = CurrentActor.require();
         order.setStatus(OrderStatus.CANCELLED.name());
@@ -385,8 +389,7 @@ public class OrderService {
         history.setToStatus(OrderStatus.CANCELLED.name());
         history.setChangedBy(actor.userId());
         history.setChangedRole(actor.role().name());
-        history.setReason(request != null && request.reason() != null && !request.reason().isBlank()
-                ? request.reason().trim() : "Order rejected by store");
+        history.setReason(reason);
         history.setCreatedAt(Instant.now());
         orderStatusHistoryRepository.save(history);
 
@@ -398,9 +401,6 @@ public class OrderService {
         // P1.1: Release voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
             promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
-        }
-        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
-            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
         }
 
         // Publish order.cancelled Kafka event via Transactional Outbox
@@ -418,6 +418,13 @@ public class OrderService {
 
         String current = order.getStatus().toUpperCase();
         String target = request.status().trim().toUpperCase();
+        if ("CANCELLED".equals(target)) {
+            cancellationReason(order, request.note());
+        }
+        if (("COMPLETED".equals(target) || ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)))
+                && !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
 
         if (current.equals(target)) {
             List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
@@ -466,9 +473,6 @@ public class OrderService {
         } else if (OrderStatus.CANCELLED.name().equals(target)) {
             if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
                 promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
-            }
-            if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
-                promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
             }
             orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
         } else {
@@ -532,9 +536,6 @@ public class OrderService {
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
             promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
         }
-        if (order.getPointsUsed() != null && order.getPointsUsed() > 0) {
-            promotionClient.releaseLoyaltyPoints(order.getCustomerId(), order.getPointsUsed(), order.getId());
-        }
 
         // Publish order.cancelled compensation event via Transactional Outbox
         orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
@@ -584,6 +585,7 @@ public class OrderService {
     }
 
     public PageResponse<OrderResponse> getMyOrders(String status, Pageable pageable) {
+        accessGuard.requireCustomer();
         Long customerId = CurrentActor.require().userId();
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
 
@@ -621,7 +623,7 @@ public class OrderService {
         CurrentActor actor = CurrentActor.require();
         if (actor.role() == Role.CUSTOMER) {
             accessGuard.requireOwner(order.getCustomerId());
-        } else if (actor.role() == Role.STAFF || actor.role() == Role.STORE_MANAGER) {
+        } else {
             accessGuard.requireStore(order.getStoreId());
         }
 
@@ -686,6 +688,16 @@ public class OrderService {
         }
 
         return List.of();
+    }
+
+    private String cancellationReason(Order order, String reason) {
+        if (!Set.of("PENDING_PAYMENT", "CONFIRMED").contains(order.getStatus())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+        if (reason == null || reason.isBlank() || reason.trim().length() > 1000) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        return reason.trim();
     }
 
     private String generateOrderCode() {

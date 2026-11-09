@@ -1,8 +1,9 @@
 "use client";
+import { notify } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "@/components/ui-loader/navigation-link";
 import { useOrder } from "@/components/order/order-provider";
 import { useNavigationTask } from "@/components/ui-loader";
@@ -12,7 +13,6 @@ import {
   ArrowRight,
   Store,
   RotateCcw,
-  CheckCircle2,
   Clock3,
 } from "lucide-react";
 import { OrderStatusChip } from "@/components/order";
@@ -25,14 +25,14 @@ type FilterTab = "ALL" | "ACTIVE" | "COMPLETED" | "CANCELLED";
 export default function OrdersHistoryPage() {
   const t = useTranslations();
 
-  const { locale, money: formatPrice } = useLocaleTools();
+  const { locale, money: formatPrice, errorMessage } = useLocaleTools();
   const { orders, reorder, refreshOrders, ready } = useOrder();
   useNavigationTask(!ready);
 
   // Sync server orders on mount (INT-08)
   useEffect(() => {
     refreshOrders().catch((err) => {
-      console.warn("Could not fetch remote orders:", err);
+      notify.error(errorMessage(err));
     });
   }, [refreshOrders]);
 
@@ -41,16 +41,6 @@ export default function OrdersHistoryPage() {
   );
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    },
-    [],
-  );
-
   const filteredOrders = orders.filter((order) => {
     // Search filter
     if (searchQuery.trim()) {
@@ -77,16 +67,10 @@ export default function OrdersHistoryPage() {
   });
 
   const handleReorder = async (order: Order) => {
-    await reorder(order);
-    setToastMessage(
-      t("business.orders.itemsFromOrderHaveBeenAddedToYourCart", {
-        value1: order.orderCode,
-      }),
-    );
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
+    try {
+      await reorder(order);
+      notify.success(t("business.orders.itemsFromOrderHaveBeenAddedToYourCart", { value1: order.orderCode }));
+    } catch {}
   };
 
   return (
@@ -277,24 +261,6 @@ export default function OrdersHistoryPage() {
           </div>
         )}
 
-        {/* Toast notification for reorder action */}
-        {toastMessage && (
-          <div className={styles.reorderToast} role="status">
-            <span>
-              <CheckCircle2 size={17} /> {toastMessage}
-            </span>
-            <Link
-              href="/cart"
-              style={{
-                color: "#c9a227",
-                textDecoration: "underline",
-                marginLeft: 8,
-              }}
-            >
-              {t("business.orders.goToCart")}
-            </Link>
-          </div>
-        )}
       </main>
     </>
   );

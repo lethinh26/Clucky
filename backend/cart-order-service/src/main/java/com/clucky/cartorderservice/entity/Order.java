@@ -63,6 +63,11 @@ public class Order {
     @Column(name = "payment_method", nullable = false, length = 20)
     private String paymentMethod = "COD";
 
+    @Column(name = "payment_status", nullable = false, length = 20)
+    private String paymentStatus = "PENDING";
+
+    public String getPaymentStatus() { return paymentStatus; }
+
     @Column(name = "scheduled_at", nullable = true)
     private Instant scheduledAt;
 
@@ -72,6 +77,13 @@ public class Order {
     @Version
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
+
+    private Double latitude;
+    private Double longitude;
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
