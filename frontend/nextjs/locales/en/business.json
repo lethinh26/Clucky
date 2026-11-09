@@ -1,5 +1,12 @@
 {
   "account": {
+    "welcomeBack": "Welcome back,",
+    "exploreMenu": "Explore the menu",
+    "myOrders": "My orders",
+    "ordersHint": "Revisit your delicious moments",
+    "securityHint": "Manage your sign-in password",
+    "signInEmail": "Sign-in email",
+
     "unableToReadSavedDemoDataYouCanEnterYourDetailsAgain": "Unable to read saved demo data. You can enter your details again.",
     "unableToSaveDataInThisBrowserPleaseTryAgain": "Unable to save data in this browser. Please try again.",
     "pleaseCompleteTheAddressAndRecipientDetails": "Please complete the address and recipient details.",
@@ -48,7 +55,7 @@
     "saveAddress": "Save address",
     "cancel": "Cancel",
     "deleteAddress": "Delete address?",
-    "thisAddressWillBeRemovedFromTheDemoAddressBook": "This address will be removed from the demo address book.",
+    "thisAddressWillBeRemovedFromTheDemoAddressBook": "This address will be removed from your address book.",
     "keepAddress": "Keep address",
     "addressDeleted": "Address deleted.",
     "confirmDeletion": "Confirm deletion"

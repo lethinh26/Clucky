@@ -11,7 +11,7 @@ export type OrderStatus =
 
 export type PaymentMethod = "COD" | "BANK_TRANSFER";
 
-export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED";
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED" | "COLLECTED" | "REFUNDED" | "UNKNOWN";
 
 export type ShipmentStatus =
   "CREATED" | "ASSIGNED" | "PICKED_UP" | "SHIPPING" | "DELIVERED" | "FAILED";
@@ -56,6 +56,8 @@ export interface CartItem {
 
 export interface OrderItem {
   id: string;
+  productId?: number;
+  comboId?: number;
   slug?: string;
   itemName: string;
   itemType: "PRODUCT" | "COMBO";

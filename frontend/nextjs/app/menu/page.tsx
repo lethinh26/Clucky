@@ -1,4 +1,5 @@
 'use client';
+import { useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 
 
@@ -8,7 +9,7 @@ import Link from '@/components/ui-loader/navigation-link';
 import { ProductCard } from '@/components/product-card';
 import { CategoryIcon } from '@/components/category-icon';
 import { StyledSelect } from '@/components/styled-select';
-import { catalogApi, type CategoryItem, type ProductItem } from '@/lib/api';
+import { catalogApi, getErrorMessage, type CategoryItem, type ProductItem } from '@/lib/api';
 import {
   Search,
   X,
@@ -35,6 +36,7 @@ function MenuContent() {
   ]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  useFeedback(loadError);
   const [selectedCategory, setSelectedCategory] = useState<number>(initialCategory);
   const [searchTerm, setSearchTerm] = useState('');
   const [spicyFilter, setSpicyFilter] = useState<'ALL' | '0' | '1' | '2'>('ALL');
@@ -65,7 +67,7 @@ function MenuContent() {
           ]);
         }
       } catch (err) {
-        if (active) setLoadError(err instanceof Error ? err.message : t("menu.empty.title"));
+        if (active) setLoadError(getErrorMessage(err));
       } finally {
         if (active) setLoading(false);
       }

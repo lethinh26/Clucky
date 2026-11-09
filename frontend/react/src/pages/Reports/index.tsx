@@ -1,25 +1,10 @@
+import { message } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from 'react';
 import { useDeferredAction } from '../../components/ui-loader/use-deferred-action';
-import {
-  Card,
-  Row,
-  Col,
-  Statistic,
-  DatePicker,
-  Select,
-  Button,
-  Space,
-  Table,
-  Tag,
-  Segmented,
-  Tooltip,
-  Typography,
-  message,
-  Flex,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Card, Row, Col, Statistic, DatePicker, Select, Button, Space, Table, Tag, Segmented, Tooltip, Typography, Flex } from "antd";
+import { TableColumnsType } from "antd";
 import {
   DollarOutlined,
   ShoppingOutlined,

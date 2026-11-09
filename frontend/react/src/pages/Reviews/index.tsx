@@ -1,28 +1,8 @@
+import { message } from "../../components/feedback";
 import { useTranslation } from "react-i18next";
 import React, { useState } from 'react';
-import {
-  Card,
-  Table,
-  Rate,
-  Tag,
-  Button,
-  Space,
-  Input,
-  Select,
-  Modal,
-  Form,
-  Avatar,
-  Typography,
-  Tooltip,
-  Row,
-  Col,
-  Statistic,
-  message,
-  Popconfirm,
-  Empty,
-  Flex,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Card, Table, Rate, Tag, Button, Space, Input, Select, Modal, Form, Avatar, Typography, Tooltip, Row, Col, Statistic, Popconfirm, Empty, Flex } from "antd";
+import { TableColumnsType } from "antd";
 import {
   StarFilled,
   MessageOutlined,

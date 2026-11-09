@@ -17,5 +17,14 @@ public record CreateOrderRequest(
         String voucherCode,
         Integer pointsUsed,
         Instant scheduledAt,
-        List<CartItemDto> items
-) {}
+        List<CartItemDto> items,
+        @jakarta.validation.constraints.DecimalMin("-90") @jakarta.validation.constraints.DecimalMax("90") Double latitude,
+        @jakarta.validation.constraints.DecimalMin("-180") @jakarta.validation.constraints.DecimalMax("180") Double longitude,
+        @jakarta.validation.constraints.DecimalMin("0") @jakarta.validation.constraints.Digits(integer = 12, fraction = 0) java.math.BigDecimal expectedTotal
+) {
+    @jakarta.validation.constraints.AssertTrue
+    public boolean isCoordinatePairValid() {
+        return (latitude == null && longitude == null) || (latitude != null && longitude != null
+                && Double.isFinite(latitude) && Double.isFinite(longitude));
+    }
+}

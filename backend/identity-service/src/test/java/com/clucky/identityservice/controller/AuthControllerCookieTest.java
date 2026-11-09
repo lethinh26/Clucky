@@ -42,15 +42,15 @@ class AuthControllerCookieTest {
         var request = new GoogleAuthDto.SignIn("firebase-token");
         when(google.login(request.idToken())).thenReturn(new GoogleAuthService.LoginResult(null, "p".repeat(43)));
         var pendingResponse = new MockHttpServletResponse();
-        Object pendingBody = controller.google(request, pendingResponse);
+        Object pendingBody = controller.google(request, "customer", pendingResponse);
         assertInstanceOf(GoogleAuthDto.Pending.class, pendingBody);
         assertNull(pendingResponse.getHeader("Set-Cookie"));
 
         AuthService.AuthResult session = service.login(new LoginRequest("a@example.com", "Password123"));
         when(google.login(request.idToken())).thenReturn(new GoogleAuthService.LoginResult(session, null));
         var loginResponse = new MockHttpServletResponse();
-        AuthResponse loginBody = assertInstanceOf(AuthResponse.class, controller.google(request, loginResponse));
-        assertEquals(ACCESS, loginBody.accessToken());
+        AuthResponse loginBody = assertInstanceOf(AuthResponse.class, controller.google(request, "customer", loginResponse));
+        assertEquals(1L, loginBody.userId());
         assertTrue(loginResponse.getHeader("Set-Cookie").contains("HttpOnly"));
         assertTrue(loginResponse.getHeader("Set-Cookie").contains("Secure"));
         assertTrue(loginResponse.getHeader("Set-Cookie").contains("SameSite=Lax"));
@@ -58,7 +58,7 @@ class AuthControllerCookieTest {
         var completeRequest = new GoogleAuthDto.Complete("p".repeat(43), "Password123");
         when(google.complete(completeRequest.pendingToken(), completeRequest.password())).thenReturn(session);
         var completeResponse = new MockHttpServletResponse();
-        assertEquals(loginBody, controller.completeGoogle(completeRequest, completeResponse));
+        assertEquals(loginBody, controller.completeGoogle(completeRequest, "customer", completeResponse));
         assertEquals(loginResponse.getHeader("Set-Cookie"), completeResponse.getHeader("Set-Cookie"));
     }
 
@@ -75,17 +75,22 @@ class AuthControllerCookieTest {
     }
 
     @Test
-    void loginReturnsAccessTokenInBodyAndRefreshInHttpOnlyCookie() {
+    void loginReturnsOnlyUserMetadataAndBothTokensInHttpOnlyCookies() {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        AuthResponse body = controller.login(new LoginRequest("a@example.com", "Password1"), response);
+        AuthResponse body = controller.login(new LoginRequest("a@example.com", "Password1"), "customer", response);
 
-        assertEquals(ACCESS, body.accessToken());
+        assertEquals(1L, body.userId());
+        assertFalse(body.toString().contains(ACCESS));
         assertEquals(Role.CUSTOMER, body.role());
         assertNull(body.storeId());
-        String setCookie = response.getHeader("Set-Cookie");
+        String setCookie = response.getHeaders("Set-Cookie").stream()
+                .filter(cookie -> cookie.startsWith("clucky_customer_refresh=")).findFirst().orElseThrow();
         assertNotNull(setCookie, "Refresh token must be transported as a cookie");
-        assertTrue(setCookie.startsWith(AuthController.REFRESH_COOKIE_NAME + "=" + REFRESH));
+        assertTrue(setCookie.startsWith("clucky_customer_refresh=" + REFRESH));
+        assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie ->
+                cookie.startsWith("clucky_customer_access=" + ACCESS) && cookie.contains("HttpOnly")
+                        && cookie.contains("Path=/api;") && cookie.contains("Secure")));
         assertTrue(setCookie.contains("HttpOnly"), "Refresh cookie must be HttpOnly");
         assertTrue(setCookie.contains("Secure"), "Secure flag must follow configuration");
         assertTrue(setCookie.contains("SameSite=Lax"));
@@ -97,18 +102,22 @@ class AuthControllerCookieTest {
     @Test
     void verifyOtpAlsoSetsHttpOnlyCookie() {
         MockHttpServletResponse response = new MockHttpServletResponse();
-        controller.verifyOtp(new VerifyOtpRequest("a@example.com", "123456"), response);
+        controller.verifyOtp(new VerifyOtpRequest("a@example.com", "123456"), "customer", response);
 
         String setCookie = response.getHeader("Set-Cookie");
         assertNotNull(setCookie);
         assertTrue(setCookie.contains("HttpOnly"));
-        assertTrue(setCookie.contains(REFRESH));
+        assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie -> cookie.contains(REFRESH)));
     }
 
     @Test
     void logoutClearsTheCookie() {
         MockHttpServletResponse response = new MockHttpServletResponse();
-        MessageResponse body = controller.logout(REFRESH, response);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setCookies(new jakarta.servlet.http.Cookie("clucky_customer_refresh", REFRESH),
+                new jakarta.servlet.http.Cookie("clucky_admin_refresh", "other-session"));
+        MessageResponse body = controller.logout(request, "customer", response);
+        assertTrue(response.getHeaders("Set-Cookie").stream().noneMatch(cookie -> cookie.startsWith("clucky_admin_")));
 
         String setCookie = response.getHeader("Set-Cookie");
         assertTrue(setCookie.contains("Max-Age=0"), "Logout must expire the refresh cookie");
@@ -121,15 +130,44 @@ class AuthControllerCookieTest {
     void resetPasswordClearsCookieAndReturnsApprovedMessage() {
         MockHttpServletResponse response = new MockHttpServletResponse();
         MessageResponse body = controller.resetPassword(
-                new ResetPasswordRequest("a@example.com", "123456", "NewPassword1"), response);
+                new ResetPasswordRequest("a@example.com", "123456", "NewPassword1"), "customer", response);
 
         assertEquals("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.", body.message());
         assertTrue(response.getHeader("Set-Cookie").contains("Max-Age=0"));
     }
 
-    /** Stubs the service so the controller's transport contract can be asserted in isolation. */
+    @Test
+    void adminCookiesAreSeparateAndCustomerCannotSignInAsAdmin() {
+        assertThrows(com.clucky.identityservice.exception.ApiException.class, () -> controller.login(
+                new LoginRequest("a@example.com", "Password1"), "admin", new MockHttpServletResponse()));
+        service.role = Role.ADMIN;
+        var response = new MockHttpServletResponse();
+        controller.login(new LoginRequest("a@example.com", "Password1"), "admin", response);
+        assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie -> cookie.startsWith("clucky_admin_access=")));
+        assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie -> cookie.startsWith("clucky_admin_refresh=")));
+        assertTrue(response.getHeaders("Set-Cookie").stream().noneMatch(cookie -> cookie.startsWith("clucky_customer_")));
+    }
+
+    @Test
+    void rejectedRefreshClearsOnlyTheSelectedSessionCookies() {
+        service.refreshFailure = new com.clucky.identityservice.exception.ApiException(
+                com.clucky.identityservice.exception.ErrorCode.TOKEN_REVOKED);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setCookies(new jakarta.servlet.http.Cookie("clucky_customer_refresh", REFRESH));
+        var response = new MockHttpServletResponse();
+        assertThrows(com.clucky.identityservice.exception.ApiException.class,
+                () -> controller.refresh(request, "customer", response));
+        assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie ->
+                cookie.startsWith("clucky_customer_access=") && cookie.contains("Max-Age=0")));
+        assertTrue(response.getHeaders("Set-Cookie").stream().anyMatch(cookie ->
+                cookie.startsWith("clucky_customer_refresh=") && cookie.contains("Max-Age=0")));
+        assertTrue(response.getHeaders("Set-Cookie").stream().noneMatch(cookie -> cookie.startsWith("clucky_admin_")));
+    }
+
     static final class CapturingAuthService extends AuthService {
         String revokedToken;
+        Role role = Role.CUSTOMER;
+        RuntimeException refreshFailure;
 
         CapturingAuthService() {
             super(null, null, null, null, null, null, null);
@@ -147,6 +185,7 @@ class AuthControllerCookieTest {
 
         @Override
         public AuthResult refresh(String rawRefreshToken) {
+            if (refreshFailure != null) throw refreshFailure;
             return new AuthResult(ACCESS, REFRESH, user());
         }
 
@@ -165,7 +204,7 @@ class AuthControllerCookieTest {
             user.setId(1L);
             user.setEmail("a@example.com");
             user.setFullName("Test User");
-            user.setRole(Role.CUSTOMER);
+            user.setRole(role);
             user.setStatus("ACTIVE");
             user.setEmailVerified(true);
             user.setCreatedAt(Instant.now());

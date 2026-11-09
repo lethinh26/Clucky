@@ -1,4 +1,6 @@
 import { getTranslator } from "./i18n/translator.ts";
+import request from "./api";
+import { loadSession } from "./session";
 import { getBrowserLocale, type Locale } from "./i18n/locale.ts";
 import type {
   Voucher,
@@ -277,27 +279,8 @@ export function calculateTierProgress(pointsInput: number, locale: Locale = getB
   };
 }
 
-const API_GATEWAY_URL =
-  typeof window === 'undefined'
-    ? process.env.API_URL || process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-    : process.env.NEXT_PUBLIC_API_URL ?? '';
-
 export async function fetchAvailableVouchers(): Promise<Voucher[]> {
-  try {
-    const res = await fetch(`${API_GATEWAY_URL}/api/promotions/vouchers/available`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data;
-      }
-    }
-  } catch {
-    // Backend offline / network error: fallback smoothly to mock vouchers
-  }
-  return MOCK_AVAILABLE_VOUCHERS;
+  return request<Voucher[]>("/api/promotions/vouchers/available");
 }
 
 export interface MyLoyaltyResponse {
@@ -307,49 +290,13 @@ export interface MyLoyaltyResponse {
 }
 
 export async function fetchMyLoyalty(): Promise<MyLoyaltyResponse> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('clucky_access_token') : null;
-  if (!token) {
-    // If not logged in, return fallback guest state or mock preview
-    return {
-      points: {
-        customerId: '',
-        totalPoints: 0,
-        tier: 'MEMBER',
-      },
-      transactions: [],
-      isGuest: true,
-    };
-  }
-
-  try {
-    const res = await fetch(`${API_GATEWAY_URL}/api/loyalty/me`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        points: data.points ?? {
-          customerId: data.customerId ?? 'cus',
-          totalPoints: data.totalPoints ?? 0,
-          tier: data.tier ?? 'MEMBER',
-        },
-        transactions: data.transactions ?? [],
-        isGuest: false,
-      };
-    }
-  } catch {
-    // Fallback to sample member points for preview
-  }
-
-  return {
-    points: MOCK_MEMBER_POINTS,
-    transactions: MOCK_POINT_TRANSACTIONS,
-    isGuest: false,
+  const user = await loadSession();
+  if (!user) return {
+    points: { customerId: '', totalPoints: 0, tier: 'MEMBER' },
+    transactions: [], isGuest: true,
   };
+  const data = await request<{ points: MemberPoints; transactions: PointTransaction[] }>("/api/loyalty/me");
+  return { ...data, isGuest: false };
 }
 
 export function calculateEarnPoints(amount: number, earnRate = 10000): number {

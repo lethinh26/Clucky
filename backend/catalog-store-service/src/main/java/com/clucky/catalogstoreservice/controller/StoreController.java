@@ -17,10 +17,12 @@ public class StoreController {
 
     private final StoreService storeService;
     private final AccessGuard accessGuard;
+    private final com.clucky.catalogstoreservice.service.BranchProvisioning branches;
 
-    public StoreController(StoreService storeService, AccessGuard accessGuard) {
+    public StoreController(StoreService storeService, AccessGuard accessGuard, com.clucky.catalogstoreservice.service.BranchProvisioning branches) {
         this.storeService = storeService;
         this.accessGuard = accessGuard;
+        this.branches = branches;
     }
 
     @GetMapping
@@ -36,14 +38,36 @@ public class StoreController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<StoreDto.Response> createStore(@Valid @RequestBody StoreDto.Request request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(storeService.createStore(request));
+    public ResponseEntity<StoreDto.Response> createStore(@Valid @RequestBody StoreDto.Request request, @RequestHeader("Idempotency-Key") java.util.UUID key) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(branches.create(request, key));
+    }
+
+    @GetMapping("/{id}/accounts-status")
+    @PreAuthorize("hasAnyRole('ADMIN','STORE_MANAGER')")
+    public java.util.Map<String, Object> accountsStatus(@PathVariable long id) {
+        accessGuard.requireStore(id);
+        return branches.status(id);
+    }
+
+    @PostMapping("/{id}/accounts-retry")
+    @PreAuthorize("hasRole('ADMIN')")
+    public java.util.Map<String, Object> retry(@PathVariable long id) {
+        branches.synchronize(id);
+        return branches.status(id);
+    }
+
+    @PostMapping("/internal/{id}/prepare-migration")
+    public ResponseEntity<Void> prepareMigration(@PathVariable long id, @RequestHeader("X-Branch-Time") long time,
+            @RequestHeader("X-Branch-Signature") String signature) {
+        branches.prepareMigration(id, time, signature);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<StoreDto.Response> updateStore(@PathVariable Long id,
                                                          @Valid @RequestBody StoreDto.Request request) {
+        if ("OPEN".equals(request.getStatus())) branches.synchronize(id);
         return ResponseEntity.ok(storeService.updateStore(id, request));
     }
 
@@ -54,11 +78,19 @@ public class StoreController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{id}/location")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
+    public StoreDto.Response updateLocation(@PathVariable Long id, @Valid @RequestBody StoreDto.LocationRequest request) {
+        accessGuard.requireStore(id);
+        return storeService.updateLocation(id, request);
+    }
+
     @PutMapping("/{id}/operation")
     @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
     public ResponseEntity<StoreDto.Response> updateOperation(@PathVariable Long id,
                                                              @Valid @RequestBody StoreDto.OperationRequest request) {
         accessGuard.requireStore(id);
+        if ("OPEN".equals(request.getStatus())) branches.synchronize(id);
         return ResponseEntity.ok(storeService.updateOperation(id, request));
     }
 }

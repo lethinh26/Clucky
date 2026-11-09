@@ -22,6 +22,8 @@ spring:
     redis:
       namespace: clucky:cart:sessions
 clucky:
+  loyalty:
+    internal-token: ${LOYALTY_INTERNAL_TOKEN:}
   identity:
     issuer: ${IDENTITY_ISSUER_URI:}
   catalog:

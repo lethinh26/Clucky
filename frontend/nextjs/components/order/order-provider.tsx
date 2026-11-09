@@ -1,7 +1,10 @@
 "use client";
+import { useFeedback, notify } from "@/components/feedback";
 import { getBrowserLocale } from "@/lib/i18n/locale";
 import { getTranslator } from "@/lib/i18n/translator";
 import { useLocaleTools } from "@/lib/i18n/hooks";
+import { useSession } from "@/components/auth/use-session";
+import { getSessionState } from "@/lib/session";
 
 import {
   createContext,
@@ -12,8 +15,8 @@ import {
   useState,
   useRef,
 } from "react";
-import { z } from "zod";
 import { cartTotals, mapBackendCart, toCartPayload } from "@/lib/cart";
+import { fillOrderImages } from "@/lib/order-images";
 import {
   applyDemoAction,
   ensureDemoShipment,
@@ -23,6 +26,8 @@ import {
 import type { CartItem, Order } from "@/lib/types/order";
 import {
   cartApi,
+  catalogApi,
+  type ProductItem,
   orderApi,
   type BackendOrder,
   type BackendCartDto,
@@ -30,103 +35,6 @@ import {
 } from "@/lib/api";
 
 const storageKey = "clucky-order-workspace-v1";
-const cartSchema = z.array(
-  z.object({
-    id: z.string(),
-    productId: z.number().optional(),
-    comboId: z.number().optional(),
-    itemType: z.enum(["PRODUCT", "COMBO"]).optional(),
-    itemKey: z.string().optional(),
-    optionIds: z.array(z.number().int().positive()).optional(),
-    toppingIds: z.array(z.number().int().positive()).optional(),
-    slug: z.string(),
-    name: z.string(),
-    category: z.string(),
-    basePrice: z.number().nonnegative(),
-    unitPrice: z.number().nonnegative(),
-    quantity: z.number().int().positive(),
-    image: z.string(),
-    note: z.string().optional(),
-    options: z
-      .array(
-        z.object({
-          id: z.number().optional(),
-          groupName: z.string(),
-          name: z.string(),
-          extraPrice: z.number(),
-        }),
-      )
-      .optional(),
-    toppings: z
-      .array(z.object({ id: z.number().optional(), name: z.string(), extraPrice: z.number() }))
-      .optional(),
-  }),
-);
-const orderStatus = z.enum([
-  "PENDING_PAYMENT",
-  "CONFIRMED",
-  "PREPARING",
-  "READY",
-  "SHIPPING",
-  "COMPLETED",
-  "CANCELLED",
-]);
-const savedOrdersSchema = z.array(
-  z.object({
-    id: z.string(),
-    orderCode: z.string(),
-    storeId: z.string(),
-    storeName: z.string(),
-    type: z.enum(["DELIVERY", "PICKUP"]),
-    status: orderStatus,
-    subtotal: z.number().nonnegative(),
-    discountAmount: z.number().nonnegative(),
-    voucherCode: z.string().optional(),
-    pointsUsed: z.number().nonnegative(),
-    pointsAmount: z.number().nonnegative(),
-    shippingFee: z.number().nonnegative(),
-    shipmentStatus: z
-      .enum(["CREATED", "ASSIGNED", "PICKED_UP", "SHIPPING", "DELIVERED", "FAILED"])
-      .optional(),
-    totalAmount: z.number().nonnegative(),
-    paymentMethod: z.enum(["COD", "BANK_TRANSFER"]),
-    paymentStatus: z.enum(["PENDING", "PAID", "FAILED", "EXPIRED"]),
-    receiverName: z.string(),
-    receiverPhone: z.string(),
-    deliveryAddress: z.string().optional(),
-    note: z.string().optional(),
-    createdAt: z.string(),
-    updatedAt: z.string().optional(),
-    refundStatus: z
-      .enum(["PENDING", "APPROVED", "REJECTED", "REFUNDED"])
-      .optional(),
-    items: z.array(
-      z.object({
-        id: z.string(),
-        slug: z.string().optional(),
-        itemName: z.string(),
-        itemType: z.enum(["PRODUCT", "COMBO"]),
-        unitPrice: z.number().nonnegative(),
-        quantity: z.number().int().positive(),
-        image: z.string(),
-        lineTotal: z.number().nonnegative(),
-        optionsSnapshot: cartSchema.element.shape.options,
-        toppingsSnapshot: cartSchema.element.shape.toppings,
-        note: z.string().optional(),
-      }),
-    ),
-    timeline: z.array(
-      z.object({
-        status: orderStatus,
-        title: z.string(),
-        description: z.string(),
-        time: z.string().optional(),
-        done: z.boolean(),
-        current: z.boolean(),
-      }),
-    ),
-  }),
-);
 
 export function mapBackendOrderToOrder(be: BackendOrder): Order {
   const statusMap: Record<string, Order["status"]> = {
@@ -141,12 +49,14 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
   const currentStatus = statusMap[be.status] || "CONFIRMED";
   const items = (be.items || []).map((it) => ({
     id: String(it.id),
+    productId: it.productId,
+    comboId: it.comboId,
     slug: String(it.productId || it.comboId || it.id),
     itemName: it.itemName,
     itemType: it.itemType,
     unitPrice: Number(it.unitPrice),
     quantity: it.quantity,
-    image: "/images/food-placeholder.svg",
+    image: it.imageUrl || "/images/food-placeholder.svg",
     lineTotal: Number(it.lineTotal),
     optionsSnapshot: it.optionsSnapshot as any,
     toppingsSnapshot: it.toppingsSnapshot as any,
@@ -188,11 +98,7 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
     shippingFee: Number(be.shippingFee),
     totalAmount: Number(be.totalAmount),
     paymentMethod: (be.paymentMethod as Order["paymentMethod"]) || (be.status === "PENDING_PAYMENT" ? "BANK_TRANSFER" : "COD"),
-    paymentStatus: be.status === "CANCELLED"
-      ? "FAILED"
-      : (be.paymentMethod === "BANK_TRANSFER" || be.status === "PENDING_PAYMENT")
-        ? (be.status === "PENDING_PAYMENT" ? "PENDING" : "PAID")
-        : (be.status === "COMPLETED" ? "PAID" : "PENDING"),
+    paymentStatus: be.paymentStatus ?? "UNKNOWN",
     receiverName: be.receiverName,
     receiverPhone: be.receiverPhone,
     deliveryAddress: be.deliveryAddress,
@@ -232,6 +138,8 @@ interface OrderContextValue {
 const OrderContext = createContext<OrderContextValue | null>(null);
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
+  const session = useSession();
+  const userId = session.user?.userId;
   const { errorMessage } = useLocaleTools();
   const [workspace, setSnapshot] = useState<{
     items: CartItem[];
@@ -250,38 +158,66 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     [],
   );
   const [ready, setReady] = useState(false);
+  const [loadedRevision, setLoadedRevision] = useState(-1);
   const [storageError, setStorageError] = useState(false);
   const [cartPending, setCartPending] = useState(false);
   const [cartError, setCartError] = useState<unknown>(null);
+  const [ordersError, setOrdersError] = useState<unknown>(null);
+  useFeedback(ordersError ? errorMessage(ordersError) : null);
+  useFeedback(cartError ? errorMessage(cartError) : session.error ? errorMessage(session.error) : null);
   const cartBusy = useRef(false);
+  const catalogForImages = useRef<Promise<ProductItem[]> | null>(null);
+  useEffect(() => {
+    if (!workspace.orders.some(order => order.items.some(item => !item.image || item.image === "/images/food-placeholder.svg"))) return;
+    let active = true;
+    const revision = getSessionState().revision;
+    catalogForImages.current ??= catalogApi.getProducts();
+    catalogForImages.current.then(products => {
+      if (!active || revision !== getSessionState().revision) return;
+      setWorkspace(previous => {
+        const orders = fillOrderImages(previous.orders, products);
+        return orders.some((order, index) => order !== previous.orders[index]) ? { ...previous, orders } : previous;
+      });
+    }).catch(() => { catalogForImages.current = null; });
+    return () => { active = false; };
+  }, [workspace.orders, setWorkspace]);
 
   const mutateCart = useCallback(async (
     request: () => Promise<BackendCartDto>,
     incoming: CartItem[] = [],
   ) => {
-    if (cartBusy.current) return false;
+    if (cartBusy.current || loadedRevision !== getSessionState().revision || !ready || session.error) {
+      notify.warning(session.error ? errorMessage(session.error) : getTranslator(getBrowserLocale())("common.feedback.cartBusy"));
+      return false;
+    }
+    const revision = getSessionState().revision;
     cartBusy.current = true;
     setCartPending(true);
     setCartError(null);
     try {
       const cart = await request();
+      if (revision !== getSessionState().revision) return false;
       setWorkspace((previous) => ({
         ...previous,
         items: mapBackendCart(cart, [...previous.items, ...incoming]),
       }));
       return true;
     } catch (error) {
-      setCartError(error);
+      if (revision === getSessionState().revision) setCartError(error);
       return false;
     } finally {
       cartBusy.current = false;
       setCartPending(false);
     }
-  }, [setWorkspace]);
+  }, [setWorkspace, loadedRevision, ready, session.error]);
 
   const refreshOrders = useCallback(async () => {
+    if (!getSessionState().user) return;
+    const revision = getSessionState().revision;
     try {
       const page = await orderApi.getMyOrders(0, 50);
+      if (revision !== getSessionState().revision) return;
+      setOrdersError(null);
       if (page && Array.isArray(page.content)) {
         const serverOrders = page.content.map(mapBackendOrderToOrder);
         setWorkspace((prev) => ({
@@ -289,66 +225,60 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           orders: serverOrders,
         }));
       }
-    } catch {
-      // Offline/unauthenticated fallback
+    } catch (error) {
+      if (revision === getSessionState().revision) setOrdersError(error);
     }
   }, [setWorkspace]);
 
   useEffect(() => {
-    const restore = (raw: string | null) => {
-      if (!raw) return;
-      try {
-        const saved = JSON.parse(raw);
-        const items = cartSchema.parse(saved.items) as CartItem[];
-        const parsedOrders = savedOrdersSchema.safeParse(saved.orders);
-        let orders = parsedOrders.success
-          ? (parsedOrders.data as Order[]).map(ensureDemoShipment)
-          : [];
-        orders = orders.filter((o) => !o.id.startsWith("demo-") && !o.orderCode.startsWith("DEMO-") && !o.orderCode.startsWith("CLU-24"));
-        setWorkspace({ items, orders });
-      } catch {
-        setStorageError(true);
+    if (!session.ready || session.error) return;
+    let cancelled = false;
+    const revision = getSessionState().revision;
+    setReady(false);
+    setCartError(null);
+    setWorkspace({ items: [], orders: [] });
+    setOrdersError(null);
+    try { localStorage.removeItem(storageKey); } catch { setStorageError(true); }
+    const loadCart = async () => {
+      if (userId) {
+        const merge = async () => {
+          const guestSession = localStorage.getItem("clucky_guest_session_id");
+          if (!guestSession || cancelled) return;
+          try {
+            await cartApi.mergeCart(guestSession);
+            localStorage.removeItem("clucky_guest_session_id");
+            localStorage.removeItem(storageKey);
+          } catch (error) {
+            if (!cancelled) setCartError(error);
+          }
+        };
+        if (navigator.locks) await navigator.locks.request("clucky-customer-cart-merge", merge);
+        else await merge();
       }
+      if (cancelled) return null;
+      return cartApi.getCart();
     };
-    try {
-      restore(localStorage.getItem(storageKey));
-    } catch {
-      setStorageError(true);
-    }
-    // Sync with Redis Cart backend
-    cartApi.getCart()
+    loadCart()
       .then((cartDto) => {
-        if (cartDto && Array.isArray(cartDto.items)) {
+        if (!cancelled && cartDto && Array.isArray(cartDto.items)) {
           setWorkspace((prev) => ({ ...prev, items: mapBackendCart(cartDto, prev.items) }));
         }
       })
-      .catch((error) => setCartError(error))
-      .finally(() => setReady(true));
+      .catch((error) => { if (!cancelled) setCartError(error); })
+      .finally(() => { if (!cancelled) { setReady(true); setLoadedRevision(revision); } });
 
     // Sync orders with backend if user has token
-    refreshOrders();
+    if (userId) void refreshOrders();
 
-    const sync = (event: StorageEvent) => {
-      if (event.key === storageKey) {
-        if (event.newValue) restore(event.newValue);
-        else setWorkspace({ items: [], orders: [] });
-      }
-    };
-    window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
-  }, [setWorkspace, refreshOrders]);
-
-  useEffect(() => {
-    if (!ready) return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(workspace));
-    } catch {
-      setStorageError(true);
-    }
-  }, [workspace, ready]);
+    return () => { cancelled = true; };
+  }, [setWorkspace, refreshOrders, userId, session.ready, session.error, session.revision]);
 
   const addItem = useCallback(
-    (item: CartItem) => mutateCart(() => cartApi.addItem(toCartPayload(item)), [item]),
+    async (item: CartItem) => {
+      const added = await mutateCart(() => cartApi.addItem(toCartPayload(item)), [item]);
+      if (added) notify.success(getTranslator(getBrowserLocale())("common.feedback.cartAdded"));
+      return added;
+    },
     [mutateCart],
   );
 
@@ -404,7 +334,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const createOrder = useCallback(
     async (payload: CreateOrderPayload): Promise<BackendOrder> => {
       if (cartBusy.current) throw { code: "RESOURCE_CONFLICT" };
+      const revision = getSessionState().revision;
       const backendOrder = await orderApi.create(payload);
+      if (revision !== getSessionState().revision) throw { code: "UNAUTHENTICATED", status: 401 };
       const mappedOrder = mapBackendOrderToOrder(backendOrder);
       setWorkspace((prev) => ({
         items: [],
@@ -419,7 +351,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     async (id: string, reason: string) => {
       if (!reason.trim()) return;
       try {
+        const revision = getSessionState().revision;
         const updatedBackend = await orderApi.cancel(id, reason);
+        if (revision !== getSessionState().revision) return;
         const mapped = mapBackendOrderToOrder(updatedBackend);
         setWorkspace((prev) => ({
           ...prev,
@@ -464,9 +398,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const totals = useMemo(() => cartTotals(workspace.items), [workspace.items]);
   const value = useMemo(
     () => ({
-      ...workspace,
-      ...totals,
-      ready,
+      ...(loadedRevision === session.revision ? workspace : { items: [], orders: [] }),
+      ...(loadedRevision === session.revision ? totals : { count: 0, subtotal: 0 }),
+      ready: (ready && session.ready && loadedRevision === session.revision) || Boolean(session.error),
       cartPending,
       storageError,
       demoEnabled: DEMO_CONTROLS_ENABLED,
@@ -486,6 +420,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       workspace,
       totals,
       ready,
+      loadedRevision,
+      session.ready,
+      session.error,
+      session.revision,
       cartPending,
       storageError,
       runDemoAction,
@@ -504,7 +442,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <OrderContext.Provider value={value}>
-      {cartError != null && <p role="alert" className="container">{errorMessage(cartError)}</p>}
+
       {children}
     </OrderContext.Provider>
   );

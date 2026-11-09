@@ -1,4 +1,5 @@
 "use client";
+import { notify, useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/lib/i18n/language-switcher";
 
@@ -13,6 +14,8 @@ import { CartBadge } from "@/components/order";
 import { useOrder } from "@/components/order/order-provider";
 import { NotificationPopover } from "@/components/notification";
 import styles from "./customer-header.module.css";
+import { useSession } from "./auth/use-session";
+import { authApi, getErrorMessage } from "@/lib/api";
 
 const links = [
   ["/", "common.nav.home"],
@@ -28,6 +31,18 @@ const links = [
 export function CustomerHeader() {
   const t = useTranslations();
   const { count } = useOrder();
+  const { user } = useSession();
+  const visibleLinks = links.filter(([href]) => href !== "/account" || Boolean(user));
+  const [logoutError, setLogoutError] = useState<unknown>(null);
+  useFeedback(logoutError ? getErrorMessage(logoutError) : null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const logout = async () => {
+    setLoggingOut(true);
+    setLogoutError(null);
+    try { await authApi.logout(); notify.success(t("common.feedback.signedOut")); }
+    catch (error) { setLogoutError(error); }
+    finally { setLoggingOut(false); }
+  };
   const pathname = usePathname();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const open = openPath === pathname;
@@ -81,7 +96,7 @@ export function CustomerHeader() {
           </span>
         </Link>
         <nav className={styles.desktopNav} aria-label={t("common.nav.main")}>
-          {links.map(([href, label]) => (
+          {visibleLinks.map(([href, label]) => (
             <Link
               key={href}
               href={href}
@@ -92,25 +107,24 @@ export function CustomerHeader() {
           ))}
         </nav>
         <div className={styles.actions}>
-          <LanguageSwitcher />
           <Link
-            href="/login"
+            href={user ? "/account" : "/login"}
             className={styles.login}
-            aria-current={pathname === "/login" ? "page" : undefined}
+            aria-current={pathname === (user ? "/account" : "/login") ? "page" : undefined}
             onClick={() => setOpenPath(null)}
           >
             <UserRound size={17} aria-hidden="true" />
-            <span>{t("auth.login.action")}</span>
+            <span>{user ? user.fullName : t("auth.login.action")}</span>
           </Link>
-          <Link
+          {user ? <button type="button" className={styles.register} disabled={loggingOut} onClick={logout}>{t("common.signOut")}</button> : <Link
             href="/register"
             className={styles.register}
             onClick={() => setOpenPath(null)}
           >
             {t("auth.register.action")}{" "}<ArrowUpRight size={16} aria-hidden="true" />
-          </Link>
+          </Link>}
           <div className={styles.notification}>
-            <NotificationPopover />
+            {user && <NotificationPopover key={user.userId} />}
           </div>
           <CartBadge count={count}>
             <Link
@@ -122,6 +136,7 @@ export function CustomerHeader() {
               <ShoppingBag size={20} aria-hidden="true" />
             </Link>
           </CartBadge>
+          <div className={styles.language}><LanguageSwitcher /></div>
           <button
             ref={toggleRef}
             className={styles.toggle}
@@ -143,7 +158,7 @@ export function CustomerHeader() {
         aria-label={t("common.nav.mobile")}
       >
         <div className={styles.mobileLinks}>
-          {links.map(([href, label]) => (
+          {visibleLinks.map(([href, label]) => (
             <Link
               key={href}
               href={href}
@@ -156,11 +171,11 @@ export function CustomerHeader() {
           ))}
         </div>
         <div className={styles.mobileAuth}>
-          <Link href="/login" onClick={() => setOpenPath(null)}>
-            {t("auth.login.action")}{" "}</Link>
-          <Link href="/register" onClick={() => setOpenPath(null)}>
+          <Link href={user ? "/account" : "/login"} onClick={() => setOpenPath(null)}>
+            {user ? user.fullName : t("auth.login.action")}{" "}</Link>
+          {user ? <button type="button" disabled={loggingOut} onClick={logout}>{t("common.signOut")}</button> : <Link href="/register" onClick={() => setOpenPath(null)}>
             {t("auth.register.createAccount")}{" "}<ArrowUpRight size={16} aria-hidden="true" />
-          </Link>
+          </Link>}
         </div>
       </nav>
     </header>

@@ -7,6 +7,8 @@ import com.clucky.promotionloyaltyservice.dto.VoucherResponse;
 import com.clucky.promotionloyaltyservice.model.VoucherScope;
 import com.clucky.promotionloyaltyservice.model.VoucherStatus;
 import com.clucky.promotionloyaltyservice.service.VoucherService;
+import com.clucky.promotionloyaltyservice.config.CurrentActor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,21 +51,14 @@ public class VoucherController {
      * GET /api/promotions/vouchers
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<VoucherResponse>> getVouchers(
         @RequestParam(name = "scope", required = false) VoucherScope scope,
         @RequestParam(name = "storeId", required = false) Long storeId,
         @RequestParam(name = "status", required = false) VoucherStatus status,
-        @RequestParam(name = "keyword", required = false) String keyword,
-        @RequestHeader(name = "X-User-Role", required = false) String actorRole,
-        @RequestHeader(name = "X-Store-Id", required = false) Long actorStoreId
+        @RequestParam(name = "keyword", required = false) String keyword
     ) {
-        // Enforce storeId restriction if caller is a Store Manager
-        Long effectiveStoreId = storeId;
-        if ("STORE_MANAGER".equalsIgnoreCase(actorRole)) {
-            effectiveStoreId = actorStoreId;
-        }
-
-        List<VoucherResponse> vouchers = voucherService.getVouchers(scope, effectiveStoreId, status, keyword);
+        List<VoucherResponse> vouchers = voucherService.getVouchers(scope, storeId, status, keyword);
         return ResponseEntity.ok(vouchers);
     }
 
@@ -72,6 +67,7 @@ public class VoucherController {
      * GET /api/promotions/vouchers/{id}
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VoucherResponse> getVoucherById(@PathVariable("id") Long id) {
         VoucherResponse voucher = voucherService.getVoucherById(id);
         return ResponseEntity.ok(voucher);
@@ -82,13 +78,12 @@ public class VoucherController {
      * POST /api/promotions/vouchers
      */
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VoucherResponse> createVoucher(
-        @Valid @RequestBody VoucherRequest request,
-        @RequestHeader(name = "X-User-Id", required = false) Long actorId,
-        @RequestHeader(name = "X-User-Role", required = false) String actorRole,
-        @RequestHeader(name = "X-Store-Id", required = false) Long actorStoreId
+        @Valid @RequestBody VoucherRequest request
     ) {
-        VoucherResponse created = voucherService.createVoucher(request, actorId, actorRole, actorStoreId);
+        var actor = CurrentActor.require();
+        VoucherResponse created = voucherService.createVoucher(request, actor.userId(), actor.role().name(), actor.storeId());
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -97,14 +92,13 @@ public class VoucherController {
      * PUT /api/promotions/vouchers/{id}
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VoucherResponse> updateVoucher(
         @PathVariable("id") Long id,
-        @Valid @RequestBody VoucherRequest request,
-        @RequestHeader(name = "X-User-Id", required = false) Long actorId,
-        @RequestHeader(name = "X-User-Role", required = false) String actorRole,
-        @RequestHeader(name = "X-Store-Id", required = false) Long actorStoreId
+        @Valid @RequestBody VoucherRequest request
     ) {
-        VoucherResponse updated = voucherService.updateVoucher(id, request, actorId, actorRole, actorStoreId);
+        var actor = CurrentActor.require();
+        VoucherResponse updated = voucherService.updateVoucher(id, request, actor.userId(), actor.role().name(), actor.storeId());
         return ResponseEntity.ok(updated);
     }
 
@@ -113,13 +107,12 @@ public class VoucherController {
      * DELETE /api/promotions/vouchers/{id}
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteVoucher(
-        @PathVariable("id") Long id,
-        @RequestHeader(name = "X-User-Id", required = false) Long actorId,
-        @RequestHeader(name = "X-User-Role", required = false) String actorRole,
-        @RequestHeader(name = "X-Store-Id", required = false) Long actorStoreId
+        @PathVariable("id") Long id
     ) {
-        voucherService.deleteVoucher(id, actorId, actorRole, actorStoreId);
+        var actor = CurrentActor.require();
+        voucherService.deleteVoucher(id, actor.userId(), actor.role().name(), actor.storeId());
         return ResponseEntity.noContent().build();
     }
 }

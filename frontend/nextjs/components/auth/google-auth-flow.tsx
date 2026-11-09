@@ -1,4 +1,5 @@
 "use client";
+import { notify, useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -22,13 +23,16 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  useFeedback(error ? (typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)) : null);
 
   function finish(tokens: AuthTokens) {
-    if (!tokens.accessToken)
+    if (!tokens.userId)
       throw new Error(t("business.googleauthflow.invalidSignInResponsePleaseTryAgain"));
-    localStorage.setItem("clucky_access_token", tokens.accessToken);
-    // refresh token stored in HttpOnly cookie
-    router.push("/account");
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    const destination = redirect?.startsWith("/") && !redirect.startsWith("//") && !redirect.includes("\\")
+      ? redirect : "/";
+    router.replace(destination);
+    notify.success(t("common.feedback.signedIn"));
   }
 
   async function login() {

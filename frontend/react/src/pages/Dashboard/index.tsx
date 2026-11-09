@@ -1,25 +1,10 @@
+import { message } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useTranslation } from "react-i18next";
 import { useState, useMemo } from 'react';
 import { useOrders } from '../../context/OrderContext';
-import {
-  Button,
-  Card,
-  Col,
-  Flex,
-  Progress,
-  Row,
-  Segmented,
-  Select,
-  Space,
-  Statistic,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-  message,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Button, Card, Col, Flex, Progress, Row, Segmented, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "antd";
+import { TableColumnsType } from "antd";
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,

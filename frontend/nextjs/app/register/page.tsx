@@ -1,4 +1,5 @@
 "use client";
+import { useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -22,6 +23,7 @@ export default function RegisterPage() {
   const [phone, setPhone] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<unknown>(null);
+  useFeedback(error ? (typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)) : null);
   const [loading, setLoading] = React.useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {

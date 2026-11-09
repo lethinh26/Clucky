@@ -1,9 +1,11 @@
 "use client";
+import { notify, useFeedback } from "@/components/feedback";
 
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
-import { useState } from "react";
-import { MOCK_STORES } from "@/lib/mock/order-mock-data";
+import { useEffect, useState } from "react";
+import { coordinates, distanceKm } from "@/lib/locations";
+import { useDistanceOrigin } from "@/components/maps/use-distance-origin";
 import styles from "./party.module.css";
 import { OrderDialog } from "@/components/order/order-dialog";
 import {
@@ -13,11 +15,34 @@ import {
   Users,
   Store,
 } from "lucide-react";
-import { partyOrderApi, getErrorMessage, type BackendPartyOrder } from "@/lib/api";
+import { catalogApi, partyOrderApi, getErrorMessage, type BackendPartyOrder, type StoreItem } from "@/lib/api";
 
 export default function PartyOrderPage() {
   const t = useTranslations();
-  const { money } = useLocaleTools();
+  const maps = useTranslations("maps");
+  const { money, number, locale } = useLocaleTools();
+  const { origin, fromHome } = useDistanceOrigin();
+  const [stores, setStores] = useState<StoreItem[]>([]);
+  const [storesLoading, setStoresLoading] = useState(true);
+  const [storesError, setStoresError] = useState(false);
+  useFeedback(storesError && maps("storesError"));
+  const [reloadStores, setReloadStores] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    setStoresLoading(true);
+    setStoresError(false);
+    catalogApi.getStores(true).then(result => { if (active) setStores(result); })
+      .catch(() => { if (active) setStoresError(true); })
+      .finally(() => { if (active) setStoresLoading(false); });
+    return () => { active = false; };
+  }, [reloadStores]);
+
+  const rankedStores = stores.map(store => {
+    const point = coordinates(store);
+    return { store, distance: point && origin ? distanceKm(origin, point) : null };
+  }).sort((first, second) => (first.distance ?? Infinity) - (second.distance ?? Infinity)
+    || first.store.name.localeCompare(second.store.name, locale));
 
   const PARTY_PACKAGES = [
     {
@@ -46,18 +71,23 @@ export default function PartyOrderPage() {
   const [expectedDate, setExpectedDate] = useState("");
   const [expectedTime, setExpectedTime] = useState("11:30");
   const [guestCount, setGuestCount] = useState<number>(15);
-  const [selectedStore, setSelectedStore] = useState<string>(MOCK_STORES[0].id);
+  const [selectedStore, setSelectedStore] = useState("");
   const [selectedPackage, setSelectedPackage] =
     useState<string>("pkg-birthday");
   const [notes, setNotes] = useState("");
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  useFeedback(submitError);
   const [createdPartyOrder, setCreatedPartyOrder] =
     useState<BackendPartyOrder | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (storesLoading || storesError || !stores.some(store => String(store.id) === selectedStore)) {
+      setSubmitError(maps("pickStore"));
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     const chosenPkg = PARTY_PACKAGES.find((pkg) => pkg.id === selectedPackage);
@@ -69,7 +99,7 @@ export default function PartyOrderPage() {
 
     try {
       const result = await partyOrderApi.create({
-        storeId: Number(selectedStore) || 1,
+        storeId: Number(selectedStore),
         contactName: customerName.trim(),
         phone: customerPhone.trim(),
         contactPhone: customerPhone.trim(),
@@ -81,6 +111,7 @@ export default function PartyOrderPage() {
         notes: combinedNotes,
       });
       setCreatedPartyOrder(result);
+      notify.success(t("common.feedback.orderCreated"));
       setIsSuccessModalOpen(true);
     } catch (err: any) {
       console.warn("Party order API submission error:", err);
@@ -280,13 +311,21 @@ export default function PartyOrderPage() {
                 value={selectedStore}
                 onChange={(e) => setSelectedStore(e.target.value)}
                 className={styles.select}
+                required
+                disabled={storesLoading || storesError || !stores.length}
+                aria-describedby={origin ? "party-distance-origin" : undefined}
               >
-                {MOCK_STORES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.address})
+                <option value="">{maps(storesLoading ? "storesLoading" : !storesError && !stores.length ? "noStores" : "chooseStore")}</option>
+                {rankedStores.map(({ store, distance }) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name} ({store.address}) — {distance !== null
+                      ? maps("distanceAway", { distance: number(distance, { maximumFractionDigits: 1 }) })
+                      : maps(coordinates(store) ? "distanceUnavailable" : "unknownDistance")}
                   </option>
                 ))}
               </select>
+              {origin && <small id="party-distance-origin" title={maps("approximate")}>{maps(fromHome ? "defaultAddressOrigin" : "currentLocationOrigin")}</small>}
+              {storesError && <div role="alert">{maps("storesError")} <button type="button" className="btn-secondary" onClick={() => setReloadStores(value => value + 1)}>{maps("retry")}</button></div>}
             </div>
 
             <div className={styles.fieldGroup}>
@@ -306,7 +345,7 @@ export default function PartyOrderPage() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || storesLoading || storesError || !stores.some(store => String(store.id) === selectedStore)}
               className={styles.submitBtn}
             >
               {submitting
@@ -357,7 +396,7 @@ export default function PartyOrderPage() {
                 </dt>
                 <dd>
                   {
-                    MOCK_STORES.find((store) => store.id === selectedStore)
+                    stores.find((store) => String(store.id) === selectedStore)
                       ?.name
                   }
                 </dd>

@@ -1,16 +1,7 @@
+import { message } from "../../../components/feedback";
 import React, { useState, useMemo } from 'react';
-import {
-  Alert,
-  Tag,
-  Button,
-  Space,
-  Modal,
-  Typography,
-  Select,
-  Tooltip,
-  message,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Alert, Tag, Button, Space, Modal, Typography, Select, Tooltip } from "antd";
+import { TableColumnsType } from "antd";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -62,9 +53,13 @@ export const ProposalBacklogSection: React.FC = () => {
     );
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard?.writeText(code);
-    message.success('Đã sao chép mã đề xuất "' + code + '"');
+  const handleCopyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      message.success('Đã sao chép mã đề xuất "' + code + '"');
+    } catch {
+      message.error('Không thể sao chép. Vui lòng chọn và sao chép nội dung thủ công.');
+    }
   };
 
   // Status counts for KPI cards

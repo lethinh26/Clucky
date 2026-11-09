@@ -4,6 +4,14 @@ import { seedOrder } from "../fixtures/order";
 const customer = "http://127.0.0.1:4174";
 const admin = "http://127.0.0.1:4173";
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/auth/session", route => route.fulfill({ json: {
+    userId: 1, role: route.request().headers()["x-clucky-client"] === "admin" ? "ADMIN" : "CUSTOMER",
+    email: "test@example.com", fullName: "Test User",
+  } }));
+  await page.route("**/api/cart", route => route.fulfill({ json: { items: [] } }));
+});
+
 async function switchLanguage(page: Page, locale: "vi" | "en") {
   const dialog = page.getByRole("dialog");
   const scope = await dialog.isVisible() ? dialog : page;
@@ -32,6 +40,35 @@ for (const origin of [customer, admin]) {
   });
 }
 
+test("customer account navigation resets scroll, including clicking the current page", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 650 });
+  await page.goto(customer + "/account");
+  await expect(page.getByRole("textbox", { name: "Họ và tên", exact: true })).toHaveValue("Test User");
+  await page.evaluate(() => window.scrollTo({ top: 500, behavior: "instant" }));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await page.getByRole("banner").getByRole("link", { name: "Tài khoản", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.evaluate(() => window.scrollTo({ top: 500, behavior: "instant" }));
+  await page.getByRole("banner").getByRole("link", { name: "Thực đơn", exact: true }).click();
+  await expect(page).toHaveURL(/\/menu$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/account$/);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test("account dashboard fits narrow screens and keeps its local-demo disclosure", async ({ page }) => {
+  await page.goto(customer + "/account");
+  for (const width of [320, 375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Test User");
+    await expect(page.getByText(/Thông tin liên hệ và địa chỉ ở đây là bản mẫu/)).toBeVisible();
+    await page.getByRole("navigation", { name: "Quản lý tài khoản" }).getByRole("button", { name: "Sổ địa chỉ", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Chưa có địa chỉ nào" })).toBeVisible();
+  }
+});
+
 test("customer language changes preserve unsaved form values and translate existing validation", async ({ page }) => {
   await page.goto(customer + "/account");
   const fullName = page.getByRole("textbox", { name: "Họ và tên", exact: true });
@@ -56,14 +93,11 @@ test("customer language changes preserve unsaved form values and translate exist
 });
 
 test("cart quantities, user notes and VND survive language changes and reload", async ({ page }) => {
-  await page.addInitScript(() => {
-    if (!localStorage.getItem("clucky-order-workspace-v1")) {
-      localStorage.setItem("clucky-order-workspace-v1", JSON.stringify({
-        items: [{ id: "locale-test", slug: "ga-ran-truyen-thong", name: "Gà rán tên gốc", category: "Gà rán", basePrice: 125000, unitPrice: 125000, quantity: 2, image: "/logo_primary.png", note: "Không dịch ghi chú của tôi" }],
-        orders: [],
-      }));
-    }
-  });
+  await page.route("**/api/cart", route => route.fulfill({ json: {
+    items: [{ itemKey: "locale-test", productId: 1, itemName: "Gà rán tên gốc", unitPrice: 125000, quantity: 2,
+      lineTotal: 250000, note: "Không dịch ghi chú của tôi" }],
+    subtotal: 250000, itemCount: 2,
+  } }));
   await page.goto(customer + "/cart");
   const before = await page.evaluate(() => localStorage.getItem("clucky-order-workspace-v1"));
   await switchLanguage(page, "en");
@@ -162,6 +196,8 @@ test("staff order labels update without resetting filters", async ({ page, conte
 });
 
 test("language selector and navigation fit mobile in both locales", async ({ page }) => {
+  await page.route("**/api/auth/session", route => route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } }));
+  await page.route("**/api/auth/refresh", route => route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } }));
   await page.goto(customer + "/cart");
   for (const width of [320, 375, 390]) {
     await page.setViewportSize({ width, height: 900 });
@@ -170,10 +206,39 @@ test("language selector and navigation fit mobile in both locales", async ({ pag
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       await page.getByRole("button", { name: locale === "vi" ? "Mở điều hướng" : "Open navigation" }).click();
       const navigation = page.getByRole("navigation", { name: locale === "vi" ? "Điều hướng di động" : "Mobile navigation" });
+      await expect(navigation.locator('a[href="/account"]')).toHaveCount(0);
       await expect(navigation.getByRole("link", { name: locale === "vi" ? "Đăng nhập" : "Sign in", exact: true })).toBeVisible();
       await page.keyboard.press("Escape");
     }
   }
+});
+
+test("customer header has a compact flag selector and session-aware account links", async ({ page }) => {
+  let signedIn = false;
+  await page.route("**/api/auth/session", route => route.fulfill(signedIn
+    ? { json: { userId: 1, role: "CUSTOMER", email: "test@example.com", fullName: "Test User" } }
+    : { status: 401, json: { code: "UNAUTHENTICATED" } }));
+  await page.route("**/api/auth/refresh", route => route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(customer + "/login");
+  const header = page.getByRole("banner");
+  await expect(header.locator('a[href="/account"]')).toHaveCount(0);
+  const selector = header.getByRole("combobox", { name: "Ngôn ngữ" });
+  expect((await selector.boundingBox())!.width).toBeLessThanOrEqual(60);
+  await expect(selector).toHaveCSS("border-top-width", "0px");
+  const icons = await selector.locator("svg").evaluateAll(elements => elements.map(element => {
+    const box = element.getBoundingClientRect();
+    return box.top + box.height / 2;
+  }));
+  expect(icons).toHaveLength(2);
+  expect(Math.abs(icons[0] - icons[1])).toBeLessThanOrEqual(1);
+  await expect(selector.locator('svg[viewBox="0 0 30 20"]')).toBeVisible();
+  await switchLanguage(page, "en");
+  await expect(header.getByRole("combobox", { name: "Language" }).locator('svg[viewBox="0 0 60 40"]')).toBeVisible();
+  signedIn = true;
+  await page.reload();
+  await expect(header.getByRole("link", { name: "Test User", exact: true })).toBeVisible();
+  await expect(header.getByRole("link", { name: "Account", exact: true })).toBeVisible();
 });
 
 test("party prices follow locale without translating package names", async ({ page }) => {

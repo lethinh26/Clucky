@@ -4,5 +4,5 @@ import jakarta.validation.constraints.NotBlank;
 
 public record UpdateOrderStatusRequest(
         @NotBlank(message = "status is required") String status,
-        String note
+        @jakarta.validation.constraints.Size(max = 1000) String note
 ) {}

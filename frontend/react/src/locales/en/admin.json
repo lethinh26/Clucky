@@ -1,4 +1,7 @@
 {
+  "paymentStates": { "PENDING": "Pending payment", "PAID": "Paid", "COLLECTED": "Collected", "REFUNDED": "Refunded", "FAILED": "Payment failed", "UNKNOWN": "Payment not verified" },
+  "integrationUnavailable": "Live data and operations are not integrated yet. This feature is disabled; no sample records or local success are shown.",
+  "collectionUnavailable": "Payment collection is not integrated yet. COD collection and completion without payment evidence are disabled.",
   "nav": {
     "overview": "Overview",
     "catalog": "Menu & product management",

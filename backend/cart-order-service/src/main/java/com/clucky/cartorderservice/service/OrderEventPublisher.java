@@ -51,6 +51,7 @@ public class OrderEventPublisher {
     public void publishOrderStatusChanged(Order order, List<OrderItem> items, String previousStatus) {
         ObjectNode payload = buildOrderPayload(order, items, previousStatus, null);
         publish(TOPIC_ORDER_STATUS_CHANGED, order, payload);
+        auditOperation(order, "ORDER_STATUS_CHANGED");
     }
 
     public void publishOrderCompleted(Order order, List<OrderItem> items) {
@@ -61,6 +62,20 @@ public class OrderEventPublisher {
     public void publishOrderCancelled(Order order, List<OrderItem> items, String reason) {
         ObjectNode payload = buildOrderPayload(order, items, null, reason);
         publish(TOPIC_ORDER_CANCELLED, order, payload);
+        auditOperation(order, "ORDER_CANCELLED");
+    }
+
+    private void auditOperation(Order order, String action) {
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken token)) return;
+        String role = token.getToken().getClaimAsString("role");
+        if (!List.of("ADMIN", "STORE_MANAGER", "STAFF").contains(role)) return;
+        ObjectNode payload = objectMapper.createObjectNode().put("actorId", Long.parseLong(token.getToken().getSubject()))
+                .put("actorRole", role).put("storeId", order.getStoreId()).put("action", action)
+                .put("targetType", "Order").put("targetId", order.getId());
+        payload.putObject("detail").put("sessionId", token.getToken().getClaimAsString("sid"))
+                .put("result", "SUCCESS").put("status", order.getStatus()).put("identity", "SHARED_ACCOUNT_NOT_PERSON");
+        publish("audit.recorded", order, payload);
     }
 
     private ObjectNode buildOrderPayload(Order order, List<OrderItem> items, String previousStatus, String reason) {

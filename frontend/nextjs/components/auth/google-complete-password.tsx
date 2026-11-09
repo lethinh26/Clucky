@@ -1,4 +1,5 @@
 "use client";
+import { useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -26,6 +27,7 @@ export function GoogleCompletePassword({
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  useFeedback(error && t(error));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

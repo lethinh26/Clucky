@@ -5,6 +5,14 @@ import { seedOrder } from "../fixtures/order";
 const admin = "http://127.0.0.1:4173";
 const customer = "http://127.0.0.1:4174";
 const fixture = "http://127.0.0.1:4175";
+const customerSession = { userId: 1, role: "CUSTOMER", fullName: "Customer", email: "customer@example.com" };
+const adminSession = { userId: 2, role: "ADMIN", fullName: "Admin", email: "admin@example.com" };
+
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/auth/session", route => route.fulfill({
+    json: route.request().headers()["x-clucky-client"] === "admin" ? adminSession : customerSession,
+  }));
+});
 
 async function expectNoOverflow(page: Page) {
   expect(
@@ -39,7 +47,7 @@ test("customer auth pages show Google; admin does not", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("Google password step validates, sends pending token and saves only final JWTs", async ({
+test("Google password step validates and never persists session tokens", async ({
   page,
 }) => {
   let submitted: unknown;
@@ -54,7 +62,7 @@ test("Google password step validates, sends pending token and saves only final J
   await page.route("**/api/auth/google/complete", (route) => {
     submitted = route.request().postDataJSON();
     return route.fulfill({
-      json: { accessToken: "jwt-access" },
+      json: customerSession,
     });
   });
   await page.goto(fixture);
@@ -75,7 +83,7 @@ test("Google password step validates, sends pending token and saves only final J
   await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
   await expect(page.locator("body")).toHaveAttribute(
     "data-destination",
-    "/account",
+    "/",
   );
   expect(submitted).toEqual({
     pendingToken: "pending-test",
@@ -83,7 +91,35 @@ test("Google password step validates, sends pending token and saves only final J
   });
   expect(
     await page.evaluate(() => localStorage.getItem("clucky_access_token")),
-  ).toBe("jwt-access");
+  ).toBeNull();
+});
+
+for (const registration of [false, true]) {
+  test(`Google ${registration ? "registration" : "login"} survives the guest-to-user session update and goes home`, async ({ page }) => {
+    await page.route("**/api/auth/session", route => route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } }));
+    await page.route("**/api/auth/refresh", route => route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } }));
+    await page.route("**/api/auth/google", route => route.fulfill({
+      json: registration ? { status: "REQUIRES_PASSWORD", pendingToken: "p".repeat(43) } : customerSession,
+    }));
+    await page.route("**/api/auth/google/complete", route => route.fulfill({ json: customerSession }));
+    const bootstrap = page.waitForResponse("**/api/auth/refresh");
+    await page.goto(fixture);
+    await bootstrap;
+    await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
+    if (registration) {
+      await page.getByLabel("Mật khẩu mới").fill("Password123");
+      await page.getByLabel("Nhập lại mật khẩu").fill("Password123");
+      await page.getByRole("button", { name: "Hoàn tất đăng ký" }).click();
+    }
+    await expect(page.locator("body")).toHaveAttribute("data-destination", "/");
+  });
+}
+
+test("Google sign-in preserves a safe checkout redirect", async ({ page }) => {
+  await page.route("**/api/auth/google", route => route.fulfill({ json: customerSession }));
+  await page.goto(fixture + "?redirect=%2Fcheckout");
+  await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
+  await expect(page.locator("body")).toHaveAttribute("data-destination", "/checkout");
 });
 
 test("Google existing account, cancellation and expired pending session", async ({
@@ -91,14 +127,14 @@ test("Google existing account, cancellation and expired pending session", async 
 }) => {
   await page.route("**/api/auth/google", (route) =>
     route.fulfill({
-      json: { accessToken: "existing" },
+      json: customerSession,
     }),
   );
   await page.goto(fixture);
   await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
   await expect(page.locator("body")).toHaveAttribute(
     "data-destination",
-    "/account",
+    "/",
   );
   await page.goto(fixture + "?cancel");
   await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
@@ -141,10 +177,10 @@ test("Google registration failure restarts safely and never stores pending token
   await expect(page.getByRole("alert")).toContainText("Hãy đăng nhập Google lại");
   await expect(page.getByLabel("Mật khẩu mới")).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem("clucky_access_token"))).toBeNull();
-  await page.route("**/api/auth/google", (route) => route.fulfill({ json: { accessToken: "existing-customer" } }));
+  await page.route("**/api/auth/google", (route) => route.fulfill({ json: customerSession }));
   await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
-  await expect(page.locator("body")).toHaveAttribute("data-destination", "/account");
-  expect(await page.evaluate(() => Object.keys(localStorage))).toEqual(["clucky_access_token"]);
+  await expect(page.locator("body")).toHaveAttribute("data-destination", "/");
+  expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.includes("token")))).toEqual([]);
 });
 
 test("payment admin confirms with a reason, clears cancelled draft, validates bank account", async ({
@@ -185,9 +221,7 @@ test("payment admin confirms with a reason, clears cancelled draft, validates ba
 test("manager sees only own store; staff cannot open payment UI", async ({
   page,
 }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem("clucky_admin_role", "STORE_MANAGER"),
-  );
+  await page.route("**/api/auth/session", route => route.fulfill({ json: { ...adminSession, role: "STORE_MANAGER", storeId: 1 } }));
   await page.goto(admin + "/admin/payments");
   await expect(
     page.getByRole("tab", { name: "Tài khoản nhận tiền" }),
@@ -203,9 +237,7 @@ test("manager sees only own store; staff cannot open payment UI", async ({
   await expect(
     page.getByRole("row").filter({ hasText: "MB-20261027-000214" }),
   ).toHaveCount(0);
-  await page.addInitScript(() =>
-    localStorage.setItem("clucky_admin_role", "STAFF"),
-  );
+  await page.route("**/api/auth/session", route => route.fulfill({ json: { ...adminSession, role: "STAFF", storeId: 1 } }));
   await page.goto(admin + "/admin/payments");
   await expect(
     page.getByRole("tab", { name: "Giao dịch thanh toán" }),
@@ -264,7 +296,7 @@ test("QR failure, expiry, loading fee and pickup states", async ({ page }) => {
 test("order detail keeps main order flow and integrates payment/shipment widgets", async ({
   page,
 }, testInfo) => {
-  await seedOrder(page);
+  const order = await seedOrder(page);
   await page.setViewportSize({ width: 375, height: 900 });
   await page.route("https://vietqr.app/img?*", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
   await page.goto(customer + "/orders/901");
@@ -275,18 +307,10 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await expect(
     page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }),
   ).toHaveCount(0);
-  await page.evaluate(() => {
-    const key = "clucky-order-workspace-v1";
-    const snapshot = JSON.parse(localStorage.getItem(key)!);
-    const order = snapshot.orders.find(
-      (entry: { id: string }) => entry.id === "901",
-    );
-    order.status = "PENDING_PAYMENT";
-    order.paymentStatus = "PENDING";
-    order.createdAt = new Date().toISOString();
-    delete order.shipmentStatus;
-    localStorage.setItem(key, JSON.stringify(snapshot));
-  });
+  order.status = "PENDING_PAYMENT";
+  order.paymentStatus = "PENDING";
+  order.createdAt = new Date().toISOString();
+  delete order.shipmentStatus;
   await page.reload();
   await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toBeVisible();
   await expect(

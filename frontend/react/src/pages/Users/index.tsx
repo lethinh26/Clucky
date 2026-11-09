@@ -1,3 +1,4 @@
+import { message } from "../../components/feedback";
 import { useTranslation } from "react-i18next";
 import React, {
   useCallback,
@@ -7,8 +8,8 @@ import React, {
   useState,
 } from "react";
 import { usePageLoading } from "../../components/ui-loader/page-loading";
-import { Select, Button, Space, message, Tooltip } from "antd";
-import type { TableColumnsType } from "antd";
+import { Select, Button, Space, Tooltip } from "antd";
+import { TableColumnsType } from "antd";
 import {
   LockOutlined,
   UnlockOutlined,
@@ -76,8 +77,9 @@ export const UsersPage: React.FC = () => {
       if (controller.signal.aborted) return;
       setUsers(data);
       setApiAvailable(true);
-    } catch {
+    } catch (error) {
       if (controller.signal.aborted) return;
+      message.error(getErrorMessage(error));
       setApiAvailable(false);
       // Graceful fallback so the admin UI is still reviewable.
       setUsers([

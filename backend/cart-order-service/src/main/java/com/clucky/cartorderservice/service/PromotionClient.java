@@ -45,25 +45,8 @@ public class PromotionClient {
             BigDecimal discountAmount
     ) {}
 
-    public record LoyaltyPreviewRequest(
-            Integer pointsToRedeem,
-            BigDecimal orderAmount
-    ) {}
 
-    public record LoyaltyPreviewResponse(
-            int availablePoints,
-            int pointsUsed,
-            BigDecimal pointsAmount,
-            int pointsToEarn,
-            String tier
-    ) {}
 
-    public record LoyaltyResult(
-            boolean valid,
-            int pointsUsed,
-            BigDecimal pointsAmount,
-            String message
-    ) {}
 
     public record VoucherReleaseRequest(
             String code,
@@ -71,11 +54,6 @@ public class PromotionClient {
             Long customerId
     ) {}
 
-    public record LoyaltyReleaseRequest(
-            Long customerId,
-            Integer points,
-            Long orderId
-    ) {}
 
     public void releaseVoucher(String rawCode, Long orderId, Long customerId) {
         if (rawCode == null || rawCode.isBlank()) {
@@ -97,24 +75,6 @@ public class PromotionClient {
         }
     }
 
-    public void releaseLoyaltyPoints(Long customerId, Integer points, Long orderId) {
-        if (customerId == null || points == null || points <= 0) {
-            return;
-        }
-        LoyaltyReleaseRequest req = new LoyaltyReleaseRequest(customerId, points, orderId);
-        try {
-            restClient.post()
-                    .uri(promotionServiceUrl + "/api/loyalty/release")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(req)
-                    .retrieve()
-                    .toBodilessEntity();
-            LOG.info("event=loyalty_points_released customerId={} points={} orderId={}", customerId, points, orderId);
-        } catch (Exception ex) {
-            LOG.warn("event=loyalty_points_release_failed customerId={} points={} orderId={} error={}",
-                    customerId, points, orderId, ex.getMessage());
-        }
-    }
 
     public VoucherResult validateVoucher(String rawCode, Long storeId, BigDecimal subtotal) {
         if (rawCode == null || rawCode.isBlank()) {
@@ -127,6 +87,11 @@ public class PromotionClient {
         try {
             VoucherValidationResponse res = restClient.post()
                     .uri(promotionServiceUrl + "/api/promotions/vouchers/validate")
+                    .headers(headers -> {
+                        if (org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()
+                                instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken authentication)
+                            headers.setBearerAuth(authentication.getToken().getTokenValue());
+                    })
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(req)
                     .retrieve()
@@ -155,29 +120,4 @@ public class PromotionClient {
         }
     }
 
-    public LoyaltyResult validateLoyalty(Integer requestedPoints, BigDecimal orderAmount) {
-        // TODO: Promotion has no /api/loyalty/preview endpoint yet; redemption cannot work until that contract is implemented.
-        if (requestedPoints == null || requestedPoints <= 0) {
-            return new LoyaltyResult(true, 0, BigDecimal.ZERO, null);
-        }
-
-        LoyaltyPreviewRequest req = new LoyaltyPreviewRequest(requestedPoints, orderAmount);
-        try {
-            LoyaltyPreviewResponse res = restClient.post()
-                    .uri(promotionServiceUrl + "/api/loyalty/preview")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(req)
-                    .retrieve()
-                    .body(LoyaltyPreviewResponse.class);
-
-            if (res != null && res.pointsAmount() != null) {
-                return new LoyaltyResult(true, res.pointsUsed(), res.pointsAmount(), null);
-            }
-            return new LoyaltyResult(false, 0, BigDecimal.ZERO, "Không đủ điểm thưởng hoặc điểm không hợp lệ");
-        } catch (Exception ex) {
-            LOG.warn("Promotion loyalty preview unavailable or rejected points={} error={}", requestedPoints, ex.getMessage());
-            // In accordance with P1-02: Unverified points cannot be redeemed.
-            return new LoyaltyResult(false, 0, BigDecimal.ZERO, "Hệ thống tích điểm tạm thời chưa khả dụng để đổi điểm");
-        }
-    }
 }

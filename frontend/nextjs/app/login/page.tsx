@@ -1,4 +1,5 @@
 "use client";
+import { notify, useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -10,7 +11,7 @@ import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
-import { authApi, cartApi } from "@/lib/api";
+import { authApi } from "@/lib/api";
 
 export default function LoginPage() {
   const t = useTranslations();
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<unknown>(null);
+  useFeedback(error ? (typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)) : null);
   const [loading, setLoading] = React.useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -37,23 +39,12 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const tokens = await authApi.login({ email: email.trim(), password });
+      await authApi.login({ email: email.trim(), password });
       if (!task.isCurrent()) return;
-      if (typeof window !== "undefined") {
-        localStorage.setItem("clucky_access_token", tokens.accessToken);
-        // refresh token stored in HttpOnly cookie
-        const guestSession = localStorage.getItem("clucky_guest_session_id");
-        if (guestSession) {
-          try {
-            await cartApi.mergeCart(guestSession);
-          } catch {
-            // merge failure is non-blocking
-          }
-        }
-      }
+      notify.success(t("common.feedback.signedIn"));
       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const redirect = params?.get("redirect") || "/account";
-      router.push(redirect);
+      router.push(redirect.startsWith("/") && !redirect.startsWith("//") && !redirect.includes("\\") ? redirect : "/account");
     } catch (err) {
       if (!task.isCurrent()) return;
 

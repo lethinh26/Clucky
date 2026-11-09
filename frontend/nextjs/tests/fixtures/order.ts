@@ -13,14 +13,18 @@ export async function seedOrder(page: Page) {
     timeline: [{ status: "CONFIRMED", title: "Confirmed", description: "", done: false, current: true,
       time: "2026-10-28T10:15:00+07:00" }],
   };
-  await page.addInitScript((fixture) => {
-    const key = "clucky-order-workspace-v1";
-    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ items: [], orders: [fixture] }));
-  }, order);
+  await page.route("**/api/auth/session", route => route.fulfill({ json: {
+    userId: 1, role: "CUSTOMER", fullName: "Customer", email: "customer@example.com",
+  } }));
+  await page.route("**/api/cart", route => route.fulfill({ json: { items: [] } }));
   await page.route("**/api/orders/**", (route) => {
+    const backendOrder = { ...order, id: 901, customerId: 1, storeId: 1, timeline: [] };
     if (route.request().method() === "PUT" && new URL(route.request().url()).pathname.endsWith("/cancel")) {
-      return route.fulfill({ json: { ...order, id: 901, customerId: 1, storeId: 1, status: "CANCELLED", timeline: [] } });
+      order.status = "CANCELLED";
+      return route.fulfill({ json: { ...backendOrder, status: "CANCELLED" } });
     }
-    return route.fulfill({ status: 503, json: { code: "DEPENDENCY_UNAVAILABLE" } });
+    if (new URL(route.request().url()).pathname === "/api/orders/my") return route.fulfill({ json: { content: [backendOrder] } });
+    return route.fulfill({ json: backendOrder });
   });
+  return order;
 }

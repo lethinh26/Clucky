@@ -49,6 +49,13 @@ public class AuthService {
         this.authProperties = authProperties;
     }
 
+    @Transactional(readOnly = true)
+    public AuthResponse session(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
+        if (!STATUS_ACTIVE.equals(user.getStatus())) throw new ApiException(ErrorCode.ACCOUNT_LOCKED);
+        return new AuthResponse(user.getId(), user.getRole(), user.getStoreId(), user.getEmail(), user.getFullName());
+    }
+
     @Transactional
     public MessageResponse register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
@@ -115,10 +122,10 @@ public class AuthService {
     public AuthResult login(LoginRequest request) {
         String email = normalizeEmail(request.email());
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByLogin(email)
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_CREDENTIALS));
 
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
         }
 
@@ -158,7 +165,7 @@ public class AuthService {
         otpService.limitIssuance(email, OtpService.PURPOSE_RESET);
 
         userRepository.findByEmail(email).ifPresent(user -> {
-            if (STATUS_ACTIVE.equals(user.getStatus())) {
+            if (STATUS_ACTIVE.equals(user.getStatus()) && !user.isCurrentBranchAccount()) {
                 String otp = otpService.generateAndSaveOtp(email, OtpService.PURPOSE_RESET);
                 emailEventPublisher.publishOtpEmail(email, EmailEventPublisher.TEMPLATE_RESET_OTP, otp,
                         Map.of("fullName", user.getFullName()));
@@ -173,10 +180,10 @@ public class AuthService {
     public MessageResponse resetPassword(ResetPasswordRequest request) {
         String email = normalizeEmail(request.email());
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailForGoogle(email)
                 .orElseThrow(() -> new ApiException(ErrorCode.INVALID_OTP));
 
-        if (STATUS_LOCKED.equals(user.getStatus())) {
+        if (STATUS_LOCKED.equals(user.getStatus()) || user.isCurrentBranchAccount()) {
             throw new ApiException(ErrorCode.ACCOUNT_LOCKED);
         }
 

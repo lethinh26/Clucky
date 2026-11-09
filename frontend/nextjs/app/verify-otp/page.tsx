@@ -1,4 +1,5 @@
 "use client";
+import { useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -24,7 +25,9 @@ function VerifyOtpForm() {
     Array(OTP_LENGTH).fill(""),
   );
   const [error, setError] = React.useState<unknown>(null);
+  useFeedback(error ? (typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)) : null);
   const [success, setSuccess] = React.useState<string | null>(null);
+  useFeedback(success && t(success), "success");
   const [loading, setLoading] = React.useState(false);
   const [resending, setResending] = React.useState(false);
   const [cooldown, setCooldown] = React.useState(0);
@@ -65,12 +68,8 @@ function VerifyOtpForm() {
     }
     setLoading(true);
     try {
-      const tokens = await authApi.verifyOtp({ email, otp });
+      await authApi.verifyOtp({ email, otp });
       if (!task.isCurrent()) return;
-      if (typeof window !== "undefined") {
-        localStorage.setItem("clucky_access_token", tokens.accessToken);
-        // refresh token stored in HttpOnly cookie
-      }
       setSuccess("auth.otp.verified");
       task.schedule(() => router.push("/account"), 800);
     } catch (err) {

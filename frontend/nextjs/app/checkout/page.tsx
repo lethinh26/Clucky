@@ -1,4 +1,5 @@
 "use client";
+import { notify, useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -7,11 +8,16 @@ import { toCartPayload } from "@/lib/cart";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import Link from "@/components/ui-loader/navigation-link";
 import { Select } from "@base-ui/react/select";
-import { MOCK_STORES } from "@/lib/mock/order-mock-data";
+import { catalogApi, type StoreItem } from "@/lib/api";
+import { coordinates, emptyAddress, formatAddress, type Coordinates } from "@/lib/locations";
+import { CheckoutAddress } from "@/components/maps/checkout-address";
+import { BranchMap } from "@/components/maps/branch-map";
 import { OrderType, PaymentMethod } from "@/lib/types/order";
 import { FoodImage } from "@/components/order/food-image";
 import styles from "./checkout.module.css";
 import { useOrder } from "@/components/order/order-provider";
+import { useSession } from "@/components/auth/use-session";
+import { loyaltyApi } from "@/lib/loyalty";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import { ShippingFeeCard } from "@/components/shipping";
@@ -19,6 +25,7 @@ import {
   orderApi,
   getErrorMessage,
   type CreateOrderPayload,
+  type OrderPreviewResult,
 } from "@/lib/api";
 import {
   ShoppingBag,
@@ -27,10 +34,13 @@ import {
   Store,
   ChevronDown,
   Check,
+  CircleAlert,
+  RefreshCw,
 } from "lucide-react";
 
 export default function CheckoutPage() {
   const t = useTranslations();
+  const loyaltyText = useTranslations("loyalty");
 
   const { money: formatPrice } = useLocaleTools();
   const router = useRouter();
@@ -43,16 +53,30 @@ export default function CheckoutPage() {
   const submitLock = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("clucky_access_token") : null;
-    setIsAuthenticated(!!token);
-  }, []);
+  useFeedback(submitError);
+  const session = useSession();
+  const userId = session.user?.userId;
+  const isAuthenticated = session.ready ? Boolean(session.user) : null;
 
   // Form states
   const [orderType, setOrderType] = useState<OrderType>("DELIVERY");
-  const [selectedStore, setSelectedStore] = useState<string>(MOCK_STORES[0].id);
+  const [selectedStore, setSelectedStore] = useState("");
+  const [stores, setStores] = useState<StoreItem[]>([]);
+  const [storesError, setStoresError] = useState(false);
+  useFeedback(storesError && t("maps.storesError"));
+  const [storesReload, setStoresReload] = useState(0);
+  const [deliveryPoint, setDeliveryPoint] = useState<Coordinates | null>(null);
+  useEffect(() => {
+    let active = true;
+    setStoresError(false);
+    catalogApi.getStores(true).then(result => {
+      if (!active) return;
+      setStores(result);
+      setSelectedStore(current => result.some(store => String(store.id) === current) ? current : result[0] ? String(result[0].id) : "");
+    }).catch(() => { if (active) setStoresError(true); });
+    return () => { active = false; };
+  }, [storesReload]);
+  const storePoint = coordinates(stores.find(store => String(store.id) === selectedStore));
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -67,87 +91,82 @@ export default function CheckoutPage() {
     discount: number;
   } | null>(null);
   const [voucherMsg, setVoucherMsg] = useState("");
+  useFeedback(voucherMsg ? (t.has(voucherMsg) ? t(voucherMsg) : voucherMsg) : null, appliedVoucher ? "success" : "warning");
   const [usePoints, setUsePoints] = useState(false);
-
-  // Server-preview breakdown
-  const [previewData, setPreviewData] = useState<{
-    subtotal?: number;
-    discountAmount?: number;
-    pointsAmount?: number;
-    shippingFee?: number;
-    totalAmount?: number;
-  } | null>(null);
-
-  // Cost calculations with server preview or graceful local fallback
-  const baseShippingFee = orderType === "DELIVERY" ? 20000 : 0;
-  const shippingFee =
-    previewData?.shippingFee !== undefined
-      ? previewData.shippingFee
-      : baseShippingFee;
-  const voucherDiscount =
-    previewData?.discountAmount !== undefined
-      ? previewData.discountAmount
-      : appliedVoucher?.code === "CLUCKYFREESHIP"
-        ? shippingFee
-        : (appliedVoucher?.discount ?? 0);
-  const pointsDiscount =
-    previewData?.pointsAmount !== undefined
-      ? previewData.pointsAmount
-      : usePoints
-        ? 5000
-        : 0;
-  const totalAmount =
-    previewData?.totalAmount !== undefined
-      ? previewData.totalAmount
-      : Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
-
-  // Preview breakdown sync
+  const [requestedPoints, setRequestedPoints] = useState(0);
+  const [loyaltyBalance, setLoyaltyBalance] = useState<{ userId: number; available: number } | null>(null);
+  const [loyaltyError, setLoyaltyError] = useState(false);
+  useFeedback(loyaltyError && loyaltyText("error"));
+  const [loyaltyReload, setLoyaltyReload] = useState(0);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  useFeedback(previewError);
+  const [previewReload, setPreviewReload] = useState(0);
+  const availablePoints = loyaltyBalance?.userId === session.user?.userId ? loyaltyBalance?.available : undefined;
   useEffect(() => {
-    if (!items.length || !payloadItems) {
-      setPreviewData(null);
+    let active = true;
+    setLoyaltyBalance(null); setLoyaltyError(false); setUsePoints(false); setRequestedPoints(0);
+    if (userId !== undefined) {
+      loyaltyApi.me().then(result => {
+        if (active) setLoyaltyBalance({ userId, available: result.points.availablePoints });
+      }).catch(() => { if (active) setLoyaltyError(true); });
+    }
+    return () => { active = false; };
+  }, [userId, loyaltyReload]);
+
+  const previewPayload = useMemo(() => ({
+    storeId: Number(selectedStore), type: orderType, items: payloadItems ?? [],
+    voucherCode: appliedVoucher?.code,
+    pointsUsed: usePoints ? Math.min(requestedPoints, availablePoints ?? 0) : 0,
+    receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+    latitude: orderType === "DELIVERY" ? deliveryPoint?.latitude : undefined,
+    longitude: orderType === "DELIVERY" ? deliveryPoint?.longitude : undefined,
+  }), [selectedStore, orderType, payloadItems, appliedVoucher?.code, usePoints, requestedPoints, availablePoints, deliveryAddress, deliveryPoint]);
+  const previewKey = JSON.stringify([userId, previewPayload, previewReload]);
+  const [quote, setQuote] = useState<{ key: string; data: OrderPreviewResult } | null>(null);
+  const previewData = quote?.key === previewKey ? quote.data : null;
+  const shippingFee = orderType === "PICKUP" ? 0 : previewData?.shippingFee ?? null;
+  const voucherDiscount = previewData ? Math.max(0, previewData.discountAmount - (previewData.tierDiscount ?? 0)) : 0;
+  const pointsDiscount = previewData?.pointsAmount ?? 0;
+  const totalAmount = previewData?.totalAmount ?? null;
+  const needsDeliveryAddress = orderType === "DELIVERY" && deliveryAddress.trim().length < 8;
+  const orderBlockReason = !ready || !session.ready ? loyaltyText("cartLoading")
+    : cartPending ? loyaltyText("cartUpdating")
+    : !payloadItems ? loyaltyText("cartInvalid")
+    : !selectedStore ? loyaltyText("storeRequired")
+    : needsDeliveryAddress ? loyaltyText("addressRequired")
+    : previewError ? previewError
+    : previewLoading || !previewData ? loyaltyText("quoteLoading") : null;
+
+  useEffect(() => {
+    setPreviewError(null);
+    if (!ready || !session.ready || !selectedStore || !payloadItems?.length || needsDeliveryAddress) {
+      setQuote(null); setPreviewLoading(false);
       return;
     }
     let active = true;
-
-    orderApi
-      .preview({
-        storeId: Number(selectedStore) || 1,
-        type: orderType,
-        items: payloadItems,
-        voucherCode: appliedVoucher?.code,
-        pointsUsed: usePoints ? 50 : 0,
-        receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
-      })
-      .then((res) => {
-        if (!active || !res) return;
-        setPreviewData({
-          subtotal: res.subtotal,
-          discountAmount: res.discountAmount,
-          pointsAmount: res.pointsAmount,
-          shippingFee: res.shippingFee,
-          totalAmount: res.totalAmount,
-        });
-      })
-      .catch((err) => {
-        console.warn("Order preview fallback to local:", err);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [
-    items,
-    orderType,
-    selectedStore,
-    appliedVoucher,
-    usePoints,
-    deliveryAddress,
-    payloadItems,
-  ]);
+    setPreviewLoading(true);
+    const timer = setTimeout(() => {
+      orderApi.preview(previewPayload).then(result => {
+        if (!active) return;
+        if (result.orderValid === false || (previewPayload.voucherCode && !result.voucherValid)) {
+          setPreviewError(result.message || getErrorMessage({ code: "RESOURCE_CONFLICT" }));
+          return;
+        }
+        if (![result.subtotal, result.discountAmount, result.pointsAmount, result.shippingFee, result.totalAmount].every(amount => typeof amount === "number" && Number.isFinite(amount) && amount >= 0)) {
+          throw { code: "UPSTREAM_ERROR" };
+        }
+        setQuote({ key: previewKey, data: result });
+      }).catch(failure => {
+        if (active) { setPreviewError(getErrorMessage(failure)); setQuote(null); }
+      }).finally(() => { if (active) setPreviewLoading(false); });
+    }, 300);
+    return () => { active = false; clearTimeout(timer); };
+  }, [ready, session.ready, selectedStore, payloadItems, needsDeliveryAddress, previewKey, previewPayload]);
 
   const handleApplyVoucher = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!payloadItems || cartPending) return;
+    if (!payloadItems || cartPending || !selectedStore) return;
     const cleanCode = voucherInput.trim().toUpperCase();
     if (!cleanCode) {
       setAppliedVoucher(null);
@@ -156,12 +175,14 @@ export default function CheckoutPage() {
     }
     orderApi
       .preview({
-        storeId: Number(selectedStore) || 1,
+        storeId: Number(selectedStore),
         type: orderType,
         items: payloadItems,
         voucherCode: cleanCode,
-        pointsUsed: usePoints ? 50 : 0,
+        pointsUsed: usePoints ? Math.min(requestedPoints, availablePoints ?? 0) : 0,
         receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+        latitude: orderType === "DELIVERY" ? deliveryPoint?.latitude : undefined,
+        longitude: orderType === "DELIVERY" ? deliveryPoint?.longitude : undefined,
       })
       .then((res) => {
         if (res && res.valid && res.discountAmount > 0) {
@@ -181,13 +202,13 @@ export default function CheckoutPage() {
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ready || cartPending || !payloadItems || !items.length || submitting || submitLock.current) return;
+    if (!ready || cartPending || !payloadItems || !items.length || !selectedStore || submitting || submitLock.current) return;
+    if (previewLoading || previewError || !previewData) { setSubmitError(loyaltyText("previewError")); return; }
     submitLock.current = true;
     setSubmitting(true);
     setSubmitError(null);
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("clucky_access_token") : null;
-    if (!token) {
+    if (!isAuthenticated) {
       submitLock.current = false;
       setSubmitting(false);
       setSubmitError(t("errors.UNAUTHENTICATED"));
@@ -197,25 +218,31 @@ export default function CheckoutPage() {
 
 
     const payload: CreateOrderPayload = {
-      storeId: Number(selectedStore) || 1,
+      expectedTotal: previewData.totalAmount,
+      storeId: Number(selectedStore),
       type: orderType,
       paymentMethod: paymentMethod,
       items: payloadItems,
       voucherCode: appliedVoucher?.code,
-      pointsUsed: usePoints ? 50 : 0,
+      pointsUsed: usePoints ? Math.min(requestedPoints, availablePoints ?? 0) : 0,
       receiverName: receiverName.trim(),
       receiverPhone: receiverPhone.trim(),
       deliveryAddress:
         orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
+      latitude: orderType === "DELIVERY" ? deliveryPoint?.latitude : undefined,
+      longitude: orderType === "DELIVERY" ? deliveryPoint?.longitude : undefined,
       note: orderNote.trim() || undefined,
     };
 
     try {
       const backendOrder = await createOrder(payload);
       const targetId = String(backendOrder.id);
+      notify.success(t("common.feedback.orderCreated"));
       router.push(`/orders/${targetId}`);
     } catch (err: any) {
       console.warn("Order creation failed:", err);
+      setLoyaltyReload(value => value + 1);
+      setPreviewReload(value => value + 1);
       submitLock.current = false;
       setSubmitting(false);
       if (err?.status === 401 || err?.code === "UNAUTHENTICATED") {
@@ -352,7 +379,7 @@ export default function CheckoutPage() {
                     </label>
                     <input
                       autoComplete="tel"
-                      pattern="0[0-9]{9}"
+                      pattern="[+0-9 ]{9,30}"
                       title={t(
                         "business.checkout.enterADigitPhoneNumberStartingWith",
                       )}
@@ -380,8 +407,8 @@ export default function CheckoutPage() {
                     onValueChange={(value) => {
                       if (value !== null) setSelectedStore(value);
                     }}
-                    items={MOCK_STORES.map((store) => ({
-                      value: store.id,
+                    items={stores.map((store) => ({
+                      value: String(store.id),
                       label: store.name,
                     }))}
                   >
@@ -408,10 +435,10 @@ export default function CheckoutPage() {
                       >
                         <Select.Popup className={styles.storePopup}>
                           <Select.List className={styles.storeList}>
-                            {MOCK_STORES.map((store) => (
+                            {stores.map((store) => (
                               <Select.Item
                                 key={store.id}
-                                value={store.id}
+                                value={String(store.id)}
                                 label={store.name}
                                 className={styles.storeOption}
                               >
@@ -446,13 +473,16 @@ export default function CheckoutPage() {
                   <p id="fulfillmentStoreAddress" className={styles.storeHint}>
                     <MapPin size={14} />{" "}
                     {
-                      MOCK_STORES.find((store) => store.id === selectedStore)
+                      stores.find((store) => String(store.id) === selectedStore)
                         ?.address
                     }
                   </p>
                 </div>
                 {orderType === "DELIVERY" ? (
                   <div className={styles.fieldGroup}>
+                    <CheckoutAddress value={{ ...emptyAddress, receiverName, phone: receiverPhone, detail: deliveryAddress, latitude: deliveryPoint?.latitude ?? null, longitude: deliveryPoint?.longitude ?? null }} onSelect={address => {
+                      setReceiverName(address.receiverName); setReceiverPhone(address.phone); setDeliveryAddress(formatAddress(address)); setDeliveryPoint(coordinates(address));
+                    }} />
                     <label
                       htmlFor="deliveryAddress"
                       className={styles.fieldLabel}
@@ -466,7 +496,8 @@ export default function CheckoutPage() {
                       type="text"
                       required
                       value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      maxLength={600}
+                      onChange={(e) => { setDeliveryAddress(e.target.value); setDeliveryPoint(null); }}
                       className={styles.input}
                       placeholder={t(
                         "business.checkout.houseNumberStreetWardDistrict",
@@ -474,6 +505,9 @@ export default function CheckoutPage() {
                     />
                   </div>
                 ) : null}
+                {(deliveryPoint || storePoint) && <div style={{ height: 280, marginBottom: 20 }}><BranchMap pin={orderType === "DELIVERY" ? deliveryPoint : null} points={storePoint ? [{ ...storePoint, id: selectedStore, label: stores.find(store => String(store.id) === selectedStore)?.name ?? "Clucky" }] : []} selectedId={orderType === "PICKUP" ? selectedStore : undefined} /></div>}
+                {storesError && <p role="alert">{t("maps.storesError")} <button type="button" onClick={() => setStoresReload(value => value + 1)}>{t("maps.retry")}</button></p>}
+                {!selectedStore && <p role="status">{t("maps.pickStore")}</p>}
 
                 <div className={styles.fieldGroup}>
                   <label htmlFor="orderNote" className={styles.fieldLabel}>
@@ -529,7 +563,7 @@ export default function CheckoutPage() {
                       color: appliedVoucher ? "#1e7a46" : "#b42318",
                     }}
                   >
-                    {voucherMsg.includes(".") ? t(voucherMsg) : voucherMsg}
+                    {t.has(voucherMsg) ? t(voucherMsg) : voucherMsg}
                   </p>
                 )}
 
@@ -538,15 +572,18 @@ export default function CheckoutPage() {
                     <input
                       type="checkbox"
                       checked={usePoints}
-                      onChange={(e) => setUsePoints(e.target.checked)}
+                      disabled={!availablePoints || loyaltyError}
+                      onChange={(e) => { setUsePoints(e.target.checked); setRequestedPoints(availablePoints ?? 0); }}
                       style={{ width: 18, height: 18, accentColor: "#8f1216" }}
                     />
-                    <span>{t("business.checkout.useCluckyClubPoints")}</span>
+                    <span>{loyaltyText("usePoints")}</span>
                   </label>
                   <span className={styles.loyaltyPoints}>
-                    {t("business.checkout.pointsAvailableUsePointsForOff")}
+                    {availablePoints !== undefined ? loyaltyText("availableCheckout", { points: availablePoints }) : loyaltyError ? loyaltyText("error") : loyaltyText("loading")}
                   </span>
                 </div>
+                {loyaltyError && <button type="button" className="btn-secondary" onClick={() => setLoyaltyReload(value => value + 1)}>{loyaltyText("retry")}</button>}
+                {usePoints && <div><label htmlFor="points-to-use">{loyaltyText("pointsInput")}</label><input id="points-to-use" type="number" min={0} max={availablePoints ?? 0} step={1} value={requestedPoints} onChange={event => setRequestedPoints(Math.min(availablePoints ?? 0, Math.max(0, Math.floor(Number(event.target.value) || 0))))} className={styles.input} /><p>{loyaltyText("checkoutHint")}</p>{previewData && <p>{loyaltyText("applied", { points: previewData.pointsUsed ?? 0 })}</p>}</div>}
               </section>
 
               {/* Section 3: Payment Method */}
@@ -633,7 +670,7 @@ export default function CheckoutPage() {
               <div className={styles.orderItemsList}>
                 {items.map((item) => (
                   <div key={item.id} className={styles.miniItem}>
-                    <img src={item.image} alt="" className={styles.miniImage} />
+                    <FoodImage src={item.image} alt="" className={styles.miniImage} />
                     <div>
                       <div className={styles.miniItemName}>{item.name}</div>
                       <div className={styles.miniItemQty}>
@@ -649,11 +686,11 @@ export default function CheckoutPage() {
 
               <div className={styles.costRow}>
                 <span>{t("business.cart.subtotal")}</span>
-                <strong>{formatPrice(subtotal)}</strong>
+                <strong>{formatPrice(previewData?.subtotal ?? subtotal)}</strong>
               </div>
 
               {orderType === "DELIVERY" && (
-                <ShippingFeeCard fee={shippingFee} />
+                <ShippingFeeCard fee={shippingFee} loading={previewLoading && !needsDeliveryAddress} />
               )}
 
               {voucherDiscount > 0 && (
@@ -674,12 +711,14 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {(previewData?.tierDiscount ?? 0) > 0 && <div className={styles.costRow}><span>{loyaltyText("tierSavings")}</span><strong className={styles.discountText}>-{formatPrice(previewData!.tierDiscount!)}</strong></div>}
+
               <hr className={styles.divider} />
 
               <div className={styles.totalRow}>
                 <span>{t("business.checkout.totalDue")}</span>
                 <strong className={styles.totalPrice}>
-                  {formatPrice(totalAmount)}
+                  {totalAmount !== null ? formatPrice(totalAmount) : <span className={styles.quotePending}>{loyaltyText("quotePending")}</span>}
                 </strong>
               </div>
 
@@ -706,13 +745,20 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {orderBlockReason && <div id="checkout-submit-status" className={styles.submitStatus + (previewError ? " " + styles.submitStatusError : "")} role={previewError ? "alert" : "status"}>
+                <div><CircleAlert size={18} aria-hidden="true" /><span>{previewError ? <><strong>{loyaltyText("quoteFailedTitle")}</strong>{orderBlockReason}</> : orderBlockReason}</span></div>
+                {previewError && !needsDeliveryAddress && <button type="button" className="btn-secondary" disabled={previewLoading} onClick={() => setPreviewReload(value => value + 1)}><RefreshCw size={15} aria-hidden="true" />{loyaltyText("retry")}</button>}
+              </div>}
+
               <button
                 type="submit"
-                disabled={submitting || cartPending || !payloadItems}
+                disabled={submitting || Boolean(orderBlockReason)}
+                aria-describedby={orderBlockReason ? "checkout-submit-status" : undefined}
                 className={styles.submitBtn}
               >
                 {submitting
                   ? t("business.checkout.processingYourOrder")
+                  : previewLoading ? loyaltyText("quoteLoading")
                   : t("business.checkout.placeOrderNow")}
               </button>
             </aside>

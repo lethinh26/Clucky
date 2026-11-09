@@ -1,18 +1,9 @@
+import { message } from "../../components/feedback";
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../i18n/hooks";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import {
-  Button,
-  Space,
-  Tag,
-  Switch,
-  Segmented,
-  Tooltip,
-  Image,
-  Typography,
-  message,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Button, Space, Tag, Switch, Segmented, Tooltip, Image, Typography } from "antd";
+import { TableColumnsType } from "antd";
 import {
   PlusOutlined,
   EditOutlined,

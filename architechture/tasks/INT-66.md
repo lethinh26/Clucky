@@ -1,9 +1,13 @@
 # [INT-66] ĐÃ GỘP — không còn task độc lập
 
-Cập nhật 30/10/2026 theo kế hoạch đã duyệt.
+Cập nhật 07/11/2026 tại repository; **chưa đồng bộ Lark**. Đây chỉ là trang truy vết, không giao việc/tính SP như task hoặc subtask.
 
-Nội dung đã được chuyển vào task đích dưới đây; không tạo/giao lại record này.
+Đã gộp trước đây; chỉ cập nhật đích cuối, không tính là một lần xóa mới.
 
-- [INT-52](INT-52.md) — Tích hợp refund: duyệt/từ chối, cập nhật thanh toán, thông báo và nghiệm thu; PIC: Lê Phú Thịnh.
+- [BE-32](BE-32.md) — Hoàn thiện quản lý thanh toán: tra cứu và đối soát giao dịch, xác nhận chuyển khoản hoặc COD, duyệt hoàn tiền và cấu hình ngân hàng
+- [BE-26](BE-26.md) — Triển khai hủy hoặc từ chối đơn đúng quyền, đúng trạng thái và tạo yêu cầu hoàn tiền cho đơn đã chuyển khoản
+- [UI-24](UI-24.md) — Xây dựng và nối API quản lý đơn cho nhân sự, hỗ trợ lọc, xem chi tiết, đổi trạng thái và duyệt hoặc từ chối hoàn tiền
+- [KAFKA-03](KAFKA-03.md) — Phát sự kiện xác nhận hoặc thất bại thanh toán và dữ liệu hết hạn, sai lệch, hoàn tiền theo contract cho các service nhận
+- [KAFKA-12](KAFKA-12.md) — Xử lý sự kiện Order, Payment để tạo thông báo và yêu cầu gửi email đúng người, chống trùng và không rollback nghiệp vụ khi email lỗi
 
-Bản lưu trữ cũ không còn được quản lý trong repository; xem lịch sử Git nếu cần bản cũ. Trang này chỉ giữ ánh xạ gộp, không tạo task mới. Xem [danh sách task hiện hành](README.md).
+Xem [báo cáo phân loại](../docs/Backlog_Reclassification_2026-11-07.md), [backlog hiện hành](../docs/backlog.md) và lịch sử Git. Không đánh DONE vì đổi tài liệu; không chạy kiểm thử trong lần cập nhật này.

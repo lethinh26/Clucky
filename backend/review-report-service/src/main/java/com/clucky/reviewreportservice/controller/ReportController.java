@@ -27,10 +27,10 @@ public class ReportController {
 
     /**
      * BE-42: GET /api/reports/dashboard
-     * Quyền: STF / MGR / ADM; scope theo role
+     * Quyền: MGR / ADM; scope theo role
      */
     @GetMapping("/dashboard")
-    @PreAuthorize("hasAnyRole('STAFF', 'STORE_MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('STORE_MANAGER', 'ADMIN')")
     public ResponseEntity<DashboardResponse> getDashboard(
             @RequestParam(required = false) Long storeId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,

@@ -1,19 +1,8 @@
+import { message } from "../../components/feedback";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Space,
-  Tag,
-  Select,
-  Popconfirm,
-  Tabs,
-  Badge,
-  message,
-  Typography,
-  Tooltip,
-  Progress,
-} from 'antd';
-import type { TableColumnsType } from 'antd';
+import { Alert, Button, Space, Tag, Select, Popconfirm, Tabs, Badge, Typography, Tooltip, Progress } from "antd";
+import { TableColumnsType } from "antd";
 import dayjs from 'dayjs';
 import {
   PlusOutlined,
@@ -35,8 +24,8 @@ import { AdminTable } from '../../components/ui/AdminTable';
 import { VoucherBadge } from '../../components/ui/VoucherBadge';
 import { VoucherModal } from './components/VoucherModal';
 import { VoucherDetailDrawer } from './components/VoucherDetailDrawer';
-import { ProposalBacklogSection } from './components/ProposalBacklogSection';
-import { BannerBacklogSection } from './components/BannerBacklogSection';
+import { UnavailableFeature } from '../../components/UnavailableFeature';
+import { LoyaltySettings } from './components/LoyaltySettings';
 import { useAuth } from '../../context/AuthContext';
 import {
   promotionsApi,
@@ -44,7 +33,6 @@ import {
   getErrorMessage,
   type Store,
 } from '../../lib/api';
-import { MOCK_VOUCHERS } from '../../mocks/promotionData';
 import type { AdminVoucher, VoucherPayload, VoucherStatus } from '../../types/promotion';
 import './promotions.css';
 
@@ -58,6 +46,7 @@ export const PromotionsPage: React.FC = () => {
   const [vouchers, setVouchers] = useState<AdminVoucher[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState('');
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   // Filters
@@ -77,20 +66,15 @@ export const PromotionsPage: React.FC = () => {
     try {
       const data = await storesApi.list(false);
       setStores(data || []);
-    } catch {
-      // Stores fallback if API offline
-      setStores([
-        { id: 1, name: 'Clucky Lê Lợi (Q.1)', address: '12 Lê Lợi, Q.1', phone: '028 3822 1101', openTime: '08:00', closeTime: '22:00', status: 'OPEN' as const },
-        { id: 2, name: 'Clucky Nguyễn Trãi (Q.5)', address: '88 Nguyễn Trãi, Q.5', phone: '028 3833 2202', openTime: '08:00', closeTime: '22:00', status: 'OPEN' as const },
-        { id: 3, name: 'Clucky Phan Văn Trị (Gò Vấp)', address: '360 Phan Văn Trị, Gò Vấp', phone: '028 3844 3303', openTime: '08:00', closeTime: '22:00', status: 'OPEN' as const },
-      ]);
+    } catch (error) {
+      message.error(getErrorMessage(error));
     }
   }, []);
 
-  // Fetch vouchers with graceful degradation to fixtures
   const fetchVouchers = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const apiScope = scopeFilter === 'SCOPE_ALL' ? 'ALL' : scopeFilter === 'SCOPE_STORE' ? 'STORE' : undefined;
       const data = await promotionsApi.listVouchers({
         scope: apiScope,
@@ -99,13 +83,10 @@ export const PromotionsPage: React.FC = () => {
         keyword: searchTerm.trim() || undefined,
       });
 
-      if (Array.isArray(data) && data.length > 0) {
-        setVouchers(data);
-      } else {
-        setVouchers(MOCK_VOUCHERS);
-      }
-    } catch {
-      setVouchers(MOCK_VOUCHERS);
+      setVouchers(data);
+    } catch (error) {
+      setLoadError(getErrorMessage(error));
+      setVouchers([]);
     } finally {
       setLoading(false);
     }
@@ -204,73 +185,32 @@ export const PromotionsPage: React.FC = () => {
   };
 
   // Quick copy code
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard?.writeText(code);
-    message.success('Đã sao chép mã "' + code + '"');
+  const handleCopyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      message.success('Đã sao chép mã "' + code + '"');
+    } catch {
+      message.error(t('common:feedback.copyFailed'));
+    }
   };
 
   // Submit create or update
   const handleSubmitVoucher = async (payload: VoucherPayload) => {
+    if (actionLoading) return;
+    setActionLoading(true);
     try {
-      setActionLoading(true);
-
-      let storeName: string | null = null;
-      if (payload.scope === 'STORE' && payload.storeId) {
-        const found = stores.find((s) => s.id === payload.storeId);
-        storeName = found ? found.name : 'Chi nhánh #' + payload.storeId;
-      }
-
-      if (editingVoucher) {
-        try {
-          await promotionsApi.updateVoucher(editingVoucher.id, payload);
-        } catch {
-          // Optimistic update fallback
-        }
-
-        setVouchers((prev) =>
-          prev.map((v) =>
-            v.id === editingVoucher.id
-              ? {
-                  ...v,
-                  ...payload,
-                  storeName,
-                  status: payload.status || 'ACTIVE',
-                  effectiveStatus: payload.status || 'ACTIVE',
-                  updatedAt: new Date().toISOString(),
-                }
-              : v
-          )
-        );
-        message.success('Đã cập nhật mã voucher "' + payload.code + '" thành công');
-      } else {
-        let createdId: string | number = Date.now();
-        try {
-          const res = await promotionsApi.createVoucher(payload);
-          if (res?.id) createdId = res.id;
-        } catch {
-          // Optimistic creation fallback
-        }
-
-        const newVoucher: AdminVoucher = {
-          id: createdId,
-          ...payload,
-          storeName,
-          usedCount: 0,
-          status: payload.status || 'ACTIVE',
-          effectiveStatus: payload.status || 'ACTIVE',
-          createdAt: new Date().toISOString(),
-        };
-
-        setVouchers((prev) => [newVoucher, ...prev]);
-        message.success('Đã tạo mới mã voucher "' + payload.code + '" thành công');
-      }
-
+      const saved = editingVoucher
+        ? await promotionsApi.updateVoucher(editingVoucher.id, payload)
+        : await promotionsApi.createVoucher(payload);
+      setVouchers(previous => editingVoucher
+        ? previous.map(voucher => voucher.id === saved.id ? saved : voucher)
+        : [saved, ...previous]);
+      if (selectedVoucher?.id === saved.id) setSelectedVoucher(saved);
       setModalOpen(false);
-      if (selectedVoucher && editingVoucher && selectedVoucher.id === editingVoucher.id) {
-        setSelectedVoucher((prev) => (prev ? { ...prev, ...payload, storeName } : null));
-      }
-    } catch (err) {
-      message.error(getErrorMessage(err));
+      message.success(t('loyalty:saved'));
+    } catch (error) {
+      message.error(getErrorMessage(error));
+      await fetchVouchers();
     } finally {
       setActionLoading(false);
     }
@@ -280,8 +220,7 @@ export const PromotionsPage: React.FC = () => {
   const handleToggleStatus = async (voucher: AdminVoucher) => {
     const newStatus: VoucherStatus = voucher.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
     try {
-      try {
-        await promotionsApi.updateVoucher(voucher.id, {
+        const saved = await promotionsApi.updateVoucher(voucher.id, {
           code: voucher.code,
           title: voucher.title,
           description: voucher.description,
@@ -296,21 +235,18 @@ export const PromotionsPage: React.FC = () => {
           storeId: voucher.storeId ? Number(voucher.storeId) : null,
           status: newStatus,
         });
-      } catch {
-        // Fallback local update
-      }
 
       setVouchers((prev) =>
         prev.map((v) =>
           v.id === voucher.id
-            ? { ...v, status: newStatus, effectiveStatus: newStatus }
+            ? saved
             : v
         )
       );
 
       if (selectedVoucher && selectedVoucher.id === voucher.id) {
         setSelectedVoucher((prev) =>
-          prev ? { ...prev, status: newStatus, effectiveStatus: newStatus } : null
+          prev ? saved : null
         );
       }
 
@@ -321,21 +257,18 @@ export const PromotionsPage: React.FC = () => {
       );
     } catch (err) {
       message.error(getErrorMessage(err));
+      await fetchVouchers();
     }
   };
 
   // Delete voucher
   const handleDeleteVoucher = async (voucher: AdminVoucher) => {
     try {
-      try {
-        await promotionsApi.deleteVoucher(voucher.id);
-      } catch {
-        // Fallback local deletion
-      }
+      await promotionsApi.deleteVoucher(voucher.id);
 
-      setVouchers((prev) => prev.filter((v) => v.id !== voucher.id));
+      await fetchVouchers();
       setDrawerOpen(false);
-      message.success('Đã xóa mã voucher "' + voucher.code + '"');
+      message.success(t('loyalty:saved'));
     } catch (err) {
       message.error(getErrorMessage(err));
     }
@@ -727,6 +660,7 @@ export const PromotionsPage: React.FC = () => {
         type="card"
         className="promotions-tabs"
         items={[
+          ...(isAdmin ? [{ key: 'loyalty', label: t('loyalty:title'), children: <LoyaltySettings /> }] : []),
           {
             key: 'vouchers',
             label: (
@@ -744,7 +678,7 @@ export const PromotionsPage: React.FC = () => {
                 />
               </span>
             ),
-            children: (
+            children: loadError ? <Alert type="error" showIcon title={loadError} action={<Button onClick={fetchVouchers}>{t('common:retry')}</Button>} /> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {/* Quick KPI Overview Cards */}
                 <div className="promotions-kpi-grid">
@@ -884,7 +818,7 @@ export const PromotionsPage: React.FC = () => {
                 </Tag>
               </span>
             ),
-            children: <ProposalBacklogSection />,
+            children: <UnavailableFeature />,
           },
           {
             key: 'banners',
@@ -896,7 +830,7 @@ export const PromotionsPage: React.FC = () => {
                 </Tag>
               </span>
             ),
-            children: <BannerBacklogSection />,
+            children: <UnavailableFeature />,
           },
         ]}
       />

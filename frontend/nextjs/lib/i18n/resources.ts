@@ -15,7 +15,12 @@ import enAdmin from "../../locales/en/admin.json" with { type: "json" };
 import enOrders from "../../locales/en/orders.json" with { type: "json" };
 import enErrors from "../../locales/en/errors.generated.json" with { type: "json" };
 
+import viMaps from "../../locales/vi/maps.json" with { type: "json" };
+import viLoyalty from "../../locales/vi/loyalty.json" with { type: "json" };
+import enLoyalty from "../../locales/en/loyalty.json" with { type: "json" };
+import enMaps from "../../locales/en/maps.json" with { type: "json" };
+
 export const resources = {
-  vi: { business: viBusiness, common: viCommon, auth: viAuth, home: viHome, menu: viMenu, admin: viAdmin, orders: viOrders, errors: viErrors },
-  en: { business: enBusiness, common: enCommon, auth: enAuth, home: enHome, menu: enMenu, admin: enAdmin, orders: enOrders, errors: enErrors },
+  vi: { loyalty: viLoyalty, maps: viMaps, business: viBusiness, common: viCommon, auth: viAuth, home: viHome, menu: viMenu, admin: viAdmin, orders: viOrders, errors: viErrors },
+  en: { loyalty: enLoyalty, maps: enMaps, business: enBusiness, common: enCommon, auth: enAuth, home: enHome, menu: enMenu, admin: enAdmin, orders: enOrders, errors: enErrors },
 };

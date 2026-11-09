@@ -1,4 +1,5 @@
 {
+  "feedback": { "copyFailed": "Unable to copy. Please select and copy the text manually." },
   "language": "Language",
   "errors": {
     "timeout": "The connection timed out. Please try again.",

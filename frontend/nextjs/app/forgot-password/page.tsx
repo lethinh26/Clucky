@@ -1,4 +1,5 @@
 "use client";
+import { useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
@@ -18,7 +19,9 @@ export default function ForgotPasswordPage() {
   const startDeferred = useDeferredAction();
   const [email, setEmail] = React.useState("");
   const [error, setError] = React.useState<unknown>(null);
+  useFeedback(error ? (typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)) : null);
   const [success, setSuccess] = React.useState<string | null>(null);
+  useFeedback(success && t(success), "success");
   const [loading, setLoading] = React.useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {

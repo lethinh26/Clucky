@@ -27,10 +27,12 @@ config-repo/
 
 ## How services read config
 
-Order calls Catalog's internal validation endpoint with `CATALOG_SERVICE_TOKEN`, supplied through
-Config Server/environment (never committed). Provision and rotate a signed, unexpired internal JWT
+Order calls Catalog's internal validation endpoint with a short-lived (60-second) signed service JWT
+issued from its existing JWT configuration when `CATALOG_SERVICE_TOKEN` is empty. The reserved numeric
+subject is `Long.MAX_VALUE`, not a customer or administrator. An explicit `CATALOG_SERVICE_TOKEN`
+from Config Server/environment overrides this default and must be provisioned/rotated as an internal JWT
 with role `INTERNAL_SERVICE`, a positive service subject, `sid`, `iat`, `exp`, and the configured
-issuer/audience accepted by Catalog. No customer token is forwarded. Missing/expired credentials
+issuer/audience accepted by Catalog. No customer token is forwarded. Invalid/expired explicit credentials
 fail checkout with a dependency error; do not disable the internal endpoint's role guard.
 
 Each business service bootstraps with:

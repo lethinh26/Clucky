@@ -1,9 +1,15 @@
 # ĐẶC TẢ API (RÚT GỌN)
 ## Hệ thống website bán hàng thức ăn nhanh
 
+### Hiệu chỉnh F1–F4 ngày 08/11/2026 — đã sửa mã, chưa nghiệm thu
+
+Contract chi tiết và trạng thái tích hợp tại [bàn giao F1–F4](../specs/rbac-branch-operations/F1-F4-handoff.md). Phần này thay các mô tả cũ mâu thuẫn: voucher quản trị chỉ Admin với actor JWT; dashboard/revenue/export không dành cho Staff; kiểm kê quantity/threshold chỉ Manager/Admin, Staff báo hết món qua availability; Manager sửa quán qua allowlist operation. Checkout/preview chỉ Customer. Party đang khóa; Users chưa có runtime API.
+
+Cancel/reject nhận `reason`, status nhận `note` (lý do hủy trim 1–1000 ký tự); chỉ PENDING_PAYMENT/CONFIRMED được hủy. `OrderResponse.paymentStatus` đọc dữ liệu đã lưu (PENDING/PAID/COLLECTED/REFUNDED), độc lập với `status`; không backfill. Hoàn tất và xác nhận đơn chờ trả tiền yêu cầu PAID/COLLECTED, sai state trả 409. Thu COD không được thay bằng cập nhật COMPLETED; APPROVED refund không có nghĩa đã chi hoàn. Giữ error catalog và optimistic version hiện hữu; chưa nghiệm thu concurrency.
+
 Quy ước chung:
 - Base URL qua Gateway: `https://<domain>/api/...` ; mỗi service có tiền tố riêng.
-- Xác thực: header `Authorization: Bearer <JWT>` (trừ API công khai và webhook).
+- Xác thực trình duyệt: HttpOnly cookie, `credentials: include`, header `X-Clucky-Client: customer|admin`. Gateway chuyển access cookie thành Bearer nội bộ; service vẫn xác thực JWT và quyền. Không lưu token phiên trong localStorage/sessionStorage hoặc trả trong JSON.
 - Định dạng: JSON; lỗi trả về `{ timestamp, status, error, code, message, path }`. `code` ổn định từ `contracts/errors.json`; backend giữ message tiếng Anh an toàn, frontend ánh xạ vi/en theo locale, không hiển thị exception thô. HTTP status và bản dịch được sinh từ cùng danh mục; xem `contracts/README.md`.
 - Phân trang: `?page=0&size=20&sort=createdAt,desc`.
 - Mỗi service công bố OpenAPI tại `/swagger-ui.html` (môi trường dev/demo).
@@ -19,7 +25,7 @@ Quy ước chung:
 - Một email chuẩn hóa tương ứng một Customer. Google-first đặt mật khẩu Clucky một lần; email login dùng cùng hash. Email-first đã verify được link Google rồi đăng nhập ngay, không đổi mật khẩu/userId/hồ sơ. Không tạo user riêng cho Google.
 - `POST /api/auth/google` body `{idToken}` (không rỗng, tối đa 16.384 ký tự): Firebase Admin verify project/chữ ký/expiry/revocation/email_verified/provider Google. User mới trả 200 `{status: "REQUIRES_PASSWORD", pendingToken}` và không cấp JWT/cookie; user đã hoàn tất trả AuthResponse + refresh cookie hiện có.
 - `POST /api/auth/google/complete` body `{pendingToken,password}`: token ngẫu nhiên 43 ký tự base64url, TTL mặc định 10 phút, dùng một lần. Password 8–72 ký tự, có chữ hoa/thường/số, không quá 72 byte UTF-8. Tạo CUSTOMER ACTIVE/email_verified=true; trả 200 AuthResponse + cookie, không gửi OTP email registration.
-- AuthResponse chỉ có accessToken/role/storeId/email/fullName. Refresh ở cookie `clucky_refresh_token`, HttpOnly, SameSite=Lax, Path=/api/auth, Secure theo AUTH_COOKIE_SECURE; không trả refresh token trong JSON. Hai route Google yêu cầu Origin/Referer thuộc allow-list AUTH_ALLOWED_ORIGINS như login.
+- AuthResponse chỉ có userId/role/storeId/email/fullName. Cookie riêng: `clucky_customer_access`, `clucky_customer_refresh`, `clucky_admin_access`, `clucky_admin_refresh`; HttpOnly, SameSite=Lax, Secure theo AUTH_COOKIE_SECURE. Access Path=/api, refresh Path=/api/auth. Cookie tồn tại theo refresh TTL; JWT access vẫn hết hạn theo access TTL. Xem [vòng đời phiên trình duyệt](Browser_Sessions.md).
 - User LOCKED: 403 ACCOUNT_LOCKED; non-CUSTOMER: 403 FORBIDDEN; email đăng ký dở chưa verified: 401 EMAIL_NOT_VERIFIED, không tự giữ mật khẩu chưa chứng minh ownership để link; UID/email xung đột: 409 RESOURCE_CONFLICT. Email register/complete cạnh tranh tài khoản đã có: 409 EMAIL_EXISTS, không overwrite.
 - Token Google sai/hết hạn/revoked/provider sai: 401 UNAUTHENTICATED; pending hết hạn/đã dùng: 401 TOKEN_REVOKED; quá 10 lần Google sign-in/UID trong 60 giây: 429 TOO_MANY_REQUESTS; Firebase chưa bật hoặc Redis/Firebase không sẵn sàng: 503 DEPENDENCY_UNAVAILABLE. Lỗi theo shape/catalog chung.
 - Pending được lấy và xóa nguyên tử bằng Redis GETDEL, không GET rồi DEL riêng. Nếu DB rollback, khách bắt đầu Google lại; nếu DB đã commit nhưng response thất lạc, lần Google lại vào tài khoản đã tạo không hỏi password. UI bỏ pending cũ sau 409/5xx/lỗi mạng và hướng dẫn retry, không dùng complete để reset mật khẩu.
@@ -29,13 +35,14 @@ Quy ước chung:
 |---|---|---|
 | POST /api/auth/register | PUB | Đăng ký khách hàng, gửi OTP |
 | POST /api/auth/verify-otp | PUB | Xác thực OTP đăng ký |
-| POST /api/auth/login | PUB | Trả access token trong JSON; refresh token trong cookie HttpOnly |
-| POST /api/auth/refresh | Cookie refresh | Rotate refresh token, trả access token mới; không cần Bearer |
+| POST /api/auth/login | PUB | Cấp hai cookie HttpOnly theo client; JSON chỉ chứa thông tin user |
+| POST /api/auth/refresh | Cookie refresh | Rotate refresh token, cập nhật hai cookie; không cần Bearer |
+| GET /api/auth/session | Đã đăng nhập | Trả userId/role/storeId/email/fullName; không trả token |
 | POST /api/auth/logout | Cookie refresh | Thu hồi phiên hiện tại và xóa cookie; không cần Bearer |
 | POST /api/auth/forgot-password | PUB | Gửi OTP đặt lại mật khẩu |
 | POST /api/auth/reset-password | PUB | Đặt lại mật khẩu bằng OTP |
-| POST /api/auth/google | PUB | Đăng nhập Google bằng Firebase ID token — trả JWT nếu user đã tồn tại/link được, hoặc `{status: "REQUIRES_PASSWORD", pendingToken}` nếu là user mới |
-| POST /api/auth/google/complete | PUB | Hoàn tất đăng ký Google: `pendingToken` + `password` → tạo user CUSTOMER (bỏ OTP vì Google đã verify email), trả JWT |
+| POST /api/auth/google | PUB | Đăng nhập Google bằng Firebase ID token — cấp cookie và trả thông tin user, hoặc `{status: "REQUIRES_PASSWORD", pendingToken}` nếu là user mới |
+| POST /api/auth/google/complete | PUB | Hoàn tất đăng ký Google: `pendingToken` + `password` → tạo CUSTOMER, cấp cookie và trả thông tin user |
 | GET/PUT /api/users/me | Đã đăng nhập | Xem/cập nhật hồ sơ cá nhân |
 | GET/POST/PUT/DELETE /api/users/me/addresses | CUS | Quản lý sổ địa chỉ |
 | GET /api/users | ADM | Danh sách tài khoản toàn hệ thống (lọc theo role/store) |
@@ -111,6 +118,8 @@ Quy ước chung:
 | GET/PUT /api/payments/bank-config | ADM | Cấu hình tài khoản ngân hàng nhận tiền |
 
 # 5. PROMOTION & LOYALTY SERVICE — /api/promotions, /api/loyalty
+
+Checkout integration update: when `CATALOG_SERVICE_TOKEN` is empty, Order issues a 60-second internal JWT using its existing signing configuration, with reserved technical subject `Long.MAX_VALUE`, role `INTERNAL_SERVICE`, issuer/audience/iat/exp/sid. An explicitly configured token remains an override requiring rotation. Gateway continues to block Catalog internal routes; customer/admin login tokens are not substituted. Order preview returns `orderValid` separately from `voucherValid`; `orderValid=false` must not enable checkout even if monetary fields are zero.
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
 | GET /api/promotions/vouchers/available | CUS | Voucher khả dụng cho khách |
@@ -120,9 +129,13 @@ Quy ước chung:
 | PUT /api/promotions/vouchers/{id}/approve | ADM | Duyệt voucher chi nhánh |
 | GET /api/promotions/banners | PUB | Banner trang chủ đang hiệu lực |
 | POST/PUT/DELETE /api/promotions/banners | ADM | CRUD banner |
-| GET /api/loyalty/me | CUS | Điểm, hạng, lịch sử điểm của tôi |
-| POST /api/loyalty/earn, /redeem | SYS nội bộ | Cộng/trừ điểm theo sự kiện đơn (Order/Kafka gọi) |
+| GET /api/loyalty/policy | PUB | Chính sách hiển thị; không chứa thông tin khách hoặc credential |
+| GET /api/loyalty/me?page=0&size=10&type=ALL | CUS | Điểm tổng/khả dụng/đang giữ/tích lũy, hạng và lịch sử phân trang của JWT owner |
+| POST /internal/loyalty/preview, /reserve | SYS nội bộ | Preview/giữ điểm với version policy và orderId; credential service, không qua Gateway |
+| Consumer order.completed / order.cancelled | SYS nội bộ | Redeem+earn / release atomic; thay cho API earn/redeem công khai dự kiến trước đây |
 | GET/PUT /api/loyalty/config | ADM | Cấu hình tỉ lệ tích/đổi điểm |
+
+Contract triển khai, vòng đời reservation, error matrix, migration và ranh giới refund: [Loyalty end-to-end](../specs/loyalty-end-to-end.md). Order create hỗ trợ `expectedTotal` để từ chối 409 nếu tổng tiền khác preview đã được khách xác nhận.
 
 # 6. SHIPPING SERVICE — /api/shipping
 | Method & Path | Quyền | Mô tả |

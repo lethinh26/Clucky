@@ -47,6 +47,14 @@ function HistoryNavigation({ store }: { store: LoadingStore }) {
     null,
   );
   useLayoutEffect(() => {
+    if (!location.hash) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname]);
+  useLayoutEffect(() => {
+    const previous = history.scrollRestoration;
+    history.scrollRestoration = "manual";
+    return () => { history.scrollRestoration = previous; };
+  }, []);
+  useLayoutEffect(() => {
     current.current = committed;
     if (historyTask.current && committed === navigationKey(location)) {
       historyTask.current.finish();

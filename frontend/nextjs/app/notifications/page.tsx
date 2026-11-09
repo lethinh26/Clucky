@@ -1,4 +1,5 @@
 'use client';
+import { useFeedback } from "@/components/feedback";
 
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
@@ -27,6 +28,7 @@ export default function NotificationsPage() {
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [notifications, setNotifications] = useState<NotificationItemData[]>(MOCK_CUSTOMER_NOTIFICATIONS);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  useFeedback(errorMessage);
 
   // Fallback Modal for Safe Target Handling (AC-04)
   const [fallbackModal, setFallbackModal] = useState<{

@@ -308,13 +308,15 @@ class AuthServiceTest {
                 UserRepository.class.getClassLoader(),
                 new Class<?>[]{UserRepository.class},
                 (instance, method, args) -> switch (method.getName()) {
-                    case "findByEmail" -> users.values().stream()
+                    case "findByEmail", "findByEmailForGoogle" -> users.values().stream()
                             .filter(user -> user.getEmail().equals(args[0])).findFirst();
+                    case "findByLogin" -> users.values().stream()
+                            .filter(user -> args[0].equals(user.getLoginName() == null ? user.getEmail() : user.getLoginName())).findFirst();
                     case "existsByEmail" -> users.values().stream()
                             .anyMatch(user -> user.getEmail().equals(args[0]));
                     case "existsByPhone" -> args[0] != null && users.values().stream()
                             .anyMatch(user -> args[0].equals(user.getPhone()));
-                    case "findById" -> Optional.ofNullable(users.get((Long) args[0]));
+                    case "findById", "findByIdForUpdate" -> Optional.ofNullable(users.get((Long) args[0]));
                     case "save", "saveAndFlush" -> {
                         User user = (User) args[0];
                         if (user.getId() == null) {

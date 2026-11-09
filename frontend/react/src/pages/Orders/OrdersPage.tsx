@@ -1,21 +1,9 @@
+import { message } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useTranslation } from "react-i18next";
-import { mockStores } from "../../mocks/catalogData";
 import React, { useState } from "react";
-import {
-  Table,
-  Tabs,
-  Input,
-  Select,
-  Button,
-  Tag,
-  Space,
-  Typography,
-  Badge,
-  Alert,
-  App as AntApp,
-} from "antd";
-import type { TableColumnsType } from "antd";
+import { Table, Tabs, Input, Select, Button, Tag, Space, Typography, Badge, Alert } from "antd";
+import { TableColumnsType } from "antd";
 
 import { AdminOrder, AdminOrderStatus } from "../../types/order";
 import { useOrders } from "../../context/OrderContext";
@@ -46,7 +34,6 @@ export const OrdersPage: React.FC = () => {
   const { t } = useTranslation();
   const { locale } = useLocaleTools();
 
-  const { message } = AntApp.useApp();
   const {
     orders,
     updateStatus,
@@ -54,6 +41,7 @@ export const OrdersPage: React.FC = () => {
     storageError,
     actionError,
     loading,
+    refreshOrders,
   } = useOrders();
   usePageLoading(loading);
   const { isAdmin } = useAuth();
@@ -204,10 +192,10 @@ export const OrdersPage: React.FC = () => {
           </span>
           <div>
             <Tag
-              color={record.paymentStatus === "PAID" ? "green" : "gold"}
+              color={["PAID", "COLLECTED"].includes(record.paymentStatus) ? "green" : "gold"}
               style={{ fontSize: 11 }}
             >
-              {record.paymentStatus === "PAID" ? t("business:orderdetaildrawer.collected") : t("business:orderspage.notCollected")}
+              {t(`admin:paymentStates.${record.paymentStatus}`)}
             </Tag>
           </div>
         </div>
@@ -273,6 +261,7 @@ export const OrdersPage: React.FC = () => {
     },
   ];
 
+  if (storageError) return <div role="alert"><p>{storageError}</p><Button onClick={refreshOrders}>{t('common:retry')}</Button></div>;
   return (
     <div className={`${styles.ordersContainer} m3-admin-page`}>
       {(storageError || actionError) && (
@@ -348,10 +337,7 @@ export const OrdersPage: React.FC = () => {
               style={{ width: 220 }}
               options={[
                 { value: "ALL", label: t("business:stores.allStores") },
-                ...mockStores.map((store) => ({
-                  value: String(store.id),
-                  label: store.name,
-                })),
+                ...Array.from(new Map(orders.map(order => [order.storeId, order.storeName]))).map(([value, label]) => ({ value, label })),
               ]}
             />
           )}

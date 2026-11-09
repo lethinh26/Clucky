@@ -1,4 +1,5 @@
 'use client';
+import { useFeedback } from "@/components/feedback";
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
@@ -34,6 +35,7 @@ export function NotificationPopover({
   const [tab, setTab] = useState<'all' | 'unread'>('all');
   const [notifications, setNotifications] = useState<NotificationItemData[]>(initialNotifications);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  useFeedback(errorMessage);
 
   // Fallback Modal for Safe Target Handling (AC-04)
   const [fallbackModal, setFallbackModal] = useState<{

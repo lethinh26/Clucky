@@ -1,175 +1,18 @@
-# [INT-06] Menu/catalog E2E: browse, search, availability theo quán
+# [INT-06] ĐÃ GỘP — không còn task độc lập
 
-> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
+> **Đã gộp và xoá record nguồn trên Lark 08/11/2026**, sau khi chuyển snapshot/evidence và liên kết sang TASK đích. Các dòng “chưa đồng bộ” bên dưới chỉ phản ánh thời điểm biên soạn. [Kết quả đồng bộ](../docs/Lark_Backlog_Sync_2026-11-08.md).
 
-## Thông tin quản lý
+Cập nhật 07/11/2026 tại repository; **chưa đồng bộ Lark**. Đây chỉ là trang truy vết, không giao việc/tính SP như task hoặc subtask.
 
-| Thuộc tính | Giá trị giữ nguyên |
-|---|---|
-| PIC | Nguyễn Duy Quang Nhật |
-| Trạng thái snapshot — không xác nhận lại | TO DO |
-| Sprint kế hoạch | SPRINT 2 |
-| Bắt đầu → deadline (UTC+7) | 03/11/2026 08:00 → 04/11/2026 23:59 |
-| SP / giờ công dự kiến | 5 SP / 6 giờ công |
+**Bỏ record độc lập:** scope triển khai (nếu có), AC/DoD nằm trong TASK chính; dev tự test, không xóa yêu cầu nghiệp vụ/kiểm chứng.
 
-Nhóm sprint hiện tại trên Lark (nếu khác kế hoạch) và toàn bộ metadata được giữ trong mục cuối. Không tự đổi PIC, lịch, estimate hoặc trạng thái vì viết lại tiêu chí.
+- [UI-11](UI-11.md) — Xây dựng và nối API trang menu theo quán, hỗ trợ danh mục, tìm kiếm, bộ lọc và đồng bộ lựa chọn với URL
+- [UI-10](UI-10.md) — Xây dựng trang chủ Customer hiển thị banner, danh mục và món nổi bật từ dữ liệu, điều hướng đến đúng menu hoặc chi tiết món
+- [UI-12](UI-12.md) — Xây dựng trang chi tiết món, cho chọn tùy chọn, topping, số lượng, xem tạm tính và đánh giá trước khi thêm vào giỏ
+- [UI-13](UI-13.md) — Xây dựng trang chọn chi nhánh, hiển thị địa chỉ, giờ mở và trạng thái nhận đơn rồi chuyển tới menu đúng quán
+- [BE-20](BE-20.md) — Cung cấp API công khai để tìm cửa hàng, duyệt menu, tìm kiếm và xem món hoặc combo với giá đúng chi nhánh
+- [BE-54](BE-54.md) — Kết nối menu qua Gateway và triển khai cache theo quán, làm mới dữ liệu khi giá hoặc trạng thái bán thay đổi
 
-## 1. Mục tiêu nghiệp vụ
+**Định danh Lark cũ để đối chiếu:** Mail-4526 / reczz28Rid5XkYJT
 
-Menu Customer lấy dữ liệu Catalog thật qua Gateway và phản ánh đúng bộ lọc/quán.
-
-## 2. Phạm vi
-
-### Bao gồm
-
-- Browse/search/filter/detail nối API thay mock trong phạm vi tích hợp.
-- Bàn giao theo phạm vi gốc: Browse works.
-
-### Không bao gồm
-
-Không CRUD admin hoặc performance certification TEST-13.
-
-### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
-
-Menu đã gọi catalogApi theo storeId; ProductCard mang storeId sang detail. selectedCategory khởi tạo từ cat nhưng cần rà thay đổi URL trên cùng trang. Home/detail có catch chuyển về rỗng/null, không coi đó là xử lý lỗi E2E hoàn chỉnh.
-
-- [frontend/nextjs/app/menu/page.tsx](../../frontend/nextjs/app/menu/page.tsx)
-- [frontend/nextjs/components/product-card.tsx](../../frontend/nextjs/components/product-card.tsx)
-- [frontend/nextjs/lib/api.ts](../../frontend/nextjs/lib/api.ts)
-- [backend/catalog-store-service](../../backend/catalog-store-service)
-- [architechture/tasks/BE-54.md](../../architechture/tasks/BE-54.md)
-
-Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
-
-## 3. Đầu vào, đầu ra và contract
-
-| Thành phần | Chi tiết cần bàn giao |
-|---|---|
-| Đầu vào / nguồn tin cậy | BE-20 public API, INT-54 routing và menu/product UI. |
-| Đầu ra / contract | Browse/search/filter/detail nối API thay mock trong phạm vi tích hợp. |
-| Điểm giao tiếp / deliverable đã cam kết | Browse works |
-
-Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
-
-### Mapping phải ghi trước khi nối luồng
-
-Ghi query cat/storeId/keyword/pagination thực được API hỗ trợ, response list/detail/availability và cache key theo quán. Chốt lọc client hay server với Catalog; không đổi chiến lược ngầm hoặc tải tất cả khi contract phân trang.
-
-## 4. Thứ tự thực hiện cụ thể
-
-1. Đối chiếu public Catalog routes qua Gateway và DTO thực với Menu/Home/detail; ghi endpoint/field còn thiếu.
-2. Chuẩn bị cùng món tại quán A còn hàng và B hết hàng, một danh mục rỗng và ID không hợp lệ.
-3. Nối list/search/filter theo query đã duyệt; đồng bộ cat/storeId với reload và Back/Forward, không dùng index làm category ID.
-4. Nối detail và đường quay lại giữ quán; response lỗi phải tách not-found/empty/network thay vì mock success.
-5. Xử lý đổi quán nhanh: hủy hoặc bỏ response cũ, clear state stale; sau availability mutation dùng cơ chế invalidation/refetch đã thống nhất BE-54.
-6. Bàn giao request matrix, cache-scope evidence và case lỗi/retry cho người dùng kiểm chứng; không khẳng định runtime chỉ từ source đã gọi API.
-
-## 5. Quy tắc và điểm cần chốt
-
-**Điểm cần PIC/owner xác nhận:** Chốt query/pagination và cache behavior với M2, không tự tải mọi sản phẩm rồi lọc trái contract.
-
-**Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
-
-Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
-
-### Quyết định có owner và phần bị chặn
-
-PIC tích hợp và Catalog chốt pagination/cache TTL/invalidation và cách phản ánh unknown availability. Thiếu invalidation thì ghi blocker mutation→browse; không tự nới thời gian stale để AC pass.
-
-## 6. Dependency và bàn giao
-
-### Tiên quyết đã có trong backlog
-
-| Task tiên quyết đã khai báo | PIC bàn giao | Cần nhận cụ thể | Mốc sử dụng |
-|---|---|---|---|
-| [BE-20](BE-20.md) | Nguyễn Duy Quang Nhật | Stores/categories/products/combos/search và detail DTO cho menu lẫn Order kiểm tra giá/availability. | Chốt DTO/state/error trước; API/event thật phải sẵn sàng trước nghiệm thu tích hợp. |
-| [BE-54](BE-54.md) | Nguyễn Duy Quang Nhật | Cache read/invalidation và availability contract dùng cho menu/checkout. | Chốt DTO/state/error trước; API/event thật phải sẵn sàng trước nghiệm thu tích hợp. |
-| [INT-54](INT-54.md) | Nguyễn Duy Quang Nhật | Public catalog discovery integration không hardcode business service URL ở frontend. | Trước kiểm chứng xuyên hệ thống; cần luồng thật và dữ liệu/evidence bàn giao. |
-
-### Có thể bắt đầu đến đâu?
-
-- Chuẩn bị input/fixture, đối chiếu phạm vi và chốt contract ở mục 3–5 mà không chờ mọi API hoàn tất. Chỉ code theo fixture khi contract liên quan đã thống nhất.
-- Phần sử dụng đầu ra của dependency chỉ được nghiệm thu sau khi owner bàn giao bản thật và chạy được tình huống liên quan; deadline cùng ngày không chứng minh đầu ra đã sẵn sàng.
-- Phối hợp bổ sung nêu ở mục 5 là việc cần xác nhận, **không tự thêm dependency hoặc đổi lịch** trong snapshot này. Một PIC chịu trách nhiệm task; owner domain khác giữ trách nhiệm producer/consumer của mình.
-
-**Task nhận đầu ra theo dependency đã khai báo:** [TEST-01](TEST-01.md), [TEST-17](TEST-17.md)
-
-## 7. Tiêu chí nghiệm thu cụ thể
-
-| AC | Fixture / thao tác | Kết quả mong đợi |
-|---|---|---|
-| AC-01 | Chọn A, tìm món, mở detail, đổi sang B với availability khác | List/detail và link giữ đúng scope; B không nhận state còn hàng của A |
-| AC-02 | Đổi store | Không tái dùng menu/cache sai quán |
-| AC-03 | API lỗi | Loading kết thúc và có retry |
-| AC-04 | Không có kết quả | Empty đúng, không fallback mock như dữ liệu thật |
-| AC-05 | Response A đến sau B và thao tác Back/Forward đổi cat | Kết quả và sidebar khớp URL hiện tại, không bị response cũ ghi đè |
-| AC-06 | Tắt availability tại quán rồi tải lại theo policy cache | Món phản ánh thay đổi trong giới hạn đã duyệt; không fallback fixture khi API lỗi |
-
-Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
-
-## 8. Checklist và bằng chứng bàn giao
-
-- [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] Bàn giao bằng chứng cụ thể: Gateway requests, two-store data và loading/error/empty/reload cases.
-- [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
-
-- Gộp yêu cầu TEST-15: kiểm chứng critical path phù hợp domain; bug thực tế có một PIC, không tạo task chung cho cả nhóm.
-
-- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
-- [ ] Bàn giao bảng query/DTO/cache key, trace A/B và invalidation cùng owner BE-54/INT-54; giữ riêng kết quả UI và API thật.
-- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
-- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
-
-## 9. Truy vết gộp task
-
-DEP-14: Catalog smoke test + menu seed/runbook
-
-Không mở lại các ID đã gộp; phần việc gộp phải được kiểm chứng cùng task đích.
-
-## 10. Tài liệu và source cần đọc
-
-- [frontend/nextjs/app/menu/page.tsx](../../frontend/nextjs/app/menu/page.tsx)
-- [frontend/nextjs/components/product-card.tsx](../../frontend/nextjs/components/product-card.tsx)
-- [frontend/nextjs/lib/api.ts](../../frontend/nextjs/lib/api.ts)
-- [backend/catalog-store-service](../../backend/catalog-store-service)
-- [architechture/tasks/BE-54.md](../../architechture/tasks/BE-54.md)
-- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
-
-## 11. Metadata và lịch sử kế hoạch
-
-<details>
-<summary>Xem nguyên trạng metadata, ước lượng và lịch từ bản trước</summary>
-
-**PIC:** Nguyễn Duy Quang Nhật
-**Trạng thái trên Lark:** TO DO
-**Sprint:** SPRINT 2
-**Khoảng sprint:** 02/11/2026–08/11/2026 (khung lưu lịch sử; hoàn tất 05/11, Sprint Review 06/11)
-**Bắt đầu:** 03/11/2026 08:00
-**Deadline:** 04/11/2026 23:59
-**Múi giờ:** Asia/Ho_Chi_Minh (UTC+7)
-**Loại:** Sub Task
-**Mã Lark:** Mail-4526 / reczz28Rid5XkYJT
-**Record:** https://msgmclt9kdj2.sg.larksuite.com/base/ByTkbHQcYaPOMAsoU4jl41pdgSd?table=tblXgna1HdN3POFK&record=reczz28Rid5XkYJT
-**Cập nhật:** 30/10/2026 — kế hoạch hai sprint đã được duyệt
-
-**Story Point:** 5 SP
-**Time Estimated:** 6 giờ công
-**Remaining Estimate:** 6 giờ công — tạm bằng estimate vì chưa có tiến độ mới; không phải số giờ còn lại đã xác minh.
-**Cơ sở ước lượng:** Sơ bộ theo snapshot 30/10; PIC cần xác nhận, không suy ra tiến độ hiện tại.
-**Cập nhật ước lượng/lịch:** 01/11/2026 — đã đồng bộ ước lượng/lịch lên Lark; giữ trạng thái, PIC và nhóm sprint hiện tại.
-
-## Ước lượng và lịch thực hiện
-
-Tính phần nối contract, xử lý lỗi liên service/UI, fixture và evidence tích hợp; không triển khai lại API đã tính ở BE hoặc chạy lại bộ regression TEST.
-
-Không quy đổi SP ra giờ; giờ công không gồm chờ dependency. Ước lượng gồm tự kiểm chứng/sửa lỗi trong phạm vi, không cộng thêm buffer phần trăm hoặc phần việc BE/INT/TEST đã tính riêng. Xem [quy ước và tải tổng hợp](../../docs/backlog.md#quy-ước-ước-lượng).
-
-Lịch cũ (30/10): 04/11/2026 08:00 → 06/11/2026 23:59. Lịch mới: 03/11/2026 08:00 → 04/11/2026 23:59. Giữ khung Sprint 2 02–08/11 để truy vết; hạn hoàn thành thực tế 05/11, Sprint Review 06/11, không xếp việc triển khai/nghiệm thu vào 06–08/11.
-
-Bắt đầu có thể là chuẩn bị fixture/UI theo contract; phần cần API/event thật bị chặn cho đến khi dependency bàn giao. Nếu cùng ngày đến hạn, phải bàn giao prerequisite trước khi nghiệm thu task này; không coi deadline trùng ngày là bằng chứng đã sẵn sàng.
-
-</details>
-
-## Quy ước kiểm chứng
-
-Việc cập nhật detail không chạy test, lint, typecheck, build, Docker hoặc trình duyệt. Checklist là điều kiện nghiệm thu để người phụ trách thực hiện, không phải báo cáo PASS. Giữ trạng thái snapshot, kể cả DONE; chưa xác nhận lại trên Lark.
+Xem [báo cáo phân loại](../docs/Backlog_Reclassification_2026-11-07.md), [backlog hiện hành](../docs/backlog.md) và lịch sử Git. Không đánh DONE vì đổi tài liệu; không chạy kiểm thử trong lần cập nhật này.

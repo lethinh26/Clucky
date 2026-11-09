@@ -4,6 +4,11 @@ const customer = "http://127.0.0.1:4174";
 
 test("cart preserves combo/options and server keys; failed mutations keep the cart", async ({ page }) => {
   const items: any[] = [];
+  let signedIn = false;
+  await page.route("**/api/auth/session", route => route.fulfill(signedIn
+    ? { json: { userId: 7, role: "CUSTOMER", fullName: "Customer", email: "customer@example.com" } }
+    : { status: 401, json: { code: "UNAUTHENTICATED" } }));
+  await page.route("**/api/auth/refresh", route => route.fulfill({ status: 401, json: { code: "UNAUTHENTICATED" } }));
   const additions: any[] = [];
   const mutationKeys: string[] = [];
   let rejectUpdate = false;
@@ -12,6 +17,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await page.route(/\/api\/cart(?:\/|$)/, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === "/api/cart/merge") return route.fulfill({ json: response() });
     if (request.method() === "POST") {
       const body = request.postDataJSON();
       additions.push(body);
@@ -60,7 +66,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   expect(additions[1]).toMatchObject({ comboId: 901, optionIds: [], toppingIds: [] });
   expect(additions[1].productId).toBeUndefined();
   await expect(page.getByRole("button", { name: /Đã thêm/ })).toBeVisible();
-  await page.evaluate(() => localStorage.setItem("clucky_access_token", "test-customer-token"));
+  signedIn = true;
   await page.route("**/api/orders/preview", (route) => route.fulfill({ json: {
     subtotal: 120000, discountAmount: 0, pointsAmount: 0, pointsUsed: 0,
     shippingFee: 20000, totalAmount: 140000, voucherValid: false,

@@ -1,24 +1,9 @@
+import { message } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useTranslation } from "react-i18next";
 import React, { useMemo, useState } from "react";
-import {
-  Button,
-  Alert,
-  Card,
-  Drawer,
-  Form,
-  Input,
-  Modal,
-  Select,
-  Space,
-  Switch,
-  Table,
-  Tabs,
-  Tag,
-  Typography,
-  message,
-} from "antd";
-import type { TableColumnsType } from "antd";
+import { Button, Alert, Card, Drawer, Form, Input, Modal, Select, Space, Switch, Table, Tabs, Tag, Typography } from "antd";
+import { TableColumnsType } from "antd";
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,

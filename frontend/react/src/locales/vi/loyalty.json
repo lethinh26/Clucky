@@ -1,0 +1,6 @@
+{
+  "title": "Cấu hình Clucky Club", "description": "Chính sách dùng chung cho trang thành viên và checkout. Chỉ Admin có quyền cập nhật. Đơn đã tạo giữ nguyên phiên bản đã chốt.",
+  "spendPerPoint": "Số tiền thực trả để tích 1 điểm (VNĐ)", "pointValue": "Giá trị đổi 1 điểm (VNĐ)", "silverThreshold": "Điểm tích lũy để lên hạng Bạc", "goldThreshold": "Điểm tích lũy để lên hạng Vàng", "silverDiscount": "Giảm giá hạng Bạc (%)", "goldDiscount": "Giảm giá hạng Vàng (%)",
+  "rules": "Ngưỡng Vàng phải lớn hơn Bạc; giảm giá Vàng không thấp hơn Bạc. Thứ tự: voucher → hạng → điểm. Không tính phí giao hàng. Tích điểm khi đơn hoàn tất, làm tròn xuống; đổi điểm không làm giảm điểm xét hạng.",
+  "required": "Vui lòng nhập giá trị", "save": "Lưu chính sách", "saved": "Đã lưu chính sách", "reload": "Tải lại cấu hình", "version": "Phiên bản {{version}}"
+}

@@ -1,5 +1,12 @@
 {
   "account": {
+    "welcomeBack": "Chào mừng trở lại,",
+    "exploreMenu": "Khám phá thực đơn",
+    "myOrders": "Đơn hàng của tôi",
+    "ordersHint": "Xem lại những bữa ngon của bạn",
+    "securityHint": "Quản lý mật khẩu đăng nhập",
+    "signInEmail": "Email đăng nhập",
+
     "unableToReadSavedDemoDataYouCanEnterYourDetailsAgain": "Không đọc được dữ liệu mẫu đã lưu. Bạn có thể nhập lại thông tin.",
     "unableToSaveDataInThisBrowserPleaseTryAgain": "Không lưu được dữ liệu trên trình duyệt. Vui lòng thử lại.",
     "pleaseCompleteTheAddressAndRecipientDetails": "Vui lòng điền đầy đủ địa chỉ và người nhận.",
@@ -48,7 +55,7 @@
     "saveAddress": "Lưu địa chỉ",
     "cancel": "Hủy",
     "deleteAddress": "Xóa địa chỉ?",
-    "thisAddressWillBeRemovedFromTheDemoAddressBook": "Địa chỉ này sẽ được xóa khỏi sổ địa chỉ mẫu.",
+    "thisAddressWillBeRemovedFromTheDemoAddressBook": "Địa chỉ này sẽ được xóa khỏi sổ địa chỉ của bạn.",
     "keepAddress": "Giữ lại",
     "addressDeleted": "Đã xóa địa chỉ.",
     "confirmDeletion": "Xác nhận xóa"

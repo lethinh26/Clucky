@@ -1,27 +1,10 @@
+import { message } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import { LanguageSwitcher } from "../../i18n/language-switcher";
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from 'react';
-import {
-  Form,
-  Input,
-  InputNumber,
-  Select,
-  Radio,
-  Button,
-  Space,
-  Upload,
-  Divider,
-  Card,
-  Tabs,
-  Typography,
-  message,
-  Switch,
-  DatePicker,
-  Progress,
-  Alert,
-} from 'antd';
-import type { UploadProps, UploadFile } from 'antd';
+import { Form, Input, InputNumber, Select, Radio, Button, Space, Upload, Divider, Card, Tabs, Typography, Switch, DatePicker, Progress, Alert } from "antd";
+import { UploadProps, UploadFile } from "antd";
 import {
   InboxOutlined,
   PlusOutlined,

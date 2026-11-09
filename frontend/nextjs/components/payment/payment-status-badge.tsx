@@ -29,6 +29,7 @@ export function PaymentStatusBadge({
   PaymentStatus,
   { label: string; styleClass: string }
 > = {
+  UNKNOWN: { label: t("business.paymentstatusbadge.unknownStatus"), styleClass: styles.payExpired },
   UNPAID: { label: t("business.paymentstatusbadge.unpaid"), styleClass: styles.payUnpaid },
   FAILED: { label: t("business.paymentstatusbadge.paymentFailed"), styleClass: styles.payMismatch },
   PENDING: { label: t("business.checkout.awaitingPayment"), styleClass: styles.payPending },

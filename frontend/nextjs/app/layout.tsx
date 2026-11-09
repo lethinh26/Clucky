@@ -3,12 +3,16 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { resources } from "@/lib/i18n/resources";
 import "./globals.css";
+import { Toaster } from "@/components/feedback";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { LocationProvider } from "@/components/maps/location-provider";
 import "./order-theme.css";
 import {
   NavigationLoaderProvider,
   NavigationContent,
 } from "@/components/ui-loader";
 import { OrderProvider } from "@/components/order/order-provider";
+import { SessionBoundary } from "@/components/auth/session-boundary";
 import { OrderDock } from "@/components/order/order-dock";
 import { CustomerHeader } from "@/components/customer-header";
 import { CustomerFooter } from "@/components/customer-footer";
@@ -41,21 +45,22 @@ export default async function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap&subset=vietnamese"
+          href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Baloo+2:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap&subset=vietnamese"
           rel="stylesheet"
         />
       </head>
       <body>
         <NextIntlClientProvider locale={locale} messages={messages} timeZone="Asia/Ho_Chi_Minh">
+        <Toaster locale={locale} />
         <NavigationLoaderProvider>
-          <OrderProvider>
+          <LocationProvider><OrderProvider>
             <div className={loaderStyles.siteLayout}>
               <CustomerHeader />
-              <NavigationContent>{children}</NavigationContent>
+              <NavigationContent><SessionBoundary>{children}</SessionBoundary></NavigationContent>
               <CustomerFooter />
               <OrderDock />
             </div>
-          </OrderProvider>
+          </OrderProvider></LocationProvider>
         </NavigationLoaderProvider>
         </NextIntlClientProvider>
       </body>

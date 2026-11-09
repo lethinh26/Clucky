@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { coordinates, distanceKm } from '../lib/geo.ts';
+assert.equal(coordinates({ latitude: null, longitude: 106 }), null);
+assert.equal(coordinates({ latitude: NaN, longitude: 106 }), null);
+assert.equal(coordinates({ latitude: 91, longitude: 106 }), null);
+assert.equal(coordinates({ latitude: 10, longitude: Infinity }), null);
+assert.deepEqual(coordinates({ latitude: 0, longitude: 0 }), { latitude: 0, longitude: 0 });
+const origin = { latitude: 0, longitude: 0 };
+assert.equal(distanceKm(origin, origin), 0);
+assert.ok(Math.abs(distanceKm(origin, { latitude: 0, longitude: 1 }) - 111.195) < 0.01);
+assert.ok(Math.abs(distanceKm(origin, { latitude: 0, longitude: 180 }) - 20015.087) < 0.1);
+const acrossDateLine = distanceKm({ latitude: 0, longitude: 179.9 }, { latitude: 0, longitude: -179.9 });
+assert.ok(acrossDateLine > 22 && acrossDateLine < 23);

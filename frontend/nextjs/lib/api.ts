@@ -4,17 +4,7 @@
  * All requests go through the API Gateway (`NEXT_PUBLIC_API_URL`,
  * same-origin when empty) — never directly to a business service.
  */
-function getBaseUrl(): string {
-  if (typeof window === "undefined") {
-    return (
-      process.env.API_URL ||
-      process.env.INTERNAL_API_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      "http://localhost:8080"
-    );
-  }
-  return process.env.NEXT_PUBLIC_API_URL ?? "";
-}
+import { sessionRequest, signIn, endSession, loadSession, refreshSession, getSessionState, type SessionUser } from "./session";
 
 export { getErrorMessage } from "./i18n/core";
 import { getBrowserLocale } from "./i18n/core";
@@ -37,51 +27,15 @@ export function getGuestSessionId(): string {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   headers.set("Accept-Language", getBrowserLocale());
-
-  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
-    const token = localStorage.getItem("clucky_access_token");
-    const publicAuth = [
-      "/api/auth/google", "/api/auth/google/complete", "/api/auth/login",
-      "/api/auth/register", "/api/auth/verify-otp", "/api/auth/refresh",
-      "/api/auth/logout", "/api/auth/forgot-password", "/api/auth/reset-password",
-    ].includes(path);
-    if (token && !publicAuth && !headers.has("Authorization")) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-    const guestSession = localStorage.getItem("clucky_guest_session_id");
+  if (typeof window !== "undefined" && (path.startsWith("/api/cart") || path.startsWith("/api/orders"))) {
+    const guestSession = getSessionState().user ? localStorage.getItem("clucky_guest_session_id") : getGuestSessionId();
     if (guestSession) {
       if (!headers.has("X-Guest-Session-Id")) headers.set("X-Guest-Session-Id", guestSession);
       if (!headers.has("X-Session-Id")) headers.set("X-Session-Id", guestSession);
-    } else if (!token && !headers.has("X-Session-Id") && (path.startsWith("/api/cart") || path.startsWith("/api/orders"))) {
-      const newSession = getGuestSessionId();
-      if (!headers.has("X-Guest-Session-Id")) headers.set("X-Guest-Session-Id", newSession);
-      if (!headers.has("X-Session-Id")) headers.set("X-Session-Id", newSession);
     }
   }
-
-  let res: Response;
-  try {
-    res = await fetch(`${getBaseUrl()}${path}`, {
-      credentials: "include",
-      ...options,
-      headers,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw error;
-    throw { code: "NETWORK_ERROR" };
-  }
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) {
-    const err: ApiError = {
-      status: res.status,
-      code: typeof data?.code === "string" ? data.code : undefined,
-      message: typeof data?.message === "string" ? data.message : undefined,
-    };
-    throw err;
-  }
-  return data as T;
+  return sessionRequest<T>(path, { ...options, headers });
 }
 
 /* ---------- Auth ---------- */
@@ -107,61 +61,34 @@ export interface ResetPasswordPayload {
   otp: string;
   newPassword: string;
 }
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken?: string;
-  role?: string;
-  storeId?: number;
-  email?: string;
-  fullName?: string;
-}
+export type AuthTokens = SessionUser;
 export type GoogleAuthResult =
   AuthTokens | { status: "REQUIRES_PASSWORD"; pendingToken: string };
 
 export const authApi = {
   google: (idToken: string) =>
-    request<GoogleAuthResult>("/api/auth/google", {
-      method: "POST",
-      body: JSON.stringify({ idToken }),
-    }),
+    signIn<GoogleAuthResult>("/api/auth/google", { idToken }),
   completeGoogle: (pendingToken: string, password: string) =>
-    request<AuthTokens>("/api/auth/google/complete", {
-      method: "POST",
-      body: JSON.stringify({ pendingToken, password }),
-    }),
+    signIn<AuthTokens>("/api/auth/google/complete", { pendingToken, password }),
   login: (body: LoginPayload) =>
-    request<AuthTokens>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+    signIn<AuthTokens>("/api/auth/login", body),
   register: (body: RegisterPayload) =>
     request<{ message?: string }>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(body),
     }),
   verifyOtp: (body: VerifyOtpPayload) =>
-    request<AuthTokens>("/api/auth/verify-otp", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-  refresh: () =>
-    request<AuthTokens>("/api/auth/refresh", {
-      method: "POST",
-    }),
-  logout: () =>
-    request<{ message?: string }>("/api/auth/logout", {
-      method: "POST",
-    }),
+    signIn<AuthTokens>("/api/auth/verify-otp", body),
+  session: loadSession,
+  refresh: refreshSession,
+  logout: () => endSession(),
   forgotPassword: (body: ForgotPasswordPayload) =>
     request<{ message?: string }>("/api/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify(body),
     }),
   resetPassword: (body: ResetPasswordPayload) =>
-    request<{ message?: string }>("/api/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+    endSession("/api/auth/reset-password", body),
 };
 
 /* ---------- Cart ---------- */
@@ -228,6 +155,8 @@ export const cartApi = {
 
 /* ---------- Order ---------- */
 export interface OrderPreviewPayload {
+  latitude?: number;
+  longitude?: number;
   storeId?: number;
   type: "DELIVERY" | "PICKUP";
   items: CartItemPayload[];
@@ -237,6 +166,8 @@ export interface OrderPreviewPayload {
 }
 
 export interface OrderPreviewResult {
+  orderValid?: boolean;
+  tierDiscount?: number;
   storeId?: number;
   type: string;
   subtotal: number;
@@ -253,6 +184,9 @@ export interface OrderPreviewResult {
 }
 
 export interface CreateOrderPayload {
+  expectedTotal?: number;
+  latitude?: number;
+  longitude?: number;
   storeId: number;
   type: "DELIVERY" | "PICKUP";
   paymentMethod: "COD" | "BANK_TRANSFER";
@@ -268,6 +202,7 @@ export interface CreateOrderPayload {
 
 export interface BackendOrderItem {
   id: number;
+  imageUrl?: string | null;
   itemType: "PRODUCT" | "COMBO";
   productId?: number;
   comboId?: number;
@@ -298,6 +233,7 @@ export interface BackendOrder {
   type: "DELIVERY" | "PICKUP";
   status: string;
   paymentMethod?: string;
+  paymentStatus?: 'PENDING' | 'PAID' | 'COLLECTED' | 'REFUNDED';
   subtotal: number;
   discountAmount: number;
   pointsUsed: number;
@@ -418,6 +354,8 @@ export const refundApi = {
 import type { StoreStatus } from "./types/store";
 
 export interface StoreItem {
+  latitude?: number | null;
+  longitude?: number | null;
   id: number;
   name: string;
   address: string;
@@ -568,16 +506,10 @@ export const promotionApi = {
       }
     ),
   getMyLoyalty: () => {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("clucky_access_token")
-        : null;
     return request<{
       points: import("./types/promotion").MemberPoints;
       transactions: import("./types/promotion").PointTransaction[];
-    }>("/api/loyalty/me", {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    }>("/api/loyalty/me");
   },
 };
 

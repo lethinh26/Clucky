@@ -1,9 +1,10 @@
 # [TEST-29] ĐÃ GỘP — không còn task độc lập
 
-Cập nhật 30/10/2026 theo kế hoạch đã duyệt.
+Cập nhật 07/11/2026 tại repository; **chưa đồng bộ Lark**. Đây chỉ là trang truy vết, không giao việc/tính SP như task hoặc subtask.
 
-Nội dung đã được chuyển vào task đích dưới đây; không tạo/giao lại record này.
+Đã gộp trước đây; chỉ cập nhật đích cuối, không tính là một lần xóa mới.
 
-- [INT-74](INT-74.md) — Google login E2E: tài khoản cũ/mới, complete-password, token lỗi và email trùng; PIC: Lê Phú Thịnh.
+- [BE-76](BE-76.md) — Triển khai đăng nhập Google qua Firebase, xác minh ID token, yêu cầu tài khoản mới hoàn tất mật khẩu và phát JWT Clucky
+- [UI-49](UI-49.md) — Xây dựng và nối luồng đăng nhập Google cho Customer, yêu cầu tài khoản mới nhập mật khẩu trước khi hoàn tất đăng nhập
 
-Bản lưu trữ cũ không còn được quản lý trong repository; xem lịch sử Git nếu cần bản cũ. Trang này chỉ giữ ánh xạ gộp, không tạo task mới. Xem [danh sách task hiện hành](README.md).
+Xem [báo cáo phân loại](../docs/Backlog_Reclassification_2026-11-07.md), [backlog hiện hành](../docs/backlog.md) và lịch sử Git. Không đánh DONE vì đổi tài liệu; không chạy kiểm thử trong lần cập nhật này.

@@ -37,6 +37,7 @@
   letter-spacing: 0.22em;
 }
 .headerNote {
+  margin-left: auto;
   color: #75675e;
   font-size: 12px;
   font-weight: 600;
@@ -270,10 +271,7 @@
     min-height: 85px;
   }
   .headerNote {
-    font-size: 10px;
-    max-width: 130px;
-    text-align: right;
-    line-height: 1.6;
+    display: none;
   }
   .layout {
     grid-template-columns: 1fr;

@@ -36,18 +36,8 @@ public class ReportService {
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(Long actorUserId, String actorRole, Long actorStoreId,
                                           Long requestedStoreId, LocalDate from, LocalDate to) {
-        Long effectiveStoreId = resolveEffectiveStoreId(actorRole, actorStoreId, requestedStoreId, true);
+        Long effectiveStoreId = resolveEffectiveStoreId(actorRole, actorStoreId, requestedStoreId, false);
         LocalDate today = LocalDate.now();
-        if ("STAFF".equalsIgnoreCase(actorRole)) {
-            if ((from != null && !from.equals(today)) || (to != null && !to.equals(today))) {
-                throw new ForbiddenException("Nhân viên chỉ được xem số đơn hôm nay của quán!");
-            }
-            // ponytail: daily projection only; add shift totals when an authoritative shift projection exists.
-            int todayOrders = statsRepository.findByStoreIdAndStatDate(effectiveStoreId, today)
-                    .map(DailyStoreStats::getOrderCount).orElse(0);
-            return new DashboardResponse("STORE_DAY", effectiveStoreId, today, today,
-                    null, todayOrders, null, null, null, null, OffsetDateTime.now());
-        }
 
         RevenueReportResponse period = getRevenueReport(
                 actorUserId, actorRole, actorStoreId, requestedStoreId, from, to);

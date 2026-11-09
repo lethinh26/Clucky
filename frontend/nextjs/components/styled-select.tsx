@@ -4,7 +4,7 @@ import { Select } from '@base-ui/react/select';
 import { ChevronDown } from 'lucide-react';
 import React from 'react';
 
-type Option = { value: string; label: string; lang?: string };
+type Option = { value: string; label: string; lang?: string; icon?: React.ReactNode };
 
 export function StyledSelect({
   value,
@@ -13,6 +13,8 @@ export function StyledSelect({
   ariaLabel,
   disabled = false,
   style,
+  triggerContent,
+  align = 'start',
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -20,6 +22,8 @@ export function StyledSelect({
   ariaLabel?: string;
   disabled?: boolean;
   style?: React.CSSProperties;
+  triggerContent?: React.ReactNode;
+  align?: 'start' | 'end';
 }) {
   const selected = options.find((o) => o.value === value);
 
@@ -48,13 +52,13 @@ export function StyledSelect({
           ...style,
         }}
       >
-        <Select.Value lang={selected?.lang}>{selected?.label ?? value}</Select.Value>
-        <Select.Icon>
-          <ChevronDown size={14} />
+        <Select.Value lang={selected?.lang} style={{ display: 'inline-flex', alignItems: 'center' }}>{triggerContent ?? selected?.label ?? value}</Select.Value>
+        <Select.Icon style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+          <ChevronDown size={14} style={{ display: 'block' }} />
         </Select.Icon>
       </Select.Trigger>
       <Select.Portal>
-        <Select.Positioner sideOffset={8} align="start" alignItemWithTrigger={false} style={{ zIndex: 1100 }}>
+        <Select.Positioner sideOffset={8} align={align} alignItemWithTrigger={false} style={{ zIndex: 1100 }}>
           <Select.Popup
             style={{
               background: '#FFFAF3',
@@ -86,7 +90,9 @@ export function StyledSelect({
                   }}
                   className="clucky-select-item"
                 >
-                  <Select.ItemText>{opt.label}</Select.ItemText>
+                  <Select.ItemText style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    {opt.icon}{opt.label}
+                  </Select.ItemText>
                 </Select.Item>
               ))}
             </Select.List>

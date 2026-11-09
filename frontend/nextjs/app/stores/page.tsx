@@ -1,399 +1,80 @@
-'use client';
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { useTranslations } from "next-intl";
-import Link from '@/components/ui-loader/navigation-link';
-import type { StoreItem } from '@/lib/api';
-import { getStoreStatusMeta } from '@/lib/types/store';
-import { catalogApi } from '@/lib/api';
-import {
-  MapPin,
-  Clock,
-  Phone,
-  Truck,
-  Search,
-  ExternalLink,
-  ShoppingBag,
-  Sparkles,
-  Store as StoreIcon,
-} from 'lucide-react';
-
+"use client";
+import { useFeedback } from "@/components/feedback";
+import { useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { Clock, MapPin, Phone, Search, ArrowUpRight } from "lucide-react";
+import Link from "@/components/ui-loader/navigation-link";
+import { catalogApi, type StoreItem } from "@/lib/api";
+import { getStoreStatusMeta } from "@/lib/types/store";
+import { coordinates, distanceKm } from "@/lib/locations";
+import { BranchMap } from "@/components/maps/branch-map";
+import { useDistanceOrigin } from "@/components/maps/use-distance-origin";
+import styles from "./stores.module.css";
 export default function StoresPage() {
-  const [storeList, setStoreList] = useState<StoreItem[]>([]);
+  const t = useTranslations("maps");
+  const locale = useLocale();
+  const { origin, fromHome } = useDistanceOrigin();
+  const originLabel = t(fromHome ? "defaultAddressOrigin" : "currentLocationOrigin");
+  const [stores, setStores] = useState<StoreItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const t = useTranslations();
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState<string>('ALL');
-
+  const [error, setError] = useState(false);
+  useFeedback(error && t("storesError"));
+  const [reload, setReload] = useState(0);
+  const [query, setQuery] = useState("");
+  const [district, setDistrict] = useState("");
+  const [selected, setSelected] = useState("");
+  const [focusRequest, setFocusRequest] = useState(0);
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    catalogApi.getStores(false)
-      .then((data) => {
-        if (active) setStoreList(data);
-      })
-      .catch((err) => {
-        if (active) setLoadError(err instanceof Error ? err.message : t("business.stores.noMatchingStoresFound"));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    setLoading(true); setError(false);
+    catalogApi.getStores(false).then(result => { if (active) setStores(result); })
+      .catch(() => { if (active) setError(true); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
-
-  const districts = useMemo(() => {
-    return ['ALL', ...Array.from(new Set(storeList.flatMap((s) => s.district ? [s.district] : [])))];
-  }, [storeList]);
-
-  const filteredStores = useMemo(() => {
-    return storeList.filter((s) => {
-      const matchDistrict = selectedDistrict === 'ALL' || s.district === selectedDistrict;
-      const matchSearch =
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (s.district?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-        s.phone.includes(searchTerm);
-      return matchDistrict && matchSearch;
-    });
-  }, [storeList, searchTerm, selectedDistrict]);
-
-  return (
-    <>
-            <main style={{ maxWidth: 1240, margin: '0 auto', padding: '32px 24px 100px' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <span className="eyebrow">
-            <Sparkles size={16} className="inline mr-1 text-[#C9A227]" />
-            {t("business.stores.eyebrow")}
-          </span>
-          <h1
-            style={{
-              fontFamily: 'Baloo 2, sans-serif',
-              fontWeight: 700,
-              fontSize: 'clamp(36px, 4.5vw, 54px)',
-              color: '#16100D',
-              margin: '6px 0 12px',
-              letterSpacing: '-0.03em',
-            }}
-          > {t("business.stores.cluckyStores")} </h1>
-          <p
-            style={{
-              fontFamily: 'Quicksand, sans-serif',
-              color: '#6B6259',
-              fontSize: 16,
-              maxWidth: 580,
-              margin: '0 auto',
-              lineHeight: 1.6,
-            }}
-          > {t("business.stores.pickUpAHotCrispyMealAtAStoreOrChooseYour")} </p>
+  }, [reload]);
+  const ranked = useMemo(() => stores.filter(store => (!district || store.district === district)
+    && [store.name, store.address, store.district, store.city, store.phone].some(value => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
+    .map(store => { const point = coordinates(store); return { store, point, distance: point && origin ? distanceKm(origin, point) : null }; })
+    .sort((first, second) => (first.distance ?? Infinity) - (second.distance ?? Infinity) || first.store.name.localeCompare(second.store.name, locale)), [stores, query, district, origin, locale]);
+  const selectedId = ranked.some(item => String(item.store.id) === selected) ? selected : "";
+  const missingLocation = selectedId && !coordinates(stores.find(store => String(store.id) === selectedId));
+  function select(id: string, fromMap = false) {
+    setSelected(id);
+    setFocusRequest(value => value + 1);
+    if (!fromMap && window.matchMedia("(max-width: 760px)").matches) {
+      document.getElementById("store-map")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    }
+    if (fromMap) {
+      const card = document.getElementById("branch-" + id);
+      card?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      card?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+    }
+  }
+  return <main className={styles.page}>
+    <header className={styles.header}><div><span className={styles.eyebrow}>CLUCKY • STORE LOCATOR</span><h1>{t("title")}</h1><p>{t("subtitle")}</p></div></header>
+    <div className={styles.layout}>
+      <section className={styles.listPanel} aria-label={t("title")}>
+        <div className={styles.filters}><div className={styles.search}><Search size={18} /><input value={query} onChange={event => setQuery(event.target.value)} aria-label={t("storeSearch")} placeholder={t("storeSearch")} /></div>
+          <select aria-label={t("district")} value={district} onChange={event => setDistrict(event.target.value)}><option value="">{t("district")}</option>{Array.from(new Set(stores.map(store => store.district).filter(Boolean))).map(value => <option key={value} value={value!}>{value}</option>)}</select>
+          <div className={styles.count}><strong>{ranked.length} {t("branches")}</strong>{origin && <span title={t("approximate")}>{originLabel} · {t("nearest")}</span>}</div>
         </div>
-
-        {/* Search & District Filter */}
-        <div
-          style={{
-            background: '#FFFAF3',
-            border: '1px solid #E8E2D9',
-            borderRadius: 24,
-            padding: '20px 24px',
-            boxShadow: '0 8px 30px rgba(22, 16, 13, 0.04)',
-            marginBottom: 36,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-          }}
-        >
-          <div style={{ position: 'relative', width: '100%', maxWidth: 500 }}>
-            <Search
-              size={18}
-              style={{
-                position: 'absolute',
-                left: 16,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#6B6259',
-              }}
-            />
-            <input
-              type="text"
-              placeholder={t("business.stores.searchByStoreNameStreetDistrict")}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                height: 46,
-                padding: '0 20px 0 44px',
-                borderRadius: 999,
-                border: '1px solid #E8E2D9',
-                backgroundColor: '#FFFFFF',
-                fontSize: 14,
-                color: '#16100D',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          {/* District Pills */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 10,
-              flexWrap: 'wrap',
-            }}
-          >
-            {districts.map((district) => {
-              const isActive = selectedDistrict === district;
-              return (
-                <button
-                  key={district}
-                  onClick={() => setSelectedDistrict(district)}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: 999,
-                    border: `1px solid ${isActive ? '#8F1216' : '#E8E2D9'}`,
-                    backgroundColor: isActive ? '#8F1216' : '#FFFFFF',
-                    color: isActive ? '#FFFFFF' : '#16100D',
-                    fontFamily: 'Baloo 2, sans-serif',
-                    fontWeight: 600,
-                    fontSize: 14,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    boxShadow: isActive ? '0 4px 14px rgba(143, 18, 22, 0.25)' : 'none',
-                  }}
-                >
-                  {district === 'ALL' ? t("business.stores.allStores") : district}
-                </button>
-              );
-            })}
-          </div>
+        <div className={styles.cards} aria-busy={loading}>
+          {loading && <p role="status">{t("mapLoading")}</p>}
+          {error && <div role="alert"><p>{t("storesError")}</p><button className="btn-secondary" onClick={() => setReload(value => value + 1)}>{t("retry")}</button></div>}
+          {!loading && !error && !ranked.length && <p>{t("noStores")}</p>}
+          {ranked.map(({ store, point, distance }, index) => {
+            const available = getStoreStatusMeta(store.status).canOrder;
+            return <article id={"branch-" + store.id} key={store.id} className={styles.card + (selectedId === String(store.id) ? " " + styles.selected : "")}>
+              <button type="button" className={styles.cardHeading} onClick={() => select(String(store.id))} aria-pressed={selectedId === String(store.id)} aria-label={store.name + " — " + t("selectStore")}>
+                <div className={styles.logo}><img src="/logo_primary.png" alt="" width={100} height={100} /></div>
+                <div><span className={available ? styles.open : styles.closed}>{t(available ? "open" : "closed")}</span><h2>{store.name}</h2><span className={styles.distance} title={distance !== null ? originLabel + " · " + t("approximate") : undefined}>{distance !== null ? t("distanceAway", { distance: new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(distance) }) : t(!point ? "unknownDistance" : "distanceUnavailable")}</span>{index === 0 && distance !== null && <small className={styles.nearest}>{t("nearYou")}</small>}</div>
+              </button>
+              <div className={styles.details}><p><MapPin size={16} />{store.address}</p><p><Clock size={16} />{store.openTime} – {store.closeTime}<a href={"tel:" + store.phone}><Phone size={14} />{store.phone}</a></p></div>
+              <div className={styles.actions}>{available ? <Link href={"/menu?storeId=" + store.id} className="btn-primary">{t("order")}<ArrowUpRight size={17} /></Link> : <span>{t("closed")}</span>}<a href={"https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(point ? point.latitude + "," + point.longitude : store.address)} target="_blank" rel="noreferrer">{t("directions")}<ArrowUpRight size={16} /></a></div>
+            </article>;
+          })}
         </div>
-
-        {loadError && (
-          <p role="alert" style={{ color: '#B42318', textAlign: 'center' }}>
-            {loadError}
-          </p>
-        )}
-        {loading ? (
-          <p aria-live="polite" style={{ textAlign: 'center' }}>{t("business.stores.loading")}</p>
-        ) : loadError ? null : filteredStores.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 24 }}>
-            {filteredStores.map((store) => {
-              const meta = getStoreStatusMeta(store.status);
-              return (
-                <article
-                  key={store.id}
-                  style={{
-                    background: '#FFFAF3',
-                    border: '1px solid #E8E2D9',
-                    borderRadius: 24,
-                    padding: 28,
-                    boxShadow: '0 8px 30px rgba(22, 16, 13, 0.05)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                  }}
-                >
-                  {/* Header: Name & Status */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 12,
-                          backgroundColor: '#F5EDE0',
-                          display: 'grid',
-                          placeItems: 'center',
-                          color: '#8F1216',
-                        }}
-                      >
-                        <StoreIcon size={20} />
-                      </div>
-                      <div>
-                        <h2
-                          style={{
-                            fontFamily: 'Baloo 2, sans-serif',
-                            fontWeight: 700,
-                            fontSize: 20,
-                            color: '#16100D',
-                            margin: 0,
-                          }}
-                        >
-                          {store.name}
-                        </h2>
-                        {(store.district || store.city) && (
-                          <span style={{ fontSize: 12, color: '#C9A227', fontWeight: 700 }}>
-                            {[store.district, store.city].filter(Boolean).join(', ')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <span
-                      style={{
-                        padding: '4px 12px',
-                        borderRadius: 999,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        backgroundColor: meta.bgColor,
-                        color: meta.color,
-                        border: `1px solid ${meta.borderColor}`,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {store.status === 'OPEN'
-                        ? t("business.stores.openNow")
-                        : store.status === 'CLOSED_TEMP'
-                          ? t("business.stores.underMaintenance")
-                          : t("business.stores.closed")}
-                    </span>
-                  </div>
-
-                  {/* Details */}
-                  <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: '#16100D' }}>
-                      <MapPin size={18} className="text-[#8F1216] flex-shrink-0 mt-0.5" />
-                      <span style={{ fontWeight: 600 }}>{store.address}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6B6259' }}>
-                      <Clock size={18} className="text-[#C9A227] flex-shrink-0" />
-                      <span>{t("business.stores.openingHours")} <strong>{store.openTime} – {store.closeTime}</strong></span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6B6259' }}>
-                      <Phone size={18} className="text-[#22577A] flex-shrink-0" />
-                      <span>Hotline: <strong>{store.phone}</strong></span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: '#6B6259', fontSize: 13 }}>
-                      <Truck size={18} className="text-[#1E7A46] flex-shrink-0 mt-0.5" />
-                      <span>{t("business.stores.delivery")} {store.deliveryArea}</span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div
-                    style={{
-                      marginTop: 'auto',
-                      paddingTop: 18,
-                      borderTop: '1px dashed #E8E2D9',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                    }}
-                  >
-                    {meta.canOrder ? (
-                      <Link
-                        href={`/menu?storeId=${store.id}`}
-                        className="btn-primary"
-                        style={{
-                          flex: 1,
-                          padding: '10px 16px',
-                          fontSize: 14,
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <ShoppingBag size={16} />
-                        <span>{t("business.stores.orderFromThisStore")}</span>
-                      </Link>
-                    ) : (
-                      <button
-                        disabled
-                        className="btn-primary"
-                        style={{
-                          flex: 1,
-                          padding: '10px 16px',
-                          fontSize: 14,
-                          justifyContent: 'center',
-                          backgroundColor: '#6B6259',
-                          opacity: 0.6,
-                          cursor: 'not-allowed',
-                          border: 'none',
-                        }}
-                        title={t("business.stores.thisStoreIsTemporarilyClosed")}
-                      >
-                        <span>{t("business.stores.serviceUnavailable")}</span>
-                      </button>
-                    )}
-
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(store.address)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-secondary"
-                      style={{
-                        padding: '10px 16px',
-                        fontSize: 14,
-                        color: '#16100D',
-                        borderColor: '#E8E2D9',
-                        backgroundColor: '#FFFFFF',
-                      }}
-                    >
-                      <ExternalLink size={16} />
-                      <span>{t("business.stores.directions")}</span>
-                    </a>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: '72px 24px',
-              background: '#FFFAF3',
-              border: '1px solid #E8E2D9',
-              borderRadius: 24,
-              marginTop: 20,
-            }}
-          >
-            <div
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: '50%',
-                backgroundColor: '#F5EDE0',
-                display: 'grid',
-                placeItems: 'center',
-                margin: '0 auto 16px',
-                color: '#8F1216',
-              }}
-            >
-              <StoreIcon size={36} />
-            </div>
-            <h3
-              style={{
-                fontFamily: 'Baloo 2, sans-serif',
-                fontWeight: 700,
-                fontSize: 22,
-                color: '#16100D',
-                margin: '0 0 8px',
-              }}
-            > {t("business.stores.noMatchingStoresFound")} </h3>
-            <p
-              style={{
-                fontFamily: 'Quicksand, sans-serif',
-                color: '#6B6259',
-                fontSize: 15,
-                maxWidth: 420,
-                margin: '0 auto 24px',
-                lineHeight: 1.6,
-              }}
-            > {t("business.stores.tryAnotherStreetOrDistrictOrViewAllCluckyStores")} </p>
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setSelectedDistrict('ALL');
-              }}
-              className="btn-primary"
-              style={{ border: 'none', cursor: 'pointer' }}
-            > {t("business.stores.viewAllStores")} </button>
-          </div>
-        )}
-      </main>
-          </>
-  );
+      </section>
+      <section id="store-map" className={styles.mapPanel} aria-label={t("mapLabel")}><BranchMap points={ranked.flatMap(({ store, point }) => point ? [{ ...point, id: String(store.id), label: store.name }] : [])} selectedId={selectedId} focusRequest={focusRequest} onSelect={id => select(id, true)} origin={origin} originLabel={originLabel} />{missingLocation && <p role="status" className={styles.mapNotice}>{t("storeLocationUnavailable")}</p>}</section>
+    </div>
+  </main>;
 }

@@ -1,176 +1,175 @@
-# [DEP-10] Demo materials: script + screenshots + slides
+# [DEP-10] Chuẩn bị kịch bản demo, ảnh minh chứng và slide Sprint Review, phân biệt rõ chức năng đã nghiệm thu với phần còn hạn chế
 
-> Detail viết lại theo mẫu đã duyệt ngày 05/11/2026 tại repository; chưa đồng bộ bản này lên Lark. Metadata bên dưới giữ nguyên lịch sử, không xác nhận tiến độ mới.
+> **SP hiện hành ngày 09/11/2026: 1 — SPRINT 3.** Thang 0/1/2/3/5/8, tối đa 8. Demo và slide từ kết quả owner bàn giao; không tính implementation hoặc nghiệm thu thay owner. Giữ nguyên AC/DoD, PIC, trạng thái và giờ nguồn; không hạ điểm do công đã làm, không quy đổi thành remaining/capacity. Phạm vi mở rộng RBAC A–E mới là kế hoạch đề xuất, chưa nằm trong estimate này. SP/lịch trong các mục lịch sử không phải estimate hiện hành.
 
-## Thông tin quản lý
+> **Đã đồng bộ Lark 08/11/2026.** Title, scope, AC/DoD và SP kế hoạch đã cập nhật; giữ PIC/trạng thái/sprint/lịch thực tế trên Lark. Các ghi chú “chưa đồng bộ” và tiến độ bên dưới là snapshot lịch sử. [Kết quả đồng bộ và chênh lệch sprint](../docs/Lark_Backlog_Sync_2026-11-08.md).
 
-| Thuộc tính | Giá trị giữ nguyên |
+> Detail thống nhất sau gộp và sizing — 08/11/2026. Chỉ biên soạn repository, chưa đồng bộ Lark và chưa chạy kiểm thử. Không thay SP/PIC/status/lịch chỉ vì detail đã đầy đủ.
+
+## 1. Giao việc và kết quả cần bàn giao
+
+| Thuộc tính | Hiện hành |
 |---|---|
+| Mã | DEP-10 |
+| Loại | TASK — task chính, không có subtask INT/TEST |
+| Nhóm | DEP |
 | PIC | Trần Nguyễn Hữu Khánh |
-| Trạng thái snapshot — không xác nhận lại | TO DO |
-| Sprint kế hoạch | SPRINT 2 |
-| Bắt đầu → deadline (UTC+7) | 04/11/2026 08:00 → 05/11/2026 23:59 |
-| SP / giờ công dự kiến | 3 SP / 8 giờ công |
+| Sprint | SPRINT 2 |
+| SP hiện hành 09/11 | 1 |
+| Trạng thái snapshot | TO DO — chưa đọc lại tiến độ Lark |
+| Lịch cũ UTC+7 | 04/11/2026 08:00 → 05/11/2026 23:59; không phải cam kết mới |
+| Giờ nguồn | 8 — chỉ lịch sử, chưa sizing lại giờ |
+| Dependency triển khai | [BE-25](BE-25.md), [BE-17](BE-17.md), [BE-20](BE-20.md), [BE-23](BE-23.md), [BE-24](BE-24.md), [BE-32](BE-32.md), [UI-09](UI-09.md), [UI-11](UI-11.md), [UI-17](UI-17.md), [UI-18](UI-18.md), [UI-30](UI-30.md), [BE-19](BE-19.md), [BE-42](BE-42.md), [UI-15](UI-15.md), [UI-29](UI-29.md), [BE-21](BE-21.md), [BE-34](BE-34.md), [UI-25](UI-25.md), [UI-26](UI-26.md), [UI-28](UI-28.md), [BE-09](BE-09.md), [BE-22](BE-22.md), [BE-26](BE-26.md), [BE-27](BE-27.md), [BE-33](BE-33.md), [BE-40](BE-40.md), [BE-43](BE-43.md), [BE-63](BE-63.md), [BE-72](BE-72.md) |
 
-Nhóm sprint hiện tại trên Lark (nếu khác kế hoạch) và toàn bộ metadata được giữ trong mục cuối. Không tự đổi PIC, lịch, estimate hoặc trạng thái vì viết lại tiêu chí.
+**Làm xong phải dùng được:** Sprint Review có kịch bản demo, ảnh và slide phản ánh đúng chức năng đã được owner nghiệm thu, giới hạn và lỗi còn mở.
 
-## 1. Mục tiêu nghiệp vụ
+**SP hiện hành: 1.** Demo và slide từ kết quả owner bàn giao; không tính implementation hoặc nghiệm thu thay owner.
 
-Sprint Review có script/screenshots/slides phản ánh đúng phần đã nghiệm thu và phần còn hạn chế.
+SP bao gồm triển khai/tích hợp/tự test/sửa lỗi đúng phạm vi, không phải remaining hoặc chứng nhận đủ capacity. [Bảng sizing 37 TASK/247 SP](../docs/Sprint_2_Story_Points_2026-11-08.md).
 
-## 2. Phạm vi
+## 2. Phạm vi thống nhất và ranh giới
 
-### Bao gồm
+- Script theo actor/flow, evidence/screenshots, slides, danh sách limitation/bug và điều kiện demo
+- Dùng 37 TASK/247 SP hiện hành, không quảng bá 55 task/328 SP như kế hoạch mới
+- Không tự chạy test/demo/deploy, không làm bù feature hoặc tạo evidence giả
 
-- Demo script, ảnh/slides có nguồn, checklist chuẩn bị và danh sách chưa đạt.
-- Script demo, screenshot và slides phản ánh đúng scope hoàn thành; nêu rõ backlog/Phase 2 chưa có.
+Các ràng buộc có điều kiện “theo policy/contract đã chốt” cần quyết định ở mục 7 trước khi đánh PASS; không tự biến fixture, TTL ví dụ hay đề xuất thành business rule. Nghiệm thu một task không thay kết quả của task phối hợp.
 
-### Không bao gồm
+## 3. Input, output và contract phải chốt
 
-Không sửa trạng thái Lark hoặc cắt scope để làm slide đẹp.
+- Mỗi bước demo liên kết task, commit/environment, fixture, expected và evidence thật nếu có
+- Đánh dấu live/recorded/mock/blocked; screenshot UI không chứng minh Payment/webhook/Kafka đã đạt
+- Dữ liệu khách/sender/bank/account dùng fixture được phép, không secret; lịch Review cũ không tự thành lịch mới
 
-### Bắt đầu từ đâu? Đối chiếu source ngày 05/11/2026
+**Bàn giao ra ngoài:** Domain owners cung cấp evidence; DEP-09 cung cấp collection; nhóm Review nhận danh sách ready/blocked và giới hạn trung thực.
 
-Sprint 2 Planning và task details là kế hoạch, không tự chứng minh tính năng đã nghiệm thu. Nhận evidence TEST-01/05/06/07 và collection DEP-09 trước khi chốt lời dẫn; mock/demo và Phase 2 phải ghi nhãn rõ.
+Contract handoff cần ghi version, field/type/required/null, actor/scope, success/error, identity/retry và fixture mẫu phù hợp đầu ra. Tên route/DTO/event đã có trong đặc tả được ưu tiên; chỗ chưa có phải chốt với owner, không tự thêm API công khai hoặc trạng thái mới.
 
-- [architechture/docs/Sprint_2_Planning.md](../../architechture/docs/Sprint_2_Planning.md)
-- [architechture/tasks/TEST-01.md](../../architechture/tasks/TEST-01.md)
-- [architechture/tasks/TEST-05.md](../../architechture/tasks/TEST-05.md)
-- [architechture/tasks/TEST-06.md](../../architechture/tasks/TEST-06.md)
-- [architechture/tasks/TEST-07.md](../../architechture/tasks/TEST-07.md)
-- [architechture/tasks/DEP-09.md](../../architechture/tasks/DEP-09.md)
+## 4. Bắt đầu từ đâu và thứ tự thực hiện
 
-Đây là đối chiếu tĩnh, không phải kết quả chạy. Nếu đầu ra producer còn thiếu, ghi blocker và owner; không tự dựng success/mock để nghiệm thu tích hợp.
+Đường dẫn dưới đây là điểm đọc source/tài liệu, **không phải xác nhận code đã hoàn thiện hoặc chạy đúng**. Giữ thay đổi local của người khác, tái dùng implementation hiện có thay vì tạo bản thứ hai.
 
-## 3. Đầu vào, đầu ra và contract
+- [architechture/docs/backlog.md](../../architechture/docs/backlog.md)
+- [contracts/README.md](../../contracts/README.md)
 
-| Thành phần | Chi tiết cần bàn giao |
-|---|---|
-| Đầu vào / nguồn tin cậy | Evidence TEST-01/05/06/07, task status snapshot và phiên bản demo. |
-| Đầu ra / contract | Demo script, ảnh/slides có nguồn, checklist chuẩn bị và danh sách chưa đạt. |
-| Điểm giao tiếp / deliverable đã cam kết | Presentation |
+1. Thu status/evidence từ owner, không suy DONE từ commit
+2. Chọn critical path đã sẵn sàng, viết script actor/setup/step/expected/fallback
+3. Biên soạn ảnh/slide và phân biệt actual vs planned/blocked
+4. Rà đối chiếu task/SP/limitations và bàn giao cho người trình bày
 
-Các route/DTO/event là yêu cầu bàn giao, không khẳng định endpoint đã hoạt động. Nếu chi tiết trường/trạng thái còn thiếu trong nguồn, PIC phải chốt với owner trước khi hai phía tích hợp; không tự biến ví dụ thành quy tắc.
+## 5. Dependency, handoff và điều kiện sẵn sàng
 
-### Mapping phải ghi trước khi nối luồng
-
-Gói demo gồm script theo bước, actor/role/store/data prerequisites, expected screen/outcome, evidence source/commit, screenshots/slides và limitation list. Mỗi claim liên kết evidence; status snapshot không thay PASS. Credentials không nằm trong slides/script.
-
-## 4. Thứ tự thực hiện cụ thể
-
-1. Thu kết quả nghiệm thu/bug của từng owner, lập bảng feature→evidence→PASS/FAIL/BLOCKED/NOT RUN; không tự nâng status Lark vì có source hoặc detail.
-2. Chốt audience/thời lượng với nhóm, chọn hành trình Customer COD và quản trị theo evidence thực; phần chưa hoàn tất ghi riêng không lấp bằng UI demo không nhãn.
-3. Viết script từng bước với người thao tác, tài khoản role không ghi password, store/dataset, action, expected result và điểm kiểm API/persisted state.
-4. Chọn screenshot từ đúng phiên bản/route có source evidence, che token/cookie/OTP/PII; slide phân biệt MVP shipment CREATED với tracking Phase 2 và backlog banner/proposal.
-5. Chuẩn bị preflight checklist và fallback trung thực: dùng ảnh/video đã có evidence khi môi trường lỗi, nói rõ không live; không tạo success hoặc sửa số liệu để demo trơn tru.
-6. Bàn giao script/asset list/slides version cùng gap/owner và hướng dẫn reset dataset an toàn; rehearsal/browser/render chỉ làm khi được yêu cầu, chưa thực hiện trong lượt viết detail.
-
-## 5. Quy tắc và điểm cần chốt
-
-**Điểm cần PIC/owner xác nhận:** Chốt phạm vi trình bày và thời lượng với nhóm; chuẩn bị trước nhưng kết luận sau nghiệm thu.
-
-**Ràng buộc chung áp dụng khi có phần tương ứng:** Giữ ranh giới service/schema và kiểm tra quyền ở backend; API frontend đi qua Gateway. Mã lỗi mới phải vào danh mục chung rồi sinh lại, không sửa file generated. Nếu thay UI, thêm đủ locale vi/en, không dịch dữ liệu người dùng.
-
-Phương án được ghi là “cần chốt/đề xuất” chưa phải quyết định sản phẩm. AC liên quan chỉ được kết luận sau khi lưu quyết định và cập nhật contract; không đánh PASS bằng giả định.
-
-### Quyết định có owner và phần bị chặn
-
-PIC demo + nhóm chốt phạm vi/thời lượng và bản code trình bày, owner domain xác nhận claim. Không cắt scope âm thầm hoặc chuyển task DONE để đồng bộ slide với mong muốn.
-
-## 6. Dependency và bàn giao
-
-### Tiên quyết đã có trong backlog
-
-| Task tiên quyết đã khai báo | PIC bàn giao | Cần nhận cụ thể | Mốc sử dụng |
-|---|---|---|---|
-| [TEST-01](TEST-01.md) | Trần Đức Anh | Bộ case/script và báo cáo Guest→register→OTP→browse→cart→COD có actual/expected và IDs. | Trước chốt nghiệm thu/release liên quan; cần kết quả và lỗi còn mở, không chỉ script. |
-| [TEST-05](TEST-05.md) | Mai Sơn Việt | E2E case/report cho quản trị nhân sự và report theo scope. | Trước chốt nghiệm thu/release liên quan; cần kết quả và lỗi còn mở, không chỉ script. |
-| [TEST-06](TEST-06.md) | Nguyễn Duy Quang Nhật | E2E CRUD→public menu→voucher validate với record thật. | Trước chốt nghiệm thu/release liên quan; cần kết quả và lỗi còn mở, không chỉ script. |
-| [TEST-07](TEST-07.md) | Trần Nguyễn Hữu Khánh | Regression RBAC có allowed/denied cases và chứng cứ không đổi dữ liệu. | Trước chốt nghiệm thu/release liên quan; cần kết quả và lỗi còn mở, không chỉ script. |
-
-### Có thể bắt đầu đến đâu?
-
-- Chuẩn bị input/fixture, đối chiếu phạm vi và chốt contract ở mục 3–5 mà không chờ mọi API hoàn tất. Chỉ code theo fixture khi contract liên quan đã thống nhất.
-- Phần sử dụng đầu ra của dependency chỉ được nghiệm thu sau khi owner bàn giao bản thật và chạy được tình huống liên quan; deadline cùng ngày không chứng minh đầu ra đã sẵn sàng.
-- Phối hợp bổ sung nêu ở mục 5 là việc cần xác nhận, **không tự thêm dependency hoặc đổi lịch** trong snapshot này. Một PIC chịu trách nhiệm task; owner domain khác giữ trách nhiệm producer/consumer của mình.
-
-**Task nhận đầu ra theo dependency đã khai báo:** [DEP-11](DEP-11.md)
-
-## 7. Tiêu chí nghiệm thu cụ thể
-
-| AC | Fixture / thao tác | Kết quả mong đợi |
+| Task đầu vào | PIC nguồn | Cần nhận trước phần liên quan |
 |---|---|---|
-| AC-01 | Đối chiếu từng bước script và từng claim slide với evidence nghiệm thu | Nguồn/commit/role rõ, phần chưa chạy không được gọi hoàn thành; có checklist chuẩn bị cho người trình bày |
-| AC-02 | Feature chỉ UI mock | Gắn nhãn demo, không trình bày là backend hoàn chỉnh |
-| AC-03 | Test chưa đạt | Nêu gap/blocker thay vì đánh DONE |
-| AC-04 | Screenshot | Không lộ credential/PII không cần thiết |
-| AC-05 | Feature chỉ mock hoặc môi trường live lỗi tại buổi demo | Gắn nhãn demo/recorded/fallback rõ và nói đúng giới hạn, không giả backend thật |
-| AC-06 | Rà screenshot/script/slides và gap list trước chia sẻ | Không secret/PII thừa; nêu backlog/Phase 2 và lỗi chưa đạt cùng owner, không tự sửa status |
+| [BE-25](BE-25.md) | Trần Đức Anh | POST /api/orders CUS; PUT /api/orders/{id}/status STF/MGR/ADM theo ma trận state đã chốt; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-17](BE-17.md) | Trần Nguyễn Hữu Khánh | POST register/verify-otp/login/refresh/logout/forgot-password/reset-password; GET /api/auth/session qua Gateway theo API spec; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-20](BE-20.md) | Nguyễn Duy Quang Nhật | Cung cấp API công khai để tìm cửa hàng, duyệt menu, tìm kiếm và xem món hoặc combo với giá đúng chi nhánh; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-23](BE-23.md) | Trần Đức Anh | Triển khai giỏ hàng Redis cho khách vãng lai và Customer, hỗ trợ thêm, sửa, xóa món mà không trộn dữ liệu chủ sở hữu; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-24](BE-24.md) | Trần Đức Anh | POST /api/orders/preview CUS qua Gateway; actor/cart owner lấy từ auth; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-32](BE-32.md) | Lê Phú Thịnh | confirm-manual MGR/ADM cần reason và căn cứ đối soát; confirm-cod STF/MGR/ADM đúng quán/state; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-09](UI-09.md) | Trần Nguyễn Hữu Khánh | Xây dựng và nối API đăng nhập, đăng ký Customer, xác thực OTP, quên hoặc đặt lại mật khẩu cho đúng luồng của hai ứng dụng; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-11](UI-11.md) | Nguyễn Duy Quang Nhật | Xây dựng và nối API trang menu theo quán, hỗ trợ danh mục, tìm kiếm, bộ lọc và đồng bộ lựa chọn với URL; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-17](UI-17.md) | Trần Đức Anh | Xây dựng và nối API trang giỏ hàng, hỗ trợ sửa số lượng, ghi chú, xóa món và cập nhật tổng tạm tính trước checkout; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-18](UI-18.md) | Trần Đức Anh | Xây dựng và nối API checkout để chọn nhận hàng, áp dụng voucher hoặc điểm, xem chi tiết tiền và gửi yêu cầu tạo đơn; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-30](UI-30.md) | Trần Đức Anh | Xây dựng và nối API màn đơn hàng tại quán để Staff xem đơn hôm nay, chuyển trạng thái hợp lệ và xác nhận đã thu COD; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-19](BE-19.md) | Trần Nguyễn Hữu Khánh | GET /api/users ADM; POST /api/users/staff ADM/MGR; PUT assign-store ADM; lock/unlock theo RBAC; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-42](BE-42.md) | Mai Sơn Việt | API reports theo spec: from/to ISO date inclusive; thiếu to dùng hôm nay, thiếu from dùng đầu tháng của to; from>to/storeId<=0 trả400; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-15](UI-15.md) | Trần Nguyễn Hữu Khánh | Xây dựng và nối API quản lý tài khoản nhân sự, hỗ trợ tìm kiếm, tạo, khóa hoặc mở tài khoản và gán quán đúng quyền; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-29](UI-29.md) | Mai Sơn Việt | Xây dựng và nối API báo cáo, cho chọn kỳ, cửa hàng, xem biểu đồ và xuất Excel hoặc PDF đúng quyền; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-21](BE-21.md) | Nguyễn Duy Quang Nhật | Route /api/stores và /api/catalog theo API; DTO riêng cho resource và mutation; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-34](BE-34.md) | Cao Tất Thành | Route /api/promotions theo API/BE-51; actor/store/order context trusted; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-25](UI-25.md) | Nguyễn Duy Quang Nhật | Xây dựng và nối API form quản lý món, combo, tùy chọn và topping, hỗ trợ upload ảnh và giữ dữ liệu khi lưu lỗi; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-26](UI-26.md) | Nguyễn Duy Quang Nhật | Xây dựng và nối API quản lý chi nhánh, hỗ trợ danh sách, thêm, sửa, xóa, giờ mở và khu vực giao theo quyền; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [UI-28](UI-28.md) | Cao Tất Thành | Xây dựng và nối API quản lý voucher thường; giữ phần đề xuất chi nhánh và banner ở trạng thái backlog, chưa triển khai nghiệp vụ; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-09](BE-09.md) | Trần Nguyễn Hữu Khánh | Triển khai xác thực JWT và kiểm tra vai trò, chủ sở hữu, cửa hàng tại Gateway và từng service nghiệp vụ; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-22](BE-22.md) | Nguyễn Duy Quang Nhật | GET/PUT inventory và PUT availability dưới /api/stores/{storeId}; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-26](BE-26.md) | Trần Đức Anh | PUT /api/orders/{id}/cancel CUS; reject STF/MGR/ADM; POST refund-requests CUS; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-27](BE-27.md) | Trần Đức Anh | GET /api/orders/my, /api/orders/{id}, /api/orders theo quyền; reorder endpoint/method phải chốt nếu API chưa khai báo; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-33](BE-33.md) | Lê Phú Thịnh | Route /api/shipping calculate-fee/config/shipment theo API; cấu hình hệ thống chỉ Admin; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-40](BE-40.md) | Mai Sơn Việt | Review routes theo API; internal Order verification dùng Bearer Customer+correlation qua Eureka, Gateway không công bố; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-43](BE-43.md) | Mai Sơn Việt | GET /api/audit-logs MGR/ADM; filter actorId/actorRole/sourceService/action/targetType/targetId/storeId/from/to; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-63](BE-63.md) | Mai Sơn Việt | GET /api/notifications/email-logs ADM/MGR theo API; scope store phải trusted, auth/OTP/global log không tự gán quán từ email; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
+| [BE-72](BE-72.md) | Nguyễn Duy Quang Nhật | POST /api/catalog/products/{id}/image và combos/{id}/image ADMIN, multipart theo contract hiện có; cần contract/version và trạng thái bàn giao, không suy từ deadline hoặc code. |
 
-Các AC là kế hoạch để người phụ trách/người dùng thực hiện sau, **chưa chạy trong lần viết detail**. Ghi PASS/FAIL/BLOCKED theo evidence thật; fixture chỉ chứng minh phần đã dùng fixture, không thay thế E2E. Không phát sinh chuyển tiền, email tới khách thật hoặc phá dữ liệu để làm bằng chứng.
+- Có thể đọc source, chốt DTO/ma trận, chuẩn bị fixture hoặc triển khai phần độc lập trước khi upstream hoàn tất. Phần dùng dữ liệu thật ghi BLOCKED khi thiếu handoff.
+- Không tự thêm cạnh dependency, đổi lịch hoặc kéo task backlog vào sprint; phối hợp nghiệm thu không tự trở thành blocker triển khai ngược chiều.
+- PIC nhận đầu ra nêu ở mục 3; phối hợp chỉ bàn giao phần domain của mình, không chạy/tính công cả pipeline nhiều lần.
 
-## 8. Checklist và bằng chứng bàn giao
+## 6. Fixture và điều kiện tự kiểm thử
 
-- [ ] Chốt các quyết định ở mục 5 với owner liên quan, ghi lựa chọn và phiên bản contract.
-- [ ] Bàn giao bằng chứng cụ thể: Script từng bước, screenshot/video nguồn và links kết quả test/commit.
-- [ ] Ghi commit/môi trường/dữ liệu kiểm chứng đã ẩn secret, kết quả đạt/chưa đạt và lỗi còn mở với một PIC; không dùng file mẫu hoặc ảnh mock thay bằng chứng runtime.
+- Ghi commit/build/config version, môi trường được phép, actor/role và store A/B khi có scope; chuẩn bị allow và deny cùng loại tài nguyên. Không dùng account/secret của khách.
+- Với mỗi AC, ghi input/baseline/expected trước thao tác; dữ liệu tiền, thời gian, size, quota hoặc số dư phải có boundary fixture tính được, không chỉ một happy path.
+- Chuẩn bị điều kiện dependency lỗi, retry/replay/concurrent hoặc crash theo AC của task; sử dụng fixture/mock phải ghi rõ giới hạn, không coi đó là tích hợp runtime đã đạt.
+- Evidence chỉ lưu IDs, hash hoặc metadata đã mask; cleanup chỉ dữ liệu của run đã định danh. Không xóa volume/database, seed chung hoặc pending event để làm kết quả đẹp.
+- **Lượt biên soạn này không chạy test/lint/typecheck/build/browser/Docker/backend/hạ tầng.** Dev/người dùng tự kiểm chứng khi có điều kiện; không gửi email/chuyển tiền thật ngoài phạm vi được phép.
 
-- [ ] Ghi kết quả riêng AC-01 đến AC-06, phiên bản code/contract, fixture, actor/store, bước tái hiện và actual/expected; case chưa chạy không đánh PASS.
-- [ ] Bàn giao demo manifest script/screenshots/slides/version/evidence links, run prerequisites và limitation list; lần này chỉ hoàn thiện task detail, không tạo deck hoặc tuyên bố rehearsal đã chạy.
-- [ ] Không đổi status/PIC/lịch/estimate/dependency vì detail đã viết xong. TEST-15 đã gộp: PIC của task này chịu kiểm chứng critical path liên quan, không giao sang một task TEST-15 độc lập.
-- [ ] Không chạy test/lint/typecheck/build/browser, Docker/backend/SMTP trong lần cập nhật tài liệu; người dùng tự kiểm thử theo yêu cầu.
+## 7. Quyết định còn mở và cách xử lý blocker
 
-## 9. Truy vết gộp task
+- **Q01:** Nhóm chốt demo scope/môi trường/recipient và người trình bày, lịch mới nếu cần
+- **Q02:** Evidence chưa có thì ghi chưa nghiệm thu, không dựng screenshot thành công giả hoặc tự chuyển tiền để có minh chứng
 
-Không
+Mỗi quyết định cần owner, lựa chọn, nguồn/phiên bản và AC bị ảnh hưởng. Khi chưa chốt thì đánh BLOCKED các AC đó, vẫn làm phần độc lập; không âm thầm hạ quyền kiểm tra, bỏ dữ liệu hoặc sửa AC để nhận DONE.
 
-Không có ID gộp trực tiếp vào task này.
+## 8. Acceptance Criteria — tình huống, kết quả và bằng chứng
 
-## 10. Tài liệu và source cần đọc
+Các AC dưới đây đều **CHƯA CHẠY trong lượt viết detail**. Dev cập nhật PASS/FAIL/BLOCKED kèm evidence; N/A chỉ khi ngoài phạm vi thực sự và có lý do/owner, không dùng N/A để bỏ security hoặc yêu cầu đã chốt.
 
-- [architechture/docs/Sprint_2_Planning.md](../../architechture/docs/Sprint_2_Planning.md)
-- [architechture/tasks/TEST-01.md](../../architechture/tasks/TEST-01.md)
-- [architechture/tasks/TEST-05.md](../../architechture/tasks/TEST-05.md)
-- [architechture/tasks/TEST-06.md](../../architechture/tasks/TEST-06.md)
-- [architechture/tasks/TEST-07.md](../../architechture/tasks/TEST-07.md)
-- [architechture/tasks/DEP-09.md](../../architechture/tasks/DEP-09.md)
-- [API](../docs/Đặc%20tả%20API.md), [SRS](../docs/SRS.md), [RBAC](../docs/Ma%20trận%20phân%20quyền.md), [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md), [Backlog](../docs/backlog.md), [Danh mục lỗi](../../contracts/README.md).
+| AC | Fixture / thao tác | Kết quả phải quan sát | Evidence cần nộp |
+|---|---|---|---|
+| DEP-10/AC-01 | Script critical path hợp lệ với fixture/actor rõ | Người trình bày biết setup, thao tác, expected và cleanup | Script review |
+| DEP-10/AC-02 | Mỗi claim hoàn thành trên slide | Có task/commit/environment/evidence owner xác nhận | Traceability matrix |
+| DEP-10/AC-03 | Flow Payment hiện QR nhưng chưa webhook | Trình bày đúng pending, không nói đã nhận tiền | Claim check |
+| DEP-10/AC-04 | Kafka/email/audit chỉ có code hoặc mock | Ghi chưa nghiệm thu runtime, không gán PASS | Evidence classification |
+| DEP-10/AC-05 | Phần chưa sẵn sàng hoặc dependency lỗi | Có nhánh dừng/giới hạn rõ, không sửa feature trong demo để che lỗi | Fallback plan |
+| DEP-10/AC-06 | Ảnh/video/tài liệu chứa user/credential thật | Redact hoặc dùng fixture, không leak secret | Artifact review |
+| DEP-10/AC-07 | Tổng task/SP và tên task trên slides | 37 TASK/247 SP theo kế hoạch mới, không dùng số nguồn như hiện hành | Numbers cross-reference |
+| DEP-10/AC-08 | Actor Staff/Manager/Admin trong demo | Chỉ dùng quyền đúng, không Admin giả làm Staff để vượt lỗi | Actor matrix |
+| DEP-10/AC-09 | Bug/limitation và Phase 2 | Nêu owner/impact/trạng thái, không quảng bá shipping tracking hoặc policy hoãn | Known-issues list |
+| DEP-10/AC-10 | Evidence chưa được cung cấp | Đánh BLOCKED/chưa chạy, bản draft không xem là nghiệm thu | Readiness table |
+| DEP-10/AC-11 | Handoff thiếu version hoặc artifact không mở/nhập được | Ghi blocker/PIC, không coi đã export là bàn giao xong; không sửa môi trường production để né | Manifest và readiness checklist |
+| DEP-10/AC-12 | Sửa artifact sau khi owner cập nhật evidence/contract | Các bản cùng version hoặc ghi rõ phần chưa đồng bộ, không dùng evidence cũ cho claim mới | Change log và link task |
 
-## 11. Metadata và lịch sử kế hoạch
+## 9. Definition of Done — checklist của chính TASK
 
-<details>
-<summary>Xem nguyên trạng metadata, ước lượng và lịch từ bản trước</summary>
+- [ ] **DOD-01** — Phạm vi, ma trận quyền và các quyết định còn mở liên quan AC đã được owner chốt bằng link/version; chưa chốt ghi BLOCKED, không chọn mặc định cho xong.
+- [ ] **DOD-02** — Bàn giao đúng đầu ra ở mục 1–3 và contract cho task nhận; không chỉ có DTO/template/file scaffold hoặc screenshot fixture.
+- [ ] **DOD-03** — Người phụ trách tự kiểm chứng từng AC hiện hành, ghi trạng thái, expected/actual, dữ liệu đầu vào, commit và môi trường. Không đánh PASS từ lần sửa tài liệu này.
+- [ ] **DOD-04** — Có fixture/setup/cleanup an toàn; không dùng khách thật, chuyển tiền thật, gửi email hàng loạt hoặc reset dữ liệu/volume dùng chung để tạo evidence.
+- [ ] **DOD-05** — Có allow-case đối chứng cùng deny-case, negative/boundary và failure/retry phù hợp task; không chỉ kiểm status HTTP mà phải đối chiếu side effect/readback.
+- [ ] **DOD-06** — Mỗi evidence gắn task/AC và source version. Case trùng có thể dùng chung evidence, không tự bỏ coverage hoặc chạy/tính công nhiều lần.
+- [ ] **DOD-07** — Lỗi thuộc phạm vi được sửa và retest; lỗi còn mở có mức ảnh hưởng, PIC, bước tái hiện và AC bị chặn. Không tạo lại INT/TEST subtask để đẩy trách nhiệm.
+- [ ] **DOD-08** — Không secret/token/OTP/PII không cần thiết trong API/log/DLQ/file/ảnh bằng chứng; canary dùng giá trị giả, chỉ ghi metadata đã mask.
+- [ ] **DOD-09** — README/contract/fixture và hướng dẫn bàn giao cập nhật cùng đầu ra; giờ công/lịch/tiến độ chỉ sửa khi có đầu vào thật, không suy từ 247 SP.
+- [ ] **DOD-10** — Phần HOÃN/Phase 2 tách khỏi AC bắt buộc sprint; phần chưa chạy ghi CHƯA CHẠY, phần thiếu upstream ghi BLOCKED, không nhận toàn task DONE khi AC bắt buộc chưa đạt.
+- [ ] **DOD-11** — Artifact mở/nhập được theo công cụ đích, version và manifest đúng, đường dẫn tài nguyên không trỏ file cá nhân không bàn giao.
+- [ ] **DOD-12** — Mọi claim demo/collection phân biệt planned, mock, recorded và live đã có evidence; không suy kết quả từ ảnh hoặc commit.
+- [ ] **DOD-13** — Tài liệu bàn giao giữ đúng actor, quyền, trạng thái nghiệp vụ và số task/SP hiện hành; không công khai credential trong collection/deck.
+- [ ] **DOD-14** — Bàn giao script, deck, ảnh và index evidence có version/owner
+- [ ] **DOD-15** — Phân biệt kế hoạch với kết quả thực, không thay trạng thái Lark từ tài liệu
+- [ ] **DOD-16** — Dùng lại evidence domain, không cộng công self-test toàn dự án vào task slide
 
-**PIC:** Trần Nguyễn Hữu Khánh
-**Trạng thái trên Lark:** TO DO
-**Sprint:** SPRINT 2
-**Khoảng sprint:** 02/11/2026–08/11/2026 (khung lưu lịch sử; hoàn tất 05/11, Sprint Review 06/11)
-**Bắt đầu:** 04/11/2026 08:00
-**Deadline:** 05/11/2026 23:59
-**Múi giờ:** Asia/Ho_Chi_Minh (UTC+7)
-**Loại:** Sub Task
-**Mã Lark:** Mail-4571 / reczz28Rid5XheDN
-**Record:** https://msgmclt9kdj2.sg.larksuite.com/base/ByTkbHQcYaPOMAsoU4jl41pdgSd?table=tblXgna1HdN3POFK&record=reczz28Rid5XheDN
-**Cập nhật:** 30/10/2026 — kế hoạch hai sprint đã được duyệt
+## 10. Mẫu bàn giao và ghi kết quả
 
-**Story Point:** 3 SP
-**Time Estimated:** 8 giờ công
-**Remaining Estimate:** 8 giờ công — tạm bằng estimate vì chưa có tiến độ mới; không phải số giờ còn lại đã xác minh.
-**Cơ sở ước lượng:** Sơ bộ theo snapshot 30/10; PIC cần xác nhận, không suy ra tiến độ hiện tại.
-**Cập nhật ước lượng/lịch:** 01/11/2026 — đã đồng bộ ước lượng/lịch lên Lark; giữ trạng thái, PIC và nhóm sprint hiện tại.
+| Trường | Dev điền khi tự kiểm chứng |
+|---|---|
+| Commit / môi trường / config-contract version | Chưa cung cấp |
+| Fixture / actor / store / nguồn dữ liệu | Chưa cung cấp; không ghi secret |
+| AC-ID → kết quả → expected/actual → evidence | CHƯA CHẠY; ghi từng AC, dùng lại evidence có truy vết khi trùng |
+| Lỗi còn mở / PIC / retest | Chưa cập nhật; không mặc định không có bug |
+| Handoff cho task nhận / phần còn blocked | Chưa xác nhận |
+| Quyết định Qxx đã chốt / link nguồn | Chưa xác nhận ngoài contract đã nêu rõ |
 
-## Ước lượng và lịch thực hiện
+Bàn giao chỉ hoàn tất khi đầu ra và AC bắt buộc có bằng chứng, lỗi ảnh hưởng được xử lý hoặc có quyết định nghiệm thu rõ. Không tự thay trạng thái Lark khi ghi tài liệu.
 
-Chuẩn bị script/slides từ 04/11; chỉ chốt screenshot và kết quả sau TEST-01/05/06/07, hoàn thành trước review 06/11.
+## 11. Truy vết phạm vi và nguồn yêu cầu
 
-Không quy đổi SP ra giờ; giờ công không gồm chờ dependency. Ước lượng gồm tự kiểm chứng/sửa lỗi trong phạm vi, không cộng thêm buffer phần trăm hoặc phần việc BE/INT/TEST đã tính riêng. Xem [quy ước và tải tổng hợp](../../docs/backlog.md#quy-ước-ước-lượng).
+**Bản này thay phần ghép nối cũ**, chỉ dùng một phạm vi, một bộ AC/DoD hiện hành. ID nguồn sau gộp không phải task/subtask độc lập: không có gói ID nhận thêm riêng trong bản nguồn.
 
-Lịch cũ (30/10): 07/11/2026 08:00 → 08/11/2026 23:59. Lịch mới: 04/11/2026 08:00 → 05/11/2026 23:59. Giữ khung Sprint 2 02–08/11 để truy vết; hạn hoàn thành thực tế 05/11, Sprint Review 06/11, không xếp việc triển khai/nghiệm thu vào 06–08/11.
+[Bản detail trước biên soạn — chỉ lưu lịch sử](history/2026-11-08-before-detail-rewrite/DEP-10.md) giữ nguyên các contract/checklist/metadata cũ để đối chiếu. Không giao lại hoặc cộng SP từ bản lưu. Các AC lặp được hợp nhất theo mục tiêu, phần phối hợp domain khác nằm ở handoff chứ không giao cả kiểm thử toàn hệ thống cho mỗi task.
 
-Bắt đầu có thể là chuẩn bị fixture/UI theo contract; phần cần API/event thật bị chặn cho đến khi dependency bàn giao. Nếu cùng ngày đến hạn, phải bàn giao prerequisite trước khi nghiệm thu task này; không coi deadline trùng ngày là bằng chứng đã sẵn sàng.
+**Định danh Lark nguồn — chỉ để đối chiếu, không phải record mới:**
+- Mail-4571 / reczz28Rid5XheDN
 
-</details>
-
-## Quy ước kiểm chứng
-
-Việc cập nhật detail không chạy test, lint, typecheck, build, Docker hoặc trình duyệt. Checklist là điều kiện nghiệm thu để người phụ trách thực hiện, không phải báo cáo PASS. Giữ trạng thái snapshot, kể cả DONE; chưa xác nhận lại trên Lark.
+- [API](../docs/Đặc%20tả%20API.md) · [RBAC](../docs/Ma%20trận%20phân%20quyền.md) · [SRS](../docs/SRS.md) · [Kiến trúc](../docs/Kiến%20trúc%20hệ%20thống.md).
+- [Error catalog và vi/en](../../contracts/README.md) · [Brand](../docs/Brand_Guidelines.md) · [Browser sessions 08/11](../docs/Browser_Sessions.md).
+- [Backlog hiện hành](../docs/backlog.md) · [Gộp 08/11](../docs/Sprint_2_Consolidation_2026-11-08.md) · [Báo cáo biên soạn detail](../docs/Sprint_2_Task_Details_2026-11-08.md).

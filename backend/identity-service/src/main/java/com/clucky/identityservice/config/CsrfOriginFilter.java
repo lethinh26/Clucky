@@ -32,7 +32,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class CsrfOriginFilter extends OncePerRequestFilter {
     private static final Set<String> PROTECTED_PATHS = Set.of(
             "/api/auth/refresh", "/api/auth/logout", "/api/auth/reset-password",
-            "/api/auth/login", "/api/auth/verify-otp", "/api/auth/google", "/api/auth/google/complete");
+            "/api/auth/login", "/api/auth/verify-otp", "/api/auth/google", "/api/auth/google/complete",
+            "/api/auth/branch/challenge", "/api/auth/branch/finish", "/api/auth/branch/management/finish");
 
     private final List<String> allowedOrigins;
     private final ObjectMapper mapper;

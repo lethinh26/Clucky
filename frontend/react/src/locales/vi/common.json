@@ -1,4 +1,5 @@
 {
+  "feedback": { "copyFailed": "Không thể sao chép. Vui lòng chọn và sao chép nội dung thủ công." },
   "language": "Ngôn ngữ",
   "errors": {
     "timeout": "Kết nối quá thời gian chờ. Vui lòng thử lại.",

@@ -39,6 +39,10 @@ const NavigationLink = forwardRef<
         });
         if (cancelled) return;
         const target = new URL(anchor.current!.href, location.href);
+        if (target.origin === location.origin && navigationKey(target) === navigationKey(location)
+            && !target.hash && props.scroll !== false) {
+          window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        }
         eligible.current =
           target.origin === location.origin &&
           navigationKey(target) !== navigationKey(location);

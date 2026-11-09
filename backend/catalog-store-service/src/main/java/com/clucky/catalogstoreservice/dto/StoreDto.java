@@ -11,6 +11,9 @@ public class StoreDto {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
     public static class Response {
+        private String accountReadiness;
+        public String getAccountReadiness() { return accountReadiness; }
+        public void setAccountReadiness(String readiness) { this.accountReadiness = readiness; }
         private Long id;
         private String name;
         private String address;
@@ -21,6 +24,13 @@ public class StoreDto {
         private String closeTime;
         private String status;
         private String deliveryArea;
+
+    private Double latitude;
+    private Double longitude;
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 
         public Response() {}
 
@@ -70,6 +80,24 @@ public class StoreDto {
     }
 
     public static class Request {
+        @jakarta.validation.constraints.Email @jakarta.validation.constraints.Size(max = 255)
+        private String recoveryEmail;
+        public String getRecoveryEmail() { return recoveryEmail; }
+        public void setRecoveryEmail(String email) { this.recoveryEmail = email; }
+        @jakarta.validation.constraints.DecimalMin("-90") @jakarta.validation.constraints.DecimalMax("90")
+        private Double latitude;
+        @jakarta.validation.constraints.DecimalMin("-180") @jakarta.validation.constraints.DecimalMax("180")
+        private Double longitude;
+        public Double getLatitude() { return latitude; }
+        public void setLatitude(Double latitude) { this.latitude = latitude; }
+        public Double getLongitude() { return longitude; }
+        public void setLongitude(Double longitude) { this.longitude = longitude; }
+        @jakarta.validation.constraints.AssertTrue
+        public boolean isCoordinatePairValid() {
+            return (latitude == null && longitude == null) || (latitude != null && longitude != null
+                    && Double.isFinite(latitude) && Double.isFinite(longitude));
+        }
+
         @NotBlank(message = "Tên chi nhánh không được để trống")
         private String name;
 
@@ -126,7 +154,19 @@ public class StoreDto {
         public void setCity(String city) { this.city = city; }
     }
 
+    public record LocationRequest(
+            @jakarta.validation.constraints.DecimalMin("-90") @jakarta.validation.constraints.DecimalMax("90") Double latitude,
+            @jakarta.validation.constraints.DecimalMin("-180") @jakarta.validation.constraints.DecimalMax("180") Double longitude) {
+        @jakarta.validation.constraints.AssertTrue
+        public boolean isCoordinatePairValid() {
+            return (latitude == null && longitude == null) || (latitude != null && longitude != null
+                    && Double.isFinite(latitude) && Double.isFinite(longitude));
+        }
+    }
+
     public static class OperationRequest {
+        @com.fasterxml.jackson.annotation.JsonAnySetter
+        public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }
         @Pattern(regexp = "^(?:[01]\\d|2[0-3]):[0-5]\\d$", message = "Giờ mở cửa phải có định dạng HH:mm")
         private String openTime;
         @Pattern(regexp = "^(?:[01]\\d|2[0-3]):[0-5]\\d$", message = "Giờ đóng cửa phải có định dạng HH:mm")

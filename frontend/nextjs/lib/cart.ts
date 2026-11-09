@@ -1,6 +1,11 @@
 import type { CartItem } from "./types/order";
 import type { BackendCartDto, CartItemPayload } from "./api";
 
+export function catalogSelectionId(value: string, prefix: "opt" | "top"): number {
+  const match = new RegExp("^(?:" + prefix + "-)?([1-9]\\d*)$").exec(value);
+  return match && Number.isSafeInteger(Number(match[1])) ? Number(match[1]) : NaN;
+}
+
 export function toCartPayload(item: CartItem): CartItemPayload {
   const validId = (value: number | undefined) => Number.isSafeInteger(value) && Number(value) > 0;
   const optionIds = item.optionIds ?? [];

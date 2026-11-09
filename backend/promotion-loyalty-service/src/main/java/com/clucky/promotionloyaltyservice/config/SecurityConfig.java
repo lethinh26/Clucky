@@ -81,7 +81,7 @@ public class SecurityConfig {
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete",
                             "/api/promotions/vouchers/validate").permitAll();
-                    auth.requestMatchers(HttpMethod.GET, "/api/promotions/vouchers/available").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/promotions/vouchers/available", "/api/loyalty/policy").permitAll();
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })

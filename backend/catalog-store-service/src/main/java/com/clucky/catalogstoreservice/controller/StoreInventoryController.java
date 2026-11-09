@@ -34,16 +34,13 @@ public class StoreInventoryController {
     }
 
     @PutMapping("/inventory/{productId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
     public ResponseEntity<InventoryDto.InventoryResponse> updateProductInventory(
             @PathVariable Long storeId,
             @PathVariable Long productId,
             @Valid @RequestBody InventoryDto.InventoryUpdateRequest body) {
         accessGuard.requireStore(storeId);
         var actor = CurrentActor.require();
-        if (actor.role() == Role.STAFF && body.getLowStockThreshold() != null) {
-            throw new AccessDeniedException("Only a Store Manager or Admin can change the low-stock threshold");
-        }
         return ResponseEntity.ok(inventoryService.updateInventory(storeId, productId, body, actor.userId()));
     }
 
@@ -54,6 +51,9 @@ public class StoreInventoryController {
             @PathVariable Long productId,
             @Valid @RequestBody InventoryDto.AvailabilityUpdateRequest body) {
         accessGuard.requireStore(storeId);
+        if (CurrentActor.require().role() == Role.STAFF && body.getIsAvailable() != null) {
+            throw new AccessDeniedException("Staff can only change sold-out availability");
+        }
         if ((body.getStorePrice() != null || Boolean.TRUE.equals(body.getClearStorePrice())) && CurrentActor.require().role() != Role.ADMIN) {
             throw new AccessDeniedException("Only an Admin can change the store price");
         }

@@ -1,9 +1,9 @@
 # [INT-55] ĐÃ GỘP — không còn task độc lập
 
-Cập nhật 30/10/2026 theo kế hoạch đã duyệt.
+Cập nhật 07/11/2026 tại repository; **chưa đồng bộ Lark**. Đây chỉ là trang truy vết, không giao việc/tính SP như task hoặc subtask.
 
-Nội dung đã được chuyển vào task đích dưới đây; không tạo/giao lại record này.
+Đã gộp trước đây; chỉ cập nhật đích cuối, không tính là một lần xóa mới.
 
-- [BE-16](BE-16.md) — Auth: register + OTP + verify; PIC: Trần Nguyễn Hữu Khánh.
+- [BE-17](BE-17.md) — Hoàn thiện xác thực tài khoản: đăng ký và OTP, đăng nhập, làm mới phiên, đăng xuất và đặt lại mật khẩu trên hai ứng dụng
 
-Bản lưu trữ cũ không còn được quản lý trong repository; xem lịch sử Git nếu cần bản cũ. Trang này chỉ giữ ánh xạ gộp, không tạo task mới. Xem [danh sách task hiện hành](README.md).
+Xem [báo cáo phân loại](../docs/Backlog_Reclassification_2026-11-07.md), [backlog hiện hành](../docs/backlog.md) và lịch sử Git. Không đánh DONE vì đổi tài liệu; không chạy kiểm thử trong lần cập nhật này.

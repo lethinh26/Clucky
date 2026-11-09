@@ -1,4 +1,5 @@
 {
+  "feedback": {"cartAdded":"Item added to your cart.","cartBusy":"Your cart is syncing. Please wait a moment and try again.","copied":"Copied to clipboard.","copyFailed":"Unable to copy. Please select and copy the text manually.","orderCreated":"Order placed successfully.","signedIn":"Signed in successfully.","signedOut":"Signed out successfully."}, 
   "language": "Language",
   "errors": {
     "timeout": "The connection timed out. Please try again.",

@@ -1,4 +1,5 @@
 .container {
+  --font-heading: 'Fredoka', 'Baloo 2', sans-serif;
   max-width: 1200px;
   margin: 0 auto;
   padding: 36px 20px 80px;
@@ -397,6 +398,7 @@
 }
 
 .tierHeader {
+  gap: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -449,7 +451,7 @@
 }
 
 .tierCheckIcon {
-  color: #10b981;
+  color: #1e7a46;
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -596,6 +598,8 @@
 }
 
 .txFilterList {
+  flex-wrap: wrap;
+  margin-bottom: 18px;
   display: flex;
   gap: 8px;
 }
@@ -645,6 +649,7 @@
 }
 
 .txLeft {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -676,6 +681,7 @@
 }
 
 .txDetails {
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -688,6 +694,10 @@
 }
 
 .txTime {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   color: #75675e;
 }
@@ -728,6 +738,54 @@
 /* -------------------------------------------------------------
  * RESPONSIVE
  * ----------------------------------------------------------- */
+.balanceMetrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin:0 0 22px; }
+.balanceMetrics div { padding:0 16px; border-left:2px solid #eadfce; }
+.balanceMetrics dt { color:#75675e; font-size:12px; line-height:1.5; }
+.balanceMetrics dd { margin:4px 0 0; font:600 22px var(--font-heading); color:#2b1d16; overflow-wrap:anywhere; }
+.balanceHint { max-width:520px; margin:0; font-size:12px; line-height:1.7; color:#75675e; }
+.statusActions { flex-shrink:0; flex-wrap:wrap; }
+.historyJumpBtn { text-decoration:none; }
+.tierCard[data-tier=SILVER] .tierDiscountCallout { color:#0369a1; border-color:#bae6fd; background:#f0f9ff; }
+.tierCard[data-tier=GOLD] .tierDiscountCallout { color:#925b09; border-color:#edcf73; background:#fffbeb; }
+.spendInput { width:100%; min-width:0; height:46px; padding:0 16px; border:1.5px solid #ebd9c8; border-radius:12px; font:inherit; font-size:16px; font-weight:700; color:#8f1216; background:#fffaf3; }
+.calcInputWrap label { font-size:13px; font-weight:700; color:#4b3e36; }
+.spendPresets { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+.spendPresets button { padding:6px 10px; border-radius:7px; border:1px solid #ebd9c8; background:#fff; color:#62564e; font:700 11px var(--font-quicksand,'Quicksand',sans-serif); cursor:pointer; }
+.spendPresets button[aria-pressed=true] { border-color:#8f1216; color:#8f1216; background:#fff5ed; }
+.calcStatVal { overflow-wrap:anywhere; }
+.calcStatVal small { font-size:14px; color:#8c6c13; }
+.calculatorHint { font-size:12px; line-height:1.7; color:#75675e; margin:18px 0 0; }
+.policyDetails { margin-top:14px; padding-top:14px; border-top:1px solid #f0ebe4; font-size:12px; line-height:1.8; color:#62564e; }
+.policyDetails summary { cursor:pointer; font-weight:700; }
+.policyDetails p { margin-bottom:0; }
+.historyCard { scroll-margin-top:120px; }
+.historyToolbar .sectionTitle { display:flex; align-items:center; gap:9px; margin:0; }
+.txTime a { color:#8f1216; text-underline-offset:3px; }
+.txReason { overflow-wrap:anywhere; }
+.emptyHistory { text-align:center; padding:36px 16px; color:#75675e; }
+.emptyHistory svg { color:#b78424; margin-bottom:6px; }
+.emptyHistory p { margin:0; font-size:14px; }
+.pager { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:14px; margin-top:24px; font-size:13px; }
+.loadingStatus { color:#75675e; font-size:13px; margin:0 0 16px; }
+.container button:disabled { opacity:.55; cursor:not-allowed; }
+.container :is(a,button,input,summary):focus-visible { outline:3px solid #c9a227; outline-offset:4px; }
+@media (max-width:640px) {
+  .container { padding:24px 16px 60px; }
+  .statusCard,.calcCard,.historyCard { padding:22px 18px; }
+  .progressSection { padding:14px; }
+  .progressLabelRow { flex-direction:column; align-items:flex-start; gap:6px; }
+  .balanceMetrics { gap:10px; }
+  .balanceMetrics div { padding:0 8px; }
+  .balanceMetrics dt { font-size:11px; }
+  .txItem { flex-wrap:wrap; padding:14px; }
+  .txRight { margin-left:52px; align-items:flex-start; text-align:left; }
+  .calcHeader { align-items:flex-start; }
+  .calcIconWrap { flex-shrink:0; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .container *, .container *::before, .container *::after { transition:none !important; }
+  .tierCard:hover { transform:none; }
+}
 @media (max-width: 900px) {
   .tierGrid {
     grid-template-columns: 1fr;
@@ -760,4 +818,3 @@
     grid-template-columns: 1fr;
   }
 }
-
