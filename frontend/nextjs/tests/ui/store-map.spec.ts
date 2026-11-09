@@ -38,6 +38,6 @@ test("store cards focus logo pins, including repeated selection after panning", 
   await expect.poll(centered).toBe(true);
   await page.locator("#branch-83").getByRole("button").click();
   await expect(page.locator(".clucky-map-marker img")).toHaveCount(2);
-  await expect(page.locator("#store-map").getByRole("status")).toContainText("chi nhánh");
+  await expect(page.locator("#store-map").getByRole("status").filter({ hasText: "Chưa xác định được vị trí chi nhánh này." })).toBeVisible();
   expect(lookups).toBe(0);
 });
