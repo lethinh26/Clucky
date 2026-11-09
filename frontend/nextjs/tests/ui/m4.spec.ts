@@ -183,66 +183,25 @@ test("Google registration failure restarts safely and never stores pending token
   expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.includes("token")))).toEqual([]);
 });
 
-test("payment admin confirms with a reason, clears cancelled draft, validates bank account", async ({
-  page,
-}) => {
-  await page.goto(admin + "/admin/payments");
-  const row = page.getByRole("row").filter({ hasText: "CLUCKY-241026-102" });
-  await row.getByRole("button", { name: "Xác nhận thủ công" }).click();
-  await expect(
-    page.getByRole("button", { name: "Xác nhận đã nhận tiền" }),
-  ).toBeDisabled();
-  await page
-    .getByLabel("Lý do xác nhận thủ công")
-    .fill("Đã kiểm tra sao kê demo");
-  await page.getByRole("button", { name: "Xác nhận đã nhận tiền" }).click();
-  await expect(row).toContainText("Đã thanh toán");
-  await expect(
-    page.getByRole("region", { name: "Nhật ký xác nhận trong phiên demo" }),
-  ).toContainText("Đã kiểm tra sao kê demo");
-  await page.getByRole("button", { name: "Xác nhận thủ công" }).click();
-  await page.getByLabel("Lý do xác nhận thủ công").fill("Bản nháp");
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Xác nhận thủ công" }).click();
-  await expect(page.getByLabel("Lý do xác nhận thủ công")).toHaveValue("");
-  await page.keyboard.press("Escape");
-  await page.getByRole("tab", { name: "Tài khoản nhận tiền" }).click();
-  await page.getByRole("button", { name: "Thêm tài khoản" }).click();
-  await page.getByLabel("Ngân hàng", { exact: true }).fill("Demo Bank");
-  await page.getByLabel("Số tài khoản", { exact: true }).fill("invalid");
-  await page.getByLabel("Chủ tài khoản", { exact: true }).fill("CLUCKY");
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Đồng ý", exact: true })
-    .click();
-  await expect(page.getByText("Số tài khoản chỉ gồm chữ số")).toBeVisible();
-});
-
-test("manager sees only own store; staff cannot open payment UI", async ({
-  page,
-}) => {
-  await page.route("**/api/auth/session", route => route.fulfill({ json: { ...adminSession, role: "STORE_MANAGER", storeId: 1 } }));
-  await page.goto(admin + "/admin/payments");
-  await expect(
-    page.getByRole("tab", { name: "Tài khoản nhận tiền" }),
-  ).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: "Webhook log" })).toHaveCount(0);
-  await expect(
-    page.getByRole("row").filter({ hasText: "CLUCKY-241026-104" }),
-  ).toHaveCount(0);
-  await page.getByRole("tab", { name: "Giao dịch ngân hàng" }).click();
-  await expect(
-    page.getByRole("row").filter({ hasText: "MB-20261026-000123" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("row").filter({ hasText: "MB-20261027-000214" }),
-  ).toHaveCount(0);
-  await page.route("**/api/auth/session", route => route.fulfill({ json: { ...adminSession, role: "STAFF", storeId: 1 } }));
-  await page.goto(admin + "/admin/payments");
-  await expect(
-    page.getByRole("tab", { name: "Giao dịch thanh toán" }),
-  ).toHaveCount(0);
-});
+for (const role of ["ADMIN", "STORE_MANAGER", "STAFF"]) {
+  test(`payment integration stays unavailable and enforces role scope: ${role}`, async ({ page }) => {
+    await page.route("**/api/auth/session", route => route.fulfill({ json: { ...adminSession, role, storeId: role === "ADMIN" ? null : 1 } }));
+    const mutations: string[] = [];
+    page.on("request", request => {
+      if (new URL(request.url()).pathname.startsWith("/api/") && !["GET", "HEAD"].includes(request.method())) mutations.push(request.url());
+    });
+    await page.goto(admin + "/admin/payments");
+    if (role === "STAFF") {
+      await expect(page.getByText("403 — Không có quyền truy cập")).toBeVisible();
+    } else {
+      await expect(page.getByText(/Chưa tích hợp dữ liệu và thao tác thực/)).toBeVisible();
+    }
+    await expect(page.getByRole("table")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Xác nhận thủ công|Thêm tài khoản/ })).toHaveCount(0);
+    await expect(page.locator("body")).not.toContainText(/CLUCKY-241026|MB-20261026/);
+    expect(mutations).toEqual([]);
+  });
+}
 
 for (const width of [320, 375, 768, 1440]) {
   test(`responsive payment/shipping and admin ${width}px`, async ({
@@ -267,16 +226,14 @@ for (const width of [320, 375, 768, 1440]) {
     });
     await page.goto(admin + "/admin/payments");
     await expect(
-      page.getByRole("tab", { name: "Giao dịch thanh toán" }),
+      page.getByText(/Chưa tích hợp dữ liệu và thao tác thực/),
     ).toBeVisible();
     await expectNoOverflow(page);
     await page.screenshot({
       path: testInfo.outputPath("admin-payments.png"),
       fullPage: true,
     });
-    await a11y(page, ".payments-page");
-    await page.getByRole("tab", { name: "Tài khoản nhận tiền" }).click();
-    await expectNoOverflow(page);
+    await a11y(page, "main");
   });
 }
 
@@ -300,7 +257,7 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await page.setViewportSize({ width: 375, height: 900 });
   await page.route("https://vietqr.app/img?*", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
   await page.goto(customer + "/orders/901");
-  await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toBeVisible();
+  await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Thông tin giao hàng" }),
   ).toBeVisible();
@@ -312,7 +269,7 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   order.createdAt = new Date().toISOString();
   delete order.shipmentStatus;
   await page.reload();
-  await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toBeVisible();
+  await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }),
   ).toBeVisible();

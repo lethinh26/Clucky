@@ -1,27 +1,30 @@
 import { test, expect, type Page } from "@playwright/test";
 import { seedOrder } from "../fixtures/order";
+import { seedApi } from "../fixtures/api";
 
 const customer = "http://127.0.0.1:4174";
 const admin = "http://127.0.0.1:4173";
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => sessionStorage.setItem("clucky_location_prompt", "seen"));
-  await page.route("**/api/users/me", route => route.fulfill({ json: {
-    fullName: "Test User", email: "test@example.com", phone: "0901234567",
-  } }));
-  await page.route("**/api/users/me/addresses", route => route.fulfill({ json: [] }));
-  await page.route("**/api/auth/session", route => route.fulfill({ json: {
-    userId: 1, role: route.request().headers()["x-clucky-client"] === "admin" ? "ADMIN" : "CUSTOMER",
-    email: "test@example.com", fullName: "Test User",
-  } }));
-  await page.route("**/api/cart", route => route.fulfill({ json: { items: [] } }));
+  await seedApi(page);
 });
 
 async function switchLanguage(page: Page, locale: "vi" | "en") {
   const dialog = page.getByRole("dialog");
   const scope = await dialog.isVisible() ? dialog : page;
-  await scope.getByRole("combobox", { name: /^(Ngôn ngữ|Language)(:|$)/ }).click();
-  await page.getByRole("option", { name: locale === "vi" ? /^Tiếng Việt/ : /^English/ }).click();
+  const currentLocale = await page.locator("html").getAttribute("lang");
+  const control = scope.getByRole("combobox", { name: /^(Ngôn ngữ|Language)(:|$)/ });
+  await control.focus();
+  await control.press("ArrowDown");
+  const option = page.getByRole("option", { name: locale === "vi" ? /^Tiếng Việt/ : /^English/ });
+  await expect(option).toBeVisible();
+  if (page.url().startsWith(admin)) {
+    if (currentLocale !== locale) await control.press(locale === "en" ? "ArrowDown" : "ArrowUp");
+    await control.press("Enter");
+  } else {
+    await option.focus();
+    await page.keyboard.press("Enter");
+  }
   await expect(page.locator("html")).toHaveAttribute("lang", locale);
   const selector = scope.getByRole("combobox", { name: locale === "en" ? /^Language/ : /^Ngôn ngữ/ });
   await expect(selector).toHaveAttribute("aria-expanded", "false", { timeout: 15000 });
@@ -31,7 +34,7 @@ async function switchLanguage(page: Page, locale: "vi" | "en") {
 for (const origin of [customer, admin]) {
   test(`custom language dropdown supports keyboard dismissal (${origin})`, async ({ page }) => {
     await page.goto(origin + "/login");
-    const selector = page.getByRole("combobox", { name: "Ngôn ngữ" });
+    const selector = page.getByRole("combobox", { name: /^Ngôn ngữ/ });
     expect(await selector.evaluate(element => element.tagName)).not.toBe("SELECT");
     await selector.focus();
     await selector.press("ArrowDown");
@@ -87,9 +90,9 @@ test("customer language changes preserve unsaved form values and translate exist
   await page.getByLabel("New password", { exact: true }).filter({ visible: true }).fill("new-password");
   await page.getByLabel("Confirm new password", { exact: true }).filter({ visible: true }).fill("different-password");
   await page.getByRole("button", { name: "Change password (demo)", exact: true }).click();
-  await expect(page.locator("[data-sonner-toast] [data-description]").filter({ visible: true })).toContainText("The passwords do not match.");
+  await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "The passwords do not match." })).toBeVisible();
   await switchLanguage(page, "vi");
-  await expect(page.locator("[data-sonner-toast] [data-description]").filter({ visible: true })).toContainText("Mật khẩu xác nhận không khớp.");
+  await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "Mật khẩu xác nhận không khớp." })).toBeVisible();
   await expect(page.getByLabel("Mật khẩu mới", { exact: true }).filter({ visible: true })).toHaveValue("new-password");
   await switchLanguage(page, "en");
   await page.reload();
@@ -129,7 +132,7 @@ for (const origin of [customer, admin]) {
     await page.getByRole("button", { name: /Đăng nhập$/, exact: false }).first().click();
     await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "Bạn không có quyền" })).toBeVisible();
     await switchLanguage(page, "en");
-    await expect(email).toHaveValue("locale@example.com");
+    await expect(page.getByRole("textbox", { name: origin === admin ? "Internal login or Admin email" : "Email", exact: true })).toHaveValue("locale@example.com");
     await expect(page.getByLabel("Password", { exact: true }).filter({ visible: true })).toHaveValue("password123");
     await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "You do not have permission" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("secret SQL diagnostic");
@@ -169,7 +172,8 @@ for (const [origin, routes] of [
   test(`English route coverage without missing translations (${origin})`, async ({ page, context }) => {
     test.setTimeout(120000);
     await context.addCookies([{ name: "clucky_locale", value: "en", url: origin }]);
-    await page.route("**/api/**", route => route.fulfill({ status: 503, json: { code: "DEPENDENCY_UNAVAILABLE" } }));
+    await page.route("**/api/**", route => new URL(route.request().url()).pathname === "/api/auth/session"
+      ? route.fallback() : route.fulfill({ status: 503, json: { code: "DEPENDENCY_UNAVAILABLE" } }));
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
     page.on("console", message => {
@@ -192,7 +196,7 @@ test("staff order labels update without resetting filters", async ({ page, conte
   await page.route("**/api/auth/session", route => route.fulfill({ json: {
     userId: 2, role: "STAFF", storeId: 1, email: "staff@example.com", fullName: "Staff",
   } }));
-  await page.goto(admin + "/admin/staff/orders");
+  await page.goto(admin + "/admin/orders");
   await expect(page.getByRole("heading", { name: "Store orders" })).toBeVisible();
   await page.getByPlaceholder("Order code, name or phone number…").fill("CLUCKY");
   await switchLanguage(page, "vi");
@@ -200,6 +204,7 @@ test("staff order labels update without resetting filters", async ({ page, conte
   await expect(page.getByRole("heading", { name: "Đơn hàng của chi nhánh" })).toBeVisible();
   await switchLanguage(page, "en");
   await expect(page.getByRole("heading", { name: "Store orders" })).toBeVisible();
+  await expect(page.getByPlaceholder("Order code, name or phone number…")).toHaveValue("CLUCKY");
 });
 
 test("language selector and navigation fit mobile in both locales", async ({ page }) => {

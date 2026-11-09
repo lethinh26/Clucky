@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { isAxiosError } from "axios";
 import { api, storesApi, getErrorMessage, type Store } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
+import { usePageLoading } from "../../components/ui-loader/page-loading";
 
 interface Account { id: number; storeId: number; login: string; role: string; status: string; activated: boolean; current: boolean }
 interface Pair { storeId: number; readiness: string; recoveryEmail: string; verified: boolean; accounts: Account[] }
@@ -18,11 +19,18 @@ export function BranchAccountsPage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [storeId, setStoreId] = useState<number | undefined>(isAdmin ? undefined : user.storeId ?? undefined);
   const [error, setError] = useState("");
-  const load = useCallback(() => storesApi.list(false).then(setStores).catch(failure => setError(getErrorMessage(failure))), []);
-  useEffect(() => { void load(); }, [load]);
+  const [loading, setLoading] = useState(true);
+  usePageLoading(loading);
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setError("");
+    try { const result = await storesApi.list(false, signal); if (!signal?.aborted) setStores(result); }
+    catch (failure) { if (!signal?.aborted) setError(getErrorMessage(failure)); }
+    finally { if (!signal?.aborted) setLoading(false); }
+  }, []);
+  useEffect(() => { const controller = new AbortController(); void load(controller.signal); return () => controller.abort(); }, [load]);
   return <Space direction="vertical" size="large" style={{ width: "100%" }}>
     <Typography.Title level={2}>{t("title")}</Typography.Title>
-    {error && <Alert type="error" message={error} action={<Button onClick={load}>{t("reload")}</Button>} />}
+    {error && <Alert type="error" message={error} action={<Button onClick={() => void load()}>{t("reload")}</Button>} />}
     {isAdmin && <Select aria-label={t("store")} placeholder={t("store")} style={{ width: "min(100%, 480px)" }} value={storeId} onChange={setStoreId}
       options={stores.map(store => ({ value: store.id, label: `${store.id} — ${store.name}` }))} />}
     {storeId && <BranchDetails key={storeId} storeId={storeId} />}
@@ -118,9 +126,14 @@ function BranchDetails({ storeId }: { storeId: number }) {
     {pair && <Card title={t("title")}>
       <p>{t("recovery")}: {pair.recoveryEmail} — {t(pair.verified ? "yes" : "no")}</p>
       <Table<Account> rowKey="id" dataSource={pair.accounts} pagination={false} scroll={{ x: 800 }} columns={[...accountColumns, ...(isAdmin ? [{ title: t("action"), render: (_: unknown, account: Account) =>
-        <Button danger={account.status === "ACTIVE"} disabled={busy} onClick={() => modal.confirm({ title: t("lockConfirm"), content: `${account.id} — ${account.login}`,
-          onOk: () => run(async () => { await api.put(`/api/auth/branch/accounts/${account.id}/lock`, null, { params: { locked: account.status === "ACTIVE" } }); await load(); }),
-        })}>{t(account.status === "ACTIVE" ? "lock" : "unlock")}</Button>,
+        <Button danger={account.status === "ACTIVE"} disabled={busy} onClick={() => {
+          const confirmation = modal.confirm({ title: t("lockConfirm"), content: `${account.id} — ${account.login}`,
+            onOk: () => {
+              confirmation.update({ cancelButtonProps: { disabled: true }, keyboard: false, maskClosable: false, closable: false });
+              return run(async () => { await api.put(`/api/auth/branch/accounts/${account.id}/lock`, null, { params: { locked: account.status === "ACTIVE" } }); await load(); });
+            },
+          });
+        }}>{t(account.status === "ACTIVE" ? "lock" : "unlock")}</Button>,
       }] : [])]} />
       <Alert type="info" message={t(isAdmin ? "adminHelp" : "managerHelp")} style={{ marginBlock: 16 }} />
       <Form form={management} layout="vertical" onFinish={startManagement} disabled={busy} initialValues={{ purpose: "RECOVERY" }}>
