@@ -11,12 +11,13 @@ import {
   ClipboardCheck,
   ChefHat,
   PackageCheck,
+  Truck,
   Flag,
   ChevronDown,
   Clock3,
 } from "lucide-react";
 import type { Order, OrderStatus, OrderType } from "@/lib/types/order";
-import { displayOrderTime, orderStatusKeys } from "@/lib/order-demo";
+import { displayOrderTime, orderHistoryDescription, orderStatusKey } from "@/lib/order-demo";
 import styles from "./order-experience.module.css";
 
 
@@ -41,13 +42,14 @@ export function OrderProgress({
   const t = useTranslations();
 
   const steps = [
-  { label: t("business.orderprogress.chooseDishes"), icon: ShoppingBag },
-  { label: t("business.cart.checkout"), icon: CreditCard },
-  { label: t("business.orderprogress.confirm"), icon: ClipboardCheck },
-  { label: t("business.orderprogress.preparing"), icon: ChefHat },
-  { label: t("business.orderprogress.ready"), icon: PackageCheck },
-  { label: t("business.orderprogress.complete"), icon: Flag },
-];
+    { status: "CART", label: t("business.orderprogress.chooseDishes"), icon: ShoppingBag },
+    { status: "PENDING_PAYMENT", label: t("business.cart.checkout"), icon: CreditCard },
+    { status: "CONFIRMED", label: t("business.orderprogress.confirm"), icon: ClipboardCheck },
+    { status: "PREPARING", label: t("business.orderprogress.preparing"), icon: ChefHat },
+    { status: "READY", label: t(orderStatusKey("READY", type)), icon: PackageCheck },
+    ...(type === "DELIVERY" ? [{ status: "SHIPPING", label: t(orderStatusKey("SHIPPING", type)), icon: Truck }] : []),
+    { status: "COMPLETED", label: t(orderStatusKey("COMPLETED", type)), icon: Flag },
+  ];
 
   const { locale } = useLocaleTools();
   const [expanded, setExpanded] = useState(false);
@@ -69,15 +71,7 @@ export function OrderProgress({
       /* Storage is optional for the disclosure. */
     }
   };
-  const current = {
-    PENDING_PAYMENT: 1,
-    CONFIRMED: 2,
-    PREPARING: 3,
-    READY: 4,
-    SHIPPING: 4,
-    COMPLETED: 5,
-    CANCELLED: -1,
-  }[status];
+  const current = steps.findIndex(step => step.status === status);
   if (stage)
     return (
       <nav className={styles.checkoutSteps} aria-label={t("business.orderprogress.orderingSteps")}>
@@ -113,7 +107,7 @@ export function OrderProgress({
           <small>{displayOrderTime(updatedAt ?? history.at(-1)?.time, locale)}</small>
         </span>
         <span className={styles.progressState} data-status={status}>
-          {t(orderStatusKeys[status])}
+          {t(orderStatusKey(status, type))}
         </span>
         <ChevronDown size={17} className={styles.disclosureChevron} />
         <span className="sr-only">
@@ -133,13 +127,14 @@ export function OrderProgress({
             <ol
               className={styles.progressRail}
               data-complete={status === "COMPLETED"}
+              aria-label={t(type === "PICKUP" ? "business.orderprogress.pickupProgress" : "business.orderprogress.deliveryProgress")}
             >
               {steps.map((step, index) => {
                 const Icon =
                   status === "COMPLETED" || index < current ? Check : step.icon;
                 return (
                   <li
-                    key={step.label}
+                    key={step.status}
                     data-state={
                       index < current
                         ? "done"
@@ -152,15 +147,7 @@ export function OrderProgress({
                     <span className={styles.stepIcon}>
                       <Icon size={16} />
                     </span>
-                    <span>
-                      {index === 4
-                        ? status === "SHIPPING"
-                          ? t("business.orderprogress.delivering")
-                          : type === "PICKUP"
-                            ? t("business.orderprogress.awaitingCollection")
-                            : t("business.orderprogress.ready")
-                        : step.label}
-                    </span>
+                    <span>{step.label}</span>
                   </li>
                 );
               })}
@@ -168,16 +155,19 @@ export function OrderProgress({
           )}
           {history.length > 0 && (
             <ol className={styles.eventHistory} aria-label={t("business.orderprogress.updateHistory")}>
-              {history.map((event, index) => (
+              {history.map((event, index) => {
+                const description = orderHistoryDescription(event, type, locale);
+                return (
                 <li key={`${index}-${event.time}`} data-current={event.current}>
                   <span className={styles.eventDot} />
                   <div>
-                    <strong>{event.title}</strong>
-                    <p>{event.description}</p>
+                    <strong>{t(orderStatusKey(event.status, type))}</strong>
+                    {description && <p>{description}</p>}
                   </div>
                   <time>{displayOrderTime(event.time, locale)}</time>
                 </li>
-              ))}
+                );
+              })}
             </ol>
           )}
         </div>

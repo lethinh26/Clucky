@@ -47,10 +47,11 @@ public class RefundRequestService {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
 
-        Order order = orderRepository.findById(request.orderId())
+        Order order = orderRepository.lockById(request.orderId())
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         accessGuard.requireOwner(order.getCustomerId());
+        if (order.getPaymentExpiresAt() != null || order.getCollectionMethod() != null) throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
 
         List<RefundRequest> existing = refundRequestRepository.findAllByOrderId(order.getId());
         boolean hasActive = existing.stream().anyMatch(r ->
@@ -107,7 +108,7 @@ public class RefundRequestService {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
-        Order order = orderRepository.findById(refund.getOrderId())
+        Order order = orderRepository.lockById(refund.getOrderId())
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         // Enforce Store scope for Store Manager
@@ -118,6 +119,7 @@ public class RefundRequestService {
             }
         }
 
+        if (order.getPaymentExpiresAt() != null) throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
         refund.setStatus("APPROVED");
         refund.setReviewedBy(actor.userId());
         refund.setReviewedAt(Instant.now());

@@ -70,8 +70,12 @@ public class ReportProjectionService {
             tracker.setStatDate(statDate);
             tracker.setPaymentMethod(method);
             tracker.setRevenueAmount(amount);
-            tracker.setCodAmount("COD".equals(method) ? amount : BigDecimal.ZERO);
-            tracker.setTransferAmount("BANK_TRANSFER".equals(method) ? amount : BigDecimal.ZERO);
+            BigDecimal cash = payload.hasNonNull("cashAmount") ? collectionMoney(payload,"cashAmount")
+                    : "COD".equals(method) ? amount : BigDecimal.ZERO;
+            BigDecimal transfer = payload.hasNonNull("declaredTransfer") ? collectionMoney(payload,"declaredTransfer")
+                    : "BANK_TRANSFER".equals(method) ? amount : BigDecimal.ZERO;
+            tracker.setCodAmount(cash);
+            tracker.setTransferAmount(transfer);
         }
         tracker.setOrderCompleted(tracker.isOrderCompleted() || "order.completed".equals(event.eventType()));
         tracker.setPaymentConfirmed(tracker.isPaymentConfirmed() || "payment.confirmed".equals(event.eventType()));
@@ -152,10 +156,17 @@ public class ReportProjectionService {
 
     private String resolvePaymentMethod(JsonNode payload) {
         String field = "order.completed".equals(revenueEvent) ? "paymentMethod" : "method";
-        String method = payload.path(field).asText();
-        if (!Set.of("COD", "BANK_TRANSFER").contains(method)) {
+        String method = payload.path(field).asText(payload.path("paymentMethod").asText());
+        if (!Set.of("COD", "BANK_TRANSFER", "CASH", "MIXED", "UNVERIFIED").contains(method)) {
             throw new IllegalArgumentException("Supported payment method required");
         }
         return method;
+    }
+
+    private BigDecimal collectionMoney(JsonNode payload,String field) {
+        var value=payload.get(field);
+        if(value==null||!value.isNumber()||value.decimalValue().signum()<0||value.decimalValue().stripTrailingZeros().scale()>0
+                ||value.decimalValue().compareTo(new BigDecimal("999999999999"))>0)throw new IllegalArgumentException("Invalid collection amount");
+        return value.decimalValue();
     }
 }

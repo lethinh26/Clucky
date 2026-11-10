@@ -46,7 +46,7 @@ class RbacOrderRegressionTest {
         order.setCustomerId(1L);
         order.setStoreId(10L);
         order.setStatus(status);
-        when(orders.findById(1L)).thenReturn(Optional.of(order));
+        when(orders.lockById(1L)).thenReturn(Optional.of(order));
         when(orders.save(order)).thenReturn(order);
         return order;
     }

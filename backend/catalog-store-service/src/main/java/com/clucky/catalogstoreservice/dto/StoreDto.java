@@ -11,6 +11,12 @@ public class StoreDto {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
     public static class Response {
+        private java.math.BigDecimal deliveryRadiusKm;
+        private long version;
+        public java.math.BigDecimal getDeliveryRadiusKm() { return deliveryRadiusKm; }
+        public void setDeliveryRadiusKm(java.math.BigDecimal radius) { this.deliveryRadiusKm = radius; }
+        public long getVersion() { return version; }
+        public void setVersion(long version) { this.version = version; }
         private String accountReadiness;
         public String getAccountReadiness() { return accountReadiness; }
         public void setAccountReadiness(String readiness) { this.accountReadiness = readiness; }
@@ -173,6 +179,11 @@ public class StoreDto {
                     && Double.isFinite(latitude) && Double.isFinite(longitude));
         }
     }
+
+    public record DeliverySettingsRequest(
+            @jakarta.validation.constraints.DecimalMin(value = "0", inclusive = false)
+            @jakarta.validation.constraints.Digits(integer = 5, fraction = 2) java.math.BigDecimal radiusKm,
+            @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.PositiveOrZero Long version) {}
 
     public static class OperationRequest {
         @com.fasterxml.jackson.annotation.JsonAnySetter

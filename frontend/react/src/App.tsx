@@ -19,6 +19,7 @@ import { PromotionsPage } from "./pages/Promotions";
 import { LoginPage } from "./pages/Auth/LoginPage";
 import { BranchAccessPage } from "./pages/Auth/BranchAccessPage";
 import { BranchAccountsPage } from "./pages/Users/BranchAccountsPage";
+import { PaymentsPage } from "./pages/Payments";
 
 import { OrderProvider } from "./context/OrderContext";
 import { PageLoadingProvider } from "./components/ui-loader/page-loading";
@@ -180,9 +181,9 @@ export const App: React.FC = () => {
                       path="payments"
                       element={
                         <ProtectedRoute
-                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                          allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
                         >
-                          <UnavailableFeature />
+                          <PaymentsPage />
                         </ProtectedRoute>
                       }
                     />

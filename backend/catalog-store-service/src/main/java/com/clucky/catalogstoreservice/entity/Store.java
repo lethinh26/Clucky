@@ -8,6 +8,14 @@ import java.time.OffsetDateTime;
 @Table(name = "stores")
 public class Store {
 
+    @Version
+    private long version;
+    @Column(name = "delivery_radius_km", precision = 7, scale = 2)
+    private java.math.BigDecimal deliveryRadiusKm;
+    public long getVersion() { return version; }
+    public java.math.BigDecimal getDeliveryRadiusKm() { return deliveryRadiusKm; }
+    public void setDeliveryRadiusKm(java.math.BigDecimal radius) { this.deliveryRadiusKm = radius; }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

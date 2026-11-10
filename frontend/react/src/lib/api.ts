@@ -52,6 +52,8 @@ export interface Combo {
 }
 
 export interface Store {
+  deliveryRadiusKm?: number | null;
+  version?: number;
   accountReadiness?: 'LEGACY' | 'PENDING' | 'PROVISIONED' | 'READY';
   recoveryEmail?: string;
   latitude?: number | null;
@@ -460,6 +462,8 @@ export const catalogApi = {
 
 /* ---------- Stores ---------- */
 export const storesApi = {
+  updateDeliverySettings: (id: number, radiusKm: number | null, version: number) =>
+    api.put<Store>(`/api/stores/${id}/delivery-settings`, { radiusKm, version }).then(response => response.data),
   updateLocation: (id: number, point: { latitude: number | null; longitude: number | null }) =>
     api.put<Store>('/api/stores/' + id + '/location', point).then(response => response.data),
   list: (activeOnly?: boolean, signal?: AbortSignal) =>

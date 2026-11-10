@@ -5,8 +5,24 @@
 .payments-page .ant-tabs-tabpane {
   min-width: 0;
 }
+.payments-page .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+  overflow-x: auto;
+}
+.payments-page .ant-tabs-nav-list {
+  transform: none !important;
+}
+.payments-page .ant-tabs > .ant-tabs-nav .ant-tabs-nav-operations {
+  display: none;
+}
 .payments-page .ant-table-wrapper {
   max-width: 100%;
+}
+.payments-table-scroll {
+  overflow-x: auto;
+  width: 100%;
+}
+.payments-page .ant-table-tbody > tr.ant-table-placeholder {
+  color: #6b6259;
 }
 .payments-page .ant-tag.ant-tag-filled.ant-tag-green,
 .payments-page .ant-tag.ant-tag-filled.ant-tag-success {
@@ -26,7 +42,9 @@
   color: #1e40af;
 }
 .payments-page .ant-btn:focus-visible,
-.payments-page .ant-switch:focus-visible {
+.payments-page .ant-switch:focus-visible,
+.payments-table-scroll:focus-visible,
+.payments-page summary:focus-visible {
   outline: 3px solid #8f1216;
   outline-offset: 3px;
 }
@@ -42,32 +60,31 @@
   }
 }
 
-.payments-page .ant-tabs-nav-list {
-  flex-wrap: wrap;
-  transform: none !important;
-  gap: 0 16px;
-}
-.payments-page .ant-tabs-tab {
-  margin: 0;
-}
-.payments-page .ant-tabs-nav-wrap {
-  overflow: visible;
-}
-.payments-page .ant-tabs-nav-operations,
-.payments-page .ant-tabs-ink-bar {
-  display: none;
-}
-.payments-page .ant-tabs-tab-active {
-  border-bottom: 2px solid #8f1216;
+.payments-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.payments-header h2.ant-typography { margin: 0 0 4px; font-family: Fredoka, Quicksand, sans-serif; }
+.payments-header .ant-typography { margin-bottom: 0; }
+.payment-log-toolbar, .payment-log-secondary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+.payment-log-toolbar h4.ant-typography { margin: 0 0 4px; font-family: Fredoka, Quicksand, sans-serif; }
+.payment-log-filters { display: grid; grid-template-columns: minmax(260px, 2fr) repeat(3, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.payment-assignment-filters { display: grid; grid-template-columns: minmax(240px, 2fr) minmax(160px, 1fr) minmax(220px, 1.5fr); gap: 12px; margin-bottom: 20px; }
+.payment-log-filters > *, .payment-assignment-filters > * { min-width: 0; width: 100%; }
+.payment-log-secondary label { display: grid; gap: 4px; font-size: 12px; color: #6b6259; }
+.payment-log-muted { display: block; margin-top: 5px; font-size: 12px; color: #6b6259; }
+.payment-log-content { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.payment-receipt-amount { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.payment-receipt-amount h2.ant-typography { margin: 0; font-family: Fredoka, Quicksand, sans-serif; color: #8f1216; }
+.payment-receipt-fields { margin: 24px 0; }
+.payment-receipt-section { padding: 22px 0; border-top: 1px solid #ece7e1; }
+.payment-receipt-content { padding: 14px 16px; background: #faf7f2; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.payment-order-preview { display: grid; gap: 10px; margin-top: 16px; padding: 18px; background: #faf7f2; border: 1px solid #ece7e1; border-radius: 12px; }
+.payment-order-preview > strong { font-size: 18px; }
+.payment-order-preview label { display: grid; gap: 8px; margin-top: 8px; }
+.payment-receipt-drawer .ant-alert { margin-top: 16px; }
+@media (max-width: 900px) {
+  .payment-log-filters, .payment-assignment-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .payment-log-filters > :first-child, .payment-assignment-filters > :first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 480px) {
-  .payments-page .ant-tabs-nav-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 12px;
-    width: 100%;
-  }
-  .payments-page .ant-tabs-tab {
-    font-size: 12px;
-  }
+  .payment-log-filters, .payment-assignment-filters { grid-template-columns: 1fr; }
+  .payments-page .ant-card-body { padding: 14px; }
 }

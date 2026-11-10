@@ -96,6 +96,19 @@ class ReportProjectionTest {
     }
 
     @Test
+    void mixedCollectionPreservesDeclarationsWithoutInflatingRevenue() {
+        var tracker=new OrderProjectionTracker(1L,null,0L,LocalDate.of(2026,11,5),null,
+                BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ZERO,false,false,false);
+        when(events.claim("event-1","order.completed",1L)).thenReturn(1);
+        when(trackers.findByOrderId(1L)).thenReturn(Optional.of(tracker));
+        var completed=valid();
+        ((ObjectNode)completed.payload()).put("paymentMethod","MIXED").put("cashAmount",80000).put("declaredTransfer",60000);
+        assertTrue(service.processProjectionEvent(completed));
+        verify(stats).upsertStatsDelta(2L,LocalDate.of(2026,11,5),1,new BigDecimal("120000"),new BigDecimal("80000"),new BigDecimal("60000"));
+        assertEquals(new BigDecimal("120000"),tracker.getRevenueAmount());
+    }
+
+    @Test
     void sqlFailurePropagatesWithoutJpaFallback() {
         var tracker = new OrderProjectionTracker(1L, null, 0L, LocalDate.of(2026, 11, 5), null,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, false, false);

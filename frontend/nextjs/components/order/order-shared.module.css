@@ -12,7 +12,7 @@
   --clu-status-info: #22577a;
   --clu-muted: #6b6259;
   --clu-border: #e8e2d9;
-  --clu-font-heading: "Fredoka", system-ui, sans-serif;
+  --clu-font-heading: var(--font-heading);
   --clu-font-body: var(--font-body);
   font-family: var(--clu-font-body);
 }

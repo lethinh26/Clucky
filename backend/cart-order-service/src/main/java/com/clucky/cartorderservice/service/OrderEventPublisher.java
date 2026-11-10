@@ -60,7 +60,12 @@ public class OrderEventPublisher {
     }
 
     public void publishOrderCancelled(Order order, List<OrderItem> items, String reason) {
+        publishOrderCancelled(order, items, reason, false);
+    }
+
+    public void publishOrderCancelled(Order order, List<OrderItem> items, String reason, boolean paymentExpired) {
         ObjectNode payload = buildOrderPayload(order, items, null, reason);
+        payload.put("paymentExpired", paymentExpired);
         publish(TOPIC_ORDER_CANCELLED, order, payload);
         auditOperation(order, "ORDER_CANCELLED");
     }
@@ -86,8 +91,14 @@ public class OrderEventPublisher {
         payload.put("storeId", order.getStoreId());
         payload.put("type", order.getType());
         payload.put("status", order.getStatus());
+        payload.put("paymentStatus", order.getPaymentStatus());
         if (order.getPaymentMethod() != null) {
             payload.put("paymentMethod", order.getPaymentMethod());
+        }
+        if (order.getCollectionMethod() != null) {
+            payload.put("paymentMethod", order.getCollectionMethod());
+            payload.put("cashAmount", order.getCollectedCash());
+            payload.put("declaredTransfer", order.getDeclaredTransfer());
         }
 
         if (previousStatus != null) {
@@ -126,6 +137,12 @@ public class OrderEventPublisher {
         }
         if (order.getDeliveryAddress() != null) {
             payload.put("deliveryAddress", order.getDeliveryAddress());
+        }
+        if (order.getLatitude() != null) {
+            payload.put("latitude", order.getLatitude());
+        }
+        if (order.getLongitude() != null) {
+            payload.put("longitude", order.getLongitude());
         }
         if (order.getNote() != null) {
             payload.put("note", order.getNote());
