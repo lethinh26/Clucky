@@ -421,7 +421,7 @@ public class OrderService {
             cancellationReason(order, request.note());
         }
         if (("COMPLETED".equals(target) || ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)))
-                && !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+                && (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()))) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
@@ -597,9 +597,11 @@ public class OrderService {
     public PageResponse<OrderResponse> getOrders(Long requestedStoreId, String status, String orderCode, Pageable pageable) {
         Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
-        String cleanOrderCode = (orderCode != null && !orderCode.isBlank()) ? orderCode.trim() : null;
+        String orderCodePattern = (orderCode != null && !orderCode.isBlank())
+                ? "%" + orderCode.trim().toLowerCase() + "%"
+                : null;
 
-        Page<Order> orderPage = orderRepository.findOrders(effectiveStoreId, cleanStatus, cleanOrderCode, pageable);
+        Page<Order> orderPage = orderRepository.findOrders(effectiveStoreId, cleanStatus, orderCodePattern, pageable);
         return mapToOrderResponsePage(orderPage);
     }
 

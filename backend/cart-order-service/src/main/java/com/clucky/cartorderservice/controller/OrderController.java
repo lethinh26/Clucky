@@ -17,9 +17,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/orders")
 public class OrderController {
     private final OrderService orderService;
+    private final com.clucky.cartorderservice.service.RefundRequestService refundRequestService;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, com.clucky.cartorderservice.service.RefundRequestService refundRequestService) {
         this.orderService = orderService;
+        this.refundRequestService = refundRequestService;
     }
 
     @PostMapping("/preview")
@@ -114,5 +116,15 @@ public class OrderController {
     public ResponseEntity<CartDto> reorder(@PathVariable("id") @Positive Long id) {
         CartDto cart = orderService.reorder(id);
         return ResponseEntity.ok(cart);
+    }
+
+    @PostMapping("/{id}/refund-requests")
+    public ResponseEntity<com.clucky.cartorderservice.dto.RefundRequestResponse> createRefundForOrder(
+            @PathVariable("id") @Positive Long id,
+            @Valid @RequestBody com.clucky.cartorderservice.dto.CreateRefundRequest request) {
+        com.clucky.cartorderservice.dto.CreateRefundRequest effective = new com.clucky.cartorderservice.dto.CreateRefundRequest(
+                id, request.reason(), request.bankName(), request.bankAccountNo(), request.bankAccountName()
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(refundRequestService.createRefundRequest(effective));
     }
 }

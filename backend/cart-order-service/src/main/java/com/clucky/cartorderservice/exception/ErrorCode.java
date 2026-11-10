@@ -30,7 +30,15 @@ public enum ErrorCode {
     EMAIL_NOT_VERIFIED(401, "Please verify your email before signing in."),
     INVALID_OTP(400, "The OTP is invalid or has already been used."),
     OTP_EXPIRED(400, "The OTP has expired."),
-    TOKEN_REVOKED(401, "The session has expired or been revoked.");
+    TOKEN_REVOKED(401, "The session has expired or been revoked."),
+    REFUND_NOT_ELIGIBLE(400, "This order is not eligible for a refund."),
+    REFUND_AMOUNT_EXCEEDED(409, "Refund amount exceeds eligible received amount."),
+    REFUND_ALREADY_EXISTS(409, "An active refund request already exists."),
+    INVALID_REFUND_STATE(409, "Invalid refund request state for this action."),
+    EVIDENCE_REQUIRED(400, "Valid refund evidence is required."),
+    EVIDENCE_DELIVERY_UNAVAILABLE(503, "Private evidence delivery is currently unavailable."),
+    INVALID_THRESHOLD(400, "Invalid stock threshold."),
+    PRODUCT_OUT_OF_STOCK(409, "Product is out of stock and cannot be put on sale.");
 
     private final int httpStatus;
     private final String message;

@@ -6,4 +6,5 @@ import java.util.Optional;
 
 public interface BankTransactionRepository extends JpaRepository<BankTransaction, Long> {
     Optional<BankTransaction> findByBankTxId(String bankTxId);
+    Optional<BankTransaction> findByMatchedOrderCode(String matchedOrderCode);
 }

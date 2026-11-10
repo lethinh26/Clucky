@@ -70,6 +70,31 @@ public class OrderEventPublisher {
         auditOperation(order, "ORDER_CANCELLED");
     }
 
+    public void publishRefundEvent(String topic, com.clucky.cartorderservice.entity.RefundRequest refund, Order order, String reason) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("refundId", refund.getId());
+        payload.put("orderId", refund.getOrderId());
+        payload.put("orderCode", order.getOrderCode());
+        if (refund.getCustomerId() != null) {
+            payload.put("customerId", refund.getCustomerId());
+        }
+        payload.put("storeId", order.getStoreId());
+        if (refund.getAmount() != null) {
+            payload.put("amount", refund.getAmount());
+        }
+        payload.put("status", refund.getStatus());
+        if (reason != null && !reason.isBlank()) {
+            payload.put("reason", reason);
+        }
+        if (refund.getAttemptCount() != null) {
+            payload.put("attemptCount", refund.getAttemptCount());
+        }
+        if (refund.getBankDetailsVersion() != null) {
+            payload.put("bankDetailsVersion", refund.getBankDetailsVersion());
+        }
+        publish(topic, order, payload);
+    }
+
     private void auditOperation(Order order, String action) {
         var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (!(authentication instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken token)) return;

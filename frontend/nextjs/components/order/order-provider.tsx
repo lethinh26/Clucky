@@ -99,6 +99,8 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
     totalAmount: Number(be.totalAmount),
     paymentMethod: (be.paymentMethod as Order["paymentMethod"]) || (be.status === "PENDING_PAYMENT" ? "BANK_TRANSFER" : "COD"),
     paymentStatus: be.paymentStatus ?? "UNKNOWN",
+    refundStatus: (be as any).refundStatus,
+    refundData: (be as any).refundData,
     receiverName: be.receiverName,
     receiverPhone: be.receiverPhone,
     deliveryAddress: be.deliveryAddress,
