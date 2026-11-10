@@ -16,7 +16,7 @@ export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED" | "COLLECT
 export type ShipmentStatus =
   "CREATED" | "ASSIGNED" | "PICKED_UP" | "SHIPPING" | "DELIVERED" | "FAILED";
 
-export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED";
+export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | "PROCESSING" | "WAITING_BANK_DETAILS";
 
 export type PartyOrderStatus =
   "NEW" | "CONTACTED" | "QUOTED" | "CONFIRMED" | "CLOSED";
@@ -94,6 +94,7 @@ export interface Order {
   createdAt: string;
   updatedAt?: string;
   refundStatus?: RefundStatus;
+  refundData?: any;
   items: OrderItem[];
   timeline: {
     status: OrderStatus;

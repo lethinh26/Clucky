@@ -1,3 +1,5 @@
+import type { BackendRefund } from "../lib/api";
+
 export type AdminOrderStatus =
   | "PENDING_PAYMENT"
   | "CONFIRMED"
@@ -45,7 +47,8 @@ export interface AdminOrder {
   refundRequestId?: number;
   refundReason?: string;
   refundAmount?: number;
-  refundStatus?: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED";
+  refundStatus?: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | "PROCESSING" | "WAITING_BANK_DETAILS";
+  refundData?: BackendRefund;
   updatedAt?: string;
   timeline?: {
     status: AdminOrderStatus;

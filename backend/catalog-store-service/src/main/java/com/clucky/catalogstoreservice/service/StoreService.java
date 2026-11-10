@@ -118,6 +118,16 @@ public class StoreService {
         if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime()));
         if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime()));
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
+        if (request.getPhone() != null && !request.getPhone().isBlank()) store.setPhone(request.getPhone().trim());
+        if (request.getLatitude() != null) store.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) store.setLongitude(request.getLongitude());
+        if (request.getDeliveryArea() != null) store.setDeliveryArea(request.getDeliveryArea());
+        if (request.getLowStockThreshold() != null) {
+            if (request.getLowStockThreshold() < 0) {
+                throw new com.clucky.catalogstoreservice.exception.ApiException(com.clucky.catalogstoreservice.exception.ErrorCode.INVALID_THRESHOLD);
+            }
+            store.setLowStockThreshold(request.getLowStockThreshold());
+        }
 
         Store saved = storeRepository.save(store);
         cacheService.evictStoreMenuCache(id);
@@ -173,6 +183,7 @@ public class StoreService {
         response.setIsOpenNow(isStoreServingNow(store));
         response.setLatitude(store.getLatitude());
         response.setLongitude(store.getLongitude());
+        response.setLowStockThreshold(store.getLowStockThreshold());
         return response;
     }
 

@@ -44,6 +44,12 @@ public class Store {
     @Column(name = "delivery_area", columnDefinition = "TEXT")
     private String deliveryArea;
 
+    @Column(name = "low_stock_threshold", nullable = false)
+    private Integer lowStockThreshold = 20;
+
+    public Integer getLowStockThreshold() { return lowStockThreshold != null ? lowStockThreshold : 20; }
+    public void setLowStockThreshold(Integer lowStockThreshold) { this.lowStockThreshold = lowStockThreshold; }
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
