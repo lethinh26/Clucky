@@ -563,6 +563,88 @@ export const inventoryApi = {
     api.put(`/api/stores/${storeId}/products/${productId}/availability`, data).then((r) => r.data),
 };
 
+/* ---------- Reviews ---------- */
+export type ReviewStatus = 'VISIBLE' | 'HIDDEN' | 'DELETED';
+
+export interface ReviewReplyDto {
+  id: number;
+  responderId: number;
+  responderRole: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ReviewDto {
+  id: number;
+  customerId: number;
+  productId: number;
+  orderId: number;
+  storeId?: number | null;
+  rating: number;
+  comment: string;
+  status: ReviewStatus;
+  version: number;
+  createdAt: string;
+  updatedAt?: string | null;
+  deletedAt?: string | null;
+  replies: ReviewReplyDto[];
+}
+
+export interface ReviewModerationSummaryDto {
+  totalReviews: number;
+  visibleCount: number;
+  averageRating: number;
+  unrepliedVisibleCount: number;
+  hiddenCount: number;
+  deletedCount: number;
+}
+
+export interface ModerationReviewListParams {
+  storeId?: number;
+  status?: ReviewStatus;
+  rating?: number;
+  productId?: number;
+  hasReply?: boolean;
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+export const reviewsApi = {
+  listModeration: (params?: ModerationReviewListParams, signal?: AbortSignal) =>
+    api.get<PageResponse<ReviewDto>>('/api/reviews/moderation', { params, signal }).then((r) => r.data),
+  summaryModeration: (storeId?: number, signal?: AbortSignal) =>
+    api
+      .get<ReviewModerationSummaryDto>('/api/reviews/moderation/summary', {
+        params: storeId ? { storeId } : undefined,
+        signal,
+      })
+      .then((r) => r.data),
+  reply: (id: number, content: string, idempotencyKey?: string) =>
+    api
+      .post<ReviewReplyDto>(
+        `/api/reviews/${id}/replies`,
+        { content },
+        idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
+      )
+      .then((r) => r.data),
+  hide: (id: number, payload: { reason?: string; version?: number }, idempotencyKey?: string) =>
+    api
+      .put<ReviewDto>(
+        `/api/reviews/${id}/hide`,
+        payload,
+        idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
+      )
+      .then((r) => r.data),
+  softDelete: (id: number, payload: { reason?: string; version?: number }, idempotencyKey?: string) =>
+    api
+      .delete<ReviewDto>(`/api/reviews/${id}/moderation`, {
+        data: payload,
+        ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
+      })
+      .then((r) => r.data),
+};
+
 /* ---------- Reports & Dashboard (review-report-service) ---------- */
 export interface DailyStoreStatsItem {
   id: number;

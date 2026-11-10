@@ -9,8 +9,19 @@ public interface OrderServiceClient {
         String orderCode,
         Long customerId,
         String status,
-        List<Long> productIds
-    ) {}
+        List<Long> productIds,
+        Long storeId
+    ) {
+        public OrderVerificationDto(
+            Long id,
+            String orderCode,
+            Long customerId,
+            String status,
+            List<Long> productIds
+        ) {
+            this(id, orderCode, customerId, status, productIds, null);
+        }
+    }
 
     record OrderStoreDto(
         Long orderId,
