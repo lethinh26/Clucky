@@ -11,6 +11,8 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { UnavailableFeature } from "./components/UnavailableFeature";
 import { roleHome } from "./lib/role-home";
 import { CatalogPage } from "./pages/Catalog";
+import Dashboard from "./pages/Dashboard";
+import { ReportsPage } from "./pages/Reports";
 import { StoresPage } from "./pages/Stores";
 import { StaffInventoryPage } from "./pages/Staff/Inventory";
 import { OrdersPage } from "./pages/Orders";
@@ -109,7 +111,14 @@ export const App: React.FC = () => {
                       index
                       element={<RoleHome />}
                     />
-                    <Route path="dashboard" element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}><UnavailableFeature /></ProtectedRoute>} />
+                    <Route
+                      path="dashboard"
+                      element={
+                        <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      }
+                    />
                     <Route
                       path="catalog"
                       element={
@@ -154,7 +163,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
-                          <UnavailableFeature />
+                          <ReportsPage />
                         </ProtectedRoute>
                       }
                     />

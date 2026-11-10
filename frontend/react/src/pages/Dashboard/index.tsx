@@ -1,61 +1,99 @@
-import { message } from "../../components/feedback";
-import { useLocaleTools } from "../../i18n/hooks";
-import { useTranslation } from "react-i18next";
-import { useState, useMemo } from 'react';
-import { useOrders } from '../../context/OrderContext';
-import { Button, Card, Col, Flex, Progress, Row, Segmented, Select, Space, Statistic, Table, Tag, Tooltip, Typography } from "antd";
-import { TableColumnsType } from "antd";
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Empty,
+  Flex,
+  Result,
+  Row,
+  Segmented,
+  Select,
+  Skeleton,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
+import type { TableColumnsType } from 'antd';
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
+  BarChartOutlined,
+  ClockCircleOutlined,
   CoffeeOutlined,
   DollarOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
   MoreOutlined,
-  PlusOutlined,
-  TeamOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
+import { useOrders } from '../../context/OrderContext';
+import { useAuth } from '../../context/AuthContext';
+import { useLocaleTools } from '../../i18n/hooks';
+import { getBrowserLocale, getErrorMessage } from '../../i18n/core';
+import {
+  reportsApi,
+  storesApi,
+  type DailyStoreStatsItem,
+  type DashboardReportResponse,
+  type RevenueReportResponse,
+  type Store,
+} from '../../lib/api';
+import { getStoreStatusMeta, normalizeStoreStatus } from '../../types/store';
 
 export type OrderSummary = {
   key: string;
   code: string;
   customer: string;
   items: number;
-  status: 'PREPARING' | 'COMPLETED' | 'SHIPPING' | 'PENDING';
+  status:
+    | 'PREPARING'
+    | 'COMPLETED'
+    | 'SHIPPING'
+    | 'PENDING'
+    | 'READY'
+    | 'PENDING_PAYMENT'
+    | 'CONFIRMED'
+    | 'CANCELLED';
   total: number;
   time: string;
   storeName?: string;
 };
 
-export const mockOrders: OrderSummary[] = [];
-
-/**
- * Status color mapping theo quy chuẩn Brand Guidelines:
- * - Hoàn thành (Thành công): #1E7A46
- * - Đang chuẩn bị / Chờ xác nhận (Cảnh báo): #D97706
- * - Đang giao (Thông tin): #22577A
- */
-const statusTagStyleMap: Record<OrderSummary['status'], { color: string; bg: string; border: string }> = {
-  'PREPARING': { color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
-  'PENDING': { color: '#B45309', bg: '#FFFBEB', border: '#FCD34D' },
-  'COMPLETED': { color: '#1E7A46', bg: '#D1FAE5', border: '#A7F3D0' },
-  'SHIPPING': { color: '#22577A', bg: '#E0F2FE', border: '#BAE6FD' },
+const statusTagStyleMap: Record<string, { color: string; bg: string; border: string }> = {
+  PREPARING: { color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
+  PENDING: { color: '#B45309', bg: '#FFFBEB', border: '#FCD34D' },
+  PENDING_PAYMENT: { color: '#B45309', bg: '#FFFBEB', border: '#FCD34D' },
+  CONFIRMED: { color: '#B45309', bg: '#FFFBEB', border: '#FCD34D' },
+  READY: { color: '#735A00', bg: '#FEF9C3', border: '#FDE047' },
+  COMPLETED: { color: '#1E7A46', bg: '#D1FAE5', border: '#A7F3D0' },
+  SHIPPING: { color: '#22577A', bg: '#E0F2FE', border: '#BAE6FD' },
+  CANCELLED: { color: '#B42318', bg: '#FEE2E2', border: '#FECACA' },
 };
 
 export function StatusTag({ status }: { status: OrderSummary['status'] | string }) {
   const { t } = useTranslation();
   const labels: Record<string, string> = {
-    PREPARING: t("business:orderprogress.preparing"),
-    COMPLETED: t("business:orders.completed"),
-    SHIPPING: t("business:orderprogress.delivering"),
-    PENDING: t("business:dashboard.awaitingConfirmation"),
+    PREPARING: t('business:orderprogress.preparing'),
+    COMPLETED: t('business:orders.completed'),
+    SHIPPING: t('business:orderprogress.delivering'),
+    PENDING: t('business:dashboard.awaitingConfirmation'),
+    CONFIRMED: t('business:orderprogress.confirm'),
+    READY: t('business:orderprogress.ready'),
+    PENDING_PAYMENT: t('business:checkout.awaitingPayment'),
+    CANCELLED: t('business:orders.cancelled'),
   };
-  const custom = statusTagStyleMap[status as OrderSummary['status']];
+  const custom = statusTagStyleMap[status];
   if (custom) {
     return (
       <Tag
-        bordered={false}
+        variant="filled"
         style={{
           color: custom.color,
           backgroundColor: custom.bg,
@@ -73,13 +111,23 @@ export function StatusTag({ status }: { status: OrderSummary['status'] | string 
   return <Tag>{labels[status] ?? status}</Tag>;
 }
 
-export function OrdersTable({ compact = false, orders = mockOrders }: { compact?: boolean; orders?: OrderSummary[] }) {
-  const { money } = useLocaleTools();
+export function OrdersTable({
+  compact = false,
+  orders = [],
+  loading = false,
+  onViewOrder,
+}: {
+  compact?: boolean;
+  orders?: OrderSummary[];
+  loading?: boolean;
+  onViewOrder?: () => void;
+}) {
+  const { money, date } = useLocaleTools();
   const { t } = useTranslation();
 
   const columns: TableColumnsType<OrderSummary> = [
     {
-      title: t("business:dashboard.orderCode"),
+      title: t('business:dashboard.orderCode'),
       dataIndex: 'code',
       key: 'code',
       render: (value: string) => (
@@ -89,7 +137,7 @@ export function OrdersTable({ compact = false, orders = mockOrders }: { compact?
       ),
     },
     {
-      title: t("business:dashboard.customer"),
+      title: t('business:dashboard.customer'),
       dataIndex: 'customer',
       key: 'customer',
       render: (value: string, row: OrderSummary) => (
@@ -98,19 +146,20 @@ export function OrdersTable({ compact = false, orders = mockOrders }: { compact?
             {value}
           </Typography.Text>
           <Typography.Text type="secondary" className="table-subtext">
-            {row.items} {t("business:dashboard.items")} {row.time} {row.storeName ? `· ${row.storeName}` : ''}
+            {row.items} {t('business:dashboard.items')} {date(row.time)}
+            {row.storeName ? ` · ${row.storeName}` : ''}
           </Typography.Text>
         </div>
       ),
     },
     {
-      title: t("business:catalog.status"),
+      title: t('business:catalog.status'),
       dataIndex: 'status',
       key: 'status',
       render: (value: string) => <StatusTag status={value} />,
     },
     {
-      title: t("business:id.total"),
+      title: t('business:id.total'),
       dataIndex: 'total',
       key: 'total',
       align: 'right',
@@ -124,7 +173,14 @@ export function OrdersTable({ compact = false, orders = mockOrders }: { compact?
       title: '',
       key: 'actions',
       width: 48,
-      render: () => <Button type="text" icon={<MoreOutlined style={{ color: '#6B6259' }} />} aria-label={t("business:catalog.actions")} />,
+      render: () => (
+        <Button
+          type="text"
+          icon={<MoreOutlined style={{ color: '#6B6259' }} />}
+          aria-label={t('business:catalog.actions')}
+          onClick={onViewOrder}
+        />
+      ),
     },
   ];
 
@@ -132,9 +188,11 @@ export function OrdersTable({ compact = false, orders = mockOrders }: { compact?
     <Table
       className="orders-table"
       columns={columns}
-      dataSource={compact ? orders.slice(0, 3) : orders}
+      dataSource={compact ? orders.slice(0, 5) : orders}
+      loading={loading}
+      locale={{ emptyText: t('business:dashboard.noRecentOrders') }}
       pagination={!compact ? { pageSize: 8, showSizeChanger: false } : false}
-      scroll={{ x: 650 }}
+      scroll={{ x: 620 }}
     />
   );
 }
@@ -186,85 +244,6 @@ export function MetricCard({
   );
 }
 
-const weeklyData = [
-  { day: 'T2', height: 54, amount: 12400000 },
-  { day: 'T3', height: 68, amount: 15600000 },
-  { day: 'T4', height: 44, amount: 10100000 },
-  { day: 'T5', height: 78, amount: 18200000 },
-  { day: 'T6', height: 62, amount: 14300000 },
-  { day: 'T7', height: 88, amount: 22500000 },
-  { day: 'CN', height: 74, amount: 18650000 },
-];
-
-
-
-export function RevenueChart({ range = '7d' }: { range?: string }) {
-  const { money, date } = useLocaleTools();
-  const { t } = useTranslation();
-
-  const monthlyData = [
-  { day: t("business:dashboard.week"), height: 65, amount: 92000000 },
-  { day: t("business:dashboard.week2"), height: 82, amount: 118000000 },
-  { day: t("business:dashboard.week3"), height: 74, amount: 105000000 },
-  { day: t("business:dashboard.week4"), height: 90, amount: 128000000 },
-];
-
-  const chartPoints = range === '30d' ? monthlyData : weeklyData.map((item, index) => ({
-    ...item,
-    day: date(new Date(Date.UTC(2026, 9, 26 + index)), { weekday: "short", year: undefined, month: undefined, day: undefined }),
-  }));
-  const totalAmount = range === '30d' ? t("business:dashboard.million") : t("business:dashboard.value1865Million");
-
-  return (
-    <div className="revenue-chart">
-      <div className="chart-bars">
-        {chartPoints.map((item, index) => (
-          <Tooltip key={index} title={`${item.day}: ${money(item.amount)}`}>
-            <div className="bar-group">
-              <div className="chart-bar" style={{ height: `${item.height}%` }} />
-              <span>{item.day}</span>
-            </div>
-          </Tooltip>
-        ))}
-      </div>
-      <Flex justify="space-between" className="chart-caption" align="center">
-        <Typography.Text type="secondary" style={{ color: '#6B6259' }}>
-          {range === '30d' ? t("business:dashboard.totalMonthlyRevenue") : t("business:dashboard.totalRevenueToday")}
-        </Typography.Text>
-        <Typography.Text strong style={{ color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 18 }}>
-          {totalAmount}
-        </Typography.Text>
-      </Flex>
-    </div>
-  );
-}
-
-export function BestSeller({
-  name,
-  value,
-  percent,
-  color,
-}: {
-  name: string;
-  value: string;
-  percent: number;
-  color: string;
-}) {
-  return (
-    <div className="progress-row">
-      <Flex justify="space-between">
-        <Typography.Text strong style={{ color: '#16100D' }}>
-          {name}
-        </Typography.Text>
-        <Typography.Text type="secondary" style={{ color: '#6B6259' }}>
-          {value}
-        </Typography.Text>
-      </Flex>
-      <Progress percent={percent} showInfo={false} strokeColor={color} trailColor="#E8E2D9" size="small" />
-    </div>
-  );
-}
-
 export function StoreHealth({
   name,
   status,
@@ -288,7 +267,7 @@ export function StoreHealth({
         </Typography.Text>
       </div>
       <Tag
-        bordered={false}
+        variant="filled"
         style={{
           borderRadius: 8,
           fontWeight: 600,
@@ -331,173 +310,609 @@ export function PageIntro({
   );
 }
 
+function getVietnamTodayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function shiftIsoDate(isoDate: string, deltaDays: number): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const utc = Date.UTC(y, m - 1, d + deltaDays);
+  return new Date(utc).toISOString().slice(0, 10);
+}
+
+function formatShortDayMonth(isoDate: string): string {
+  const parts = isoDate.split('-');
+  if (parts.length !== 3) return isoDate;
+  return `${parts[2]}/${parts[1]}`;
+}
+
 export interface DashboardProps {
   onNavigate?: (key: string) => void;
   storeFilter?: string;
   onStoreChange?: (storeId: string) => void;
 }
 
-export default function Dashboard({ onNavigate = () => {}, storeFilter = 'all', onStoreChange }: DashboardProps) {
-  const { t } = useTranslation();
+type DashboardPeriodKey = '7d' | '30d' | 'month';
 
-  const [range, setRange] = useState('7d');
-  const [selectedStore, setSelectedStore] = useState(storeFilter);
-  const { orders: contextOrders } = useOrders();
+export default function Dashboard({
+  onNavigate,
+  storeFilter,
+  onStoreChange,
+}: DashboardProps) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { money, number, date } = useLocaleTools();
+  const { orders: contextOrders, loading: ordersLoading } = useOrders();
+
+  const isStaff = user.role === 'STAFF';
+  const isManager = user.role === 'STORE_MANAGER';
+  const managerStoreId = isManager && user.storeId && user.storeId > 0 ? user.storeId : null;
+  const managerMissingStore = isManager && !managerStoreId;
+
+  const [periodKey, setPeriodKey] = useState<DashboardPeriodKey>('7d');
+  const [selectedStore, setSelectedStore] = useState<string>(() => {
+    if (isManager && managerStoreId) return String(managerStoreId);
+    return storeFilter && storeFilter !== 'all' ? storeFilter : 'all';
+  });
+
+  const [dashboard, setDashboard] = useState<DashboardReportResponse | null>(null);
+  const [revenueReport, setRevenueReport] = useState<RevenueReportResponse | null>(null);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  useEffect(() => {
+    if (isManager && managerStoreId) {
+      setSelectedStore(String(managerStoreId));
+    }
+  }, [isManager, managerStoreId]);
+
+  const effectiveStoreId = useMemo<number | undefined>(() => {
+    if (isManager) return managerStoreId ?? undefined;
+    if (selectedStore === 'all') return undefined;
+    const parsed = Number(selectedStore);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }, [isManager, managerStoreId, selectedStore]);
+
+  const { fromIso, toIso } = useMemo(() => {
+    const today = getVietnamTodayIso();
+    if (periodKey === '30d') {
+      return { fromIso: shiftIsoDate(today, -29), toIso: today };
+    }
+    if (periodKey === 'month') {
+      return { fromIso: `${today.slice(0, 8)}01`, toIso: today };
+    }
+    return { fromIso: shiftIsoDate(today, -6), toIso: today };
+  }, [periodKey]);
+
+  const go = useCallback(
+    (target: string) => {
+      if (onNavigate) {
+        onNavigate(target);
+        return;
+      }
+      navigate(`/admin/${target}`);
+    },
+    [navigate, onNavigate]
+  );
+
+  useEffect(() => {
+    if (isStaff || managerMissingStore) {
+      setDashboard(null);
+      setRevenueReport(null);
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadError('');
+
+    const reportParams = {
+      storeId: effectiveStoreId,
+      from: fromIso,
+      to: toIso,
+    };
+
+    Promise.all([
+      reportsApi.getDashboard(reportParams, controller.signal),
+      reportsApi.getRevenue(reportParams, controller.signal),
+      storesApi.list(undefined, controller.signal).catch(() => [] as Store[]),
+    ])
+      .then(([dashData, revData, storeList]) => {
+        if (controller.signal.aborted) return;
+        setDashboard(dashData);
+        setRevenueReport(revData);
+        if (Array.isArray(storeList)) {
+          setStores(storeList);
+        }
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setLoadError(getErrorMessage(error, getBrowserLocale()));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [effectiveStoreId, fromIso, toIso, isStaff, managerMissingStore, reloadNonce]);
+
+  const storeMap = useMemo(() => {
+    const map = new Map<number, Store>();
+    for (const store of stores) {
+      map.set(store.id, store);
+    }
+    return map;
+  }, [stores]);
+
+  const scopedOrders = useMemo(() => {
+    return contextOrders.filter((order) => {
+      if (effectiveStoreId != null) {
+        return Number(order.storeId) === effectiveStoreId;
+      }
+      return true;
+    });
+  }, [contextOrders, effectiveStoreId]);
+
   const recentOrdersData: OrderSummary[] = useMemo(() => {
-    return contextOrders.slice(0, 5).map((o) => ({
+    return scopedOrders.slice(0, 5).map((o) => ({
       key: o.id,
       code: '#' + o.orderCode,
       customer: o.customerName,
       items: o.items.reduce((sum, it) => sum + it.quantity, 0),
-      status: o.status === 'CONFIRMED' ? 'PENDING' : (o.status as any),
+      status: o.status,
       total: o.total,
       time: o.time || o.createdAt,
-      storeName: o.storeName,
+      storeName: storeMap.get(Number(o.storeId))?.name ?? o.storeName,
     }));
-  }, [contextOrders]);
+  }, [scopedOrders, storeMap]);
+
+  const activeKitchenCount = useMemo(
+    () =>
+      scopedOrders.filter(
+        (order) =>
+          order.status === 'CONFIRMED' ||
+          order.status === 'PREPARING' ||
+          order.status === 'READY'
+      ).length,
+    [scopedOrders]
+  );
+
+  const chartSeries = useMemo(() => {
+    const items: DailyStoreStatsItem[] = revenueReport?.items ?? [];
+    const byDate = new Map<string, { revenue: number; orders: number }>();
+    for (const item of items) {
+      const existing = byDate.get(item.statDate) ?? { revenue: 0, orders: 0 };
+      byDate.set(item.statDate, {
+        revenue: existing.revenue + Number(item.revenue || 0),
+        orders: existing.orders + Number(item.orderCount || 0),
+      });
+    }
+    const sortedDates = [...byDate.keys()].sort();
+    const visibleDates = sortedDates.slice(-10);
+    const maxRevenue = Math.max(1, ...visibleDates.map((d) => byDate.get(d)?.revenue ?? 0));
+    return visibleDates.map((iso) => {
+      const point = byDate.get(iso)!;
+      const heightPct =
+        point.revenue > 0 ? Math.max(10, Math.round((point.revenue / maxRevenue) * 100)) : 4;
+      return {
+        iso,
+        label: formatShortDayMonth(iso),
+        revenue: point.revenue,
+        orders: point.orders,
+        heightPct,
+      };
+    });
+  }, [revenueReport]);
+
+  const storeStatsByStore = useMemo(() => {
+    const grouped = new Map<number, { orders: number; revenue: number }>();
+    for (const item of revenueReport?.items ?? []) {
+      const prev = grouped.get(item.storeId) ?? { orders: 0, revenue: 0 };
+      grouped.set(item.storeId, {
+        orders: prev.orders + Number(item.orderCount || 0),
+        revenue: prev.revenue + Number(item.revenue || 0),
+      });
+    }
+    return grouped;
+  }, [revenueReport]);
+
+  const visibleStores = useMemo(() => {
+    const list = effectiveStoreId != null
+      ? stores.filter((s) => s.id === effectiveStoreId)
+      : stores;
+    return list.slice(0, 6);
+  }, [stores, effectiveStoreId]);
+
+  const storeSelectOptions = useMemo<Array<{ value: string; label: string }>>(() => {
+    if (isManager && managerStoreId) {
+      const label =
+        storeMap.get(managerStoreId)?.name ||
+        user.storeName ||
+        t('business:dashboard.scopeStoreLabel', { value1: managerStoreId });
+      return [{ value: String(managerStoreId), label }];
+    }
+    const opts = [{ value: 'all', label: t('business:dashboard.scopeChain') }];
+    for (const store of stores) {
+      opts.push({ value: String(store.id), label: store.name });
+    }
+    return opts;
+  }, [isManager, managerStoreId, storeMap, stores, t, user.storeName]);
 
   const handleStoreChange = (val: string) => {
+    if (isManager) return;
     setSelectedStore(val);
-    if (onStoreChange) {
-      onStoreChange(val);
-    }
+    onStoreChange?.(val);
   };
+
+  if (isStaff || managerMissingStore) {
+    return (
+      <Result
+        status="403"
+        title={t('errors:FORBIDDEN')}
+        subTitle={
+          isStaff
+            ? t('business:dashboard.staffForbiddenTitle')
+            : t('business:dashboard.noStoreAssignedError')
+        }
+        extra={
+          <Button type="primary" onClick={() => go(isStaff ? 'orders' : 'stores')}>
+            {isStaff ? t('admin:nav.orders') : t('business:dashboard.stores')}
+          </Button>
+        }
+      />
+    );
+  }
+
+  const periodTotalRevenue = Number(dashboard?.periodRevenue ?? 0);
+  const periodCodAmount = Number(dashboard?.periodCodAmount ?? revenueReport?.totalCodAmount ?? 0);
+  const periodReconciled = Number(
+    dashboard?.periodReconciledTransferAmount ?? revenueReport?.totalReconciledTransferAmount ?? 0
+  );
+  const periodPending = Number(
+    dashboard?.periodPendingReconciliationAmount ?? revenueReport?.totalPendingReconciliationAmount ?? 0
+  );
+  const periodExcess = Number(dashboard?.periodExcessAmount ?? revenueReport?.totalExcessAmount ?? 0);
+  const periodExpired = Number(
+    dashboard?.periodExpiredReceiptAmount ?? revenueReport?.totalExpiredReceiptAmount ?? 0
+  );
+
+  const lastUpdatedLabel = dashboard?.lastUpdatedAt
+    ? t('business:dashboard.lastUpdatedAt', {
+        value1: date(dashboard.lastUpdatedAt, {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      })
+    : t('business:dashboard.notUpdatedYet');
 
   return (
     <div className="dashboard-page">
       <PageIntro
-        eyebrow="Overview"
-        title={t("business:dashboard.goodMorningClucky")}
-        description={t("business:dashboard.monitorOperationsBusinessPerformanceAndOrdersThatNeedAttentionToday")}
+        eyebrow={t('business:dashboard.eyebrowOverview')}
+        title={t('business:dashboard.goodMorningClucky')}
+        description={t('business:dashboard.monitorOperationsBusinessPerformanceAndOrdersThatNeedAttentionToday')}
         action={
-          <Flex gap={8} align="center">
+          <Flex gap={8} align="center" wrap="wrap">
             <Select
               value={selectedStore}
               onChange={handleStoreChange}
-              style={{ width: 170 }}
-              options={[
-                { value: 'all', label: t("business:stores.allStores") },
-                { value: 'store-1', label: 'Nguyễn Trãi' },
-                { value: 'store-2', label: 'Phan Văn Trị' },
-                { value: 'store-3', label: 'Lê Văn Việt' },
-              ]}
+              disabled={isManager}
+              aria-label={t('business:reports.store')}
+              style={{ minWidth: 200 }}
+              options={storeSelectOptions}
             />
             <Button
+              icon={<ReloadOutlined />}
+              onClick={() => setReloadNonce((n) => n + 1)}
+              loading={loading}
+            >
+              {t('business:dashboard.refresh')}
+            </Button>
+            <Button
               type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => message.success(t("business:dashboard.promotionCreationOpened"))}
-            > {t("business:dashboard.createPromotion")} </Button>
+              icon={<BarChartOutlined />}
+              onClick={() => go('reports')}
+            >
+              {t('business:dashboard.openReports')}
+            </Button>
           </Flex>
         }
       />
 
-      {/* Metric / Stat cards */}
-      <Row gutter={[16, 16]} className="stats-row">
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
-            title={t("business:dashboard.todaySOrders")}
-            value="128"
-            suffix={t("business:dashboard.orders")}
-            trend={t("business:dashboard.fromYesterday")}
-            icon={<FileTextOutlined />}
-            trendUp={true}
-            tooltip={t("business:dashboard.totalOrdersPlacedTodayAtTheSelectedStore")}
-          />
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
-            title="Doanh thu"
-            value="18,65"
-            suffix={t("business:dashboard.million")}
-            trend={t("business:dashboard.fromYesterdayLabel")}
-            icon={<DollarOutlined />}
-            trendUp={true}
-            tooltip={t("business:dashboard.estimatedRevenueFromSuccessfulOrders")}
-          />
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
-            title={t("business:orderprogress.preparing")}
-            value="16"
-            suffix={t("business:dashboard.orders")}
-            trend={t("business:dashboard.needsKitchenAttention")}
-            icon={<CoffeeOutlined />}
-            warning
-            tooltip={t("business:dashboard.paidOrConfirmedOrdersBeingPrepared")}
-          />
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <MetricCard
-            title={t("business:dashboard.newCustomers")}
-            value="42"
-            suffix={t("business:party.people")}
-            trend={t("business:dashboard.thisWeek")}
-            icon={<TeamOutlined />}
-            trendUp={true}
-            tooltip={t("business:dashboard.newCustomerRegistrations")}
-          />
-        </Col>
-      </Row>
+      {loadError && (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16, borderRadius: 14 }}
+          message={loadError}
+          action={
+            <Button size="small" onClick={() => setReloadNonce((n) => n + 1)}>
+              {t('common:retry')}
+            </Button>
+          }
+        />
+      )}
 
-      {/* Grid: Đơn hàng gần đây & Chart placeholder */}
+      {dashboard && !dashboard.projectionActive && (
+        <Alert
+          type="info"
+          showIcon
+          style={{
+            marginBottom: 16,
+            borderRadius: 14,
+            background: '#FFFAF3',
+            borderColor: '#E8E2D9',
+          }}
+          message={t('business:dashboard.projectionInactiveTitle')}
+          description={t('business:dashboard.projectionInactiveDesc', {
+            value1: dashboard.revenueEventPolicy ?? 'false',
+          })}
+        />
+      )}
+
+      {loading && !dashboard ? (
+        <Card style={{ marginBottom: 16 }}>
+          <Skeleton active paragraph={{ rows: 4 }} />
+        </Card>
+      ) : (
+        <Row gutter={[16, 16]} className="stats-row">
+          <Col xs={24} sm={12} xl={6}>
+            <MetricCard
+              title={t('business:dashboard.todaySOrders')}
+              value={number(Number(dashboard?.todayOrderCount ?? 0))}
+              suffix={t('business:dashboard.orders')}
+              trend={t('business:dashboard.periodOrdersSummary', {
+                value1: number(Number(dashboard?.periodOrderCount ?? 0)),
+                value2: money(Number(dashboard?.todayCodAmount ?? 0)),
+              })}
+              icon={<FileTextOutlined />}
+              trendUp
+              tooltip={t('business:dashboard.totalOrdersPlacedTodayAtTheSelectedStore')}
+            />
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <MetricCard
+              title={t('business:dashboard.todayRecognizedRevenue')}
+              value={money(Number(dashboard?.todayRevenue ?? 0))}
+              trend={t('business:dashboard.periodRecognizedSummary', {
+                value1: money(periodTotalRevenue),
+              })}
+              icon={<DollarOutlined />}
+              trendUp
+              tooltip={t('business:dashboard.estimatedRevenueFromSuccessfulOrders')}
+            />
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <MetricCard
+              title={t('business:dashboard.pendingReconciliationKpi')}
+              value={money(periodPending)}
+              trend={t('business:dashboard.pendingReconciliationSub', {
+                value1: money(periodExcess),
+                value2: money(periodExpired),
+              })}
+              icon={<ClockCircleOutlined />}
+              warning={periodPending > 0 || periodExcess > 0 || periodExpired > 0}
+              tooltip={t('business:dashboard.pendingReconciliationTooltip')}
+            />
+          </Col>
+          <Col xs={24} sm={12} xl={6}>
+            <MetricCard
+              title={t('business:orderprogress.preparing')}
+              value={number(activeKitchenCount)}
+              suffix={t('business:dashboard.orders')}
+              trend={t('business:dashboard.activeKitchenOrdersSub')}
+              icon={<CoffeeOutlined />}
+              warning={activeKitchenCount > 0}
+              tooltip={t('business:dashboard.paidOrConfirmedOrdersBeingPrepared')}
+            />
+          </Col>
+        </Row>
+      )}
+
       <Row gutter={[16, 16]} className="dashboard-grid">
-        <Col xs={24} xl={16}>
+        <Col xs={24} xl={15}>
           <Card
-            title={t("business:dashboard.recentOrders")}
+            title={t('business:dashboard.recentOrders')}
             extra={
-              <Button type="link" onClick={() => onNavigate('orders')} style={{ color: '#8F1216', fontWeight: 600 }}> {t("business:dashboard.viewAll")} </Button>
+              <Button
+                type="link"
+                onClick={() => go('orders')}
+                style={{ color: '#8F1216', fontWeight: 600 }}
+              >
+                {t('business:dashboard.viewAll')}
+              </Button>
             }
           >
-            <OrdersTable compact orders={recentOrdersData} />
+            <OrdersTable
+              compact
+              orders={recentOrdersData}
+              loading={ordersLoading}
+              onViewOrder={() => go('orders')}
+            />
           </Card>
         </Col>
-        <Col xs={24} xl={8}>
+        <Col xs={24} xl={9}>
           <Card
-            title={t("business:dashboard.revenueOverTime")}
+            title={t('business:dashboard.revenueOverTime')}
             extra={
               <Segmented
                 size="small"
-                options={[{value: '7d', label: t("business:dashboard.days")}, {value: '30d', label: t("business:dashboard.daysLabel")}]}
-                value={range}
-                onChange={(value) => setRange(String(value))}
+                options={[
+                  { value: '7d', label: t('business:dashboard.days') },
+                  { value: '30d', label: t('business:dashboard.daysLabel') },
+                  { value: 'month', label: t('business:dashboard.monthToDate') },
+                ]}
+                value={periodKey}
+                onChange={(value) => setPeriodKey(value as DashboardPeriodKey)}
               />
             }
           >
-            <RevenueChart range={range} />
+            {chartSeries.length === 0 ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={t('business:dashboard.noChartData')}
+                style={{ padding: '42px 0' }}
+              />
+            ) : (
+              <div className="revenue-chart">
+                <div className="chart-bars">
+                  {chartSeries.map((item) => (
+                    <Tooltip
+                      key={item.iso}
+                      title={`${date(item.iso)}: ${money(item.revenue)} (${t('business:reports.ordersUnit', { value1: number(item.orders) })})`}
+                    >
+                      <div
+                        className="bar-group"
+                        tabIndex={0}
+                        aria-label={`${date(item.iso)}: ${money(item.revenue)}`}
+                      >
+                        <div className="chart-bar" style={{ height: `${item.heightPct}%` }} />
+                        <span>{item.label}</span>
+                      </div>
+                    </Tooltip>
+                  ))}
+                </div>
+                <Flex justify="space-between" className="chart-caption" align="center" wrap="wrap" gap={8}>
+                  <Typography.Text type="secondary" style={{ color: '#6B6259', fontSize: 12 }}>
+                    {lastUpdatedLabel}
+                  </Typography.Text>
+                  <Typography.Text
+                    strong
+                    style={{ color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 18 }}
+                  >
+                    {money(periodTotalRevenue)}
+                  </Typography.Text>
+                </Flex>
+              </div>
+            )}
           </Card>
         </Col>
       </Row>
 
-      {/* Món bán chạy & Tình trạng chi nhánh */}
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12}>
           <Card
-            title={t("business:dashboard.todaySBestSellers")}
+            title={t('business:dashboard.reconciliationLedgerTitle')}
             extra={
-              <Button type="link" onClick={() => onNavigate('catalog')} style={{ color: '#8F1216', fontWeight: 600 }}> {t("business:dashboard.menu")} </Button>
+              <Button
+                type="link"
+                onClick={() => go('reports')}
+                style={{ color: '#8F1216', fontWeight: 600 }}
+              >
+                {t('business:dashboard.reconciliationLedgerLink')}
+              </Button>
             }
           >
-            <BestSeller name="Gà rán sốt cay truyền thống" value={t("business:dashboard.servings")} percent={82} color="#8F1216" />
-            <BestSeller name="Burger gà giòn cay Clucky" value={t("business:dashboard.value64Servings")} percent={64} color="#C9A227" />
-            <BestSeller name="Combo Clucky Tiết kiệm (2 người)" value={t("business:dashboard.value51Servings")} percent={51} color="#22577A" />
-            <BestSeller name="Khoai tây chiên lắc phô mai" value={t("business:dashboard.value38Servings")} percent={38} color="#D97706" />
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+              <Flex justify="space-between" align="center" style={{ paddingBottom: 8, borderBottom: '1px solid #E8E2D9' }}>
+                <Typography.Text strong>{t('business:dashboard.cashCodLabel')}</Typography.Text>
+                <Typography.Text strong className="money">
+                  {money(periodCodAmount)}
+                </Typography.Text>
+              </Flex>
+
+              <Flex justify="space-between" align="center" wrap="wrap" gap={8} style={{ paddingBottom: 8, borderBottom: '1px solid #E8E2D9' }}>
+                <Space size={8}>
+                  <Typography.Text strong>{t('business:dashboard.reconciledTransferLabel')}</Typography.Text>
+                  <Tag color="green" variant="filled" style={{ borderRadius: 6, fontWeight: 600 }}>
+                    {t('business:dashboard.reconciledBadge')}
+                  </Tag>
+                </Space>
+                <Typography.Text strong style={{ color: '#1E7A46', fontFamily: 'Baloo 2, sans-serif' }}>
+                  {money(periodReconciled)}
+                </Typography.Text>
+              </Flex>
+
+              <Flex justify="space-between" align="center" wrap="wrap" gap={8} style={{ paddingBottom: 8, borderBottom: '1px solid #E8E2D9' }}>
+                <Space size={8}>
+                  <Typography.Text strong>{t('business:dashboard.pendingReconciliationLabel')}</Typography.Text>
+                  <Tag color="orange" variant="filled" style={{ borderRadius: 6, fontWeight: 600 }}>
+                    {t('business:dashboard.pendingBadge')}
+                  </Tag>
+                </Space>
+                <Typography.Text strong style={{ color: '#D97706', fontFamily: 'Baloo 2, sans-serif' }}>
+                  {money(periodPending)}
+                </Typography.Text>
+              </Flex>
+
+              <Flex justify="space-between" align="center" wrap="wrap" gap={8} style={{ paddingBottom: 8, borderBottom: '1px solid #E8E2D9' }}>
+                <Space size={8}>
+                  <Typography.Text>{t('business:dashboard.excessAmountLabel')}</Typography.Text>
+                  <Tag variant="filled" style={{ borderRadius: 6 }}>
+                    {t('business:dashboard.excludedFromRevenueBadge')}
+                  </Tag>
+                </Space>
+                <Typography.Text style={{ color: '#6B6259', fontWeight: 700 }}>
+                  {money(periodExcess)}
+                </Typography.Text>
+              </Flex>
+
+              <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+                <Space size={8}>
+                  <Typography.Text>{t('business:dashboard.expiredReceiptLabel')}</Typography.Text>
+                  <Tag variant="filled" style={{ borderRadius: 6 }}>
+                    {t('business:dashboard.excludedFromRevenueBadge')}
+                  </Tag>
+                </Space>
+                <Typography.Text style={{ color: '#6B6259', fontWeight: 700 }}>
+                  {money(periodExpired)}
+                </Typography.Text>
+              </Flex>
+            </Space>
           </Card>
         </Col>
+
         <Col xs={24} md={12}>
           <Card
-            title={t("business:dashboard.storeStatus")}
+            title={t('business:dashboard.storeStatus')}
             extra={
-              <Button type="link" onClick={() => onNavigate('stores')} style={{ color: '#8F1216', fontWeight: 600 }}> {t("business:dashboard.stores")} </Button>
+              <Button
+                type="link"
+                onClick={() => go('stores')}
+                style={{ color: '#8F1216', fontWeight: 600 }}
+              >
+                {t('business:dashboard.stores')}
+              </Button>
             }
           >
-            <StoreHealth name="Chi nhánh Nguyễn Trãi (Q.5)" status={t("business:catalog.active")} orders={t("business:dashboard.ordersToday")} />
-            <StoreHealth name="Chi nhánh Phan Văn Trị (Gò Vấp)" status={t("business:catalog.active")} orders={t("business:dashboard.ordersTodayLabel")} />
-            <StoreHealth
-              name="Chi nhánh Lê Văn Việt (TP. Thủ Đức)"
-              status={t("business:dashboard.needsAttention")}
-              orders={t("business:dashboard.ordersLateResponses")}
-              warning
-            />
+            {visibleStores.length === 0 ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={t('business:dashboard.noStoreData')}
+              />
+            ) : (
+              visibleStores.map((store) => {
+                const normalized = normalizeStoreStatus(store.status);
+                const meta = getStoreStatusMeta(store.status);
+                const stats = storeStatsByStore.get(store.id);
+                const statusLabel =
+                  normalized === 'OPEN'
+                    ? t('business:stores.open')
+                    : normalized === 'CLOSED_TEMP'
+                      ? t('business:stores.temporarilyClosed')
+                      : t('business:stores.inactive');
+                return (
+                  <StoreHealth
+                    key={store.id}
+                    name={store.name}
+                    status={statusLabel}
+                    warning={!meta.isOpen}
+                    orders={`${t('business:dashboard.periodOrdersCount', { value1: number(stats?.orders ?? 0) })} · ${money(stats?.revenue ?? 0)}`}
+                  />
+                );
+              })
+            )}
           </Card>
         </Col>
       </Row>

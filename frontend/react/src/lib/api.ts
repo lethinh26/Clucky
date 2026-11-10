@@ -645,4 +645,171 @@ export const reviewsApi = {
       .then((r) => r.data),
 };
 
+/* ---------- Reports & Dashboard (review-report-service) ---------- */
+export interface DailyStoreStatsItem {
+  id: number;
+  storeId: number;
+  statDate: string;
+  orderCount: number;
+  revenue: number;
+  codAmount: number;
+  transferAmount: number;
+  reconciledTransferAmount?: number;
+  pendingReconciliationAmount?: number;
+  excessAmount?: number;
+  expiredReceiptAmount?: number;
+  updatedAt?: string | null;
+}
+
+export interface DashboardReportResponse {
+  scope: 'CHAIN' | 'STORE' | string;
+  storeId: number | null;
+  from: string;
+  to: string;
+  todayRevenue: number;
+  todayOrderCount: number;
+  todayCodAmount: number;
+  todayTransferAmount: number;
+  periodRevenue: number;
+  periodOrderCount: number;
+  todayReconciledTransferAmount?: number;
+  todayPendingReconciliationAmount?: number;
+  todayExcessAmount?: number;
+  todayExpiredReceiptAmount?: number;
+  periodCodAmount?: number;
+  periodTransferAmount?: number;
+  periodReconciledTransferAmount?: number;
+  periodPendingReconciliationAmount?: number;
+  periodExcessAmount?: number;
+  periodExpiredReceiptAmount?: number;
+  projectionActive?: boolean;
+  revenueEventPolicy?: string;
+  lastUpdatedAt?: string | null;
+  generatedAt: string;
+}
+
+export interface RevenueReportResponse {
+  storeId: number | null;
+  from: string;
+  to: string;
+  totalRevenue: number;
+  totalOrderCount: number;
+  totalCodAmount: number;
+  totalTransferAmount: number;
+  totalReconciledTransferAmount?: number;
+  totalPendingReconciliationAmount?: number;
+  totalExcessAmount?: number;
+  totalExpiredReceiptAmount?: number;
+  projectionActive?: boolean;
+  revenueEventPolicy?: string;
+  lastUpdatedAt?: string | null;
+  items: DailyStoreStatsItem[];
+}
+
+export interface ReportExportResult {
+  blob: Blob;
+  filename: string;
+  contentType: string;
+}
+
+function parseDownloadFilename(headerValue: unknown, fallback: string): string {
+  if (typeof headerValue !== 'string') return fallback;
+  const match = headerValue.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
+  if (!match?.[1]) return fallback;
+  const cleaned = match[1].replace(/"/g, '').replace(/[^A-Za-z0-9._-]/g, '_');
+  return cleaned || fallback;
+}
+
+async function decodeBlobError(error: unknown): Promise<never> {
+  const axiosError = error as AxiosError<Blob>;
+  const response = axiosError?.response;
+  const data = response?.data;
+  if (response && data && typeof (data as Blob).text === 'function') {
+    try {
+      const text = await (data as Blob).text();
+      const parsed = JSON.parse(text);
+      (response as { data: unknown }).data = parsed;
+    } catch {
+      // Keep original HTTP status error mapping if payload is not JSON
+    }
+  }
+  throw error;
+}
+
+export const reportsApi = {
+  getDashboard: (
+    params?: { storeId?: number; from?: string; to?: string },
+    signal?: AbortSignal
+  ) =>
+    api
+      .get<DashboardReportResponse>('/api/reports/dashboard', { params, signal })
+      .then((r) => r.data),
+  getRevenue: (
+    params?: { storeId?: number; from?: string; to?: string },
+    signal?: AbortSignal
+  ) =>
+    api
+      .get<RevenueReportResponse>('/api/reports/revenue', { params, signal })
+      .then((r) => r.data),
+  exportReport: async (
+    params: { format: 'xlsx' | 'pdf'; storeId?: number; from?: string; to?: string },
+    signal?: AbortSignal
+  ): Promise<ReportExportResult> => {
+    try {
+      const response = await api.get<Blob>('/api/reports/export', {
+        params,
+        signal,
+        responseType: 'blob',
+        timeout: 30000,
+      });
+      const blob = response.data;
+      const headers = response.headers as Record<string, unknown> | undefined;
+      const rawContentType = String(
+        headers?.['content-type'] ?? blob?.type ?? ''
+      ).toLowerCase();
+      const expectedPrefix =
+        params.format === 'xlsx'
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'application/pdf';
+
+      if (!blob || blob.size === 0) {
+        throw { code: 'UPSTREAM_ERROR' };
+      }
+
+      if (rawContentType.includes('application/json')) {
+        try {
+          const parsed = JSON.parse(await blob.text());
+          throw { response: { status: response.status, data: parsed } };
+        } catch (jsonErr) {
+          if ((jsonErr as { response?: unknown })?.response) throw jsonErr;
+          throw { code: 'UPSTREAM_ERROR' };
+        }
+      }
+
+      if (
+        rawContentType &&
+        !rawContentType.includes(expectedPrefix) &&
+        !rawContentType.includes('application/octet-stream')
+      ) {
+        throw { code: 'UPSTREAM_ERROR' };
+      }
+
+      const storePart = params.storeId ? `store${params.storeId}` : 'all-stores';
+      const fallbackFilename = `revenue-report-${storePart}-${params.from ?? 'start'}-${params.to ?? 'end'}.${params.format}`;
+      const filename = parseDownloadFilename(
+        headers?.['content-disposition'],
+        fallbackFilename
+      );
+
+      return {
+        blob,
+        filename,
+        contentType: rawContentType || expectedPrefix,
+      };
+    } catch (error) {
+      return decodeBlobError(error);
+    }
+  },
+};
+
 export default api;

@@ -12,28 +12,7 @@
       "Sốt phô mai cay",
       "Bột phô mai tuyết"
     ],
-    "src/pages/Dashboard/index.tsx": [
-      "Nguyễn Minh Anh",
-      "Nguyễn Trãi",
-      "Trần Gia Huy",
-      "Phan Văn Trị",
-      "Lê Hoàng Nam",
-      "Phạm Thuỳ Linh",
-      "Lê Văn Việt",
-      "Gà rán sốt cay truyền thống",
-      "Burger gà giòn cay Clucky",
-      "Combo Clucky Tiết kiệm (2 người)",
-      "Khoai tây chiên lắc phô mai",
-      "Chi nhánh Nguyễn Trãi (Q.5)",
-      "Chi nhánh Phan Văn Trị (Gò Vấp)",
-      "Chi nhánh Lê Văn Việt (TP. Thủ Đức)"
-    ],
     "src/pages/Payments/PaymentsPage.tsx": [
-      "Nguyễn Trãi (Q.5)",
-      "Phan Văn Trị (Gò Vấp)",
-      "Lê Văn Việt (TP. Thủ Đức)"
-    ],
-    "src/pages/Reports/index.tsx": [
       "Nguyễn Trãi (Q.5)",
       "Phan Văn Trị (Gò Vấp)",
       "Lê Văn Việt (TP. Thủ Đức)"
