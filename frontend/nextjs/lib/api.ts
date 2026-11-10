@@ -226,6 +226,7 @@ export interface OrderPreviewPayload {
 }
 
 export interface OrderPreviewResult {
+  shipping?: ShippingQuote;
   orderValid?: boolean;
   tierDiscount?: number;
   storeId?: number;
@@ -234,14 +235,23 @@ export interface OrderPreviewResult {
   discountAmount: number;
   pointsUsed: number;
   pointsAmount: number;
-  shippingFee: number;
-  totalAmount: number;
+  shippingFee: number | null;
+  totalAmount: number | null;
   voucherCode?: string;
   valid?: boolean;
   message?: string;
   voucherValid?: boolean;
   voucherMessage?: string;
 }
+
+export type ShippingQuote = {
+  available: boolean;
+  fee: number | null;
+  reason: 'OK' | 'PICKUP' | 'LOCATION_REQUIRED' | 'STORE_LOCATION_MISSING' | 'RADIUS_NOT_CONFIGURED' | 'OUT_OF_RANGE' | 'FEE_NOT_CONFIGURED' | 'UNAVAILABLE';
+  distanceKm: number | null;
+  radiusKm: number | null;
+  policyVersion: number | null;
+};
 
 export interface CreateOrderPayload {
   expectedTotal?: number;
@@ -394,19 +404,60 @@ export const partyOrderApi = {
 export interface RefundResult {
   id: number;
   orderId: number;
-  customerId: number;
+  customerId?: number;
   amount: number;
   reason: string;
   status: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountHolderName?: string;
+  bankDetailsVersion?: number;
+  reviewNote?: string;
   reviewedBy?: number;
   reviewedAt?: string;
+  evidencePublicId?: string;
+  updatedAt?: string;
 }
 
 export const refundApi = {
-  create: (orderId: number, amount: number, reason: string) =>
-    request<RefundResult>("/api/refund-requests", {
+  create: (
+    dataOrOrderId:
+      | { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string }
+      | number,
+    amountOrReason?: number | string,
+    legacyReason?: string
+  ) => {
+    let payload: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string };
+    if (typeof dataOrOrderId === "object") {
+      payload = dataOrOrderId;
+    } else {
+      payload = {
+        orderId: dataOrOrderId,
+        reason: legacyReason || (typeof amountOrReason === "string" ? amountOrReason : ""),
+      };
+    }
+    return request<RefundResult>("/api/refund-requests", {
       method: "POST",
-      body: JSON.stringify({ orderId, amount, reason }),
+      body: JSON.stringify(payload),
+    });
+  },
+  get: (id: number) =>
+    request<RefundResult>(`/api/refund-requests/${id}`),
+  list: async (params?: { orderId?: number; status?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.orderId) qs.set("orderId", String(params.orderId));
+    if (params?.status) qs.set("status", params.status);
+    const res = await request<any>(`/api/refund-requests${qs.toString() ? `?${qs.toString()}` : ""}`);
+    if (Array.isArray(res)) return res as RefundResult[];
+    if (res && Array.isArray(res.content)) return res.content as RefundResult[];
+    return [];
+  },
+  getEvidence: (id: number) =>
+    request<{ signedUrl: string; publicId: string }>(`/api/refund-requests/${id}/evidence`),
+  updateBankDetails: (id: number, data: { bankName: string; accountNumber: string; accountHolderName: string }) =>
+    request<RefundResult>(`/api/refund-requests/${id}/bank-details`, {
+      method: "PUT",
+      body: JSON.stringify(data),
     }),
 };
 
@@ -414,6 +465,7 @@ export const refundApi = {
 import type { StoreStatus } from "./types/store";
 
 export interface StoreItem {
+  deliveryRadiusKm?: number | null;
   isOpenNow?: boolean;
   latitude?: number | null;
   longitude?: number | null;

@@ -1,0 +1,25 @@
+{
+  "title": "Thông tin giao hàng",
+  "coverage": "Phạm vi phục vụ",
+  "distance": "Khoảng cách",
+  "radius": "Bán kính quán",
+  "fixedFee": "Phí giao cố định",
+  "straightLine": "Đo đường chim bay từ quán đến điểm nhận, không phải quãng đường xe chạy.",
+  "fixedHint": "Một mức phí trong phạm vi phục vụ, không phụ thu theo km.",
+  "changeAddress": "Đổi địa chỉ",
+  "changeStore": "Chọn chi nhánh khác",
+  "pickup": "Đến lấy tại quán",
+  "retry": "Kiểm tra lại",
+  "pickupHint": "Đến lấy tại quán · Không tính phí giao hàng",
+  "statuses": {
+    "OK": "Địa chỉ nằm trong phạm vi giao hàng",
+    "CHECKING": "Đang kiểm tra địa chỉ và phí giao…",
+    "STORE_REQUIRED": "Chọn chi nhánh chuẩn bị đơn hàng",
+    "LOCATION_REQUIRED": "Chọn địa chỉ và xác nhận điểm nhận trên bản đồ để kiểm tra phạm vi.",
+    "STORE_LOCATION_MISSING": "Chi nhánh chưa có vị trí giao hàng. Bạn có thể chọn quán khác hoặc đến lấy.",
+    "RADIUS_NOT_CONFIGURED": "Chi nhánh chưa cấu hình phạm vi giao. Bạn vẫn có thể đặt đến lấy.",
+    "FEE_NOT_CONFIGURED": "Phí giao hàng chưa được cấu hình. Hiện bạn có thể đặt đến lấy.",
+    "OUT_OF_RANGE": "Địa chỉ ngoài phạm vi giao của chi nhánh này.",
+    "UNAVAILABLE": "Chưa kiểm tra được giao hàng. Hãy thử lại hoặc chọn đến lấy."
+  }
+}

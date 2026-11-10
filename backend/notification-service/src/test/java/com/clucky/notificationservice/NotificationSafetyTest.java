@@ -36,7 +36,7 @@ class NotificationSafetyTest {
         when(repository.findByOperationKey(anyString())).thenReturn(Optional.of(existing));
         TransactionSynchronizationManager.initSynchronization();
         try {
-            new NotificationConsumer(mapper, repository, sender).consume(new ConsumerRecord<>("order.completed", 0, 0, "1", "event"), ack);
+            new NotificationConsumer(mapper, repository, sender, mock(org.springframework.jdbc.core.JdbcTemplate.class)).consume(new ConsumerRecord<>("order.completed", 0, 0, "1", "event"), ack);
             verifyNoInteractions(ack);
             verify(repository, never()).save(any());
             assertTrue(existing.getIsRead());
@@ -49,11 +49,25 @@ class NotificationSafetyTest {
     }
 
     @Test
+    void failureAfterConfirmationDoesNotNotifyAgain() {
+        var mapper=mock(EventMapper.class);
+        var jdbc=mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        var repository=mock(NotificationRepository.class);
+        var sender=mock(EmailSenderService.class);
+        var payload=new ObjectMapper().createObjectNode().put("orderId",10L).put("customerId",7L);
+        var event=new DomainEvent("late-failure","trace","payment.failed","payment-service",Instant.now(),payload);
+        when(mapper.fromJson("event","payment.failed")).thenReturn(event);
+        when(jdbc.queryForMap(anyString(),eq(10L))).thenReturn(java.util.Map.of("confirmed",true,"failed",false));
+        new NotificationConsumer(mapper,repository,sender,jdbc).consume(new ConsumerRecord<>("payment.failed",0,0,"10","event"),null);
+        verifyNoInteractions(repository,sender);
+    }
+
+    @Test
     void malformedEventIsNotAcknowledged() {
         var mapper = mock(EventMapper.class);
         var ack = mock(Acknowledgment.class);
         when(mapper.fromJson(anyString(), anyString())).thenThrow(new IllegalArgumentException());
-        var consumer = new NotificationConsumer(mapper, mock(NotificationRepository.class), mock(EmailSenderService.class));
+        var consumer = new NotificationConsumer(mapper, mock(NotificationRepository.class), mock(EmailSenderService.class), mock(org.springframework.jdbc.core.JdbcTemplate.class));
         assertThrows(IllegalArgumentException.class, () -> consumer.consume(new ConsumerRecord<>("order.created", 0, 0, "1", "invalid"), ack));
         verifyNoInteractions(ack);
     }

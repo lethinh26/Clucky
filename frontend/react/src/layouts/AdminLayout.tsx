@@ -92,7 +92,7 @@ export const AdminLayout: React.FC = () => {
       "reports",
       "payments",
     ],
-    STAFF: ["inventory", "orders", "reviews"],
+    STAFF: ["inventory", "orders", "reviews", "payments"],
   };
 
   const navItems: MenuProps["items"] = [

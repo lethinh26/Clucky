@@ -1,0 +1,18 @@
+{
+  "title": "Cấu hình giao hàng",
+  "chainFee": "Phí giao hàng toàn chuỗi",
+  "chainHint": "Một mức phí cố định cho mọi đơn giao hàng trong phạm vi. Không phụ thu theo km, không miễn phí theo giá trị đơn. Chỉ Admin được thay đổi.",
+  "feeLabel": "Phí cố định (VND)",
+  "saveFee": "Lưu phí ship",
+  "radiusTitle": "Phạm vi giao của chi nhánh",
+  "branch": "Chi nhánh",
+  "radiusLabel": "Bán kính (km)",
+  "radiusHint": "Đo đường chim bay từ vị trí quán đến điểm nhận. Để trống bán kính để chưa nhận giao hàng; khách vẫn có thể đến lấy. Cần lưu tọa độ quán trên bản đồ.",
+  "saveRadius": "Lưu bán kính",
+  "radiusConfigured": "Bán kính hiện tại: {{km}} km",
+  "branchIncomplete": "Chưa đủ bán kính hoặc tọa độ để giao hàng",
+  "notConfigured": "Chưa cấu hình",
+  "saved": "Đã lưu cấu hình giao hàng.",
+  "reload": "Tải lại",
+  "areaNote": "Mô tả khu vực (không thay thế bán kính cấu hình)"
+}

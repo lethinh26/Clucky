@@ -27,5 +27,13 @@
   "EMAIL_NOT_VERIFIED": "Vui lòng xác thực email trước khi đăng nhập.",
   "INVALID_OTP": "Mã OTP không hợp lệ hoặc đã được sử dụng.",
   "OTP_EXPIRED": "Mã OTP đã hết hạn.",
-  "TOKEN_REVOKED": "Phiên đăng nhập đã hết hạn hoặc bị thu hồi."
+  "TOKEN_REVOKED": "Phiên đăng nhập đã hết hạn hoặc bị thu hồi.",
+  "REFUND_NOT_ELIGIBLE": "Đơn hàng không đủ điều kiện hoàn tiền.",
+  "REFUND_AMOUNT_EXCEEDED": "Số tiền hoàn vượt quá số tiền thực nhận hợp lệ.",
+  "REFUND_ALREADY_EXISTS": "Đã có yêu cầu hoàn tiền đang được xử lý.",
+  "INVALID_REFUND_STATE": "Trạng thái yêu cầu hoàn tiền không hợp lệ cho thao tác này.",
+  "EVIDENCE_REQUIRED": "Bắt buộc phải có bằng chứng hoàn tiền hợp lệ.",
+  "EVIDENCE_DELIVERY_UNAVAILABLE": "Hệ thống lưu trữ bằng chứng riêng tư tạm thời không khả dụng.",
+  "INVALID_THRESHOLD": "Ngưỡng cảnh báo tồn kho không hợp lệ.",
+  "PRODUCT_OUT_OF_STOCK": "Sản phẩm đã hết hàng, không thể bật bán."
 }

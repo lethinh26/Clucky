@@ -1,7 +1,7 @@
 import { message } from "../../components/feedback";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
-import { Button, Space, Tag, Tooltip, Form, Input, Select, TimePicker, Radio } from "antd";
+import { Button, ConfigProvider, Space, Tag, Tooltip, Form, Input, Select, TimePicker, Radio } from "antd";
 import { TableColumnsType } from "antd";
 import dayjs from 'dayjs';
 import {
@@ -22,6 +22,7 @@ import { StoreLocationPicker, type StorePoint } from '../../components/StoreLoca
 import { useAuth } from '../../context/AuthContext';
 import { getStoreStatusMeta, normalizeStoreStatus, type StoreStatus } from '../../types/store';
 import { storesApi, getErrorMessage, type Store } from '../../lib/api';
+import { ShippingSettings, StoreDeliverySettings } from './ShippingSettings';
 
 export const StoresPage: React.FC = () => {
   const { t } = useTranslation();
@@ -52,17 +53,17 @@ export const StoresPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, t]);
+  }, []);
 
   useEffect(() => {
     fetchStores();
-  }, [fetchStores]);
+  }, [fetchStores, isAdmin, user.storeId]);
 
   // Role-based store isolation: Store Manager only sees their assigned branch
   const scopedStores = useMemo(() => {
     if (isAdmin) return stores;
     return stores.filter((store) => store.id === user.storeId);
-  }, [stores, isAdmin, user.storeId, user.storeName]);
+  }, [stores, isAdmin, user.storeId]);
 
   const filteredStores = useMemo(() => {
     return scopedStores.filter((s) => {
@@ -103,7 +104,7 @@ export const StoresPage: React.FC = () => {
 
   const handleFormSubmit = async () => {
     try {
-      const values = await form.validateFields(isAdmin ? undefined : ['openTime', 'closeTime', 'status']);
+      const values = await form.validateFields(isAdmin ? undefined : ['openTime', 'closeTime', 'status', 'phone', 'deliveryArea']);
       const storePayload: Partial<Store> = {
         latitude: editingStore?.latitude ?? null,
         longitude: editingStore?.longitude ?? null,
@@ -112,8 +113,8 @@ export const StoresPage: React.FC = () => {
         district: values.district,
         city: values.city,
         phone: values.phone,
-        openTime: values.openTime.format('HH:mm'),
-        closeTime: values.closeTime.format('HH:mm'),
+        openTime: values.openTime ? values.openTime.format('HH:mm') : undefined,
+        closeTime: values.closeTime ? values.closeTime.format('HH:mm') : undefined,
         deliveryArea: values.deliveryArea,
         status: values.status,
         recoveryEmail: editingStore ? undefined : values.recoveryEmail,
@@ -123,7 +124,11 @@ export const StoresPage: React.FC = () => {
         const updated = isAdmin
           ? await storesApi.update(editingStore.id, storePayload)
           : await storesApi.updateOperation(editingStore.id, {
-              openTime: storePayload.openTime, closeTime: storePayload.closeTime, status: storePayload.status,
+              openTime: storePayload.openTime,
+              closeTime: storePayload.closeTime,
+              status: storePayload.status ?? undefined,
+              phone: storePayload.phone ?? undefined,
+              deliveryArea: storePayload.deliveryArea ?? undefined,
             });
         setStores((prev) => prev.map((store) => store.id === updated.id ? updated : store));
         message.success(t("business:stores.storeDetailsUpdatedFor", { value1: updated.name }));
@@ -342,6 +347,7 @@ export const StoresPage: React.FC = () => {
       </div>
 
       {/* Admin Table */}
+      <ShippingSettings />
       <AdminTable<Store>
         columns={columns}
         dataSource={filteredStores}
@@ -381,6 +387,7 @@ export const StoresPage: React.FC = () => {
         }}>
         {locationStore && <StoreLocationPicker key={locationStore.id} address={locationStore.address} value={locationPoint} onChange={savingLocation ? undefined : setLocationPoint} />}
       </AdminModal>
+      <ConfigProvider theme={{ token: { colorBgContainer: '#FFFFFF' } }}>
       <AdminModal
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
@@ -388,16 +395,21 @@ export const StoresPage: React.FC = () => {
         title={editingStore ? t("business:stores.editStoreDetails") : t("business:stores.setUpANewStore")}
         subtitle={t("business:stores.detailsShownInTheCustomerAppAndUsedForOrderRouting")}
         width={680}
+        styles={{
+          container: { background: '#FFFFFF' },
+          header: { background: '#FFFFFF', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #EEEEEE' },
+          body: { background: '#FFFFFF', padding: '16px 0' },
+          footer: { background: '#FFFFFF', marginTop: 20, paddingTop: 16, borderTop: '1px solid #EEEEEE' },
+        }}
       >
-        {!isAdmin && <p>{t('errors:NOT_IMPLEMENTED')}: {t('business:stores.storeHotline')} / {t('business:stores.supportedDeliveryAreaRadiusNearbyDistricts')}</p>}
-        <Form form={form} layout="vertical" disabled={!isAdmin}>
+        <Form form={form} layout="vertical">
           {!editingStore && <Form.Item name="recoveryEmail" label={t("accounts:recovery")} rules={[{ required: true, type: 'email', max: 255 }]}><Input autoComplete="email" /></Form.Item>}
           <Form.Item
             name="name"
             label={t("business:stores.storeName")}
             rules={[{ required: true, message: t("business:stores.pleaseEnterAStoreName") }]}
           >
-            <Input placeholder={t("business:stores.forExampleCluckyLLIFlagshipStore")} style={{ height: 40 }} />
+            <Input disabled={!isAdmin} placeholder={t("business:stores.forExampleCluckyLLIFlagshipStore")} style={{ height: 40 }} />
           </Form.Item>
 
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
@@ -406,7 +418,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.fullAddressHouseNumberStreetWard")}
               rules={[{ required: true, message: t("business:stores.enterFullAddress") }]}
             >
-              <Input placeholder={t("business:stores.enterFullAddress")} style={{ height: 40 }} />
+              <Input disabled={!isAdmin} placeholder={t("business:stores.enterFullAddress")} style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -414,7 +426,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:account.district")}
               rules={[{ required: true, message: t("business:stores.enterDistrict") }]}
             >
-              <Input placeholder={t("business:stores.enterDistrict")} style={{ height: 40 }} />
+              <Input disabled={!isAdmin} placeholder={t("business:stores.enterDistrict")} style={{ height: 40 }} />
             </Form.Item>
           </div>
 
@@ -432,7 +444,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.openingTime")}
               rules={[{ required: true, message: t("business:stores.chooseOpeningTime") }]}
             >
-              <TimePicker disabled={false} format="HH:mm" style={{ width: '100%', height: 40 }} />
+              <TimePicker format="HH:mm" style={{ width: '100%', height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -440,7 +452,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.closingTime")}
               rules={[{ required: true, message: t("business:stores.chooseClosingTime") }]}
             >
-              <TimePicker disabled={false} format="HH:mm" style={{ width: '100%', height: 40 }} />
+              <TimePicker format="HH:mm" style={{ width: '100%', height: 40 }} />
             </Form.Item>
           </div>
 
@@ -449,12 +461,17 @@ export const StoresPage: React.FC = () => {
             label={t("business:stores.city")}
             rules={[{ required: true, message: t("business:stores.enterCity") }]}
           >
-            <Input placeholder={t("business:stores.enterCity")} style={{ height: 40 }} />
+            <Input disabled={!isAdmin} placeholder={t("business:stores.enterCity")} style={{ height: 40 }} />
           </Form.Item>
+
+          {modalOpen && editingStore && <StoreDeliverySettings key={editingStore.id} store={editingStore} onSaved={saved => {
+            setStores(current => current.map(store => store.id === saved.id ? { ...store, ...saved } : store));
+            setEditingStore(current => current?.id === saved.id ? saved : current);
+          }} />}
 
           <Form.Item
             name="deliveryArea"
-            label={t("business:stores.supportedDeliveryAreaRadiusNearbyDistricts")}
+            label={t("shipping:areaNote")}
             rules={[{ required: true, message: t("business:stores.pleaseDescribeTheDeliveryArea") }]}
           >
             <Input.TextArea
@@ -475,15 +492,16 @@ export const StoresPage: React.FC = () => {
             </Form.Item>
 
             <Form.Item name="status" label={t("business:stores.activityStatus")}>
-              <Radio.Group disabled={false} style={{ marginTop: 6 }}>
+              <Radio.Group style={{ marginTop: 6 }}>
                 <Radio value="OPEN">{t("business:stores.open")}</Radio>
                 <Radio value="CLOSED_TEMP">{t("business:stores.temporarilyClosed")}</Radio>
-                <Radio value="INACTIVE">{t("business:stores.salesStopped")}</Radio>
+                <Radio value="INACTIVE" disabled={!isAdmin}>{t("business:stores.salesStopped")}</Radio>
               </Radio.Group>
             </Form.Item>
           </div>
         </Form>
       </AdminModal>
+      </ConfigProvider>
     </div>
   );
 };
