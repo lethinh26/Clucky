@@ -43,9 +43,7 @@ public class PaymentEventConsumer {
             }
         } catch (IllegalArgumentException e) {
             LOG.error("event=kafka_payment_failed_invalid_payload error={} payload={}", e.getMessage(), record.value());
-            if (ack != null) {
-                ack.acknowledge();
-            }
+            throw e;
         } catch (Exception e) {
             LOG.error("event=kafka_payment_failed_error error={}", e.getMessage(), e);
             throw e;

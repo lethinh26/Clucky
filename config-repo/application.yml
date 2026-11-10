@@ -51,6 +51,10 @@ clucky:
   kafka:
     partitions: ${KAFKA_TOPIC_PARTITIONS:3}
     replicas: ${KAFKA_TOPIC_REPLICAS:1}
+    retry:
+      backoff-ms: ${KAFKA_RETRY_BACKOFF_MS:1000}
+      max-attempts: ${KAFKA_RETRY_MAX_ATTEMPTS:3}
+      dlt-timeout-sec: ${KAFKA_DLT_TIMEOUT_SEC:10}
   redis:
     ttl:
       cart: ${REDIS_CART_TTL:7d}
