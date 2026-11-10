@@ -557,18 +557,19 @@ function parseDownloadFilename(headerValue: unknown, fallback: string): string {
   if (typeof headerValue !== 'string') return fallback;
   const match = headerValue.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
   if (!match?.[1]) return fallback;
-  const cleaned = match[1].replaceAll('"', '').replace(/[^A-Za-z0-9._-]/g, '_');
+  const cleaned = match[1].replace(/"/g, '').replace(/[^A-Za-z0-9._-]/g, '_');
   return cleaned || fallback;
 }
 
 async function decodeBlobError(error: unknown): Promise<never> {
   const axiosError = error as AxiosError<Blob>;
-  const data = axiosError?.response?.data;
-  if (data && typeof (data as Blob).text === 'function') {
+  const response = axiosError?.response;
+  const data = response?.data;
+  if (response && data && typeof (data as Blob).text === 'function') {
     try {
       const text = await (data as Blob).text();
       const parsed = JSON.parse(text);
-      (axiosError.response as { data: unknown }).data = parsed;
+      (response as { data: unknown }).data = parsed;
     } catch {
       // Keep original HTTP status error mapping if payload is not JSON
     }

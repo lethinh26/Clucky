@@ -36,7 +36,8 @@ import {
   ShopOutlined,
   ShoppingOutlined,
 } from '@ant-design/icons';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { message } from '../../components/feedback';
 import { PageIntro } from '../Dashboard';
 import { useAuth } from '../../context/AuthContext';
@@ -196,7 +197,7 @@ export const ReportsPage: React.FC = () => {
     [isManager, managerStoreId, storeNameMap, t, user.storeName]
   );
 
-  const storeOptions = useMemo(() => {
+  const storeOptions = useMemo<Array<{ value: number | 'ALL'; label: string }>>(() => {
     if (isManager && managerStoreId) {
       return [{ value: managerStoreId, label: resolveStoreName(managerStoreId) }];
     }
@@ -523,7 +524,7 @@ export const ReportsPage: React.FC = () => {
                 <Text strong style={{ color: '#16100D' }}>
                   {t('business:reports.store')}
                 </Text>
-                <Select
+                <Select<number | 'ALL'>
                   value={selectedStore}
                   onChange={(val) => setSelectedStore(val)}
                   disabled={isManager}

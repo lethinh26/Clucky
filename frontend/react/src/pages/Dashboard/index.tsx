@@ -534,7 +534,7 @@ export default function Dashboard({
     return list.slice(0, 6);
   }, [stores, effectiveStoreId]);
 
-  const storeSelectOptions = useMemo(() => {
+  const storeSelectOptions = useMemo<Array<{ value: string; label: string }>>(() => {
     if (isManager && managerStoreId) {
       const label =
         storeMap.get(managerStoreId)?.name ||
