@@ -1,6 +1,6 @@
 .page { max-width:1440px; margin:0 auto; padding:38px 32px 90px; color:#2b1d16; }
 .header { display:flex; align-items:center; justify-content:space-between; gap:24px; margin-bottom:26px; }
-.header h1 { font-family:'Fredoka','Baloo 2',sans-serif; font-size:clamp(30px,4vw,48px); line-height:1.15; margin:10px 0; letter-spacing:-1px; color:#8f1216; }
+.header h1 { font-family:var(--font-heading); font-size:clamp(30px,4vw,48px); line-height:1.15; margin:10px 0; letter-spacing:-1px; color:#8f1216; }
 .header p { margin:0; color:#75675e; font-size:15px; }
 .eyebrow { font-size:11px; font-weight:800; letter-spacing:2px; color:#9c7342; }
 .layout { display:grid; grid-template-columns:minmax(360px,.85fr) minmax(0,1.2fr); gap:24px; align-items:start; }
@@ -23,7 +23,7 @@
 .cardHeading { display:flex; align-items:center; gap:18px; width:100%; text-align:left; border:0; background:none; padding:0; font:inherit; cursor:pointer; }
 .logo { display:grid; place-items:center; width:110px; height:110px; flex-shrink:0; background:#f8efdf; border-radius:20px; }
 .logo img { object-fit:contain; }
-.card h2 { font-family:'Fredoka','Baloo 2',sans-serif; font-size:23px; line-height:1.2; margin:8px 0; color:#381e17; }
+.card h2 { font-family:var(--font-heading); font-size:23px; line-height:1.2; margin:8px 0; color:#381e17; }
 .open,.closed { font-size:10px; text-transform:uppercase; letter-spacing:.7px; font-weight:800; }
 .open { color:#247348; }.closed { color:#8a7063; }
 .distance { font-size:15px; font-weight:800; color:#8f1216; }

@@ -3,7 +3,7 @@ import { notify, useFeedback } from "@/components/feedback";
 
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Tag,
   Copy,
@@ -66,7 +66,7 @@ export default function VouchersPage() {
 
   useNavigationTask(loading);
 
-  const loadVouchers = async () => {
+  const loadVouchers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -77,11 +77,11 @@ export default function VouchersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     loadVouchers();
-  }, []);
+  }, [loadVouchers]);
 
   const handleCopyCode = async (code: string) => {
     if (!code) return;

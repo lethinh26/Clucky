@@ -103,7 +103,7 @@ class CheckoutRegressionTest {
         when(catalog.validateItems(anyLong(), anyList())).thenReturn(
                 new CatalogClient.CatalogValidationResponse(true, true, null, BigDecimal.TEN, List.of()));
         when(shipping.calculateShippingFee(anyString(), anyLong(), any(), any()))
-                .thenReturn(new ShippingClient.ShippingFeeResult(true, BigDecimal.ZERO, null));
+                .thenReturn(new ShippingClient.ShippingFeeResult(true, BigDecimal.ZERO, "PICKUP", null, null, null));
         when(promotion.validateVoucher(anyString(), anyLong(), any()))
                 .thenReturn(new PromotionClient.VoucherResult(false, "Expired", BigDecimal.ZERO));
         OrderService service = new OrderService(orders, mock(OrderItemRepository.class), mock(OrderStatusHistoryRepository.class),

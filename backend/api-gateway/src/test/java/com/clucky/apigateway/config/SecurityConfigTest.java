@@ -89,6 +89,17 @@ class SecurityConfigTest {
                     .header("X-Clucky-Client", "admin").exchange().expectStatus().isForbidden();
             client.post().uri("/api/cart/items").header("X-Clucky-Client", "customer")
                     .cookie("clucky_customer_access", "token").exchange().expectStatus().isForbidden();
+            client.post().uri("/api/payments/webhook/sepay").header("Authorization", "Apikey test-key")
+                    .header("X-Clucky-Client", "admin").cookie("clucky_admin_access", "not-a-jwt")
+                    .exchange().expectStatus().isOk().expectBody(String.class).isEqualTo("Apikey test-key");
+            client.get().uri("/api/payments/transactions").header("Authorization", "Apikey test-key")
+                    .exchange().expectStatus().isUnauthorized();
+            client.post().uri("/api/payments/webhook/casso").header("Authorization", "Apikey test-key")
+                    .exchange().expectStatus().isUnauthorized();
+            client.options().uri("/api/payments/bank-config").header("Origin", "http://localhost:3001")
+                    .header("Access-Control-Request-Method", "POST")
+                    .header("Access-Control-Request-Headers", "X-Clucky-Client,Content-Type,Idempotency-Key")
+                    .exchange().expectStatus().isOk();
         }
     }
 
@@ -107,6 +118,7 @@ class SecurityConfigTest {
         RouterFunction<ServerResponse> routes() {
             return RouterFunctions.route().POST("/api/auth/logout", request -> ServerResponse.ok().build())
                     .POST("/api/auth/refresh", request -> ServerResponse.ok().build())
+                    .POST("/api/payments/webhook/sepay", request -> ServerResponse.ok().bodyValue(request.headers().firstHeader("Authorization")))
                     .GET("/api/orders", request -> ServerResponse.ok().build()).build();
         }
     }

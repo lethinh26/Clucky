@@ -20,7 +20,7 @@ public class AccountAuditConsumer {
     public void receive(String json, Acknowledgment acknowledgment) {
         try {
             var event = mapper.readTree(json);
-            if (!Set.of("identity-service", "cart-order-service").contains(event.path("sourceService").asText())) {
+            if (!Set.of("identity-service", "cart-order-service", "payment-service").contains(event.path("sourceService").asText())) {
                 acknowledgment.acknowledge(); return;
             }
             var payload = event.path("payload");

@@ -64,6 +64,8 @@ public class ReportProjectionService {
         BigDecimal explicitPaidAmount = resolveOptionalAmount(payload, "paidAmount", "receivedAmount");
         BigDecimal explicitReconciledTransfer = resolveOptionalAmount(payload, "reconciledTransferAmount");
         BigDecimal explicitPendingReconciliation = resolveOptionalAmount(payload, "pendingReconciliationAmount");
+        BigDecimal explicitCash = resolveOptionalAmount(payload, "cashAmount");
+        BigDecimal explicitTransfer = resolveOptionalAmount(payload, "declaredTransfer");
         boolean isExpiredOrder = payload.path("expired").asBoolean(false)
                 || "EXPIRED".equalsIgnoreCase(payload.path("orderStatus").asText(""));
         String eventReconciliationStatus = resolveOptionalReconciliationStatus(event, payload, isExpiredOrder);
@@ -115,8 +117,10 @@ public class ReportProjectionService {
             tracker.setStatDate(statDate);
             tracker.setPaymentMethod(method);
             tracker.setRevenueAmount(recognizedAmount);
-            tracker.setCodAmount("COD".equals(method) ? recognizedAmount : BigDecimal.ZERO);
-            tracker.setTransferAmount("BANK_TRANSFER".equals(method) ? recognizedAmount : BigDecimal.ZERO);
+            tracker.setCodAmount(explicitCash != null ? explicitCash
+                    : "COD".equals(method) ? recognizedAmount : BigDecimal.ZERO);
+            tracker.setTransferAmount(explicitTransfer != null ? explicitTransfer
+                    : "BANK_TRANSFER".equals(method) ? recognizedAmount : BigDecimal.ZERO);
             tracker.setExcessAmount(computedExcess);
             tracker.setExpiredReceiptAmount(computedExpired);
         } else if (computedExpired.signum() > 0 && nonNull(tracker.getExpiredReceiptAmount()).signum() == 0) {
@@ -131,7 +135,7 @@ public class ReportProjectionService {
         tracker.setUpdatedAt(Instant.now());
 
         if (tracker.isContributed()) {
-            return handlePostContributionReconciliation(tracker, event, eventReconciliationStatus);
+            return handlePostContributionReconciliation(tracker, eventReconciliationStatus);
         }
 
         if (tracker.getStoreId() == 0) {
@@ -156,7 +160,7 @@ public class ReportProjectionService {
 
         BigDecimal reconciledTransfer = BigDecimal.ZERO;
         BigDecimal pendingReconciliation = BigDecimal.ZERO;
-        if ("BANK_TRANSFER".equals(tracker.getPaymentMethod()) && tracker.getTransferAmount().signum() > 0) {
+        if (tracker.getTransferAmount().signum() > 0) {
             if (explicitReconciledTransfer != null || explicitPendingReconciliation != null) {
                 reconciledTransfer = explicitReconciledTransfer != null ? explicitReconciledTransfer : BigDecimal.ZERO;
                 pendingReconciliation = explicitPendingReconciliation != null ? explicitPendingReconciliation : BigDecimal.ZERO;
@@ -187,12 +191,10 @@ public class ReportProjectionService {
 
     private boolean handlePostContributionReconciliation(
             com.clucky.reviewreportservice.entity.OrderProjectionTracker tracker,
-            DomainEvent event,
             String eventReconciliationStatus
     ) {
-        if ("BANK_TRANSFER".equals(tracker.getPaymentMethod())
-                && nonNull(tracker.getPendingReconciliationAmount()).signum() > 0
-                && ("payment.confirmed".equals(event.eventType()) || RECONCILED_STATUSES.contains(eventReconciliationStatus))) {
+        if (nonNull(tracker.getPendingReconciliationAmount()).signum() > 0
+                && eventReconciliationStatus != null && RECONCILED_STATUSES.contains(eventReconciliationStatus)) {
             BigDecimal settled = nonNull(tracker.getPendingReconciliationAmount());
             tracker.setReconciledTransferAmount(nonNull(tracker.getReconciledTransferAmount()).add(settled));
             tracker.setPendingReconciliationAmount(BigDecimal.ZERO);
@@ -301,8 +303,8 @@ public class ReportProjectionService {
 
     private String resolvePaymentMethod(JsonNode payload) {
         String field = "order.completed".equals(revenueEvent) ? "paymentMethod" : "method";
-        String method = payload.path(field).asText();
-        if (!Set.of("COD", "BANK_TRANSFER").contains(method)) {
+        String method = payload.path(field).asText(payload.path("paymentMethod").asText());
+        if (!Set.of("COD", "BANK_TRANSFER", "CASH", "MIXED", "UNVERIFIED").contains(method)) {
             throw new IllegalArgumentException("Supported payment method required");
         }
         return method;
@@ -318,7 +320,10 @@ public class ReportProjectionService {
         if (payload.path("reconciled").asBoolean(false) || payload.path("bankConfirmed").asBoolean(false)) {
             return "RECONCILED";
         }
-        if (payload.path("manualAccepted").asBoolean(false) || payload.path("counterDeclared").asBoolean(false)) {
+        if (payload.path("manualAccepted").asBoolean(false) || payload.path("counterDeclared").asBoolean(false)
+                || "COLLECTION".equals(payload.path("operationType").asText())
+                || "COLLECTED".equals(payload.path("status").asText())
+                || "COLLECTED".equals(payload.path("paymentStatus").asText())) {
             return "PENDING_RECONCILIATION";
         }
         if ("payment.confirmed".equals(event.eventType())) {

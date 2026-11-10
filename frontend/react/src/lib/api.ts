@@ -52,6 +52,8 @@ export interface Combo {
 }
 
 export interface Store {
+  deliveryRadiusKm?: number | null;
+  version?: number;
   accountReadiness?: 'LEGACY' | 'PENDING' | 'PROVISIONED' | 'READY';
   recoveryEmail?: string;
   latitude?: number | null;
@@ -69,6 +71,7 @@ export interface Store {
   managerId?: number;
   managerName?: string;
   isOpenNow?: boolean;
+  lowStockThreshold?: number;
 }
 
 export interface InventoryItem {
@@ -273,20 +276,58 @@ export const ordersApi = {
 };
 
 /* ---------- Refunds ---------- */
+export interface BackendRefundAttempt {
+  id: number;
+  refundRequestId: number;
+  attemptNumber: number;
+  attemptId: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  accountNumber?: string;
+  bankAccountName?: string;
+  accountHolderName?: string;
+  amount: number;
+  status: string;
+  failureReason?: string;
+  evidencePublicId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BackendRefund {
   id: number;
   orderId: number;
-  orderCode: string;
+  orderCode?: string;
+  storeId?: number;
+  customerId?: number;
   amount: number;
   reason: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'REFUNDED';
+  status: 'PENDING' | 'APPROVED' | 'PROCESSING' | 'WAITING_BANK_DETAILS' | 'REFUNDED' | 'REJECTED';
   reviewedBy?: number;
   reviewedAt?: string;
   reviewNote?: string;
-  createdAt: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  accountNumber?: string;
+  bankAccountName?: string;
+  accountHolderName?: string;
+  bankDetailsVersion?: number;
+  attemptCount?: number;
+  currentAttemptId?: string;
+  evidencePublicId?: string;
+  confirmedAt?: string;
+  confirmedBy?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  attempts?: BackendRefundAttempt[];
 }
 
 export const refundsApi = {
+  create: (
+    data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string },
+    signal?: AbortSignal
+  ) =>
+    api.post<BackendRefund>('/api/refund-requests', data, { signal }).then((r) => r.data),
   list: (
     params?: { storeId?: number; status?: string; page?: number; size?: number },
     signal?: AbortSignal
@@ -300,6 +341,10 @@ export const refundsApi = {
         if (Array.isArray(r.data)) return r.data as BackendRefund[];
         throw { code: 'UPSTREAM_ERROR' };
       }),
+  getById: (id: string | number, signal?: AbortSignal) =>
+    api.get<BackendRefund>(`/api/refund-requests/${id}`, { signal }).then((r) => r.data),
+  get: (id: string | number, signal?: AbortSignal) =>
+    api.get<BackendRefund>(`/api/refund-requests/${id}`, { signal }).then((r) => r.data),
   review: (
     id: string | number,
     action: 'APPROVE' | 'REJECT',
@@ -310,11 +355,39 @@ export const refundsApi = {
     return api
       .put<BackendRefund>(
         `/api/refund-requests/${id}/${endpoint}`,
-        { reason: note },
+        { reason: note, note: note },
         { signal }
       )
       .then((r) => r.data);
   },
+  claimProcessing: (id: string | number, signal?: AbortSignal) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/claim-processing`, {}, { signal }).then((r) => r.data),
+  requestBankDetails: (id: string | number, reason: string, signal?: AbortSignal) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/request-bank-details`, { reason }, { signal }).then((r) => r.data),
+  updateBankDetails: (
+    id: string | number,
+    data: { bankName: string; bankAccountNo?: string; accountNumber?: string; bankAccountName?: string; accountHolderName?: string },
+    signal?: AbortSignal
+  ) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/bank-details`, {
+      bankName: data.bankName,
+      accountNumber: data.accountNumber ?? data.bankAccountNo,
+      accountHolderName: data.accountHolderName ?? data.bankAccountName,
+    }, { signal }).then((r) => r.data),
+  uploadEvidence: (id: string | number, file: File, signal?: AbortSignal) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api
+      .post<BackendRefund>(`/api/refund-requests/${id}/evidence`, formData, {
+        signal,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+  getEvidenceAccess: (id: string | number, signal?: AbortSignal) =>
+    api.get<{ accessUrl: string; expiresInSeconds: number }>(`/api/refund-requests/${id}/evidence`, { signal }).then((r) => r.data),
+  confirmRefund: (id: string | number, note?: string, signal?: AbortSignal) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/confirm-refund`, { note }, { signal }).then((r) => r.data),
 };
 
 /* ---------- Party Orders ---------- */
@@ -460,6 +533,8 @@ export const catalogApi = {
 
 /* ---------- Stores ---------- */
 export const storesApi = {
+  updateDeliverySettings: (id: number, radiusKm: number | null, version: number) =>
+    api.put<Store>(`/api/stores/${id}/delivery-settings`, { radiusKm, version }).then(response => response.data),
   updateLocation: (id: number, point: { latitude: number | null; longitude: number | null }) =>
     api.put<Store>('/api/stores/' + id + '/location', point).then(response => response.data),
   list: (activeOnly?: boolean, signal?: AbortSignal) =>
@@ -472,7 +547,7 @@ export const storesApi = {
     api.put<Store>(`/api/stores/${id}`, data).then((r) => r.data),
   delete: (id: number) =>
     api.delete(`/api/stores/${id}`).then((r) => r.data),
-  updateOperation: (id: number, data: { openTime?: string; closeTime?: string; status?: string }) =>
+  updateOperation: (id: number, data: { openTime?: string; closeTime?: string; status?: string; phone?: string; latitude?: number | null; longitude?: number | null; deliveryArea?: string; lowStockThreshold?: number }) =>
     api.put<Store>(`/api/stores/${id}/operation`, data).then((r) => r.data),
 };
 
@@ -480,8 +555,10 @@ export const storesApi = {
 export const inventoryApi = {
   getStoreInventory: (storeId: number) =>
     api.get<InventoryItem[]>(`/api/stores/${storeId}/inventory`).then((r) => r.data),
-  updateInventory: (storeId: number, productId: number, data: { quantityAvailable?: number; lowStockThreshold?: number; isSoldOut?: boolean }) =>
+  updateInventory: (storeId: number, productId: number, data: { quantityAvailable?: number; isSoldOut?: boolean }) =>
     api.put<InventoryItem>(`/api/stores/${storeId}/inventory/${productId}`, data).then((r) => r.data),
+  updateStoreThreshold: (storeId: number, threshold: number) =>
+    api.put<{ storeId: number; lowStockThreshold: number; threshold: number }>(`/api/stores/${storeId}/threshold`, { threshold, lowStockThreshold: threshold }).then((r) => r.data),
   updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean }) =>
     api.put(`/api/stores/${storeId}/products/${productId}/availability`, data).then((r) => r.data),
 };

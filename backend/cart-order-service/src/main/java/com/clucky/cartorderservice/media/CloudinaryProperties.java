@@ -1,4 +1,4 @@
-package com.clucky.catalogstoreservice.media;
+package com.clucky.cartorderservice.media;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "cloudinary")
 public class CloudinaryProperties {
-
     private boolean enabled = false;
     private String cloudName;
     private String apiKey;
@@ -28,3 +27,4 @@ public class CloudinaryProperties {
     public String getFolder() { return folder; }
     public void setFolder(String folder) { this.folder = folder; }
 }
+

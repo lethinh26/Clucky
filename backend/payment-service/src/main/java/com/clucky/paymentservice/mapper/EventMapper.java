@@ -18,7 +18,9 @@ public class EventMapper {
 
     public EventMapper(ObjectMapper mapper, Validator validator) {
         this.mapper = mapper;
-        this.reader = mapper.readerFor(DomainEvent.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        this.reader = mapper.readerFor(DomainEvent.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
         this.validator = validator;
     }
 

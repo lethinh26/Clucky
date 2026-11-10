@@ -51,6 +51,8 @@ clucky:
   kafka:
     partitions: ${KAFKA_TOPIC_PARTITIONS:3}
     replicas: ${KAFKA_TOPIC_REPLICAS:1}
+    retry-delay-ms: ${KAFKA_RETRY_DELAY_MS:2000}
+    retry-attempts: ${KAFKA_RETRY_ATTEMPTS:5}
   redis:
     ttl:
       cart: ${REDIS_CART_TTL:7d}

@@ -73,9 +73,11 @@ class ReportProjectionTest {
             var invalid = valid();
             ((ObjectNode) invalid.payload()).put("totalAmount", amount);
             assertThrows(IllegalArgumentException.class, () -> service.processProjectionEvent(invalid));
-            var badExcess = valid();
-            ((ObjectNode) badExcess.payload()).put("excessAmount", amount);
-            assertThrows(IllegalArgumentException.class, () -> service.processProjectionEvent(badExcess));
+            for (String field : new String[] {"excessAmount", "cashAmount", "declaredTransfer"}) {
+                var invalidOptional = valid();
+                ((ObjectNode) invalidOptional.payload()).put(field, amount);
+                assertThrows(IllegalArgumentException.class, () -> service.processProjectionEvent(invalidOptional));
+            }
         }
         var badDate = valid();
         ((ObjectNode) badDate.payload()).put("completedAt", "not-a-date");
@@ -96,6 +98,37 @@ class ReportProjectionTest {
     void duplicateEventDoesNotTouchProjection() {
         assertFalse(service.processProjectionEvent(valid()));
         verifyNoInteractions(stats, trackers);
+    }
+
+    @Test
+    void mixedCollectionPreservesDeclarationsWithoutInflatingRevenue() {
+        var tracker=new OrderProjectionTracker(1L,null,0L,LocalDate.of(2026,11,5),null,
+                BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ZERO,false,false,false);
+        when(events.claim("event-1","order.completed",1L)).thenReturn(1);
+        when(trackers.findByOrderId(1L)).thenReturn(Optional.of(tracker));
+        var collected = event("collection-1", "payment.confirmed", 1L, 2L, "2026-11-04T17:01:00Z");
+        ((ObjectNode) collected.payload()).put("operationType", "COLLECTION").put("status", "COLLECTED");
+        when(events.claim("collection-1", "payment.confirmed", 1L)).thenReturn(1);
+        assertFalse(service.processProjectionEvent(collected));
+        var completed=valid();
+        ((ObjectNode)completed.payload()).put("paymentMethod","MIXED").put("cashAmount",80000).put("declaredTransfer",60000);
+        assertTrue(service.processProjectionEvent(completed));
+        verify(stats).upsertStatsDelta(2L,LocalDate.of(2026,11,5),1,new BigDecimal("120000"),new BigDecimal("80000"),new BigDecimal("60000"));
+        assertEquals(new BigDecimal("120000"),tracker.getRevenueAmount());
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                BigDecimal.ZERO, new BigDecimal("60000"), BigDecimal.ZERO, BigDecimal.ZERO);
+        assertFalse(service.processProjectionEvent(collected));
+        assertFalse(service.processProjectionEvent(completed));
+        assertEquals(new BigDecimal("60000"), tracker.getPendingReconciliationAmount());
+        assertEquals(BigDecimal.ZERO, tracker.getReconciledTransferAmount());
+
+        var bankConfirmed = event("bank-1", "payment.confirmed", 1L, 2L, "2026-11-04T17:10:00Z");
+        ((ObjectNode) bankConfirmed.payload()).put("method", "BANK_TRANSFER").put("amount", 60000);
+        when(events.claim("bank-1", "payment.confirmed", 1L)).thenReturn(1);
+        assertFalse(service.processProjectionEvent(bankConfirmed));
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                new BigDecimal("60000"), new BigDecimal("-60000"), BigDecimal.ZERO, BigDecimal.ZERO);
+        verifyNoMoreInteractions(stats);
     }
 
     @Test

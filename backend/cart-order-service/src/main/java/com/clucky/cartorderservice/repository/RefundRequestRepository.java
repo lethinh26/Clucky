@@ -14,15 +14,18 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
     Optional<RefundRequest> findByIdAndCustomerId(Long id, Long customerId);
     List<RefundRequest> findAllByOrderId(Long orderId);
     Page<RefundRequest> findByCustomerId(Long customerId, Pageable pageable);
+    Page<RefundRequest> findByCustomerIdAndOrderId(Long customerId, Long orderId, Pageable pageable);
 
     @Query("""
         SELECT r FROM RefundRequest r, Order o
         WHERE r.orderId = o.id
+          AND (:orderId IS NULL OR r.orderId = :orderId)
           AND (:storeId IS NULL OR o.storeId = :storeId)
           AND (:status IS NULL OR r.status = :status)
         ORDER BY r.id DESC
     """)
     Page<RefundRequest> findRefundRequests(
+        @Param("orderId") Long orderId,
         @Param("storeId") Long storeId,
         @Param("status") String status,
         Pageable pageable

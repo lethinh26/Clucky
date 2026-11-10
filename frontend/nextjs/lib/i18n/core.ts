@@ -50,7 +50,9 @@ export function formatNumber(value: number, locale: Locale, options?: Intl.Numbe
 export function formatDate(value: string | number | Date, locale: Locale, options?: Intl.DateTimeFormatOptions): string {
   const date = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(date.getTime())) return "—";
+  const defaults: Intl.DateTimeFormatOptions = options?.dateStyle || options?.timeStyle
+    ? {} : { year: "numeric", month: "2-digit", day: "2-digit" };
   return new Intl.DateTimeFormat(intlLocales[locale], {
-    year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Ho_Chi_Minh", ...options,
+    ...defaults, timeZone: "Asia/Ho_Chi_Minh", ...options,
   }).format(date);
 }
