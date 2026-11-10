@@ -38,7 +38,12 @@ public final class DomainMapper {
                 entity.getOrderCount(),
                 entity.getRevenue(),
                 entity.getCodAmount(),
-                entity.getTransferAmount()
+                entity.getTransferAmount(),
+                entity.getReconciledTransferAmount(),
+                entity.getPendingReconciliationAmount(),
+                entity.getExcessAmount(),
+                entity.getExpiredReceiptAmount(),
+                entity.getUpdatedAt()
         );
     }
 }

@@ -37,6 +37,21 @@ public class OrderProjectionTracker {
     @Column(name = "transfer_amount", nullable = false, precision = 12, scale = 0)
     private BigDecimal transferAmount = BigDecimal.ZERO;
 
+    @Column(name = "reconciled_transfer_amount", nullable = false, precision = 12, scale = 0)
+    private BigDecimal reconciledTransferAmount = BigDecimal.ZERO;
+
+    @Column(name = "pending_reconciliation_amount", nullable = false, precision = 12, scale = 0)
+    private BigDecimal pendingReconciliationAmount = BigDecimal.ZERO;
+
+    @Column(name = "excess_amount", nullable = false, precision = 12, scale = 0)
+    private BigDecimal excessAmount = BigDecimal.ZERO;
+
+    @Column(name = "expired_receipt_amount", nullable = false, precision = 12, scale = 0)
+    private BigDecimal expiredReceiptAmount = BigDecimal.ZERO;
+
+    @Column(name = "reconciliation_status", length = 40)
+    private String reconciliationStatus;
+
     @Column(name = "order_completed", nullable = false)
     private boolean orderCompleted = false;
 
@@ -136,6 +151,46 @@ public class OrderProjectionTracker {
 
     public void setTransferAmount(BigDecimal transferAmount) {
         this.transferAmount = transferAmount;
+    }
+
+    public BigDecimal getReconciledTransferAmount() {
+        return reconciledTransferAmount;
+    }
+
+    public void setReconciledTransferAmount(BigDecimal reconciledTransferAmount) {
+        this.reconciledTransferAmount = reconciledTransferAmount;
+    }
+
+    public BigDecimal getPendingReconciliationAmount() {
+        return pendingReconciliationAmount;
+    }
+
+    public void setPendingReconciliationAmount(BigDecimal pendingReconciliationAmount) {
+        this.pendingReconciliationAmount = pendingReconciliationAmount;
+    }
+
+    public BigDecimal getExcessAmount() {
+        return excessAmount;
+    }
+
+    public void setExcessAmount(BigDecimal excessAmount) {
+        this.excessAmount = excessAmount;
+    }
+
+    public BigDecimal getExpiredReceiptAmount() {
+        return expiredReceiptAmount;
+    }
+
+    public void setExpiredReceiptAmount(BigDecimal expiredReceiptAmount) {
+        this.expiredReceiptAmount = expiredReceiptAmount;
+    }
+
+    public String getReconciliationStatus() {
+        return reconciliationStatus;
+    }
+
+    public void setReconciliationStatus(String reconciliationStatus) {
+        this.reconciliationStatus = reconciliationStatus;
     }
 
     public boolean isOrderCompleted() {

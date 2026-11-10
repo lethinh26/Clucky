@@ -5,6 +5,7 @@ import com.clucky.reviewreportservice.entity.DailyStoreStats;
 import com.clucky.reviewreportservice.exception.ForbiddenException;
 import com.clucky.reviewreportservice.repository.DailyStoreStatsRepository;
 import com.clucky.reviewreportservice.service.ReportExportService;
+import com.clucky.reviewreportservice.service.ReportProjectionService;
 import com.clucky.reviewreportservice.service.ReportService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -77,13 +77,15 @@ class ReportSafetyTest {
 
     @Test
     void rejectsUnauthorizedScopesBeforeReadingStats() {
-        LocalDate yesterday = LocalDate.now().minusDays(1);
+        LocalDate yesterday = LocalDate.now(ReportProjectionService.VIETNAM_ZONE).minusDays(1);
         for (String role : List.of("STAFF", "STORE_MANAGER")) {
             assertThrows(ForbiddenException.class,
                     () -> service.getDashboard(7L, role, 3L, 4L, null, null));
             assertThrows(ForbiddenException.class,
                     () -> service.getDashboard(7L, role, null, null, null, null));
         }
+        assertThrows(ForbiddenException.class,
+                () -> service.getDashboard(7L, "STORE_MANAGER", 0L, null, null, null));
         assertThrows(ForbiddenException.class,
                 () -> service.getDashboard(7L, "STAFF", 3L, null, yesterday, null));
         assertThrows(ForbiddenException.class,
@@ -111,6 +113,10 @@ class ReportSafetyTest {
         assertEquals(to, dashboard.to());
         assertEquals(new BigDecimal("300"), dashboard.periodRevenue());
         assertEquals(4, dashboard.periodOrderCount());
+        assertEquals(new BigDecimal("40"), dashboard.periodReconciledTransferAmount());
+        assertEquals(new BigDecimal("60"), dashboard.periodPendingReconciliationAmount());
+        assertEquals(new BigDecimal("30"), dashboard.periodExcessAmount());
+        assertEquals(new BigDecimal("10"), dashboard.periodExpiredReceiptAmount());
         assertEquals(revenue.totalRevenue(), dashboard.periodRevenue());
         assertEquals(revenue.totalOrderCount(), dashboard.periodOrderCount());
         assertEquals(new BigDecimal("200"), revenue.totalCodAmount());
@@ -141,7 +147,7 @@ class ReportSafetyTest {
 
     @Test
     void defaultsToCurrentMonthAndAllowsAdminChainOrStore() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ReportProjectionService.VIETNAM_ZONE);
         LocalDate first = today.withDayOfMonth(1);
         when(repository.findByStatDateBetweenOrderByStatDateAsc(first, today))
                 .thenReturn(List.of(stats(3L, today), stats(4L, today)));
@@ -164,12 +170,17 @@ class ReportSafetyTest {
     @Test
     void rejectsInvalidFiltersAndFormat() {
         LocalDate to = LocalDate.of(2026, 11, 5);
+        LocalDate tooEarly = to.minusDays(ReportService.MAX_RANGE_DAYS_INCLUSIVE);
         assertThrows(IllegalArgumentException.class,
                 () -> service.getDashboard(7L, "ADMIN", null, null, to.plusDays(1), to));
         assertThrows(IllegalArgumentException.class,
                 () -> service.getRevenueReport(7L, "ADMIN", null, null, to.plusDays(1), to));
         assertThrows(IllegalArgumentException.class,
+                () -> service.getRevenueReport(7L, "ADMIN", null, null, tooEarly, to));
+        assertThrows(IllegalArgumentException.class,
                 () -> service.exportReport(7L, "ADMIN", null, null, to.plusDays(1), to, "pdf"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.exportReport(7L, "ADMIN", null, null, tooEarly, to, "xlsx"));
         assertThrows(IllegalArgumentException.class,
                 () -> service.exportReport(7L, "ADMIN", null, null, null, null, "csv"));
         assertThrows(IllegalArgumentException.class,
@@ -183,6 +194,10 @@ class ReportSafetyTest {
         stats.setRevenue(new BigDecimal("150"));
         stats.setCodAmount(new BigDecimal("100"));
         stats.setTransferAmount(new BigDecimal("50"));
+        stats.setReconciledTransferAmount(new BigDecimal("20"));
+        stats.setPendingReconciliationAmount(new BigDecimal("30"));
+        stats.setExcessAmount(new BigDecimal("15"));
+        stats.setExpiredReceiptAmount(new BigDecimal("5"));
         return stats;
     }
 
