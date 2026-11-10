@@ -1,258 +1,344 @@
-import { message } from "../../components/feedback";
-import { useLocaleTools } from "../../i18n/hooks";
-import { useTranslation } from "react-i18next";
-import React, { useEffect, useState } from 'react';
-import { useDeferredAction } from '../../components/ui-loader/use-deferred-action';
-import { Card, Row, Col, Statistic, DatePicker, Select, Button, Space, Table, Tag, Segmented, Tooltip, Typography, Flex } from "antd";
-import { TableColumnsType } from "antd";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Empty,
+  Flex,
+  Result,
+  Row,
+  Segmented,
+  Select,
+  Skeleton,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
+import type { TableColumnsType } from 'antd';
+import {
+  BarChartOutlined,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
   DollarOutlined,
-  ShoppingOutlined,
-  RiseOutlined,
   FileExcelOutlined,
   FilePdfOutlined,
-  ShopOutlined,
-  CalendarOutlined,
-  ArrowUpOutlined,
-  ArrowDownOutlined,
-  PieChartOutlined,
-  BarChartOutlined,
   InfoCircleOutlined,
+  PieChartOutlined,
+  ReloadOutlined,
+  RiseOutlined,
+  ShopOutlined,
+  ShoppingOutlined,
 } from '@ant-design/icons';
-import dayjs from 'dayjs';
-import type { Dayjs } from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
+import { message } from '../../components/feedback';
 import { PageIntro } from '../Dashboard';
 import { useAuth } from '../../context/AuthContext';
+import { useLocaleTools } from '../../i18n/hooks';
+import { getBrowserLocale, getErrorMessage } from '../../i18n/core';
+import {
+  reportsApi,
+  storesApi,
+  type DailyStoreStatsItem,
+  type RevenueReportResponse,
+  type Store,
+} from '../../lib/api';
 
 const { RangePicker } = DatePicker;
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
-export interface RevenueRecord {
-  key: string;
-  date: string;
-  storeId: number;
-  storeName: string;
-  orderCount: number;
-  grossRevenue: number; // Doanh thu gộp
-  discountAmount: number; // Giảm giá voucher
-  netRevenue: number; // Doanh thu thuần
-  codRevenue: number;
-  bankRevenue: number;
+const MAX_REPORT_DAYS = 366;
+
+function getVietnamTodayDayjs(): Dayjs {
+  const iso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  return dayjs(iso);
 }
 
-export interface StorePerformance {
-  storeId: number;
-  storeName: string;
-  orderCount: number;
-  revenue: number;
-  percentage: number;
-  growth: number;
+function triggerFileDownload(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
-
-export const mockRevenueData: RevenueRecord[] = [
-  {
-    key: '1',
-    date: '2026-10-27',
-    storeId: 1,
-    storeName: 'Nguyễn Trãi (Q.5)',
-    orderCount: 142,
-    grossRevenue: 28500000,
-    discountAmount: 2100000,
-    netRevenue: 26400000,
-    codRevenue: 10560000,
-    bankRevenue: 15840000,
-  },
-  {
-    key: '2',
-    date: '2026-10-27',
-    storeId: 2,
-    storeName: 'Phan Văn Trị (Gò Vấp)',
-    orderCount: 118,
-    grossRevenue: 22600000,
-    discountAmount: 1400000,
-    netRevenue: 21200000,
-    codRevenue: 8480000,
-    bankRevenue: 12720000,
-  },
-  {
-    key: '3',
-    date: '2026-10-27',
-    storeId: 3,
-    storeName: 'Lê Văn Việt (TP. Thủ Đức)',
-    orderCount: 95,
-    grossRevenue: 18200000,
-    discountAmount: 1100000,
-    netRevenue: 17100000,
-    codRevenue: 6840000,
-    bankRevenue: 10260000,
-  },
-  {
-    key: '4',
-    date: '2026-10-26',
-    storeId: 1,
-    storeName: 'Nguyễn Trãi (Q.5)',
-    orderCount: 135,
-    grossRevenue: 27100000,
-    discountAmount: 1900000,
-    netRevenue: 25200000,
-    codRevenue: 10080000,
-    bankRevenue: 15120000,
-  },
-  {
-    key: '5',
-    date: '2026-10-26',
-    storeId: 2,
-    storeName: 'Phan Văn Trị (Gò Vấp)',
-    orderCount: 110,
-    grossRevenue: 21000000,
-    discountAmount: 1300000,
-    netRevenue: 19700000,
-    codRevenue: 7880000,
-    bankRevenue: 11820000,
-  },
-  {
-    key: '6',
-    date: '2026-10-26',
-    storeId: 3,
-    storeName: 'Lê Văn Việt (TP. Thủ Đức)',
-    orderCount: 88,
-    grossRevenue: 16900000,
-    discountAmount: 950000,
-    netRevenue: 15950000,
-    codRevenue: 6380000,
-    bankRevenue: 9570000,
-  },
-  {
-    key: '7',
-    date: '2026-10-25',
-    storeId: 1,
-    storeName: 'Nguyễn Trãi (Q.5)',
-    orderCount: 160,
-    grossRevenue: 32000000,
-    discountAmount: 2400000,
-    netRevenue: 29600000,
-    codRevenue: 11840000,
-    bankRevenue: 17760000,
-  },
-  {
-    key: '8',
-    date: '2026-10-25',
-    storeId: 2,
-    storeName: 'Phan Văn Trị (Gò Vấp)',
-    orderCount: 130,
-    grossRevenue: 25500000,
-    discountAmount: 1800000,
-    netRevenue: 23700000,
-    codRevenue: 9480000,
-    bankRevenue: 14220000,
-  },
-];
-
-export const storePerformances: StorePerformance[] = [
-  {
-    storeId: 1,
-    storeName: 'Nguyễn Trãi (Q.5)',
-    orderCount: 437,
-    revenue: 81200000,
-    percentage: 42.5,
-    growth: 14.8,
-  },
-  {
-    storeId: 2,
-    storeName: 'Phan Văn Trị (Gò Vấp)',
-    orderCount: 358,
-    revenue: 64600000,
-    percentage: 33.8,
-    growth: 9.2,
-  },
-  {
-    storeId: 3,
-    storeName: 'Lê Văn Việt (TP. Thủ Đức)',
-    orderCount: 255,
-    revenue: 45250000,
-    percentage: 23.7,
-    growth: -3.5,
-  },
-];
 
 export const ReportsPage: React.FC = () => {
   const { t } = useTranslation();
-  const { locale } = useLocaleTools();
-
-  const startDeferredExport = useDeferredAction();
-  useEffect(() => () => { message.destroy('exportMsg'); }, []);
+  const { money, number, date } = useLocaleTools();
   const { user } = useAuth();
 
-  // Mặc định 7 ngày gần nhất
-  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>([
-    dayjs().subtract(6, 'day'),
-    dayjs(),
-  ]);
+  const isStaff = user.role === 'STAFF';
+  const isManager = user.role === 'STORE_MANAGER';
+  const managerStoreId = isManager && user.storeId && user.storeId > 0 ? user.storeId : null;
+  const managerMissingStore = isManager && !managerStoreId;
 
-  // Bộ lọc chi nhánh (Manager bị lock vào quán mình quản lý theo RBAC)
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>(() => {
+    const today = getVietnamTodayDayjs();
+    return [today.startOf('month'), today];
+  });
+
   const [selectedStore, setSelectedStore] = useState<number | 'ALL'>(() => {
-    if (user.role === 'STORE_MANAGER' && user.storeId) {
-      return user.storeId;
-    }
+    if (isManager && managerStoreId) return managerStoreId;
     return 'ALL';
   });
 
   const [chartView, setChartView] = useState<'revenue' | 'orders'>('revenue');
+  const [report, setReport] = useState<RevenueReportResponse | null>(null);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [exportingFormat, setExportingFormat] = useState<'xlsx' | 'pdf' | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
-  // Lọc bản ghi báo cáo
-  const filteredRecords = mockRevenueData.filter((r) => {
-    // Ép buộc theo storeId nếu là Store Manager
-    if (user.role === 'STORE_MANAGER' && user.storeId && r.storeId !== user.storeId) {
-      return false;
+  const exportAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      exportAbortRef.current?.abort();
+      message.destroy('exportMsg');
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isManager && managerStoreId) {
+      setSelectedStore(managerStoreId);
+    }
+  }, [isManager, managerStoreId]);
+
+  const effectiveStoreId = useMemo<number | undefined>(() => {
+    if (isManager) return managerStoreId ?? undefined;
+    return selectedStore === 'ALL' ? undefined : selectedStore;
+  }, [isManager, managerStoreId, selectedStore]);
+
+  const fromIso = dateRange[0].format('YYYY-MM-DD');
+  const toIso = dateRange[1].format('YYYY-MM-DD');
+  const rangeDaysCount = dateRange[1].diff(dateRange[0], 'day') + 1;
+  const isRangeTooLarge = rangeDaysCount > MAX_REPORT_DAYS;
+
+  useEffect(() => {
+    if (isStaff || managerMissingStore) {
+      setReport(null);
+      setLoading(false);
+      return;
     }
 
-    // Lọc theo store đã chọn
-    if (selectedStore !== 'ALL' && r.storeId !== selectedStore) {
-      return false;
+    if (isRangeTooLarge) {
+      setLoadError(t('business:reports.maxRange366Days'));
+      setReport(null);
+      setLoading(false);
+      return;
     }
 
-    // Lọc theo ngày
-    if (dateRange && dateRange[0] && dateRange[1]) {
-      const recDate = dayjs(r.date);
-      if (recDate.isBefore(dateRange[0], 'day') || recDate.isAfter(dateRange[1], 'day')) {
-        return false;
-      }
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadError('');
+
+    Promise.all([
+      reportsApi.getRevenue(
+        {
+          storeId: effectiveStoreId,
+          from: fromIso,
+          to: toIso,
+        },
+        controller.signal
+      ),
+      storesApi.list(undefined, controller.signal).catch(() => [] as Store[]),
+    ])
+      .then(([revData, storeList]) => {
+        if (controller.signal.aborted) return;
+        setReport(revData);
+        if (Array.isArray(storeList)) {
+          setStores(storeList);
+        }
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setLoadError(getErrorMessage(error, getBrowserLocale()));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [effectiveStoreId, fromIso, isRangeTooLarge, isStaff, managerMissingStore, reloadNonce, t, toIso]);
+
+  const storeNameMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const store of stores) {
+      map.set(store.id, store.name);
+    }
+    return map;
+  }, [stores]);
+
+  const resolveStoreName = useCallback(
+    (storeId: number) =>
+      storeNameMap.get(storeId) ||
+      (isManager && storeId === managerStoreId && user.storeName
+        ? user.storeName
+        : t('business:reports.storeFallback', { value1: storeId })),
+    [isManager, managerStoreId, storeNameMap, t, user.storeName]
+  );
+
+  const storeOptions = useMemo(() => {
+    if (isManager && managerStoreId) {
+      return [{ value: managerStoreId, label: resolveStoreName(managerStoreId) }];
+    }
+    const opts: Array<{ value: number | 'ALL'; label: string }> = [
+      { value: 'ALL', label: t('business:stores.allStores') },
+    ];
+    for (const store of stores) {
+      opts.push({ value: store.id, label: store.name });
+    }
+    return opts;
+  }, [isManager, managerStoreId, resolveStoreName, stores, t]);
+
+  const handleExport = async (format: 'xlsx' | 'pdf') => {
+    if (isStaff || managerMissingStore || isRangeTooLarge) {
+      return;
     }
 
-    return true;
-  });
+    exportAbortRef.current?.abort();
+    const controller = new AbortController();
+    exportAbortRef.current = controller;
 
-  // Tính tổng
-  const totalNetRevenue = filteredRecords.reduce((acc, r) => acc + r.netRevenue, 0);
-  const totalGrossRevenue = filteredRecords.reduce((acc, r) => acc + r.grossRevenue, 0);
-  const totalDiscounts = filteredRecords.reduce((acc, r) => acc + r.discountAmount, 0);
-  const totalOrders = filteredRecords.reduce((acc, r) => acc + r.orderCount, 0);
-  const averageOrderValue = totalOrders > 0 ? Math.round(totalNetRevenue / totalOrders) : 0;
+    setExportingFormat(format);
+    message.loading({
+      content: t('business:reports.exportingReport', { value1: format.toUpperCase() }),
+      key: 'exportMsg',
+    });
 
-  // Xử lý xuất file (Export Excel / PDF)
-  const handleExport = (format: 'xlsx' | 'pdf') => {
-    const task = startDeferredExport();
-    const storeLabel =
-      selectedStore === 'ALL' ? 'Toan_He_Thong' : `Chi_Nhanh_${selectedStore}`;
-    const fromStr = dateRange[0].format('YYYY-MM-DD');
-    const toStr = dateRange[1].format('YYYY-MM-DD');
-    const fileName = `Bao_Cao_Doanh_Thu_Clucky_${storeLabel}_${fromStr}_${toStr}.${format}`;
-
-    message.loading({ content: t("business:reports.exportingReport", { value1: format.toUpperCase() }), key: 'exportMsg' });
-    task.schedule(() => {
+    try {
+      const result = await reportsApi.exportReport(
+        {
+          format,
+          storeId: effectiveStoreId,
+          from: fromIso,
+          to: toIso,
+        },
+        controller.signal
+      );
+      if (controller.signal.aborted) return;
+      triggerFileDownload(result.blob, result.filename);
       message.success({
-        content: t("business:reports.reportExportedSuccessfully", { value1: fileName }),
+        content: t('business:reports.reportExportedSuccessfully', { value1: result.filename }),
         key: 'exportMsg',
         duration: 3,
       });
-    }, 1200);
+    } catch (error: unknown) {
+      if (controller.signal.aborted) return;
+      message.error({
+        content: getErrorMessage(error, getBrowserLocale()) || t('business:reports.exportFailed'),
+        key: 'exportMsg',
+        duration: 4,
+      });
+    } finally {
+      if (exportAbortRef.current === controller) {
+        exportAbortRef.current = null;
+      }
+      setExportingFormat(null);
+    }
   };
 
-  const columns: TableColumnsType<RevenueRecord> = [
+  const items = report?.items ?? [];
+  const totalRevenue = Number(report?.totalRevenue ?? 0);
+  const totalOrders = Number(report?.totalOrderCount ?? 0);
+  const totalCod = Number(report?.totalCodAmount ?? 0);
+  const totalTransfer = Number(report?.totalTransferAmount ?? 0);
+  const totalReconciled = Number(report?.totalReconciledTransferAmount ?? 0);
+  const totalPending = Number(report?.totalPendingReconciliationAmount ?? 0);
+  const totalExcess = Number(report?.totalExcessAmount ?? 0);
+  const totalExpired = Number(report?.totalExpiredReceiptAmount ?? 0);
+  const averageOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
+
+  const dailySeries = useMemo(() => {
+    const grouped = new Map<string, { revenue: number; orders: number }>();
+    for (const item of items) {
+      const prev = grouped.get(item.statDate) ?? { revenue: 0, orders: 0 };
+      grouped.set(item.statDate, {
+        revenue: prev.revenue + Number(item.revenue || 0),
+        orders: prev.orders + Number(item.orderCount || 0),
+      });
+    }
+    const dates = [...grouped.keys()].sort().slice(-14);
+    const maxVal = Math.max(
+      1,
+      ...dates.map((d) => {
+        const entry = grouped.get(d)!;
+        return chartView === 'revenue' ? entry.revenue : entry.orders;
+      })
+    );
+    return dates.map((iso) => {
+      const entry = grouped.get(iso)!;
+      const metricValue = chartView === 'revenue' ? entry.revenue : entry.orders;
+      return {
+        iso,
+        shortDate: dayjs(iso).format('DD/MM'),
+        revenue: entry.revenue,
+        orders: entry.orders,
+        heightPct: metricValue > 0 ? Math.max(8, Math.round((metricValue / maxVal) * 100)) : 4,
+      };
+    });
+  }, [chartView, items]);
+
+  const storeBreakdown = useMemo(() => {
+    const grouped = new Map<
+      number,
+      {
+        storeId: number;
+        orderCount: number;
+        revenue: number;
+        pendingReconciliation: number;
+        excessAmount: number;
+      }
+    >();
+    for (const row of items) {
+      const prev = grouped.get(row.storeId) ?? {
+        storeId: row.storeId,
+        orderCount: 0,
+        revenue: 0,
+        pendingReconciliation: 0,
+        excessAmount: 0,
+      };
+      grouped.set(row.storeId, {
+        storeId: row.storeId,
+        orderCount: prev.orderCount + Number(row.orderCount || 0),
+        revenue: prev.revenue + Number(row.revenue || 0),
+        pendingReconciliation:
+          prev.pendingReconciliation + Number(row.pendingReconciliationAmount || 0),
+        excessAmount: prev.excessAmount + Number(row.excessAmount || 0),
+      });
+    }
+    return [...grouped.values()]
+      .sort((a, b) => b.revenue - a.revenue)
+      .map((entry) => ({
+        ...entry,
+        storeName: resolveStoreName(entry.storeId),
+        sharePct: totalRevenue > 0 ? Number(((entry.revenue / totalRevenue) * 100).toFixed(1)) : 0,
+      }));
+  }, [items, resolveStoreName, totalRevenue]);
+
+  const columns: TableColumnsType<DailyStoreStatsItem> = [
     {
-      title: t("business:reports.date"),
-      dataIndex: 'date',
-      key: 'date',
+      title: t('business:reports.date'),
+      dataIndex: 'statDate',
+      key: 'statDate',
       width: 120,
       render: (val: string) => (
         <Space size={4}>
@@ -262,84 +348,145 @@ export const ReportsPage: React.FC = () => {
       ),
     },
     {
-      title: t("business:party.store"),
-      dataIndex: 'storeName',
-      key: 'storeName',
-      width: 200,
-      render: (val: string) => (
+      title: t('business:party.store'),
+      dataIndex: 'storeId',
+      key: 'storeId',
+      width: 190,
+      render: (storeId: number) => (
         <Space size={4}>
           <ShopOutlined style={{ color: '#C9A227' }} />
-          <span>{val}</span>
+          <span>{resolveStoreName(storeId)}</span>
         </Space>
       ),
     },
     {
-      title: t("business:reports.orderCount"),
+      title: t('business:reports.orderCount'),
       dataIndex: 'orderCount',
       key: 'orderCount',
-      align: 'right',
-      render: (val: number) => <Text strong>{val} {t("business:dashboard.orders")}</Text>,
-    },
-    {
-      title: t("business:reports.grossRevenue"),
-      dataIndex: 'grossRevenue',
-      key: 'grossRevenue',
-      align: 'right',
-      render: (val: number) => <span>{val.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:orderdetaildrawer.currency")}</span>,
-    },
-    {
-      title: t("business:reports.promotions"),
-      dataIndex: 'discountAmount',
-      key: 'discountAmount',
+      width: 110,
       align: 'right',
       render: (val: number) => (
-        <span style={{ color: '#B42318' }}>-{val.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:orderdetaildrawer.currency")}</span>
+        <Text strong>{t('business:reports.ordersUnit', { value1: number(Number(val || 0)) })}</Text>
       ),
     },
     {
-      title: t("business:reports.netRevenue"),
-      dataIndex: 'netRevenue',
-      key: 'netRevenue',
+      title: t('business:reports.codAmount'),
+      dataIndex: 'codAmount',
+      key: 'codAmount',
+      width: 135,
       align: 'right',
-      render: (val: number) => (
-        <Text strong style={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif', fontSize: 15 }}>
-          {val.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:orderdetaildrawer.currency")} </Text>
+      render: (val: number) => <span>{money(Number(val || 0))}</span>,
+    },
+    {
+      title: t('business:reports.transferRecognized'),
+      dataIndex: 'transferAmount',
+      key: 'transferAmount',
+      width: 145,
+      align: 'right',
+      render: (val: number) => <span>{money(Number(val || 0))}</span>,
+    },
+    {
+      title: t('business:reports.reconciledTransferShort'),
+      dataIndex: 'reconciledTransferAmount',
+      key: 'reconciledTransferAmount',
+      width: 155,
+      align: 'right',
+      render: (val?: number) => {
+        const amount = Number(val || 0);
+        return (
+          <Flex justify="end" align="center" gap={6}>
+            <span style={{ color: '#1E7A46', fontWeight: 600 }}>{money(amount)}</span>
+            {amount > 0 && (
+              <Tag color="green" variant="filled" style={{ margin: 0, borderRadius: 6 }}>
+                {t('business:reports.bankConfirmedTag')}
+              </Tag>
+            )}
+          </Flex>
+        );
+      },
+    },
+    {
+      title: t('business:reports.pendingReconciliationShort'),
+      dataIndex: 'pendingReconciliationAmount',
+      key: 'pendingReconciliationAmount',
+      width: 170,
+      align: 'right',
+      render: (val?: number) => {
+        const amount = Number(val || 0);
+        return (
+          <Flex justify="end" align="center" gap={6}>
+            <span style={{ color: amount > 0 ? '#D97706' : '#6B6259', fontWeight: 600 }}>
+              {money(amount)}
+            </span>
+            {amount > 0 && (
+              <Tag color="orange" variant="filled" style={{ margin: 0, borderRadius: 6 }}>
+                {t('business:reports.pendingReconcilTag')}
+              </Tag>
+            )}
+          </Flex>
+        );
+      },
+    },
+    {
+      title: t('business:reports.excessAmountShort'),
+      dataIndex: 'excessAmount',
+      key: 'excessAmount',
+      width: 140,
+      align: 'right',
+      render: (val?: number) => (
+        <Tooltip title={t('business:reports.excludedFromRevenueTag')}>
+          <span style={{ color: '#6B6259' }}>{money(Number(val || 0))}</span>
+        </Tooltip>
       ),
     },
     {
-      title: t("business:orderdetaildrawer.method"),
-      key: 'methodSplit',
-      align: 'center',
-      render: (_, r) => (
-        <Space size={4}>
-          <Tag color="orange" style={{ borderRadius: 6 }}>
-            COD: {Math.round((r.codRevenue / r.netRevenue) * 100)}%
-          </Tag>
-          <Tag color="blue" style={{ borderRadius: 6 }}>
-            CK: {Math.round((r.bankRevenue / r.netRevenue) * 100)}%
-          </Tag>
-        </Space>
+      title: t('business:reports.expiredReceiptShort'),
+      dataIndex: 'expiredReceiptAmount',
+      key: 'expiredReceiptAmount',
+      width: 145,
+      align: 'right',
+      render: (val?: number) => (
+        <Tooltip title={t('business:reports.excludedFromRevenueTag')}>
+          <span style={{ color: '#6B6259' }}>{money(Number(val || 0))}</span>
+        </Tooltip>
+      ),
+    },
+    {
+      title: t('business:reports.recognizedRevenue'),
+      dataIndex: 'revenue',
+      key: 'revenue',
+      width: 155,
+      align: 'right',
+      render: (val: number) => (
+        <Text strong style={{ color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 15 }}>
+          {money(Number(val || 0))}
+        </Text>
       ),
     },
   ];
 
-  // Chuẩn bị dữ liệu hiển thị biểu đồ Chart Bar Placeholder
-  const chartDays = ['21/10', '22/10', '23/10', '24/10', '25/10', '26/10', '27/10'];
-  const chartHeights = chartView === 'revenue' ? [45, 60, 52, 75, 95, 78, 86] : [40, 55, 48, 70, 92, 72, 82];
-  const chartValues =
-    chartView === 'revenue'
-      ? ['42,5 tr', '51,2 tr', '48,0 tr', '62,8 tr', '79,5 tr', '66,1 tr', '71,8 tr']
-      : [t("business:reports.orders"), t("business:reports.value265Orders"), t("business:reports.value240Orders"), t("business:reports.value310Orders"), t("business:reports.value390Orders"), t("business:reports.value333Orders"), t("business:reports.value355Orders")];
+  if (isStaff || managerMissingStore) {
+    return (
+      <Result
+        status="403"
+        title={t('errors:FORBIDDEN')}
+        subTitle={
+          isStaff
+            ? t('business:dashboard.staffForbiddenTitle')
+            : t('business:dashboard.noStoreAssignedError')
+        }
+      />
+    );
+  }
 
   return (
     <div className="reports-page">
       <PageIntro
-        eyebrow="Review & Report"
-        title={t("business:reports.revenuePerformanceReports")}
-        description={t("business:reports.viewDetailedRevenueOrderCountsAndPromotionalVouchersAndExportManagementReports")}
+        eyebrow={t('business:reports.eyebrow')}
+        title={t('business:reports.revenuePerformanceReports')}
+        description={t('business:reports.subtitle')}
       />
 
-      {/* Thanh điều khiển: Date Picker, Store Filter & Nút Export */}
       <Card
         style={{
           borderRadius: 20,
@@ -349,16 +496,16 @@ export const ReportsPage: React.FC = () => {
         }}
       >
         <Row gutter={[16, 12]} justify="space-between" align="middle">
-          {/* Bộ lọc Date Picker & Store */}
           <Col xs={24} lg={16}>
             <Flex wrap="wrap" gap={12} align="center">
-              {/* Khoảng thời gian */}
               <Space>
-                <Text strong style={{ color: '#16100D' }}> {t("business:reports.period")} </Text>
+                <Text strong style={{ color: '#16100D' }}>
+                  {t('business:reports.period')}
+                </Text>
                 <RangePicker
                   value={dateRange}
                   onChange={(dates) => {
-                    if (dates && dates[0] && dates[1]) {
+                    if (dates?.[0] && dates?.[1]) {
                       setDateRange([dates[0], dates[1]]);
                     }
                   }}
@@ -372,31 +519,37 @@ export const ReportsPage: React.FC = () => {
                 />
               </Space>
 
-              {/* Lọc chi nhánh */}
               <Space>
-                <Text strong style={{ color: '#16100D' }}> {t("business:reports.store")} </Text>
+                <Text strong style={{ color: '#16100D' }}>
+                  {t('business:reports.store')}
+                </Text>
                 <Select
                   value={selectedStore}
                   onChange={(val) => setSelectedStore(val)}
-                  disabled={user.role === 'STORE_MANAGER' && !!user.storeId}
+                  disabled={isManager}
+                  aria-label={t('business:reports.store')}
                   style={{ width: 220, height: 40 }}
-                  options={[
-                    { value: 'ALL', label: t("business:stores.allStores") },
-                    { value: 1, label: 'Nguyễn Trãi (Q.5)' },
-                    { value: 2, label: 'Phan Văn Trị (Gò Vấp)' },
-                    { value: 3, label: 'Lê Văn Việt (TP. Thủ Đức)' },
-                  ]}
+                  options={storeOptions}
                 />
               </Space>
+
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => setReloadNonce((n) => n + 1)}
+                loading={loading}
+              >
+                {t('business:dashboard.refresh')}
+              </Button>
             </Flex>
           </Col>
 
-          {/* Các nút Export */}
           <Col xs={24} lg={8}>
             <Flex justify="end" gap={8} wrap="wrap">
               <Button
                 icon={<FileExcelOutlined style={{ color: '#1E7A46' }} />}
-                onClick={() => handleExport('xlsx')}
+                onClick={() => void handleExport('xlsx')}
+                loading={exportingFormat === 'xlsx'}
+                disabled={loading || isRangeTooLarge || exportingFormat !== null}
                 style={{
                   height: 40,
                   borderRadius: 10,
@@ -404,10 +557,14 @@ export const ReportsPage: React.FC = () => {
                   borderColor: '#1E7A46',
                   color: '#1E7A46',
                 }}
-              > {t("business:reports.exportExcelXlsx")} </Button>
+              >
+                {t('business:reports.exportExcelXlsx')}
+              </Button>
               <Button
                 icon={<FilePdfOutlined style={{ color: '#8F1216' }} />}
-                onClick={() => handleExport('pdf')}
+                onClick={() => void handleExport('pdf')}
+                loading={exportingFormat === 'pdf'}
+                disabled={loading || isRangeTooLarge || exportingFormat !== null}
                 style={{
                   height: 40,
                   borderRadius: 10,
@@ -415,209 +572,349 @@ export const ReportsPage: React.FC = () => {
                   borderColor: '#8F1216',
                   color: '#8F1216',
                 }}
-              > {t("business:reports.exportPdfPdf")} </Button>
+              >
+                {t('business:reports.exportPdfPdf')}
+              </Button>
             </Flex>
           </Col>
         </Row>
       </Card>
 
-      {/* Thẻ chỉ số tổng kết (Metric Cards) */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={24} sm={12} xl={6}>
-          <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
-            <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reports.netRevenue")}</span>}
-              value={totalNetRevenue.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}
-              suffix={t("business:orderdetaildrawer.currency")}
-              prefix={<DollarOutlined style={{ color: '#8F1216' }} />}
-              valueStyle={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
-            />
-            <div style={{ marginTop: 8, fontSize: 12, color: '#1E7A46' }}>
-              <ArrowUpOutlined /> {t("business:reports.fromThePreviousPeriod")} </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
-            <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reports.totalOrders")}</span>}
-              value={totalOrders}
-              suffix={t("business:dashboard.orders")}
-              prefix={<ShoppingOutlined style={{ color: '#C9A227' }} />}
-              valueStyle={{ color: '#16100D', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
-            />
-            <div style={{ marginTop: 8, fontSize: 12, color: '#1E7A46' }}>
-              <ArrowUpOutlined /> {t("business:reports.completedOrders")} </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
-            <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reports.averageOrderValueAov")}</span>}
-              value={averageOrderValue.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}
-              suffix={t("business:orderdetaildrawer.currency")}
-              prefix={<RiseOutlined style={{ color: '#22577A' }} />}
-              valueStyle={{ color: '#22577A', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
-            />
-            <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}> {t("business:reports.averagePerSuccessfulTransaction")} </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
-            <Statistic
-              title={<span style={{ color: '#6B6259', fontWeight: 600 }}>{t("business:reports.promotionCosts")}</span>}
-              value={totalDiscounts.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}
-              suffix={t("business:orderdetaildrawer.currency")}
-              valueStyle={{ color: '#B42318', fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}
-            />
-            <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}> {t("business:reports.equivalentTo")} {totalGrossRevenue > 0 ? ((totalDiscounts / totalGrossRevenue) * 100).toFixed(1) : 0}{t("business:reports.ofTotalGrossRevenue")} </div>
-          </Card>
-        </Col>
-      </Row>
+      {loadError && (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16, borderRadius: 14 }}
+          message={loadError}
+          action={
+            <Button size="small" onClick={() => setReloadNonce((n) => n + 1)}>
+              {t('common:retry')}
+            </Button>
+          }
+        />
+      )}
 
-      {/* Biểu đồ trực quan hóa doanh thu (Chart Placeholder) & Tỷ trọng chi nhánh */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        {/* Biểu đồ cột xu hướng */}
-        <Col xs={24} xl={16}>
+      <Alert
+        type="info"
+        showIcon
+        icon={<InfoCircleOutlined style={{ color: '#22577A' }} />}
+        style={{
+          marginBottom: 16,
+          borderRadius: 14,
+          background: '#FFFAF3',
+          borderColor: '#E8E2D9',
+        }}
+        message={t('business:reports.honestAccountingNotice')}
+        description={
+          report?.lastUpdatedAt
+            ? t('business:dashboard.lastUpdatedAt', {
+                value1: date(report.lastUpdatedAt, { hour: '2-digit', minute: '2-digit' }),
+              })
+            : t('business:dashboard.notUpdatedYet')
+        }
+      />
+
+      {loading && !report ? (
+        <Card style={{ marginBottom: 20 }}>
+          <Skeleton active paragraph={{ rows: 5 }} />
+        </Card>
+      ) : (
+        <>
+          <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+            <Col xs={24} sm={12} xl={6}>
+              <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
+                <Statistic
+                  title={
+                    <span style={{ color: '#6B6259', fontWeight: 600 }}>
+                      {t('business:reports.recognizedRevenue')}
+                    </span>
+                  }
+                  value={money(totalRevenue)}
+                  prefix={<DollarOutlined style={{ color: '#8F1216' }} />}
+                  styles={{ content: { color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontWeight: 700 } }}
+                />
+                <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}>
+                  {t('business:reports.recognizedRevenueHint')}
+                </div>
+              </Card>
+            </Col>
+
+            <Col xs={24} sm={12} xl={6}>
+              <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
+                <Statistic
+                  title={
+                    <span style={{ color: '#6B6259', fontWeight: 600 }}>
+                      {t('business:reports.totalOrders')}
+                    </span>
+                  }
+                  value={number(totalOrders)}
+                  suffix={t('business:dashboard.orders')}
+                  prefix={<ShoppingOutlined style={{ color: '#C9A227' }} />}
+                  styles={{ content: { color: '#16100D', fontFamily: 'Baloo 2, sans-serif', fontWeight: 700 } }}
+                />
+                <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}>
+                  {t('business:reports.totalOrdersHint')}
+                </div>
+              </Card>
+            </Col>
+
+            <Col xs={24} sm={12} xl={6}>
+              <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
+                <Statistic
+                  title={
+                    <span style={{ color: '#6B6259', fontWeight: 600 }}>
+                      {t('business:reports.averageOrderValueAov')}
+                    </span>
+                  }
+                  value={money(averageOrderValue)}
+                  prefix={<RiseOutlined style={{ color: '#22577A' }} />}
+                  styles={{ content: { color: '#22577A', fontFamily: 'Baloo 2, sans-serif', fontWeight: 700 } }}
+                />
+                <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}>
+                  {t('business:reports.averagePerSuccessfulTransaction')}
+                </div>
+              </Card>
+            </Col>
+
+            <Col xs={24} sm={12} xl={6}>
+              <Card style={{ background: '#FFFAF3', border: '1px solid #E8E2D9', borderRadius: 16 }}>
+                <Statistic
+                  title={
+                    <span style={{ color: '#6B6259', fontWeight: 600 }}>
+                      {t('business:reports.pendingAndNonRevenue')}
+                    </span>
+                  }
+                  value={money(totalPending)}
+                  prefix={<ClockCircleOutlined style={{ color: '#D97706' }} />}
+                  styles={{ content: { color: '#D97706', fontFamily: 'Baloo 2, sans-serif', fontWeight: 700 } }}
+                />
+                <div style={{ marginTop: 8, fontSize: 12, color: '#6B6259' }}>
+                  {t('business:reports.pendingAndNonRevenueHint', {
+                    value1: money(totalExcess),
+                    value2: money(totalExpired),
+                  })}
+                </div>
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Payment & Reconciliation Split Summary */}
           <Card
-            title={
-              <Space>
-                <BarChartOutlined style={{ color: '#8F1216' }} />
-                <span>{t("business:reports.dailyRevenueTrend")}</span>
-              </Space>
-            }
-            extra={
-              <Segmented
-                options={[
-                  { value: 'revenue', label: t("business:reports.revenueVnd") },
-                  { value: 'orders', label: t("business:reports.numberOfOrders") },
-                ]}
-                value={chartView}
-                onChange={(val) => setChartView(val as 'revenue' | 'orders')}
-                size="small"
-              />
-            }
-            style={{ borderRadius: 20, background: '#FFFAF3', border: '1px solid #E8E2D9' }}
+            style={{
+              borderRadius: 16,
+              background: '#FFFAF3',
+              border: '1px solid #E8E2D9',
+              marginBottom: 20,
+            }}
           >
-            <div className="revenue-chart" style={{ padding: '10px 0' }}>
-              <div
-                className="chart-bars"
-                style={{
-                  height: 240,
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  justifyContent: 'space-around',
-                  padding: '20px 8px 0',
-                  borderBottom: '1px solid #E8E2D9',
-                  background: 'repeating-linear-gradient(to bottom, transparent 0, transparent 43px, #F5EDE0 44px)',
-                }}
+            <Row gutter={[16, 12]}>
+              <Col xs={12} md={4}>
+                <Text type="secondary" style={{ fontSize: 12 }}>{t('business:reports.codAmount')}</Text>
+                <div style={{ fontWeight: 700, color: '#16100D', fontSize: 15 }}>{money(totalCod)}</div>
+              </Col>
+              <Col xs={12} md={5}>
+                <Text type="secondary" style={{ fontSize: 12 }}>{t('business:reports.transferRecognized')}</Text>
+                <div style={{ fontWeight: 700, color: '#22577A', fontSize: 15 }}>{money(totalTransfer)}</div>
+              </Col>
+              <Col xs={12} md={5}>
+                <Space size={4}>
+                  <CheckCircleOutlined style={{ color: '#1E7A46', fontSize: 12 }} />
+                  <Text type="secondary" style={{ fontSize: 12 }}>{t('business:reports.reconciledTransferShort')}</Text>
+                </Space>
+                <div style={{ fontWeight: 700, color: '#1E7A46', fontSize: 15 }}>{money(totalReconciled)}</div>
+              </Col>
+              <Col xs={12} md={5}>
+                <Text type="secondary" style={{ fontSize: 12 }}>{t('business:reports.excessAmountShort')}</Text>
+                <div style={{ fontWeight: 700, color: '#6B6259', fontSize: 15 }}>{money(totalExcess)}</div>
+              </Col>
+              <Col xs={12} md={5}>
+                <Text type="secondary" style={{ fontSize: 12 }}>{t('business:reports.expiredReceiptShort')}</Text>
+                <div style={{ fontWeight: 700, color: '#6B6259', fontSize: 15 }}>{money(totalExpired)}</div>
+              </Col>
+            </Row>
+          </Card>
+
+          <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+            <Col xs={24} xl={16}>
+              <Card
+                title={
+                  <Space>
+                    <BarChartOutlined style={{ color: '#8F1216' }} />
+                    <span>{t('business:reports.dailyRevenueTrend')}</span>
+                  </Space>
+                }
+                extra={
+                  <Segmented
+                    options={[
+                      { value: 'revenue', label: t('business:reports.revenueVnd') },
+                      { value: 'orders', label: t('business:reports.numberOfOrders') },
+                    ]}
+                    value={chartView}
+                    onChange={(val) => setChartView(val as 'revenue' | 'orders')}
+                    size="small"
+                  />
+                }
+                style={{ borderRadius: 20, background: '#FFFAF3', border: '1px solid #E8E2D9' }}
               >
-                {chartDays.map((day, idx) => (
-                  <Tooltip key={day} title={`${day}: ${chartValues[idx]}`}>
+                {dailySeries.length === 0 ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={t('business:reports.noRecords')}
+                    style={{ padding: '48px 0' }}
+                  />
+                ) : (
+                  <div className="revenue-chart" style={{ padding: '10px 0' }}>
                     <div
+                      className="chart-bars"
                       style={{
-                        height: '100%',
+                        height: 240,
                         display: 'flex',
-                        flex: 1,
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
-                        gap: 8,
+                        alignItems: 'flex-end',
+                        justifyContent: 'space-around',
+                        padding: '20px 8px 0',
+                        borderBottom: '1px solid #E8E2D9',
+                        background:
+                          'repeating-linear-gradient(to bottom, transparent 0, transparent 43px, #F5EDE0 44px)',
                       }}
                     >
-                      <div
-                        style={{
-                          width: '100%',
-                          maxWidth: 36,
-                          height: `${chartHeights[idx]}%`,
-                          borderRadius: '8px 8px 0 0',
-                          background: 'linear-gradient(180deg, #C9A227 0%, #8F1216 100%)',
-                          transition: 'height 0.3s ease',
-                          cursor: 'pointer',
-                        }}
-                      />
-                      <Text style={{ fontSize: 12, color: '#6B6259' }}>{day}</Text>
+                      {dailySeries.map((day) => {
+                        const tooltipLabel =
+                          chartView === 'revenue'
+                            ? `${day.shortDate}: ${money(day.revenue)}`
+                            : `${day.shortDate}: ${t('business:reports.ordersUnit', { value1: number(day.orders) })}`;
+                        return (
+                          <Tooltip key={day.iso} title={tooltipLabel}>
+                            <div
+                              tabIndex={0}
+                              aria-label={tooltipLabel}
+                              style={{
+                                height: '100%',
+                                display: 'flex',
+                                flex: 1,
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'flex-end',
+                                gap: 8,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: '100%',
+                                  maxWidth: 34,
+                                  height: `${day.heightPct}%`,
+                                  borderRadius: '8px 8px 0 0',
+                                  background: 'linear-gradient(180deg, #C9A227 0%, #8F1216 100%)',
+                                  transition: 'height 0.3s ease',
+                                }}
+                              />
+                              <Text style={{ fontSize: 12, color: '#6B6259' }}>{day.shortDate}</Text>
+                            </div>
+                          </Tooltip>
+                        );
+                      })}
                     </div>
-                  </Tooltip>
-                ))}
-              </div>
-              <Flex justify="space-between" align="center" style={{ marginTop: 16 }}>
-                <Text type="secondary" style={{ color: '#6B6259', fontSize: 13 }}> {t("business:reports.dataFromCompletedTransactionsInTheSelectedPeriod")} </Text>
-                <Text strong style={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif', fontSize: 16 }}> {t("business:reports.total")} {totalNetRevenue.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:orderdetaildrawer.currency")} </Text>
-              </Flex>
-            </div>
-          </Card>
-        </Col>
+                    <Flex justify="space-between" align="center" style={{ marginTop: 16 }}>
+                      <Text type="secondary" style={{ color: '#6B6259', fontSize: 13 }}>
+                        {t('business:reports.dataFromCompletedTransactionsInTheSelectedPeriod')}
+                      </Text>
+                      <Text
+                        strong
+                        style={{ color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 16 }}
+                      >
+                        {t('business:reports.total')} {money(totalRevenue)}
+                      </Text>
+                    </Flex>
+                  </div>
+                )}
+              </Card>
+            </Col>
 
-        {/* Tỷ trọng doanh thu theo chi nhánh */}
-        <Col xs={24} xl={8}>
+            <Col xs={24} xl={8}>
+              <Card
+                title={
+                  <Space>
+                    <PieChartOutlined style={{ color: '#C9A227' }} />
+                    <span>{t('business:reports.storePerformance')}</span>
+                  </Space>
+                }
+                style={{
+                  borderRadius: 20,
+                  background: '#FFFAF3',
+                  border: '1px solid #E8E2D9',
+                  height: '100%',
+                }}
+              >
+                {storeBreakdown.length === 0 ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={t('business:reports.noStoreBreakdown')}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
+                    {storeBreakdown.map((st) => (
+                      <div
+                        key={st.storeId}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 12,
+                          background: '#F5EDE0',
+                          border: '1px solid #E8E2D9',
+                        }}
+                      >
+                        <Flex justify="space-between" align="center" gap={8}>
+                          <Text strong style={{ color: '#16100D', fontSize: 14 }}>
+                            {st.storeName}
+                          </Text>
+                          <Tag variant="filled" style={{ fontWeight: 600, borderRadius: 6, margin: 0 }}>
+                            {t('business:reports.periodShare', { value1: st.sharePct })}
+                          </Tag>
+                        </Flex>
+
+                        <Flex justify="space-between" align="baseline" style={{ marginTop: 6 }}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {t('business:reports.ordersUnit', { value1: number(st.orderCount) })}
+                          </Text>
+                          <Text strong style={{ color: '#8F1216', fontFamily: 'Baloo 2, sans-serif' }}>
+                            {money(st.revenue)}
+                          </Text>
+                        </Flex>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </Col>
+          </Row>
+
           <Card
             title={
-              <Space>
-                <PieChartOutlined style={{ color: '#C9A227' }} />
-                <span>{t("business:reports.storePerformance")}</span>
-              </Space>
+              <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+                <span style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 18, color: '#16100D' }}>
+                  {t('business:reports.dailyRevenueTransactionDetails')}
+                </span>
+                <Text type="secondary" style={{ fontSize: 13, fontWeight: 'normal' }}>
+                  {t('business:reports.showing')} {items.length} {t('business:reports.records')}
+                </Text>
+              </Flex>
             }
-            style={{ borderRadius: 20, background: '#FFFAF3', border: '1px solid #E8E2D9', height: '100%' }}
+            style={{
+              borderRadius: 20,
+              background: '#FFFAF3',
+              border: '1px solid #E8E2D9',
+            }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
-              {storePerformances.map((st) => (
-                <div
-                  key={st.storeId}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 12,
-                    background: '#F5EDE0',
-                    border: '1px solid #E8E2D9',
-                  }}
-                >
-                  <Flex justify="space-between" align="center">
-                    <Text strong style={{ color: '#16100D', fontSize: 14 }}>
-                      {st.storeName}
-                    </Text>
-                    <Tag
-                      color={st.growth >= 0 ? 'green' : 'red'}
-                      bordered={false}
-                      style={{ fontWeight: 600, borderRadius: 6 }}
-                    >
-                      {st.growth >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />} {Math.abs(st.growth)}%
-                    </Tag>
-                  </Flex>
-
-                  <Flex justify="space-between" align="baseline" style={{ marginTop: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {st.orderCount} {t("business:dashboard.orders")} </Text>
-                    <Text strong style={{ color: '#8F1216', fontFamily: 'Fredoka, sans-serif' }}>
-                      {st.revenue.toLocaleString(locale === "en" ? "en-US" : "vi-VN")}{t("business:reports.vnd")}{st.percentage}%)
-                    </Text>
-                  </Flex>
-                </div>
-              ))}
-            </div>
+            <Table
+              rowKey={(record) => `${record.id ?? 'row'}-${record.storeId}-${record.statDate}`}
+              columns={columns}
+              dataSource={items}
+              loading={loading}
+              locale={{ emptyText: t('business:reports.noRecords') }}
+              pagination={{ pageSize: 10 }}
+              scroll={{ x: 1320 }}
+            />
           </Card>
-        </Col>
-      </Row>
-
-      {/* Bảng kê chi tiết doanh thu */}
-      <Card
-        title={
-          <Flex justify="space-between" align="center">
-            <span style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18, color: '#16100D' }}> {t("business:reports.dailyRevenueTransactionDetails")} </span>
-            <Text type="secondary" style={{ fontSize: 13, fontWeight: 'normal' }}> {t("business:reports.showing")} {filteredRecords.length} {t("business:reports.records")} </Text>
-          </Flex>
-        }
-        style={{
-          borderRadius: 20,
-          background: '#FFFAF3',
-          border: '1px solid #E8E2D9',
-        }}
-      >
-        <Table
-          columns={columns}
-          dataSource={filteredRecords}
-          pagination={{ pageSize: 8 }}
-          scroll={{ x: 750 }}
-        />
-      </Card>
+        </>
+      )}
     </div>
   );
 };

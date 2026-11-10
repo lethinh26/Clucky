@@ -73,6 +73,9 @@ class ReportProjectionTest {
             var invalid = valid();
             ((ObjectNode) invalid.payload()).put("totalAmount", amount);
             assertThrows(IllegalArgumentException.class, () -> service.processProjectionEvent(invalid));
+            var badExcess = valid();
+            ((ObjectNode) badExcess.payload()).put("excessAmount", amount);
+            assertThrows(IllegalArgumentException.class, () -> service.processProjectionEvent(badExcess));
         }
         var badDate = valid();
         ((ObjectNode) badDate.payload()).put("completedAt", "not-a-date");
@@ -105,6 +108,56 @@ class ReportProjectionTest {
         assertThrows(IllegalStateException.class, () -> service.processProjectionEvent(valid()));
         assertFalse(tracker.isContributed());
         verify(stats, never()).save(any());
+    }
+
+    @Test
+    void separatesExcessAndPendingReconciliationFromRevenueAndSettlesUponBankConfirmation() {
+        var tracker = new OrderProjectionTracker(10L, null, 0L, LocalDate.of(2026, 11, 5), null,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, false, false);
+        var transferOrder = event("evt-xfer-1", "order.completed", 10L, 2L, "2026-11-04T17:01:00Z");
+        ((ObjectNode) transferOrder.payload())
+                .put("paymentMethod", "BANK_TRANSFER")
+                .put("orderTotal", 100000)
+                .put("totalAmount", 125000)
+                .put("manualAccepted", true);
+        when(events.claim("evt-xfer-1", "order.completed", 10L)).thenReturn(1);
+        when(trackers.findByOrderId(10L)).thenReturn(Optional.of(tracker));
+
+        assertTrue(service.processProjectionEvent(transferOrder));
+
+        verify(stats).upsertStatsDelta(2L, LocalDate.of(2026, 11, 5), 1,
+                new BigDecimal("100000"), BigDecimal.ZERO, new BigDecimal("100000"));
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                BigDecimal.ZERO, new BigDecimal("100000"), new BigDecimal("25000"), BigDecimal.ZERO);
+
+        var bankConfirmed = event("evt-bank-1", "payment.confirmed", 10L, 2L, "2026-11-04T17:10:00Z");
+        ((ObjectNode) bankConfirmed.payload()).put("method", "BANK_TRANSFER").put("amount", 100000);
+        when(events.claim("evt-bank-1", "payment.confirmed", 10L)).thenReturn(1);
+
+        assertFalse(service.processProjectionEvent(bankConfirmed));
+
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                new BigDecimal("100000"), new BigDecimal("-100000"), BigDecimal.ZERO, BigDecimal.ZERO);
+        verifyNoMoreInteractions(stats);
+    }
+
+    @Test
+    void expiredOrderReceiptsNeverIncrementOrderCountOrRevenue() {
+        var tracker = new OrderProjectionTracker(11L, null, 0L, LocalDate.of(2026, 11, 5), null,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, false, false);
+        var expiredOrder = event("evt-exp-1", "order.completed", 11L, 2L, "2026-11-04T17:01:00Z");
+        ((ObjectNode) expiredOrder.payload())
+                .put("paymentMethod", "BANK_TRANSFER")
+                .put("totalAmount", 85000)
+                .put("expired", true);
+        when(events.claim("evt-exp-1", "order.completed", 11L)).thenReturn(1);
+        when(trackers.findByOrderId(11L)).thenReturn(Optional.of(tracker));
+
+        assertFalse(service.processProjectionEvent(expiredOrder));
+
+        verify(stats, never()).upsertStatsDelta(anyLong(), any(), anyInt(), any(), any(), any());
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("85000"));
     }
 
     @Test
