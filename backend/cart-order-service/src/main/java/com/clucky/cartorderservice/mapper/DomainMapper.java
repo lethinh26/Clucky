@@ -45,7 +45,10 @@ public final class DomainMapper {
                 entity.getPaymentMethod(),
                 itemResponses,
                 historyResponses,
-                entity.getPaymentStatus()
+                entity.getPaymentStatus(),
+                entity.getOrderSource(),
+                entity.getDiningOption(),
+                entity.getQueueNumber()
         );
     }
 

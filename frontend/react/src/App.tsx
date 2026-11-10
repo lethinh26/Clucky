@@ -15,6 +15,7 @@ import { StoresPage } from "./pages/Stores";
 import { StaffInventoryPage } from "./pages/Staff/Inventory";
 import { OrdersPage } from "./pages/Orders";
 import { StaffOrdersPage } from "./pages/Staff/StaffOrdersPage";
+import { IncomingTransfersPage } from "./pages/Staff/IncomingTransfersPage";
 import { PromotionsPage } from "./pages/Promotions";
 import { LoginPage } from "./pages/Auth/LoginPage";
 import { BranchAccessPage } from "./pages/Auth/BranchAccessPage";
@@ -100,6 +101,10 @@ export const App: React.FC = () => {
                   <Route
                     path="/reset-password"
                     element={<BranchAccessPage />}
+                  />
+                  <Route
+                    path="/staff/transfers"
+                    element={<Navigate to="/admin/transfers" replace />}
                   />
 
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}><AdminLayout /></ProtectedRoute>}>
@@ -200,6 +205,22 @@ export const App: React.FC = () => {
                       path="staff/orders"
                       element={
                         <Navigate to="/admin/orders" replace />
+                      }
+                    />
+                    <Route
+                      path="transfers"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
+                        >
+                          <IncomingTransfersPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="staff/transfers"
+                      element={
+                        <Navigate to="/admin/transfers" replace />
                       }
                     />
                     <Route

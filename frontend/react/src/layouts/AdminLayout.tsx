@@ -40,6 +40,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/reports": "admin:nav.reports",
   "/admin/payments": "admin:nav.payments",
   "/admin/promotions": "admin:nav.promotions",
+  "/admin/transfers": "admin:nav.transfers",
 };
 
 export const AdminLayout: React.FC = () => {
@@ -65,6 +66,7 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/reports")) selectedKey = "reports";
   else if (pathname.includes("/payments")) selectedKey = "payments";
   else if (pathname.includes("/promotions")) selectedKey = "promotions";
+  else if (pathname.includes("/transfers")) selectedKey = "transfers";
 
   const roleNavPermissions: Record<
     "ADMIN" | "STORE_MANAGER" | "STAFF",

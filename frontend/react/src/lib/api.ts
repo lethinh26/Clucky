@@ -198,8 +198,9 @@ export interface BackendOrderItem {
 export interface BackendOrder {
   id: number;
   orderCode: string;
-  customerId: number;
+  customerId?: number | null;
   storeId: number;
+  storeName?: string;
   type: 'DELIVERY' | 'PICKUP';
   status: string;
   paymentMethod?: string;
@@ -227,6 +228,9 @@ export interface BackendOrder {
     reason?: string;
     createdAt: string;
   }>;
+  orderSource?: 'WEB' | 'COUNTER';
+  diningOption?: 'DINE_IN' | 'TAKE_AWAY';
+  queueNumber?: number;
 }
 
 export interface PageResponse<T> {
@@ -484,6 +488,52 @@ export const inventoryApi = {
     api.put<InventoryItem>(`/api/stores/${storeId}/inventory/${productId}`, data).then((r) => r.data),
   updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean }) =>
     api.put(`/api/stores/${storeId}/products/${productId}/availability`, data).then((r) => r.data),
+};
+
+/* ---------- Payments (payment-service) ---------- */
+export interface BackendBankTransaction {
+  id: number;
+  bankTxId: string;
+  bankAccount: string;
+  amount: number;
+  content: string;
+  receivedAt: string;
+  matchedOrderCode?: string | null;
+}
+
+export interface BackendCounterReceipt {
+  id: number;
+  receiptCode: string;
+  orderId: number;
+  orderCode: string;
+  queueNumber?: number;
+  storeId: number;
+  method: 'CASH' | 'BANK_TRANSFER' | 'SPLIT';
+  totalDue: number;
+  cashAmount: number;
+  cashTendered: number;
+  cashChange: number;
+  roundingDifference: number;
+  bankAmountDeclared: number;
+  bankAmountReconciled: number;
+  bankRefCode?: string;
+  bankTxId?: string;
+  status: 'PENDING_RECONCILIATION' | 'RECONCILED' | 'DISCREPANCY' | 'VOIDED';
+  manualAcceptance: boolean;
+  exceptionReason?: string;
+  staffId: number;
+  staffName: string;
+  printCount: number;
+  createdAt: string;
+}
+
+export const paymentsApi = {
+  listBankTransactions: (signal?: AbortSignal) =>
+    api.get<BackendBankTransaction[]>('/api/payments/bank-transactions', { signal }).then((r) => r.data),
+  listReceipts: (storeId?: number, signal?: AbortSignal) =>
+    api.get<BackendCounterReceipt[]>('/api/payments/receipts', { params: { storeId }, signal }).then((r) => r.data),
+  getReceiptByOrderCode: (orderCode: string, signal?: AbortSignal) =>
+    api.get<BackendCounterReceipt>(`/api/payments/receipts/order/${orderCode}`, { signal }).then((r) => r.data),
 };
 
 export default api;
