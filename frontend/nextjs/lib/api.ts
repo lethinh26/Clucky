@@ -577,4 +577,78 @@ export const promotionApi = {
   },
 };
 
+/* ---------- Reviews ---------- */
+export type ReviewStatus = "VISIBLE" | "HIDDEN" | "DELETED";
+
+export interface ReviewReplyDto {
+  id: number;
+  responderId: number;
+  responderRole: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ReviewDto {
+  id: number;
+  customerId: number;
+  productId: number;
+  orderId: number;
+  storeId?: number | null;
+  rating: number;
+  comment: string;
+  status: ReviewStatus;
+  version?: number;
+  createdAt: string;
+  updatedAt?: string | null;
+  deletedAt?: string | null;
+  replies: ReviewReplyDto[];
+}
+
+export interface ProductReviewSummaryDto {
+  productId: number;
+  averageRating: number;
+  totalReviews: number;
+  reviews: ReviewDto[];
+}
+
+export interface CreateReviewPayload {
+  orderId: number;
+  productId: number;
+  rating: number;
+  comment: string;
+}
+
+export interface UpdateReviewPayload {
+  rating: number;
+  comment: string;
+  version?: number;
+}
+
+function withIdempotencyHeaders(idempotencyKey?: string): Record<string, string> | undefined {
+  return idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined;
+}
+
+export const reviewApi = {
+  getProductReviews: (productId: number) =>
+    request<ProductReviewSummaryDto>(`/api/reviews/products/${productId}`),
+  getMyReviews: () =>
+    request<ReviewDto[]>("/api/reviews/my"),
+  create: (payload: CreateReviewPayload, idempotencyKey?: string) =>
+    request<ReviewDto>("/api/reviews", {
+      method: "POST",
+      headers: withIdempotencyHeaders(idempotencyKey),
+      body: JSON.stringify(payload),
+    }),
+  update: (id: number, payload: UpdateReviewPayload, idempotencyKey?: string) =>
+    request<ReviewDto>(`/api/reviews/${id}`, {
+      method: "PUT",
+      headers: withIdempotencyHeaders(idempotencyKey),
+      body: JSON.stringify(payload),
+    }),
+  remove: (id: number) =>
+    request<void>(`/api/reviews/${id}`, {
+      method: "DELETE",
+    }),
+};
+
 export default request;

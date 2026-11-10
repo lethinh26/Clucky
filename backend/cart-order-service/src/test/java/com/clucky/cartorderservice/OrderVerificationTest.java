@@ -55,6 +55,7 @@ class OrderVerificationTest {
         Order order = new Order();
         order.setId(10L);
         order.setCustomerId(7L);
+        order.setStoreId(2L);
         order.setOrderCode("ORD-10");
         order.setStatus("PENDING");
         OrderItem product = new OrderItem();
@@ -68,6 +69,7 @@ class OrderVerificationTest {
         var response = controller.verify(10L, 7L);
         assertEquals("PENDING", response.status());
         assertEquals(7L, response.customerId());
+        assertEquals(2L, response.storeId());
         assertEquals(List.of(20L), response.productIds());
     }
 
@@ -88,5 +90,18 @@ class OrderVerificationTest {
         when(orders.findByIdAndStoreId(10L, 2L)).thenReturn(Optional.of(order));
         assertEquals(2L, controller.getStore(10L).storeId());
         verify(orders, never()).findById(anyLong());
+    }
+
+    @Test
+    void storeLookupRejectsStaffAndManagerWithoutStoreId() {
+        for (String role : List.of("STAFF", "STORE_MANAGER")) {
+            Jwt jwt = Jwt.withTokenValue("test-token").header("alg", "HS256")
+                    .subject("9").claim("role", role).build();
+            SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt,
+                    List.of(new SimpleGrantedAuthority("ROLE_" + role))));
+            assertEquals(ErrorCode.FORBIDDEN,
+                    assertThrows(ApiException.class, () -> controller.getStore(10L)).getCode());
+        }
+        verifyNoInteractions(orders);
     }
 }

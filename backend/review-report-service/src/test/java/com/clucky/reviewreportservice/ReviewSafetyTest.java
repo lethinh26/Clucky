@@ -12,6 +12,7 @@ import com.clucky.reviewreportservice.entity.ReviewStatus;
 import com.clucky.reviewreportservice.exception.ApiException;
 import com.clucky.reviewreportservice.exception.ErrorCode;
 import com.clucky.reviewreportservice.exception.ForbiddenException;
+import com.clucky.reviewreportservice.exception.ResourceNotFoundException;
 import com.clucky.reviewreportservice.mapper.DomainMapper;
 import com.clucky.reviewreportservice.repository.ReviewRepository;
 import com.clucky.reviewreportservice.repository.ReviewReplyRepository;
@@ -141,9 +142,14 @@ class ReviewSafetyTest {
         ReviewService service = new ReviewService(repository, orders,
                 mock(ReviewReplyRepository.class), mock(ReviewAuditOutbox.class));
         when(orders.getOrderForReview(10L, 7L))
-                .thenReturn(new OrderVerificationDto(10L, "ORD-10", 7L, "COMPLETED", List.of(20L)));
+                .thenReturn(new OrderVerificationDto(10L, "ORD-10", 7L, "COMPLETED", List.of(20L), 4L));
         when(repository.save(any(Review.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        assertEquals(7L, service.createReview(7L, request).customerId());
+        var created = service.createReview(7L, new CreateReviewRequest(10L, 20L, 5, "  Great food  "));
+        assertEquals(7L, created.customerId());
+        assertEquals(4L, created.storeId());
+        assertEquals("Great food", created.comment());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createReview(7L, new CreateReviewRequest(10L, 20L, 5, "   ok  ")));
         when(repository.existsByCustomerIdAndOrderIdAndProductId(7L, 10L, 20L)).thenReturn(true);
         assertEquals(ErrorCode.RESOURCE_CONFLICT,
                 assertThrows(ApiException.class, () -> service.createReview(7L, request)).getCode());
@@ -169,6 +175,43 @@ class ReviewSafetyTest {
         assertEquals(review.getCreatedAt().toInstant(), DomainMapper.toResponse(review).createdAt());
         ReviewReply reply = new ReviewReply(review, 2L, "STAFF", "Thank you");
         assertEquals(1L, DomainMapper.toResponse(reply).reviewId());
+    }
+
+    @Test
+    void rejectsCustomerEditOrDeleteOnHiddenDeletedOrStaleVersion() {
+        ReviewRepository repository = mock(ReviewRepository.class);
+        ReviewService service = new ReviewService(repository, mock(OrderServiceClient.class),
+                mock(ReviewReplyRepository.class), mock(ReviewAuditOutbox.class));
+
+        Review hidden = new Review(7L, 20L, 10L, 5, "Great food");
+        hidden.setId(1L);
+        hidden.setStatus(ReviewStatus.HIDDEN);
+        when(repository.findById(1L)).thenReturn(Optional.of(hidden));
+        assertEquals(ErrorCode.RESOURCE_CONFLICT, assertThrows(ApiException.class,
+                () -> service.updateReview(1L, 7L, new UpdateReviewRequest(4, "Updated text"))).getCode());
+        assertEquals(ErrorCode.RESOURCE_CONFLICT, assertThrows(ApiException.class,
+                () -> service.deleteReview(1L, 7L)).getCode());
+
+        Review deleted = new Review(7L, 20L, 10L, 5, "Great food");
+        deleted.setId(2L);
+        deleted.setStatus(ReviewStatus.DELETED);
+        when(repository.findById(2L)).thenReturn(Optional.of(deleted));
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.updateReview(2L, 7L, new UpdateReviewRequest(4, "Updated text")));
+        assertThrows(ResourceNotFoundException.class, () -> service.deleteReview(2L, 7L));
+
+        Review versioned = new Review(7L, 20L, 10L, 5, "Great food");
+        versioned.setId(3L);
+        versioned.setVersion(3L);
+        when(repository.findById(3L)).thenReturn(Optional.of(versioned));
+        assertEquals(ErrorCode.RESOURCE_CONFLICT, assertThrows(ApiException.class,
+                () -> service.updateReview(3L, 7L, new UpdateReviewRequest(4, "Updated text", 2L))).getCode());
+
+        when(repository.findByCustomerIdAndStatusNotOrderByCreatedAtDesc(7L, ReviewStatus.DELETED))
+                .thenReturn(List.of(hidden));
+        assertEquals(1, service.getMyReviews(7L).size());
+        verify(repository).findByCustomerIdAndStatusNotOrderByCreatedAtDesc(7L, ReviewStatus.DELETED);
+        verify(repository, never()).delete(any());
     }
 
     private void authenticate(String role) {

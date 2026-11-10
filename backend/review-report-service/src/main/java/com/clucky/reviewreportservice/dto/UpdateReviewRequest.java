@@ -14,5 +14,12 @@ public record UpdateReviewRequest(
 
     @NotBlank(message = "Nội dung đánh giá không được để trống")
     @Size(min = 5, max = 1000, message = "Nội dung đánh giá từ 5 đến 1000 ký tự")
-    String comment
-) {}
+    String comment,
+
+    @Min(value = 0, message = "Phiên bản đánh giá không hợp lệ")
+    Long version
+) {
+    public UpdateReviewRequest(Integer rating, String comment) {
+        this(rating, comment, null);
+    }
+}

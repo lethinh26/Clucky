@@ -40,6 +40,7 @@ import {
 } from "@/components/order";
 import { orderApi, catalogApi, type ProductItem } from "@/lib/api";
 import { fillOrderImages } from "@/lib/order-images";
+import { OrderItemReviews } from "@/components/reviews/order-item-reviews";
 import type { Order } from "@/lib/types/order";
 import styles from "./tracking.module.css";
 
@@ -351,6 +352,7 @@ export default function OrderTrackingPage({
                 totalAmount={order.totalAmount}
               />
             </section>
+            <OrderItemReviews order={order} />
             <div className={styles.detailActions}>
               {terminal ? (
                 <button
