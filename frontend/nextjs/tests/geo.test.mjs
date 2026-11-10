@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { coordinates, distanceKm } from '../lib/geo.ts';
+import { coordinates, distanceKm, deliveryCircle } from '../lib/geo.ts';
 assert.equal(coordinates({ latitude: null, longitude: 106 }), null);
 assert.equal(coordinates({ latitude: NaN, longitude: 106 }), null);
 assert.equal(coordinates({ latitude: 91, longitude: 106 }), null);
@@ -11,3 +11,9 @@ assert.ok(Math.abs(distanceKm(origin, { latitude: 0, longitude: 1 }) - 111.195) 
 assert.ok(Math.abs(distanceKm(origin, { latitude: 0, longitude: 180 }) - 20015.087) < 0.1);
 const acrossDateLine = distanceKm({ latitude: 0, longitude: 179.9 }, { latitude: 0, longitude: -179.9 });
 assert.ok(acrossDateLine > 22 && acrossDateLine < 23);
+const ring = deliveryCircle(origin, 5);
+assert.equal(ring.length, 65);
+assert.deepEqual(ring[0], ring.at(-1));
+for (const [longitude, latitude] of ring) assert.ok(Math.abs(distanceKm(origin, { latitude, longitude }) - 5) < 0.000001);
+assert.deepEqual(deliveryCircle(origin, 0), []);
+assert.deepEqual(deliveryCircle(origin, NaN), []);

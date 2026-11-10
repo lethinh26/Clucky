@@ -63,7 +63,7 @@ export const StaffInventoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeStoreId, adminSelectedStoreId, isAdmin, user.storeId]);
+  }, [adminSelectedStoreId, isAdmin, user.storeId]);
 
   useEffect(() => {
     fetchInventory();

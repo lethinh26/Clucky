@@ -10,7 +10,7 @@ export function useDeferredAction() {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      generation.current++;
+      generation.current += 1;
       if (timer.current !== null) clearTimeout(timer.current);
     };
   }, []);

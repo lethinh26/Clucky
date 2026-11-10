@@ -177,7 +177,7 @@ services:
     image: clucky-payment-service:${IMAGE_TAG:?IMAGE_TAG is required}
     environment:
       <<: *environment
-      SEPAY_WEBHOOK_SECRET: ${SEPAY_WEBHOOK_SECRET:-}
+      SEPAY_API_KEY: ${SEPAY_API_KEY:-}
 
   promotion-loyalty-service:
     <<: *java

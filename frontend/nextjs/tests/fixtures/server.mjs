@@ -74,6 +74,8 @@ const server = await createServer({
   },
   esbuild: { jsx: "automatic" },
   server: {
+    hmr: false,
+    watch: null,
     host: "127.0.0.1",
     port: 4175,
     strictPort: true,

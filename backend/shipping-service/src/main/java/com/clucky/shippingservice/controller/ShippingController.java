@@ -1,56 +1,103 @@
 package com.clucky.shippingservice.controller;
 
-import com.clucky.shippingservice.entity.ShippingFeeConfig;
-import com.clucky.shippingservice.repository.ShippingFeeConfigRepository;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
+import com.clucky.shippingservice.exception.ApiException;
+import com.clucky.shippingservice.exception.ErrorCode;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
-import java.util.List;
+import java.net.http.HttpClient;
+import java.time.Duration;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 @RestController
 @RequestMapping("/api/shipping")
 public class ShippingController {
+    public record Policy(BigDecimal fee, long version) {}
+    public record PolicyRequest(@NotNull @DecimalMin("1") @Digits(integer = 12, fraction = 0) BigDecimal fee,
+            @NotNull @PositiveOrZero Long version) {}
+    public record QuoteRequest(@NotNull @Positive Long storeId,
+            @DecimalMin("-90") @DecimalMax("90") Double latitude,
+            @DecimalMin("-180") @DecimalMax("180") Double longitude) {
+        @AssertTrue public boolean isCoordinatePairValid() {
+            return latitude == null && longitude == null || latitude != null && longitude != null
+                    && Double.isFinite(latitude) && Double.isFinite(longitude);
+        }
+    }
+    public record Quote(boolean available, BigDecimal fee, String reason, Double distanceKm, BigDecimal radiusKm, long policyVersion) {}
+    public record Store(long id, Double latitude, Double longitude, BigDecimal deliveryRadiusKm) {}
+    private final JdbcTemplate jdbc;
+    private final DiscoveryClient discovery;
+    private final RestClient client;
 
-    private final ShippingFeeConfigRepository feeConfigRepository;
-
-    public ShippingController(ShippingFeeConfigRepository feeConfigRepository) {
-        this.feeConfigRepository = feeConfigRepository;
+    public ShippingController(JdbcTemplate jdbc, DiscoveryClient discovery, RestClient.Builder builder) {
+        this.jdbc = jdbc;
+        this.discovery = discovery;
+        var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
+        factory.setReadTimeout(Duration.ofSeconds(5));
+        this.client = builder.requestFactory(factory).build();
     }
 
-    public record CalculateShippingFeeRequest(
-            Long storeId,
-            String deliveryAddress,
-            BigDecimal subtotal
-    ) {}
+    private Policy policy() {
+        return jdbc.queryForObject("SELECT fee,version FROM shipping_service.shipping_policy WHERE id=1",
+                (row, index) -> new Policy(row.getBigDecimal("fee"), row.getLong("version")));
+    }
 
-    public record CalculateShippingFeeResponse(
-            BigDecimal fee
-    ) {}
+    @GetMapping("/config")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Policy getPolicy() { return policy(); }
+
+    @PutMapping("/config")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Policy savePolicy(@Valid @RequestBody PolicyRequest request) {
+        var result = jdbc.query("UPDATE shipping_service.shipping_policy SET fee=?,version=version+1,updated_at=now() "
+                + "WHERE id=1 AND version=? RETURNING fee,version",
+                (row, index) -> new Policy(row.getBigDecimal("fee"), row.getLong("version")), request.fee(), request.version());
+        if (result.isEmpty()) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        return result.getFirst();
+    }
 
     @PostMapping("/calculate-fee")
-    public ResponseEntity<CalculateShippingFeeResponse> calculateFee(@RequestBody(required = false) CalculateShippingFeeRequest request) {
-        Long storeId = (request != null && request.storeId() != null) ? request.storeId() : 1L;
-        BigDecimal subtotal = (request != null && request.subtotal() != null) ? request.subtotal() : BigDecimal.ZERO;
-
-        ShippingFeeConfig config = feeConfigRepository.findByStoreId(storeId)
-                .orElseGet(() -> {
-                    List<ShippingFeeConfig> all = feeConfigRepository.findAll();
-                    return all.isEmpty() ? null : all.get(0);
-                });
-
-        BigDecimal fee = BigDecimal.valueOf(15000);
-        if (config != null) {
-            if (config.getFreeFromAmount() != null && subtotal.compareTo(config.getFreeFromAmount()) >= 0) {
-                fee = BigDecimal.ZERO;
-            } else if (config.getBaseFee() != null) {
-                fee = config.getBaseFee();
-            }
+    public Quote calculateFee(@Valid @RequestBody QuoteRequest request) {
+        Policy policy = policy();
+        var instances = discovery.getInstances("catalog-store-service");
+        if (instances.isEmpty()) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        Store store;
+        try {
+            store = client.get().uri(instances.getFirst().getUri() + "/api/stores/" + request.storeId()).retrieve().body(Store.class);
+        } catch (RestClientException failure) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
+        if (store == null || store.id() != request.storeId()) throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+        return quote(policy, store, request);
+    }
 
-        return ResponseEntity.ok(new CalculateShippingFeeResponse(fee));
+    public static Quote quote(Policy policy, Store store, QuoteRequest request) {
+        Double distance = null;
+        String reason;
+        if (store.latitude() == null || store.longitude() == null || !Double.isFinite(store.latitude())
+                || !Double.isFinite(store.longitude()) || Math.abs(store.latitude()) > 90 || Math.abs(store.longitude()) > 180) {
+            reason = "STORE_LOCATION_MISSING";
+        } else if (request.latitude() == null) {
+            reason = "LOCATION_REQUIRED";
+        } else {
+            distance = distanceKm(store.latitude(), store.longitude(), request.latitude(), request.longitude());
+            reason = store.deliveryRadiusKm() == null ? "RADIUS_NOT_CONFIGURED"
+                    : distance > store.deliveryRadiusKm().doubleValue() ? "OUT_OF_RANGE"
+                    : policy.fee() == null ? "FEE_NOT_CONFIGURED" : "OK";
+        }
+        return new Quote("OK".equals(reason), policy.fee(), reason, distance, store.deliveryRadiusKm(), policy.version());
+    }
+
+    public static double distanceKm(double fromLat, double fromLon, double toLat, double toLon) {
+        double latitude = Math.sin(Math.toRadians(toLat - fromLat) / 2);
+        double longitude = Math.sin(Math.toRadians(toLon - fromLon) / 2);
+        double arc = latitude * latitude + Math.cos(Math.toRadians(fromLat)) * Math.cos(Math.toRadians(toLat)) * longitude * longitude;
+        return 6371 * 2 * Math.asin(Math.sqrt(Math.max(0, Math.min(1, arc))));
     }
 }

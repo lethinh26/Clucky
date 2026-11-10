@@ -334,6 +334,18 @@
     "orderCancelledProgressHasStopped": "Order cancelled. Progress has stopped.",
     "delivering": "Delivering",
     "awaitingCollection": "Awaiting collection",
+    "collected": "Collected at store",
+    "delivered": "Delivered",
+    "pickupProgress": "Pickup progress",
+    "deliveryProgress": "Delivery progress",
+    "liveStatus": "{status} · Updates every {seconds} seconds",
+    "createdWithBankTransfer": "Order placed, awaiting bank transfer payment.",
+    "createdWithPaymentAtStore": "Order placed, pay when collecting at the store.",
+    "createdWithCod": "Order placed, pay on delivery.",
+    "paymentReceived": "Bank transfer payment received and order confirmed.",
+    "paymentExpired": "Order cancelled because the payment deadline expired.",
+    "paymentFailed": "Order cancelled because payment was unsuccessful.",
+    "statusUpdated": "Order status changed to: {status}.",
     "updateHistory": "Update history"
   },
   "orderprovider": {

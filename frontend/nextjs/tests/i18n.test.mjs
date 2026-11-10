@@ -73,6 +73,24 @@ test('both locales contain the same nonempty message keys and placeholders', () 
   compare(resources.vi, resources.en);
 });
 
+test('date style presets render loyalty history without conflicting date components', () => {
+  const value = '2026-11-09T18:30:00Z';
+  for (const locale of ['vi', 'en']) {
+    for (const options of [
+      { dateStyle: 'medium', timeStyle: 'short' },
+      { dateStyle: 'medium' },
+      { timeStyle: 'short' },
+      { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' },
+    ]) {
+      const expected = new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-US', {
+        timeZone: 'Asia/Ho_Chi_Minh', ...options,
+      }).format(new Date(value));
+      assert.equal(formatDate(value, locale, options), expected);
+      assert.equal(formatDate('invalid', locale, options), '—');
+    }
+  }
+});
+
 test('formatters retain VND and use Vietnam time on both locales', () => {
   for (const locale of ['vi', 'en']) {
     assert.equal(formatMoney(125000, locale), new Intl.NumberFormat(locale === 'vi' ? 'vi-VN' : 'en-US', {

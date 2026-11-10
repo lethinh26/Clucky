@@ -1,7 +1,7 @@
 import { message } from "../../components/feedback";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
-import { Button, Space, Tag, Tooltip, Form, Input, Select, TimePicker, Radio } from "antd";
+import { Button, ConfigProvider, Space, Tag, Tooltip, Form, Input, Select, TimePicker, Radio } from "antd";
 import { TableColumnsType } from "antd";
 import dayjs from 'dayjs';
 import {
@@ -22,6 +22,7 @@ import { StoreLocationPicker, type StorePoint } from '../../components/StoreLoca
 import { useAuth } from '../../context/AuthContext';
 import { getStoreStatusMeta, normalizeStoreStatus, type StoreStatus } from '../../types/store';
 import { storesApi, getErrorMessage, type Store } from '../../lib/api';
+import { ShippingSettings, StoreDeliverySettings } from './ShippingSettings';
 
 export const StoresPage: React.FC = () => {
   const { t } = useTranslation();
@@ -52,17 +53,17 @@ export const StoresPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, t]);
+  }, []);
 
   useEffect(() => {
     fetchStores();
-  }, [fetchStores]);
+  }, [fetchStores, isAdmin, user.storeId]);
 
   // Role-based store isolation: Store Manager only sees their assigned branch
   const scopedStores = useMemo(() => {
     if (isAdmin) return stores;
     return stores.filter((store) => store.id === user.storeId);
-  }, [stores, isAdmin, user.storeId, user.storeName]);
+  }, [stores, isAdmin, user.storeId]);
 
   const filteredStores = useMemo(() => {
     return scopedStores.filter((s) => {
@@ -346,6 +347,7 @@ export const StoresPage: React.FC = () => {
       </div>
 
       {/* Admin Table */}
+      <ShippingSettings />
       <AdminTable<Store>
         columns={columns}
         dataSource={filteredStores}
@@ -385,6 +387,7 @@ export const StoresPage: React.FC = () => {
         }}>
         {locationStore && <StoreLocationPicker key={locationStore.id} address={locationStore.address} value={locationPoint} onChange={savingLocation ? undefined : setLocationPoint} />}
       </AdminModal>
+      <ConfigProvider theme={{ token: { colorBgContainer: '#FFFFFF' } }}>
       <AdminModal
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
@@ -392,6 +395,12 @@ export const StoresPage: React.FC = () => {
         title={editingStore ? t("business:stores.editStoreDetails") : t("business:stores.setUpANewStore")}
         subtitle={t("business:stores.detailsShownInTheCustomerAppAndUsedForOrderRouting")}
         width={680}
+        styles={{
+          container: { background: '#FFFFFF' },
+          header: { background: '#FFFFFF', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #EEEEEE' },
+          body: { background: '#FFFFFF', padding: '16px 0' },
+          footer: { background: '#FFFFFF', marginTop: 20, paddingTop: 16, borderTop: '1px solid #EEEEEE' },
+        }}
       >
         <Form form={form} layout="vertical">
           {!editingStore && <Form.Item name="recoveryEmail" label={t("accounts:recovery")} rules={[{ required: true, type: 'email', max: 255 }]}><Input autoComplete="email" /></Form.Item>}
@@ -455,9 +464,14 @@ export const StoresPage: React.FC = () => {
             <Input disabled={!isAdmin} placeholder={t("business:stores.enterCity")} style={{ height: 40 }} />
           </Form.Item>
 
+          {modalOpen && editingStore && <StoreDeliverySettings key={editingStore.id} store={editingStore} onSaved={saved => {
+            setStores(current => current.map(store => store.id === saved.id ? { ...store, ...saved } : store));
+            setEditingStore(current => current?.id === saved.id ? saved : current);
+          }} />}
+
           <Form.Item
             name="deliveryArea"
-            label={t("business:stores.supportedDeliveryAreaRadiusNearbyDistricts")}
+            label={t("shipping:areaNote")}
             rules={[{ required: true, message: t("business:stores.pleaseDescribeTheDeliveryArea") }]}
           >
             <Input.TextArea
@@ -487,6 +501,7 @@ export const StoresPage: React.FC = () => {
           </div>
         </Form>
       </AdminModal>
+      </ConfigProvider>
     </div>
   );
 };

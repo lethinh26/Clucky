@@ -1,0 +1,18 @@
+{
+  "title": "Delivery settings",
+  "chainFee": "Chain-wide delivery fee",
+  "chainHint": "One fixed fee for all eligible deliveries. No per-km surcharge or order-value free shipping. Only Admin can change this.",
+  "feeLabel": "Fixed fee (VND)",
+  "saveFee": "Save delivery fee",
+  "radiusTitle": "Branch delivery coverage",
+  "branch": "Branch",
+  "radiusLabel": "Radius (km)",
+  "radiusHint": "Straight-line distance from the branch to the delivery pin. Leave blank to disable delivery; pickup remains available. Save the branch coordinates on the map first.",
+  "saveRadius": "Save radius",
+  "radiusConfigured": "Current radius: {{km}} km",
+  "branchIncomplete": "Delivery radius or branch coordinates are missing",
+  "notConfigured": "Not configured",
+  "saved": "Delivery settings saved.",
+  "reload": "Reload",
+  "areaNote": "Area description (does not replace the configured radius)"
+}

@@ -211,7 +211,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       cartBusy.current = false;
       setCartPending(false);
     }
-  }, [setWorkspace, loadedRevision, ready, session.error]);
+  }, [setWorkspace, loadedRevision, ready, session.error, errorMessage]);
 
   const refreshOrders = useCallback(async () => {
     if (!getSessionState().user) return;

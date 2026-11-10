@@ -3,6 +3,33 @@ x-java-build: &java-build
   dockerfile: ../deploy/backend/Dockerfile
 
 services:
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0
+    restart: unless-stopped
+    mem_limit: 512m
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - "127.0.0.1:8088:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: clucky-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      JAVA_OPTS: -Xms128m -Xmx256m
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O /dev/null http://127.0.0.1:8080/actuator/health || exit 1']
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 12
+
   config-server:
     build:
       <<: *java-build

@@ -10,7 +10,7 @@ i18n.use(initReactI18next).init({
   supportedLngs: ["vi", "en"],
   fallbackLng: "vi",
   defaultNS: "common",
-  ns: ["loyalty", "maps", "business", "common", "auth", "home", "menu", "admin", "orders", "errors"],
+  ns: ["shipping", "loyalty", "maps", "business", "common", "auth", "home", "menu", "admin", "orders", "errors"],
   initAsync: false,
   interpolation: { escapeValue: false },
 });

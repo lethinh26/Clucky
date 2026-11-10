@@ -136,6 +136,7 @@
 }
 .stepIcon {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
   width: 30px;
   height: 30px;
@@ -179,6 +180,7 @@
   font-size: 12px;
 }
 .eventHistory p {
+  overflow-wrap: anywhere;
   font-size: 11px;
   line-height: 1.7;
   color: #6b6259;
@@ -622,19 +624,27 @@
     font-size: 9px;
   }
   .progressRail {
-    padding-inline: 6px;
+    flex-direction: column;
+    gap: 16px;
+    padding-inline: 18px;
   }
   .progressRail li {
-    font-size: 9px;
+    flex-direction: row;
+    gap: 10px;
+    font-size: 11px;
+    text-align: left;
   }
   .stepIcon {
     width: 26px;
     height: 26px;
   }
   .progressRail li:not(:last-child)::after {
-    top: 13px;
-    left: calc(50% + 15px);
-    right: calc(-50% + 15px);
+    top: 30px;
+    bottom: -12px;
+    left: 13px;
+    right: auto;
+    width: 2px;
+    height: auto;
   }
   .checkoutSteps {
     gap: 8px;

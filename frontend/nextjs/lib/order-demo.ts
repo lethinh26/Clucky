@@ -1,6 +1,6 @@
 import { getBrowserLocale, type Locale } from "./i18n/locale.ts";
 import { getTranslator } from "./i18n/translator.ts";
-import type { Order, OrderStatus } from "./types/order";
+import type { Order, OrderStatus, OrderType } from "./types/order";
 
 export const DEMO_CONTROLS_ENABLED =
   process.env.NODE_ENV === "development" ||
@@ -17,11 +17,37 @@ export const orderStatusKeys = {
   CONFIRMED: "business.orderstatuschip.confirmed",
   PREPARING: "business.orderprogress.preparing",
   READY: "business.orderdetaildrawer.mealReady",
-  SHIPPING: "business.orderprogress.delivering",
+  SHIPPING: "business.orderstatuschip.outForDelivery",
   COMPLETED: "business.orders.completed",
   CANCELLED: "business.orders.cancelled",
 } as const satisfies Record<OrderStatus, string>;
 export const orderStatusLabels = Object.fromEntries(Object.entries(orderStatusKeys).map(([status, key]) => [status, getTranslator("vi")(key)])) as Record<OrderStatus, string>;
+
+export function orderStatusKey(status: OrderStatus, type?: OrderType) {
+  if (status === "READY" && type) return type === "PICKUP"
+    ? "business.orderprogress.awaitingCollection" : "business.orderstatuschip.readyForDelivery";
+  if (status === "COMPLETED" && type) return type === "PICKUP"
+    ? "business.orderprogress.collected" : "business.orderprogress.delivered";
+  return orderStatusKeys[status];
+}
+
+export function orderHistoryDescription(event: Order["timeline"][number], type: OrderType, locale: Locale): string {
+  const t = getTranslator(locale);
+  const reason = event.description.trim();
+  const reasonKeys = {
+    "Order created with payment method: BANK_TRANSFER": "business.orderprogress.createdWithBankTransfer",
+    "Order created with payment method: COD": type === "PICKUP"
+      ? "business.orderprogress.createdWithPaymentAtStore" : "business.orderprogress.createdWithCod",
+    SEPAY_PAYMENT_RECEIVED: "business.orderprogress.paymentReceived",
+    PAYMENT_EXPIRED: "business.orderprogress.paymentExpired",
+    "Payment failed / cancelled by saga compensation": "business.orderprogress.paymentFailed",
+  } as const;
+  if (Object.hasOwn(reasonKeys, reason)) return t(reasonKeys[reason as keyof typeof reasonKeys]);
+  if (reason === event.status || reason === `Status updated to ${event.status}`) {
+    return t("business.orderprogress.statusUpdated", { status: t(orderStatusKey(event.status, type)) });
+  }
+  return event.description;
+}
 
 export function nextDemoStatus(status: OrderStatus): OrderStatus | undefined {
   return (

@@ -9,12 +9,13 @@ test('saved address stays selected and a failed quote explains the blocked submi
     itemCount: 1, subtotal: 105000,
   } }));
   await page.route('**/api/stores?*', route => route.fulfill({ json: [{ id: 1, name: 'Clucky Test', address: 'Test street', status: 'OPEN', phone: '0900000000', openTime: '08:00', closeTime: '22:00' }] }));
-  await page.route('**/api/users/me/addresses', route => route.fulfill({ json: [{ id: 11, receiverName: 'Saved Customer', phone: '0901234567', province: 'Hà Nội', district: 'Ba Đình', ward: 'Ngọc Hà', detail: '123 Test Street', isDefault: true, latitude: null, longitude: null }] }));
+  await page.route('**/api/users/me/addresses', route => route.fulfill({ json: [{ id: 11, receiverName: 'Saved Customer', phone: '0901234567', province: 'Hà Nội', district: 'Ba Đình', ward: 'Ngọc Hà', detail: '123 Test Street', isDefault: true, latitude: 21.03, longitude: 105.82 }] }));
   await page.route('**/api/loyalty/me?*', route => route.fulfill({ json: { points: { availablePoints: 0 } } }));
   let failQuote = true;
   await page.route('**/api/orders/preview', route => route.fulfill(failQuote
     ? { status: 503, json: { code: 'DEPENDENCY_UNAVAILABLE' } }
-    : { json: { orderValid: true, subtotal: 105000, discountAmount: 0, pointsAmount: 0, pointsUsed: 0, shippingFee: 15000, totalAmount: 120000, tierDiscount: 0, voucherValid: false } }));
+    : { json: { orderValid: true, subtotal: 105000, discountAmount: 0, pointsAmount: 0, pointsUsed: 0, shippingFee: 15000, totalAmount: 120000, tierDiscount: 0, voucherValid: false,
+        shipping: { available: true, fee: 15000, reason: 'OK', distanceKm: 2, radiusKm: 5, policyVersion: 1 } } }));
   await page.goto('http://127.0.0.1:4174/checkout');
   const address = page.getByRole('combobox', { name: 'Chọn từ sổ địa chỉ' });
   await address.click();

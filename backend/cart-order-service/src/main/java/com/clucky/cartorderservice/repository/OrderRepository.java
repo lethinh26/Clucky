@@ -10,9 +10,15 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT entry FROM Order entry WHERE entry.id = :id")
+    Optional<Order> lockById(@Param("id") Long id);
     Optional<Order> findByIdAndCustomerId(Long id, Long customerId);
     Optional<Order> findByIdAndStoreId(Long id, Long storeId);
     Optional<Order> findByOrderCode(String orderCode);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT entry FROM Order entry WHERE entry.orderCode = :code")
+    Optional<Order> lockByOrderCode(@Param("code") String code);
     boolean existsByOrderCode(String orderCode);
 
     @Query("""

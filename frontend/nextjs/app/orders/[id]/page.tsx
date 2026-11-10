@@ -24,15 +24,15 @@ import {
   MailCheck,
   Mail,
 } from "lucide-react";
-import { displayOrderTime } from "@/lib/order-demo";
+import { displayOrderTime, orderStatusKey } from "@/lib/order-demo";
 import { useOrder, mapBackendOrderToOrder } from "@/components/order/order-provider";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import { OrderDialog } from "@/components/order/order-dialog";
 import { DemoOrderControls } from "@/components/order/demo-order-controls";
-import { PaymentWidget, PaymentStatusBadge } from "@/components/payment";
+import { PaymentStatusBadge } from "@/components/payment";
+import { LiveOrderPayment } from "@/components/payment/live-order-payment";
 import { ShipmentCard } from "@/components/shipping";
-import { MOCK_PAYMENT_BANK } from "@/lib/mock/payment-mock-data";
 import {
   OrderStatusChip,
   OrderItemCard,
@@ -287,7 +287,7 @@ export default function OrderTrackingPage({
               {order.storeName}
             </p>
           </div>
-          <OrderStatusChip status={order.status} />
+          <OrderStatusChip status={order.status} type={order.type} />
         </header>
 
         {/* P3.2: Order status notification: differentiates COD vs Bank Transfer and avoids false email claims */}
@@ -321,7 +321,7 @@ export default function OrderTrackingPage({
                     ? (order.paymentMethod === "BANK_TRANSFER"
                         ? t("business.checkout.pleaseCompletePaymentSoCluckyCanPrepareYourMeal")
                         : t("business.checkout.yourCashOnDeliveryOrderHasBeenConfirmed"))
-                    : order.status}
+                    : t(orderStatusKey(order.status, order.type))}
           </div>
         </div>
 
@@ -346,7 +346,7 @@ export default function OrderTrackingPage({
                 backgroundColor: "#16a34a",
               }}
             />
-            Live Status ({order.status}) · 5s
+            {t("business.orderprogress.liveStatus", { status: t(orderStatusKey(order.status, order.type)), seconds: 5 })}
           </div>
         )}
 
@@ -473,9 +473,9 @@ export default function OrderTrackingPage({
                 <h2>
                   <Wallet size={19} /> {t("business.cart.checkout")}
                 </h2>
-                <PaymentStatusBadge status={order.paymentStatus} />
+                {order.paymentMethod === "BANK_TRANSFER" ? <span className={styles.paymentNetwork}>VietQR</span> : <PaymentStatusBadge status={order.paymentStatus} />}
               </div>
-              {!awaitingPayment && (
+              {!awaitingPayment && order.paymentMethod !== "BANK_TRANSFER" && (
                 <div className={styles.paymentReceipt}>
                   <span className={styles.paymentEmblem} aria-hidden="true">
                     <PaymentIcon size={30} strokeWidth={1.8} />
@@ -489,7 +489,7 @@ export default function OrderTrackingPage({
                   <p className={styles.paymentMessage}>{paymentCopy.message}</p>
                 </div>
               )}
-              <div className={styles.paymentMethod}>
+              {order.paymentMethod !== "BANK_TRANSFER" && <div className={styles.paymentMethod}>
                 <span className={styles.paymentMethodIcon} aria-hidden="true">
                   {order.paymentMethod === "COD" ? (
                     <Wallet size={23} />
@@ -510,17 +510,14 @@ export default function OrderTrackingPage({
                 <span className={styles.paymentNetwork}>
                   {order.paymentMethod === "COD" ? "COD" : "VietQR"}
                 </span>
-              </div>
-              {awaitingPayment && (
-                <PaymentWidget
+              </div>}
+              {order.paymentMethod === "BANK_TRANSFER" && (
+                <LiveOrderPayment
                   key={order.id}
-                  orderCode={order.orderCode}
-                  amount={order.totalAmount}
-                  status={order.paymentStatus}
-                  bankInfo={MOCK_PAYMENT_BANK}
+                  orderId={order.id}
+                  pending={awaitingPayment}
+                  available={!!serverOrder && serverOrder.id === order.id && !loadError}
                   storeName={order.storeName}
-                  embedded
-                  demo
                 />
               )}
               {(() => {

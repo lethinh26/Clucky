@@ -70,7 +70,7 @@ public class RefundRequestService {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
 
-        Order order = orderRepository.findById(request.orderId())
+        Order order = orderRepository.lockById(request.orderId())
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         CurrentActor actor = CurrentActor.require();
@@ -92,6 +92,10 @@ public class RefundRequestService {
             if (actor.role() == Role.STORE_MANAGER) {
                 accessGuard.requireStore(order.getStoreId());
             }
+        }
+
+        if (order.getPaymentExpiresAt() != null || order.getCollectionMethod() != null) {
+            throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
         }
 
         // Eligibility 1: Method must be pure bank transfer
@@ -247,13 +251,14 @@ public class RefundRequestService {
             throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
         }
 
-        Order order = orderRepository.findById(refund.getOrderId())
+        Order order = orderRepository.lockById(refund.getOrderId())
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         if (actor.role() == Role.STORE_MANAGER) {
             accessGuard.requireStore(order.getStoreId());
         }
 
+        if (order.getPaymentExpiresAt() != null) throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
         // Atomically reserve funds in Payment Service to prevent over-refunding
         paymentClient.reserveRefund(refund.getId(), order.getId(), order.getOrderCode(), refund.getAmount());
 

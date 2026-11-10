@@ -70,11 +70,17 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await page.route("**/api/orders/preview", (route) => route.fulfill({ json: {
     subtotal: 120000, discountAmount: 0, pointsAmount: 0, pointsUsed: 0,
     shippingFee: 20000, totalAmount: 140000, voucherValid: false, orderValid: true,
+    shipping: { available: true, fee: 20000, reason: "OK", distanceKm: 2, radiusKm: 5, policyVersion: 1 },
   } }));
   let submitted: any;
   await page.addInitScript(() => sessionStorage.setItem("clucky_location_prompt", "seen"));
-  await page.route("**/api/stores?*", route => route.fulfill({ json: [{ id: 1, name: "Clucky Test", status: "OPEN", address: "Test street" }] }));
-  await page.route("**/api/users/me/addresses", route => route.fulfill({ json: [] }));
+  await page.route("https://api.mapbox.com/styles/v1/**", route => route.fulfill({ json: { version: 8, sources: {}, layers: [] } }));
+  await page.route("https://events.mapbox.com/**", route => route.fulfill({ json: {} }));
+  await page.route("**/api/stores?*", route => route.fulfill({ json: [{ id: 1, name: "Clucky Test", status: "OPEN", address: "Test street", latitude: 21.028, longitude: 105.834, deliveryRadiusKm: 5 }] }));
+  await page.route("**/api/users/me/addresses", route => route.fulfill({ json: [{
+    id: 11, receiverName: "Regression Customer", phone: "0901234567", detail: "123 Test Street",
+    province: "Hà Nội", district: "Ba Đình", ward: "Ngọc Hà", isDefault: true, latitude: 21.03, longitude: 105.82,
+  }] }));
   await page.route("**/api/loyalty/me?*", route => route.fulfill({ json: { points: { availablePoints: 0 } } }));
   await page.route(/\/api\/orders$/, (route) => {
     submitted = route.request().postDataJSON();
@@ -84,10 +90,17 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await page.locator("#receiverName").fill("Regression Customer");
   await page.locator("#receiverPhone").fill("0901234567");
   await page.locator("#deliveryAddress").fill("123 Test Street");
-  await page.getByRole("button", { name: /Đặt hàng ngay/ }).click();
+  const submit = page.getByRole("button", { name: /Đặt hàng ngay/ });
+  await expect(submit).toBeDisabled();
+  expect(submitted).toBeUndefined();
+  await page.getByRole("combobox", { name: "Chọn từ sổ địa chỉ" }).click();
+  await page.getByRole("option", { name: /Regression Customer/ }).click();
+  await expect(submit).toBeEnabled();
+  await submit.click();
   await expect.poll(() => submitted?.items?.[0]?.comboId).toBe(901);
   expect(submitted.items[0].productId).toBeUndefined();
   expect(submitted.paymentMethod).toBe("BANK_TRANSFER");
+  expect(submitted).toMatchObject({ type: "DELIVERY", latitude: 21.03, longitude: 105.82, expectedTotal: 140000 });
   await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "Mã giảm giá hiện không khả dụng." })).toBeVisible();
   await expect(page.locator("#receiverName")).toHaveValue("Regression Customer");
   await expect(page.locator("#receiverPhone")).toHaveValue("0901234567");

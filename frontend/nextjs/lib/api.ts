@@ -226,6 +226,7 @@ export interface OrderPreviewPayload {
 }
 
 export interface OrderPreviewResult {
+  shipping?: ShippingQuote;
   orderValid?: boolean;
   tierDiscount?: number;
   storeId?: number;
@@ -234,14 +235,23 @@ export interface OrderPreviewResult {
   discountAmount: number;
   pointsUsed: number;
   pointsAmount: number;
-  shippingFee: number;
-  totalAmount: number;
+  shippingFee: number | null;
+  totalAmount: number | null;
   voucherCode?: string;
   valid?: boolean;
   message?: string;
   voucherValid?: boolean;
   voucherMessage?: string;
 }
+
+export type ShippingQuote = {
+  available: boolean;
+  fee: number | null;
+  reason: 'OK' | 'PICKUP' | 'LOCATION_REQUIRED' | 'STORE_LOCATION_MISSING' | 'RADIUS_NOT_CONFIGURED' | 'OUT_OF_RANGE' | 'FEE_NOT_CONFIGURED' | 'UNAVAILABLE';
+  distanceKm: number | null;
+  radiusKm: number | null;
+  policyVersion: number | null;
+};
 
 export interface CreateOrderPayload {
   expectedTotal?: number;
@@ -455,6 +465,7 @@ export const refundApi = {
 import type { StoreStatus } from "./types/store";
 
 export interface StoreItem {
+  deliveryRadiusKm?: number | null;
   isOpenNow?: boolean;
   latitude?: number | null;
   longitude?: number | null;

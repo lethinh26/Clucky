@@ -10,3 +10,18 @@ export function distanceKm(origin: Coordinates, target: Coordinates): number {
   const arc = halfLat ** 2 + Math.cos(origin.latitude * radians) * Math.cos(target.latitude * radians) * halfLon ** 2;
   return 6371 * 2 * Math.asin(Math.sqrt(Math.max(0, Math.min(1, arc))));
 }
+
+export function deliveryCircle(center: Coordinates, radiusKm: number): number[][] {
+  if (!coordinates(center) || !Number.isFinite(radiusKm) || radiusKm <= 0) return [];
+  if (radiusKm >= Math.PI * 6371) return [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+  const latitude = center.latitude * Math.PI / 180;
+  const longitude = center.longitude * Math.PI / 180;
+  const arc = radiusKm / 6371;
+  const ring = Array.from({ length: 64 }, (_, index) => {
+    const bearing = index * 2 * Math.PI / 64;
+    const nextLatitude = Math.asin(Math.max(-1, Math.min(1, Math.sin(latitude) * Math.cos(arc) + Math.cos(latitude) * Math.sin(arc) * Math.cos(bearing))));
+    const nextLongitude = longitude + Math.atan2(Math.sin(bearing) * Math.sin(arc) * Math.cos(latitude), Math.cos(arc) - Math.sin(latitude) * Math.sin(nextLatitude));
+    return [nextLongitude * 180 / Math.PI, nextLatitude * 180 / Math.PI];
+  });
+  return [...ring, ring[0]];
+}
