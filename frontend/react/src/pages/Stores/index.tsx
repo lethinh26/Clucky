@@ -103,7 +103,7 @@ export const StoresPage: React.FC = () => {
 
   const handleFormSubmit = async () => {
     try {
-      const values = await form.validateFields(isAdmin ? undefined : ['openTime', 'closeTime', 'status']);
+      const values = await form.validateFields(isAdmin ? undefined : ['openTime', 'closeTime', 'status', 'phone', 'deliveryArea']);
       const storePayload: Partial<Store> = {
         latitude: editingStore?.latitude ?? null,
         longitude: editingStore?.longitude ?? null,
@@ -112,8 +112,8 @@ export const StoresPage: React.FC = () => {
         district: values.district,
         city: values.city,
         phone: values.phone,
-        openTime: values.openTime.format('HH:mm'),
-        closeTime: values.closeTime.format('HH:mm'),
+        openTime: values.openTime ? values.openTime.format('HH:mm') : undefined,
+        closeTime: values.closeTime ? values.closeTime.format('HH:mm') : undefined,
         deliveryArea: values.deliveryArea,
         status: values.status,
         recoveryEmail: editingStore ? undefined : values.recoveryEmail,
@@ -123,7 +123,11 @@ export const StoresPage: React.FC = () => {
         const updated = isAdmin
           ? await storesApi.update(editingStore.id, storePayload)
           : await storesApi.updateOperation(editingStore.id, {
-              openTime: storePayload.openTime, closeTime: storePayload.closeTime, status: storePayload.status,
+              openTime: storePayload.openTime,
+              closeTime: storePayload.closeTime,
+              status: storePayload.status ?? undefined,
+              phone: storePayload.phone ?? undefined,
+              deliveryArea: storePayload.deliveryArea ?? undefined,
             });
         setStores((prev) => prev.map((store) => store.id === updated.id ? updated : store));
         message.success(t("business:stores.storeDetailsUpdatedFor", { value1: updated.name }));
@@ -389,15 +393,14 @@ export const StoresPage: React.FC = () => {
         subtitle={t("business:stores.detailsShownInTheCustomerAppAndUsedForOrderRouting")}
         width={680}
       >
-        {!isAdmin && <p>{t('errors:NOT_IMPLEMENTED')}: {t('business:stores.storeHotline')} / {t('business:stores.supportedDeliveryAreaRadiusNearbyDistricts')}</p>}
-        <Form form={form} layout="vertical" disabled={!isAdmin}>
+        <Form form={form} layout="vertical">
           {!editingStore && <Form.Item name="recoveryEmail" label={t("accounts:recovery")} rules={[{ required: true, type: 'email', max: 255 }]}><Input autoComplete="email" /></Form.Item>}
           <Form.Item
             name="name"
             label={t("business:stores.storeName")}
             rules={[{ required: true, message: t("business:stores.pleaseEnterAStoreName") }]}
           >
-            <Input placeholder={t("business:stores.forExampleCluckyLLIFlagshipStore")} style={{ height: 40 }} />
+            <Input disabled={!isAdmin} placeholder={t("business:stores.forExampleCluckyLLIFlagshipStore")} style={{ height: 40 }} />
           </Form.Item>
 
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
@@ -406,7 +409,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.fullAddressHouseNumberStreetWard")}
               rules={[{ required: true, message: t("business:stores.enterFullAddress") }]}
             >
-              <Input placeholder={t("business:stores.enterFullAddress")} style={{ height: 40 }} />
+              <Input disabled={!isAdmin} placeholder={t("business:stores.enterFullAddress")} style={{ height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -414,7 +417,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:account.district")}
               rules={[{ required: true, message: t("business:stores.enterDistrict") }]}
             >
-              <Input placeholder={t("business:stores.enterDistrict")} style={{ height: 40 }} />
+              <Input disabled={!isAdmin} placeholder={t("business:stores.enterDistrict")} style={{ height: 40 }} />
             </Form.Item>
           </div>
 
@@ -432,7 +435,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.openingTime")}
               rules={[{ required: true, message: t("business:stores.chooseOpeningTime") }]}
             >
-              <TimePicker disabled={false} format="HH:mm" style={{ width: '100%', height: 40 }} />
+              <TimePicker format="HH:mm" style={{ width: '100%', height: 40 }} />
             </Form.Item>
 
             <Form.Item
@@ -440,7 +443,7 @@ export const StoresPage: React.FC = () => {
               label={t("business:stores.closingTime")}
               rules={[{ required: true, message: t("business:stores.chooseClosingTime") }]}
             >
-              <TimePicker disabled={false} format="HH:mm" style={{ width: '100%', height: 40 }} />
+              <TimePicker format="HH:mm" style={{ width: '100%', height: 40 }} />
             </Form.Item>
           </div>
 
@@ -449,7 +452,7 @@ export const StoresPage: React.FC = () => {
             label={t("business:stores.city")}
             rules={[{ required: true, message: t("business:stores.enterCity") }]}
           >
-            <Input placeholder={t("business:stores.enterCity")} style={{ height: 40 }} />
+            <Input disabled={!isAdmin} placeholder={t("business:stores.enterCity")} style={{ height: 40 }} />
           </Form.Item>
 
           <Form.Item
@@ -475,10 +478,10 @@ export const StoresPage: React.FC = () => {
             </Form.Item>
 
             <Form.Item name="status" label={t("business:stores.activityStatus")}>
-              <Radio.Group disabled={false} style={{ marginTop: 6 }}>
+              <Radio.Group style={{ marginTop: 6 }}>
                 <Radio value="OPEN">{t("business:stores.open")}</Radio>
                 <Radio value="CLOSED_TEMP">{t("business:stores.temporarilyClosed")}</Radio>
-                <Radio value="INACTIVE">{t("business:stores.salesStopped")}</Radio>
+                <Radio value="INACTIVE" disabled={!isAdmin}>{t("business:stores.salesStopped")}</Radio>
               </Radio.Group>
             </Form.Item>
           </div>

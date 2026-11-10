@@ -47,7 +47,12 @@ public class NotificationConsumer {
                     "order.cancelled",
                     "payment.confirmed",
                     "payment.failed",
-                    "promotion.approved"
+                    "promotion.approved",
+                    "refund.approved",
+                    "refund.rejected",
+                    "refund.waiting-bank-details",
+                    "refund.confirmed",
+                    "inventory.low-stock"
             },
             groupId = "${spring.kafka.consumer.group-id:notification-group}"
     )
@@ -200,11 +205,51 @@ public class NotificationConsumer {
                 String content = "Thanh toán cho đơn hàng #" + orderCode + " thất bại." + (!reason.isBlank() ? " Lý do: " + reason : "");
                 yield new NotificationSpec(title, content, "PAYMENT", "PAYMENT_FAILED", vars);
             }
+            case "refund.approved" -> {
+                String title = "Yêu cầu hoàn tiền đã được tiếp nhận";
+                String content = "Yêu cầu hoàn tiền cho đơn hàng #" + orderCode + " đã được tiếp nhận xử lý.";
+                yield new NotificationSpec(title, content, "REFUND", null, vars);
+            }
+            case "refund.rejected" -> {
+                String reason = payload.hasNonNull("reason") ? payload.get("reason").asText() : "";
+                if (!reason.isBlank()) {
+                    vars.put("reason", reason);
+                }
+                String title = "Yêu cầu hoàn tiền bị từ chối";
+                String content = "Yêu cầu hoàn tiền cho đơn hàng #" + orderCode + " bị từ chối." + (!reason.isBlank() ? " Lý do: " + reason : "");
+                yield new NotificationSpec(title, content, "REFUND", "REFUND_REJECTED", vars);
+            }
+            case "refund.waiting-bank-details" -> {
+                String reason = payload.hasNonNull("reason") ? payload.get("reason").asText() : "";
+                if (!reason.isBlank()) {
+                    vars.put("reason", reason);
+                }
+                String title = "Cần cập nhật thông tin nhận hoàn tiền";
+                String content = "Chuyển tiền hoàn cho đơn hàng #" + orderCode + " chưa thành công." + (!reason.isBlank() ? " Lý do: " + reason : "") + ". Vui lòng cập nhật lại thông tin tài khoản ngân hàng.";
+                yield new NotificationSpec(title, content, "REFUND", "REFUND_WAITING_BANK_DETAILS", vars);
+            }
+            case "refund.confirmed" -> {
+                String title = "Hoàn tiền thành công";
+                String amount = vars.get("amount");
+                String content = "Số tiền " + (!amount.isBlank() ? amount + "đ " : "") + "cho đơn hàng #" + orderCode + " đã được hoàn tất.";
+                yield new NotificationSpec(title, content, "REFUND", "REFUND_CONFIRMED", vars);
+            }
+            case "inventory.low-stock" -> {
+                String productName = payload.hasNonNull("productName") ? payload.get("productName").asText() : "Món ăn";
+                int qty = payload.hasNonNull("quantity") ? payload.get("quantity").asInt() : 0;
+                int threshold = payload.hasNonNull("threshold") ? payload.get("threshold").asInt() : 20;
+                String title = "Cảnh báo tồn kho thấp";
+                String content = "Sản phẩm " + productName + " hiện chỉ còn " + qty + " phần (ngưỡng cảnh báo: " + threshold + ").";
+                yield new NotificationSpec(title, content, "INVENTORY", null, vars);
+            }
             default -> null;
         };
     }
 
     private Long extractCustomerId(JsonNode payload) {
+        if (payload.hasNonNull("managerUserId")) {
+            return payload.get("managerUserId").asLong();
+        }
         if (payload.hasNonNull("customerId")) {
             return payload.get("customerId").asLong();
         }

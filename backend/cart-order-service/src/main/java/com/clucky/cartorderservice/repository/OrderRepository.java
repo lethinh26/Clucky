@@ -31,13 +31,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         SELECT o FROM Order o
         WHERE (:storeId IS NULL OR o.storeId = :storeId)
           AND (:status IS NULL OR o.status = :status)
-          AND (:orderCode IS NULL OR LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :orderCode, '%')))
+          AND (:orderCodePattern IS NULL OR LOWER(o.orderCode) LIKE :orderCodePattern)
         ORDER BY o.createdAt DESC
     """)
     Page<Order> findOrders(
         @Param("storeId") Long storeId,
         @Param("status") String status,
-        @Param("orderCode") String orderCode,
+        @Param("orderCodePattern") String orderCodePattern,
         Pageable pageable
     );
 }

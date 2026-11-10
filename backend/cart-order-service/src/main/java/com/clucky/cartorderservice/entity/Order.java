@@ -67,6 +67,7 @@ public class Order {
     private String paymentStatus = "PENDING";
 
     public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
 
     @Column(name = "scheduled_at", nullable = true)
     private Instant scheduledAt;

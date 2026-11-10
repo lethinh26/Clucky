@@ -12,6 +12,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageConversionException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -38,7 +39,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,
-            HttpMessageNotReadableException.class, HandlerMethodValidationException.class,
+            HttpMessageConversionException.class, HttpMessageNotReadableException.class, HandlerMethodValidationException.class,
             MethodArgumentTypeMismatchException.class})
     ResponseEntity<ApiError> invalid(Exception failure, HttpServletRequest request) {
         return respond(HttpStatus.BAD_REQUEST, request);

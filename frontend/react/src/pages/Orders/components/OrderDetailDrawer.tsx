@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../../i18n/hooks";
 import { useState } from "react";
-import { Drawer, Button, Modal, Input } from "antd";
+import { Drawer, Button, Modal, Input, Space, Tag } from "antd";
+import { message } from "../../../components/feedback";
 import {
   Clock3,
   UserRound,
@@ -49,10 +50,16 @@ export function OrderDetailDrawer({
 
 
   const { locale, money: money } = useLocaleTools();
-  const { actionError } = useOrders();
+  const { actionError, createRefund } = useOrders();
   const { isStaff } = useAuth();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [createRefundOpen, setCreateRefundOpen] = useState(false);
+  const [refundReason, setRefundReason] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountNo, setAccountNo] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [submittingRefund, setSubmittingRefund] = useState(false);
   if (!order) return null;
   return (
     <>
@@ -94,14 +101,30 @@ export function OrderDetailDrawer({
           </div>
         )}
         {order.refundStatus && !order.hasRefundRequest && (
-          <p className={styles.drawerNotice}> {t("business:orderdetaildrawer.refundDecision")}{" "}
-            {order.refundStatus === "APPROVED"
-              ? t("business:orderdetaildrawer.approved")
-              : order.refundStatus === "REJECTED"
-                ? t("business:orderdetaildrawer.rejected")
-                : order.refundStatus}
-            .
-          </p>
+          <div className={styles.drawerNotice} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                {t("business:orderdetaildrawer.refundDecision")}:{" "}
+                {order.refundStatus === "REFUNDED" ? (
+                  <Tag color="success">Đã hoàn tất ({money(order.refundAmount ?? order.total)})</Tag>
+                ) : order.refundStatus === "REJECTED" ? (
+                  <Tag color="error">Bị từ chối</Tag>
+                ) : (
+                  <Tag color="default">{order.refundStatus}</Tag>
+                )}
+              </div>
+              {order.refundData?.bankName && (
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                  Tài khoản: {order.refundData.bankName} - {order.refundData.accountNumber || order.refundData.bankAccountNo} ({order.refundData.accountHolderName || order.refundData.bankAccountName})
+                </div>
+              )}
+            </div>
+            {!isStaff && onOpenRefundModal && order.refundRequestId && (
+              <Button size="small" onClick={() => onOpenRefundModal(order)}>
+                {t("business:orderspage.viewDetails")}
+              </Button>
+            )}
+          </div>
         )}
         <section className={styles.drawerSection}>
           <h2 className={styles.drawerHeading}>
@@ -260,6 +283,25 @@ export function OrderDetailDrawer({
                 }}
               > {t("business:orderdetaildrawer.rejectCancelOrder")} </Button>
             )}
+            {order.status === "CANCELLED" &&
+              order.paymentMethod === "BANK_TRANSFER" &&
+              !order.hasRefundRequest &&
+              !order.refundStatus &&
+              !isStaff && (
+                <Button
+                  danger
+                  type="primary"
+                  onClick={() => {
+                    setRefundReason("Đơn chuyển khoản hủy hợp lệ - yêu cầu hoàn tiền");
+                    setBankName("");
+                    setAccountNo("");
+                    setAccountName(order.customerName || "");
+                    setCreateRefundOpen(true);
+                  }}
+                >
+                  Tạo yêu cầu hoàn tiền
+                </Button>
+              )}
             {["COMPLETED", "CANCELLED"].includes(order.status) && (
               <p className={styles.drawerNotice}> {t("business:orderdetaildrawer.thisOrderHasEndedNoFurtherStatusChangesAreAvailable")} </p>
             )}
@@ -270,6 +312,72 @@ export function OrderDetailDrawer({
             )}
         </section>
       </Drawer>
+      <Modal
+        title={`Tạo yêu cầu hoàn tiền - ${order.orderCode}`}
+        open={createRefundOpen}
+        onCancel={() => setCreateRefundOpen(false)}
+        okText="Gửi yêu cầu hoàn tiền"
+        cancelText="Đóng"
+        confirmLoading={submittingRefund}
+        okButtonProps={{
+          danger: true,
+          disabled: !refundReason.trim() || !bankName.trim() || !accountNo.trim() || !accountName.trim(),
+        }}
+        onOk={async () => {
+          setSubmittingRefund(true);
+          const ok = await createRefund({
+            orderId: Number(order.id),
+            reason: refundReason.trim(),
+            bankName: bankName.trim(),
+            bankAccountNo: accountNo.trim(),
+            bankAccountName: accountName.trim(),
+          });
+          setSubmittingRefund(false);
+          if (ok) {
+            setCreateRefundOpen(false);
+            message.success("Đã tạo yêu cầu hoàn tiền thành công!");
+          }
+        }}
+      >
+        <p style={{ color: "#6b6259", marginBottom: 12 }}>
+          Đơn hàng đủ điều kiện hoàn tiền: <strong>{money(order.total)}</strong>. Nhập thông tin tài khoản nhận hoàn tiền của khách hàng:
+        </p>
+        <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          <div>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Ngân hàng *</label>
+            <Input
+              value={bankName}
+              onChange={(e) => setBankName(e.target.value)}
+              placeholder="Vietcombank, MB Bank, v.v."
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Số tài khoản *</label>
+            <Input
+              value={accountNo}
+              onChange={(e) => setAccountNo(e.target.value)}
+              placeholder="123456789..."
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Tên chủ tài khoản *</label>
+            <Input
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              placeholder="NGUYEN VAN A"
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Lý do hoàn tiền *</label>
+            <Input.TextArea
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              rows={2}
+              placeholder="Lý do hoàn..."
+            />
+          </div>
+        </Space>
+      </Modal>
       <Modal
         title={t("business:orderdetaildrawer.cancelOrder", { value1: order.orderCode })}
         open={cancelOpen}
