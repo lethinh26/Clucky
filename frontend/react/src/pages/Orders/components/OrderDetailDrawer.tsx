@@ -106,16 +106,20 @@ export function OrderDetailDrawer({
               <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                 {t("business:orderdetaildrawer.refundDecision")}:{" "}
                 {order.refundStatus === "REFUNDED" ? (
-                  <Tag color="success">Đã hoàn tất ({money(order.refundAmount ?? order.total)})</Tag>
+                  <Tag color="success">
+                    {t("business:orderdetaildrawer.refundCompletedAmount", {
+                      value1: money(order.refundAmount ?? order.total),
+                    })}
+                  </Tag>
                 ) : order.refundStatus === "REJECTED" ? (
-                  <Tag color="error">Bị từ chối</Tag>
+                  <Tag color="error">{t("business:orderdetaildrawer.refundRejectedTag")}</Tag>
                 ) : (
                   <Tag color="default">{order.refundStatus}</Tag>
                 )}
               </div>
               {order.refundData?.bankName && (
                 <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                  Tài khoản: {order.refundData.bankName} - {order.refundData.accountNumber || order.refundData.bankAccountNo} ({order.refundData.accountHolderName || order.refundData.bankAccountName})
+                  {t("business:orderdetaildrawer.accountLabel")} {order.refundData.bankName} - {order.refundData.accountNumber || order.refundData.bankAccountNo} ({order.refundData.accountHolderName || order.refundData.bankAccountName})
                 </div>
               )}
             </div>
@@ -292,14 +296,14 @@ export function OrderDetailDrawer({
                   danger
                   type="primary"
                   onClick={() => {
-                    setRefundReason("Đơn chuyển khoản hủy hợp lệ - yêu cầu hoàn tiền");
+                    setRefundReason(t("business:orderdetaildrawer.eligibleRefundNotice"));
                     setBankName("");
                     setAccountNo("");
                     setAccountName(order.customerName || "");
                     setCreateRefundOpen(true);
                   }}
                 >
-                  Tạo yêu cầu hoàn tiền
+                  {t("business:orderdetaildrawer.createRefundRequest")}
                 </Button>
               )}
             {["COMPLETED", "CANCELLED"].includes(order.status) && (
@@ -313,11 +317,11 @@ export function OrderDetailDrawer({
         </section>
       </Drawer>
       <Modal
-        title={`Tạo yêu cầu hoàn tiền - ${order.orderCode}`}
+        title={`${t("business:orderdetaildrawer.createRefundRequest")} - ${order.orderCode}`}
         open={createRefundOpen}
         onCancel={() => setCreateRefundOpen(false)}
-        okText="Gửi yêu cầu hoàn tiền"
-        cancelText="Đóng"
+        okText={t("business:orderdetaildrawer.submitRefundRequest")}
+        cancelText={t("business:orderdetaildrawer.close")}
         confirmLoading={submittingRefund}
         okButtonProps={{
           danger: true,
@@ -335,16 +339,16 @@ export function OrderDetailDrawer({
           setSubmittingRefund(false);
           if (ok) {
             setCreateRefundOpen(false);
-            message.success("Đã tạo yêu cầu hoàn tiền thành công!");
+            message.success(t("business:orderdetaildrawer.refundRequestSuccess"));
           }
         }}
       >
         <p style={{ color: "#6b6259", marginBottom: 12 }}>
-          Đơn hàng đủ điều kiện hoàn tiền: <strong>{money(order.total)}</strong>. Nhập thông tin tài khoản nhận hoàn tiền của khách hàng:
+          {t("business:orderdetaildrawer.refundInstruction", { value1: money(order.total) })}
         </p>
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Ngân hàng *</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.bankLabel")}</label>
             <Input
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
@@ -352,7 +356,7 @@ export function OrderDetailDrawer({
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Số tài khoản *</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNoLabel")}</label>
             <Input
               value={accountNo}
               onChange={(e) => setAccountNo(e.target.value)}
@@ -360,7 +364,7 @@ export function OrderDetailDrawer({
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Tên chủ tài khoản *</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNameLabel")}</label>
             <Input
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
@@ -368,12 +372,12 @@ export function OrderDetailDrawer({
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Lý do hoàn tiền *</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.refundReasonLabel")}</label>
             <Input.TextArea
               value={refundReason}
               onChange={(e) => setRefundReason(e.target.value)}
               rows={2}
-              placeholder="Lý do hoàn..."
+              placeholder={t("business:orderdetaildrawer.refundReasonPlaceholder")}
             />
           </div>
         </Space>

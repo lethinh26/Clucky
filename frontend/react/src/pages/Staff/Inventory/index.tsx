@@ -542,7 +542,7 @@ export const StaffInventoryPage: React.FC = () => {
         }}
         confirmLoading={savingThreshold}
         title={t("business:inventory.editStoreThreshold")}
-        subtitle="Ngưỡng cảnh báo sắp hết hàng áp dụng cho toàn bộ món ăn tại chi nhánh"
+        subtitle={t("business:inventory.storeThresholdSubtitle")}
         width={420}
       >
         <div style={{ padding: '12px 0' }}>

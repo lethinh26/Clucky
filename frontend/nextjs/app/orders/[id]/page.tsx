@@ -258,7 +258,7 @@ export default function OrderTrackingPage({
       });
       setRefund(res);
       setCreateRefundOpen(false);
-      notify.success("Yêu cầu hoàn tiền đã được gửi thành công!");
+      notify.success(t("business.id.refundRequestSent"));
     } catch (err: unknown) {
       notify.error(getErrorMessage(err));
     } finally {
@@ -454,7 +454,7 @@ export default function OrderTrackingPage({
                   className={styles.outlineButton}
                   onClick={() => setCreateRefundOpen(true)}
                 >
-                  <RotateCcw size={17} /> Yêu cầu hoàn tiền
+                  <RotateCcw size={17} /> {t("business.id.requestRefund")}
                 </button>
               )}
               <Link href="/orders" className={styles.textButton}>
@@ -583,30 +583,30 @@ export default function OrderTrackingPage({
                       </div>
                       <div style={{ fontSize: "13px", lineHeight: "1.7", color: "#1e3a2b" }}>
                         <div>
-                          Số tiền đã hoàn:{" "}
+                          {t("business.id.refundedAmount")}{" "}
                           <strong style={{ color: "#15803d", fontSize: "14px" }}>
                             {formatPrice(refund?.amount ?? order.totalAmount)}
                           </strong>
                         </div>
                         {(refund?.bankName || order.refundData?.bankName) && (
-                          <div>Ngân hàng thụ hưởng: <strong>{refund?.bankName || order.refundData?.bankName}</strong></div>
+                          <div>{t("business.id.beneficiaryBank")} <strong>{refund?.bankName || order.refundData?.bankName}</strong></div>
                         )}
                         {(refund?.accountNumber || order.refundData?.accountNumber) && (
-                          <div>Số tài khoản: <strong>{refund?.accountNumber || order.refundData?.accountNumber}</strong></div>
+                          <div>{t("business.id.bankAccountNumber")} <strong>{refund?.accountNumber || order.refundData?.accountNumber}</strong></div>
                         )}
                         {(refund?.accountHolderName || order.refundData?.accountHolderName) && (
-                          <div>Chủ tài khoản: <strong>{refund?.accountHolderName || order.refundData?.accountHolderName}</strong></div>
+                          <div>{t("business.id.bankAccountHolder")} <strong>{refund?.accountHolderName || order.refundData?.accountHolderName}</strong></div>
                         )}
                       </div>
                       {evidenceUrl && (
                         <div style={{ marginTop: "12px", borderTop: "1px dashed #86efac", paddingTop: "10px" }}>
                           <span style={{ fontSize: "12px", fontWeight: 600, color: "#166534", display: "block", marginBottom: "6px" }}>
-                            Chứng từ chuyển khoản:
+                            {t("business.id.transferEvidence")}
                           </span>
                           <a href={evidenceUrl} target="_blank" rel="noopener noreferrer">
                             <img
                               src={evidenceUrl}
-                              alt="Chứng từ chuyển khoản"
+                              alt={t("business.id.transferEvidenceAlt")}
                               style={{
                                 width: "100%",
                                 maxHeight: "160px",
@@ -616,7 +616,7 @@ export default function OrderTrackingPage({
                                 cursor: "pointer",
                                 background: "#fff",
                               }}
-                              title="Bấm để xem ảnh phóng to"
+                              title={t("business.id.clickToEnlargeImage")}
                             />
                           </a>
                         </div>
@@ -636,7 +636,7 @@ export default function OrderTrackingPage({
                   return (
                     <div style={{ background: "#fffaf3", border: "1px solid #e8e2d9", borderRadius: "14px", padding: "14px 18px", marginTop: "14px" }}>
                       <p style={{ margin: "0 0 10px", color: "#8f1216", fontSize: "14px", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
-                        <CircleAlert size={16} /> Đơn hủy đã thanh toán chuyển khoản đủ điều kiện hoàn tiền
+                        <CircleAlert size={16} /> {t("business.id.eligibleRefundCancelledNotice")}
                       </p>
                       <button
                         type="button"
@@ -644,7 +644,7 @@ export default function OrderTrackingPage({
                         style={{ fontSize: "13px", padding: "8px 16px" }}
                         onClick={() => setCreateRefundOpen(true)}
                       >
-                        Yêu cầu hoàn tiền
+                        {t("business.id.requestRefund")}
                       </button>
                     </div>
                   );
@@ -782,9 +782,9 @@ export default function OrderTrackingPage({
           titleId="create-refund-title"
         >
           <div className={styles.cancelDialog}>
-            <h2 id="create-refund-title">Yêu cầu hoàn tiền</h2>
+            <h2 id="create-refund-title">{t("business.id.requestRefund")}</h2>
             <p style={{ fontSize: "13px", color: "#64748b", margin: "4px 0 12px" }}>
-              Vui lòng cung cấp thông tin tài khoản ngân hàng để nhận lại tiền hoàn ({formatPrice(order.totalAmount)}).
+              {t("business.id.provideBankDetailsNotice", { amount: formatPrice(order.totalAmount) })}
             </p>
             <label htmlFor="create-refund-bank-name" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
               {t("business.id.bankName")} *
@@ -817,13 +817,13 @@ export default function OrderTrackingPage({
               style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "12px", fontSize: "14px", boxSizing: "border-box" }}
             />
             <label htmlFor="create-refund-reason" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
-              Lý do hoàn tiền *
+              {t("business.id.refundReason")}
             </label>
             <textarea
               id="create-refund-reason"
               value={createRefundForm.reason}
               onChange={(e) => setCreateRefundForm((prev) => ({ ...prev, reason: e.target.value }))}
-              placeholder="Nhập lý do hoàn tiền..."
+              placeholder={t("business.id.enterRefundReason")}
               rows={3}
               style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "16px", fontSize: "14px", boxSizing: "border-box" }}
             />
@@ -833,7 +833,7 @@ export default function OrderTrackingPage({
                 className={styles.outlineButton}
                 onClick={() => setCreateRefundOpen(false)}
               >
-                Hủy bỏ
+                {t("business.id.cancel")}
               </button>
               <button
                 type="button"
@@ -847,7 +847,7 @@ export default function OrderTrackingPage({
                 }
                 onClick={handleCreateRefund}
               >
-                {submittingCreateRefund ? "Đang gửi..." : "Gửi yêu cầu"}
+                {submittingCreateRefund ? t("business.id.sending") : t("business.id.submitRequest")}
               </button>
             </div>
           </div>

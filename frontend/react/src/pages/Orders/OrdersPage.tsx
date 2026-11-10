@@ -182,13 +182,17 @@ export const OrdersPage: React.FC = () => {
         <Space direction="vertical" size={2}>
           <OrderStatusBadge status={status} />
           {record.refundStatus === "REFUNDED" ? (
-            <Tag color="success">Đã hoàn: {new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN").format(record.refundAmount ?? record.total)}đ</Tag>
+            <Tag color="success">
+              {t("business:orderspage.refundedBadge", {
+                value1: new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN").format(record.refundAmount ?? record.total),
+              })}
+            </Tag>
           ) : record.refundStatus === "PROCESSING" ? (
-            <Tag color="processing">Đang chuyển khoản</Tag>
+            <Tag color="processing">{t("business:orderspage.transferringTag")}</Tag>
           ) : record.refundStatus === "WAITING_BANK_DETAILS" ? (
-            <Tag color="warning">Chờ STK mới</Tag>
+            <Tag color="warning">{t("business:orderspage.waitingBankTag")}</Tag>
           ) : record.refundStatus === "APPROVED" ? (
-            <Tag color="cyan">Đã duyệt (bảo lưu)</Tag>
+            <Tag color="cyan">{t("business:orderspage.approvedReservedTag")}</Tag>
           ) : record.hasRefundRequest ? (
             <Badge status="error" text={t("business:orderspage.refundRequest")} />
           ) : null}
@@ -388,22 +392,34 @@ export const OrdersPage: React.FC = () => {
             buttonStyle="solid"
           >
             <Radio.Button value="ALL">
-              Tất cả hoàn tiền ({orders.filter((o) => o.hasRefundRequest || o.refundStatus).length})
+              {t("business:orderspage.filterAllRefunds", {
+                value1: orders.filter((o) => o.hasRefundRequest || o.refundStatus).length,
+              })}
             </Radio.Button>
             <Radio.Button value="PENDING">
-              Chờ duyệt ({orders.filter((o) => o.refundStatus === "PENDING").length})
+              {t("business:orderspage.filterPending", {
+                value1: orders.filter((o) => o.refundStatus === "PENDING").length,
+              })}
             </Radio.Button>
             <Radio.Button value="PROCESSING">
-              Đang chuyển tiền ({orders.filter((o) => o.refundStatus === "PROCESSING").length})
+              {t("business:orderspage.filterProcessing", {
+                value1: orders.filter((o) => o.refundStatus === "PROCESSING").length,
+              })}
             </Radio.Button>
             <Radio.Button value="WAITING_BANK_DETAILS">
-              Chờ đổi STK ({orders.filter((o) => o.refundStatus === "WAITING_BANK_DETAILS").length})
+              {t("business:orderspage.filterWaitingBank", {
+                value1: orders.filter((o) => o.refundStatus === "WAITING_BANK_DETAILS").length,
+              })}
             </Radio.Button>
             <Radio.Button value="REFUNDED">
-              Đã hoàn tiền ({orders.filter((o) => o.refundStatus === "REFUNDED").length})
+              {t("business:orderspage.filterRefunded", {
+                value1: orders.filter((o) => o.refundStatus === "REFUNDED").length,
+              })}
             </Radio.Button>
             <Radio.Button value="REJECTED">
-              Bị từ chối ({orders.filter((o) => o.refundStatus === "REJECTED").length})
+              {t("business:orderspage.filterRejected", {
+                value1: orders.filter((o) => o.refundStatus === "REJECTED").length,
+              })}
             </Radio.Button>
           </Radio.Group>
         </div>

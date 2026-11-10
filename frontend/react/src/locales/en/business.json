@@ -337,7 +337,20 @@
     "thisOrderHasEndedNoFurtherStatusChangesAreAvailable": "This order has ended. No further status changes are available.",
     "confirmPaymentCollectionBeforeCompletingTheOrder": "Confirm payment collection before completing the order.",
     "cancelOrder": "Cancel order {{value1}}",
-    "enterACancellationReasonPaidOrdersWillCreateARefundRequestIn": "Enter a cancellation reason. Cancellation does not mean a refund was paid; this screen does not create a refund request locally."
+    "enterACancellationReasonPaidOrdersWillCreateARefundRequestIn": "Enter a cancellation reason. Cancellation does not mean a refund was paid; this screen does not create a refund request locally.",
+    "refundCompletedAmount": "Completed ({{value1}})",
+    "refundRejectedTag": "Rejected",
+    "accountLabel": "Account:",
+    "eligibleRefundNotice": "Eligible cancelled transfer order - refund request",
+    "createRefundRequest": "Create refund request",
+    "submitRefundRequest": "Submit refund request",
+    "refundRequestSuccess": "Refund request created successfully!",
+    "refundInstruction": "Order eligible for refund: {{value1}}. Enter customer beneficiary bank account details:",
+    "bankLabel": "Bank *",
+    "accountNoLabel": "Account number *",
+    "accountNameLabel": "Account holder name *",
+    "refundReasonLabel": "Refund reason *",
+    "refundReasonPlaceholder": "Refund reason..."
   },
   "refundmodal": {
     "unableToProcessThisRefundCheckYourPermissionsAndTheCurrentData": "Unable to process this refund. Check your permissions and the current data.",
@@ -385,7 +398,24 @@
     "transferAttempt": "Transfer Attempt #{{value1}}",
     "noBankInfo": "No bank details provided",
     "uploadFile": "Select evidence file (JPG, PNG, WEBP, PDF <= 5MB)",
-    "processRefund": "Process Refund"
+    "processRefund": "Process Refund",
+    "stateApprovedDesc": "Funds are safely reserved. Click Start Transfer to record the transfer attempt and destination account details.",
+    "stateProcessingDesc": "Manual bank transfer in progress. After transferring, upload the evidence receipt and click Confirm Completion.",
+    "stateWaitingBankDesc": "Previous beneficiary account details were invalid or transfer failed. Store managers can update details on behalf of the customer to proceed.",
+    "stateRefundedDesc": "Refund has been completed successfully and reservations have been released.",
+    "evidenceSecured": "Transfer receipt evidence has been stored securely",
+    "stateRejectedDefault": "Request was rejected.",
+    "invalidFormatError": "Only PNG, JPG or WebP images are allowed!",
+    "fileTooLargeError": "Image size must be less than 5MB!",
+    "dragDropHint": "Click or drag and drop transfer receipt here",
+    "supportedFormatsHint": "Supported: PNG, JPG, WebP (max 5MB)",
+    "invalidBankPlaceholder": "Example: Account locked / mismatched account holder...",
+    "bankNamePlaceholder": "Example: Vietcombank, Techcombank, MB Bank...",
+    "accountNumberPlaceholder": "Enter bank account number",
+    "accountHolderPlaceholder": "Enter account holder name (uppercase without accents)",
+    "confirmRefundPrompt": "Confirm that the transfer succeeded and evidence was properly attached. This marks the refund completed and releases reservations.",
+    "confirmNoteLabel": "Confirmation note (optional):",
+    "confirmNotePlaceholder": "Bank reference code / accounting notes..."
   },
   "orderspage": {
     "cannotChangeStatusYetCheckTheProgressAndConfirmPaymentCollectionBefore": "Cannot change status yet. Check the progress and confirm payment collection before completing the order.",
@@ -412,7 +442,17 @@
     "clearFilters": "Clear filters",
     "noOrdersMatchTheFilters": "No orders match the filters.",
     "viewDetails": "View details",
-    "ordersInTotal": "{{value1}} orders in total"
+    "ordersInTotal": "{{value1}} orders in total",
+    "refundedBadge": "Refunded: {{value1}} VND",
+    "transferringTag": "Transferring",
+    "waitingBankTag": "Awaiting new account",
+    "approvedReservedTag": "Approved (Reserved)",
+    "filterAllRefunds": "All refunds ({{value1}})",
+    "filterPending": "Pending ({{value1}})",
+    "filterProcessing": "Transferring ({{value1}})",
+    "filterWaitingBank": "Waiting for account ({{value1}})",
+    "filterRefunded": "Refunded ({{value1}})",
+    "filterRejected": "Rejected ({{value1}})"
   },
   "paymentspage": {
     "mismatch": "Mismatch",
@@ -591,7 +631,8 @@
     "storeLowStockThreshold": "Store Low-Stock Alert Threshold",
     "editStoreThreshold": "Edit Store Threshold",
     "storeThresholdUpdated": "Store low-stock threshold updated to {{value1}}.",
-    "outOfStockCannotEnable": "Item is out of stock (quantity = 0), cannot enable sales."
+    "outOfStockCannotEnable": "Item is out of stock (quantity = 0), cannot enable sales.",
+    "storeThresholdSubtitle": "Low-stock warning threshold applied across all dishes in the store"
   },
   "stafforderspage": {
     "newOrders": "New orders",

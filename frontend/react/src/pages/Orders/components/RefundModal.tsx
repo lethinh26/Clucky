@@ -372,7 +372,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 type="info"
                 showIcon
                 message={t("business:refundmodal.stateApproved")}
-                description="Khoản tiền đã được giữ bảo lưu an toàn. Nhấn Bắt đầu chuyển tiền để ghi nhận lượt chuyển tiền và thông tin tài khoản đích."
+                description={t("business:refundmodal.stateApprovedDesc")}
                 style={{ marginBottom: 16 }}
               />
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -395,7 +395,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 type="warning"
                 showIcon
                 message={t("business:refundmodal.stateProcessing")}
-                description="Đang thực hiện chuyển tiền thủ công qua ngân hàng. Sau khi chuyển thành công, tải lên chứng từ (bill chuyển khoản) và nhấn Xác nhận hoàn tất."
+                description={t("business:refundmodal.stateProcessingDesc")}
                 style={{ marginBottom: 16 }}
               />
 
@@ -411,12 +411,12 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                   beforeUpload={(file) => {
                     const isImg = ["image/jpeg", "image/png", "image/webp"].includes(file.type);
                     if (!isImg) {
-                      message.error("Chỉ chấp nhận định dạng ảnh PNG, JPG hoặc WebP!");
+                      message.error(t("business:refundmodal.invalidFormatError"));
                       return Upload.LIST_IGNORE;
                     }
                     const isLt5M = file.size / 1024 / 1024 < 5;
                     if (!isLt5M) {
-                      message.error("Dung lượng ảnh phải nhỏ hơn 5MB!");
+                      message.error(t("business:refundmodal.fileTooLargeError"));
                       return Upload.LIST_IGNORE;
                     }
                     setEvidenceFile(file);
@@ -429,10 +429,10 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                     <UploadCloud size={30} style={{ color: "#8f1216" }} />
                   </p>
                   <p className="ant-upload-text" style={{ fontSize: 13, fontWeight: 500, margin: "0 0 2px" }}>
-                    Nhấp hoặc kéo thả bill chuyển tiền vào đây
+                    {t("business:refundmodal.dragDropHint")}
                   </p>
                   <p className="ant-upload-hint" style={{ fontSize: 11, color: "#64748b", margin: 0 }}>
-                    Hỗ trợ PNG, JPG, WebP (tối đa 5MB)
+                    {t("business:refundmodal.supportedFormatsHint")}
                   </p>
                 </Upload.Dragger>
 
@@ -502,7 +502,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 type="warning"
                 showIcon
                 message={t("business:refundmodal.stateWaitingBank")}
-                description="Tài khoản nhận tiền trước đó không hợp lệ hoặc không chuyển được. Quản lý có thể cập nhật thông tin mới thay khách hàng để tiếp tục quy trình."
+                description={t("business:refundmodal.stateWaitingBankDesc")}
                 style={{ marginBottom: 16 }}
               />
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -524,7 +524,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 type="success"
                 showIcon
                 message={t("business:refundmodal.stateRefunded")}
-                description="Khoản tiền đã hoàn trả thành công và đã giải phóng bảo lưu."
+                description={t("business:refundmodal.stateRefundedDesc")}
                 style={{ marginBottom: 16 }}
               />
               {hasEvidence && (
@@ -532,7 +532,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                   <Space>
                     <CheckCircle2 size={16} color="#16a34a" />
                     <span style={{ fontSize: 13, color: "#166534", fontWeight: 600 }}>
-                      Chứng từ chuyển khoản đã được lưu trữ an toàn
+                      {t("business:refundmodal.evidenceSecured")}
                     </span>
                   </Space>
                   <Button icon={<Eye size={14} />} onClick={handleViewEvidence}>
@@ -553,7 +553,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 type="error"
                 showIcon
                 message={t("business:refundmodal.stateRejected")}
-                description={refund?.reviewNote || "Yêu cầu đã bị từ chối."}
+                description={refund?.reviewNote || t("business:refundmodal.stateRejectedDefault")}
                 style={{ marginBottom: 16 }}
               />
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -580,7 +580,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           rows={3}
           value={invalidReason}
           onChange={(e) => setInvalidReason(e.target.value)}
-          placeholder="Ví dụ: Tài khoản bị khóa / sai tên chủ tài khoản..."
+          placeholder={t("business:refundmodal.invalidBankPlaceholder")}
         />
       </Modal>
 
@@ -604,7 +604,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
             <Input
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
-              placeholder="Ví dụ: Vietcombank, Techcombank, MB Bank..."
+              placeholder={t("business:refundmodal.bankNamePlaceholder")}
             />
           </div>
           <div>
@@ -614,7 +614,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
             <Input
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value)}
-              placeholder="Nhập số tài khoản ngân hàng"
+              placeholder={t("business:refundmodal.accountNumberPlaceholder")}
             />
           </div>
           <div>
@@ -624,7 +624,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
             <Input
               value={accountHolderName}
               onChange={(e) => setAccountHolderName(e.target.value)}
-              placeholder="Nhập tên chủ tài khoản (in hoa không dấu)"
+              placeholder={t("business:refundmodal.accountHolderPlaceholder")}
             />
           </div>
         </div>
@@ -640,16 +640,16 @@ export const RefundModal: React.FC<RefundModalProps> = ({
         okText={t("adminmodal:confirmAction")}
       >
         <Typography.Paragraph>
-          Xác nhận bạn đã chuyển tiền thành công và chứng từ đã được đính kèm chính xác. Thao tác này sẽ đánh dấu hoàn tất và giải phóng bảo lưu.
+          {t("business:refundmodal.confirmRefundPrompt")}
         </Typography.Paragraph>
         <label style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>
-          Ghi chú xác nhận (tùy chọn):
+          {t("business:refundmodal.confirmNoteLabel")}
         </label>
         <Input.TextArea
           rows={2}
           value={confirmNote}
           onChange={(e) => setConfirmNote(e.target.value)}
-          placeholder="Mã tham chiếu ngân hàng / ghi chú kế toán..."
+          placeholder={t("business:refundmodal.confirmNotePlaceholder")}
         />
       </Modal>
     </>
