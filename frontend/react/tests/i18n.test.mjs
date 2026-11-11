@@ -96,6 +96,29 @@ test('i18next switches language without recreating its instance', async () => {
   }
 });
 
+test('admin labels, history and interpolated messages follow language changes without reloading modules', async () => {
+  const { default: i18n } = await import('../src/i18n/index.ts');
+  const { paymentLabels, historyReason } = await import('../src/pages/Orders/presentation.ts');
+  const { accountRole, accountReadiness } = await import('../src/pages/Users/branch-account-presentation.ts');
+  const original = i18n.language;
+  try {
+    await i18n.changeLanguage('en');
+    assert.equal(accountRole('STAFF'), 'Operations account');
+    assert.equal(accountReadiness('PROVISIONED'), 'Awaiting activation');
+    assert.equal(historyReason('PAYMENT_EXPIRED'), 'The payment deadline expired. The system automatically cancelled the order.');
+    assert.equal(i18n.t('admin:ui.removeOptionFromGroup', { value1: 2, value2: 3 }), 'Remove option 2 from group 3');
+    assert.equal(paymentLabels.PAID, resources.en.admin.paymentStates.PAID);
+    await i18n.changeLanguage('vi');
+    assert.equal(accountRole('STAFF'), 'Tài khoản tác nghiệp');
+    assert.equal(accountReadiness('PROVISIONED'), 'Chờ kích hoạt');
+    assert.equal(historyReason('PAYMENT_EXPIRED'), 'Quá thời hạn thanh toán. Hệ thống tự động hủy đơn.');
+    assert.equal(paymentLabels.PAID, 'Đã thanh toán');
+    assert.equal(historyReason('Khách yêu cầu hủy'), 'Khách yêu cầu hủy');
+  } finally {
+    await i18n.changeLanguage(original);
+  }
+});
+
 test('UI uses registered bilingual keys; Vietnamese literals are reviewed domain data only', () => {
   const root = fileURLToPath(new URL('../', import.meta.url));
   const allowed = JSON.parse(readFileSync(new URL('./i18n-domain-data.json', import.meta.url), 'utf8')).files;

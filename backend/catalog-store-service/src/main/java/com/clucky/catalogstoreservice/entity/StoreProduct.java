@@ -30,6 +30,12 @@ public class StoreProduct {
     @Column(name = "is_sold_out", nullable = false)
     private Boolean isSoldOut = false;
 
+    @Version
+    @Column(nullable = false)
+    private Long version = 0L;
+
+    public Long getVersion() { return version; }
+
     public StoreProduct() {}
 
     public StoreProduct(Long id, Store store, Product product, BigDecimal storePrice, Boolean isAvailable, Boolean isSoldOut) {

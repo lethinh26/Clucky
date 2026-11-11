@@ -6,7 +6,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 public record AuditLogQuery(
         @Positive Long actorId,
-        @Pattern(regexp = "STAFF|STORE_MANAGER|ADMIN") String actorRole,
+        @Pattern(regexp = "CUSTOMER|STAFF|STORE_MANAGER|ADMIN") String actorRole,
         @Pattern(regexp = "[A-Za-z0-9._-]{1,100}") String sourceService,
         @Pattern(regexp = "[A-Za-z0-9._:-]{1,100}") String action,
         @Pattern(regexp = "[A-Za-z0-9._:-]{1,100}") String targetType,

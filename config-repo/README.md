@@ -27,13 +27,15 @@ config-repo/
 
 ## How services read config
 
-Order calls Catalog's internal validation endpoint with a short-lived (60-second) signed service JWT
-issued from its existing JWT configuration when `CATALOG_SERVICE_TOKEN` is empty. The reserved numeric
-subject is `Long.MAX_VALUE`, not a customer or administrator. An explicit `CATALOG_SERVICE_TOKEN`
-from Config Server/environment overrides this default and must be provisioned/rotated as an internal JWT
-with role `INTERNAL_SERVICE`, a positive service subject, `sid`, `iat`, `exp`, and the configured
-issuer/audience accepted by Catalog. No customer token is forwarded. Invalid/expired explicit credentials
-fail checkout with a dependency error; do not disable the internal endpoint's role guard.
+Order calls Catalog, Payment and Loyalty with a fresh 60-second service JWT signed using the existing
+`JWT_SECRET`, issuer and audience. Loyalty uses the same mechanism when reconciling orders.
+Tokens have role `INTERNAL_SERVICE`, a signed `service` claim, `sid`, `iat` and `exp`. Reserved numeric
+subjects are `Long.MAX_VALUE` for Order and `Long.MAX_VALUE - 1` for Promotion/Loyalty, not user IDs.
+Loyalty's internal mutations accept only the Order service; Order's internal reconciliation reads accept
+only Promotion/Loyalty. Both use the normal signature/issuer/audience/expiry/revocation validation,
+and Gateway continues to deny public access to internal routes. No shared custom-header token or
+manually configured service JWT is required. Customer voucher validation still forwards the customer's
+JWT so ownership checks remain intact. Rebuild/update both services together when changing this contract.
 
 Each business service bootstraps with:
 

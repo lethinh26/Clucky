@@ -81,7 +81,7 @@ public class OutboxProcessor {
         }
 
         OutboxEvent outbox = opt.get();
-        if ("PROCESSED".equals(outbox.getStatus())) {
+        if (!"PENDING".equals(outbox.getStatus())) {
             return;
         }
 
@@ -105,7 +105,7 @@ public class OutboxProcessor {
             int newRetry = outbox.getRetryCount() + 1;
             outbox.setRetryCount(newRetry);
             outbox.setLastError(ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName());
-            if (newRetry >= MAX_RETRIES) {
+            if (newRetry >= MAX_RETRIES && !outbox.getTopic().startsWith("refund.") && !"audit.recorded".equals(outbox.getTopic())) {
                 outbox.setStatus("FAILED");
                 LOG.error("event=outbox_event_max_retries_exceeded outboxId={} eventId={} topic={} error={}",
                         outbox.getId(), outbox.getEventId(), outbox.getTopic(), ex.getMessage());

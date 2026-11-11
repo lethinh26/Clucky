@@ -16,6 +16,7 @@ dependencies {
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'com.cloudinary:cloudinary-http44:1.36.0'
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
 }
 
 bootJar { archiveFileName = 'catalog-store-service-0.1.0-SNAPSHOT.jar' }
@@ -25,4 +26,10 @@ tasks.register('catalogSelfCheck', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.clucky.catalogstoreservice.config.CatalogSelfCheck'
+}
+
+tasks.register('adminCatalogSelfCheck', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.clucky.catalogstoreservice.media.AdminCatalogSelfCheck'
 }

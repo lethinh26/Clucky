@@ -1,0 +1,76 @@
+.branch-accounts-page { display: grid; gap: 20px; color: #16100d; min-width: 0; }
+.branch-accounts-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.branch-eyebrow { color: #8f1216; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+.branch-accounts-heading h2.ant-typography { font-family: var(--font-heading); margin: 6px 0; font-size: 30px; }
+.branch-accounts-heading > .ant-tag { padding: 8px 14px; margin: 0; border-radius: 12px; background: #fffaf3; font-weight: 700; }
+.branch-selector { display: grid; grid-template-columns: minmax(280px, 400px) minmax(0, 1fr); align-items: center; gap: 24px; padding: 20px; background: #fffaf3; border: 1px solid #e8e2d9; border-radius: 16px; }
+.branch-selector label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.branch-selector .ant-select { width: 100%; }
+.branch-selected-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.branch-selected-info > .anticon { background: #f5ede0; padding: 12px; font-size: 22px; color: #8f1216; border-radius: 12px; }
+.branch-selected-info > div { display: grid; gap: 6px; flex: 1; min-width: 0; }
+.branch-selected-info strong { font-size: 14px; }
+.branch-selected-info span:not(.ant-tag):not(.anticon) { color: #6b6259; font-size: 12px; }
+.branch-selected-info > .ant-tag { margin: 0; }
+.branch-hint { margin: 0; font-size: 12px; line-height: 1.7; color: #6b6259; }
+.branch-empty { padding: 36px 24px; background: #fffaf3; border: 1px solid #e8e2d9; border-radius: 18px; }
+.branch-empty .ant-empty-image { height: 68px; margin-bottom: 20px; }
+.branch-empty .ant-empty-image > .anticon { font-size: 36px; color: #8f1216; padding: 16px; background: #f5ede0; border-radius: 18px; }
+.branch-empty .ant-empty-description strong { display: block; font-size: 18px; color: #16100d; }
+.branch-empty .ant-empty-description p { color: #6b6259; font-size: 13px; }
+.branch-role-guide { display: flex; justify-content: center; flex-wrap: wrap; gap: 14px; margin-top: 24px; }
+.branch-role-guide > span { padding: 10px 14px; background: #f8f3eb; border-radius: 10px; font-size: 12px; }
+.branch-role-guide .anticon { color: #8f1216; margin-right: 6px; }
+.branch-details { display: grid; gap: 16px; min-width: 0; }
+.branch-readiness { display: flex; gap: 14px; align-items: center; padding: 18px 20px; background: #fffaf3; border: 1px solid #e8e2d9; border-radius: 16px; }
+.branch-readiness-icon { color: #8f1216; font-size: 26px; }
+.branch-readiness > div:nth-child(2) { flex: 1; }
+.branch-readiness strong { font-size: 14px; }
+.branch-readiness p { font-size: 12px; color: #6b6259; line-height: 1.7; margin: 4px 0 0; }
+.branch-tabs { min-width: 0; }
+.branch-tabs > .ant-tabs-nav { margin-bottom: 16px; }
+.branch-tabs .ant-tabs-tab { font-size: 13px; font-weight: 600; padding: 12px 0; }
+.branch-panel { background: #fffaf3; border: 1px solid #e8e2d9; border-radius: 16px; padding: 20px; min-width: 0; }
+.branch-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+.branch-panel-heading h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.branch-panel-heading p { margin: 6px 0 0; color: #6b6259; font-size: 12px; line-height: 1.7; max-width: 650px; }
+.branch-panel .ant-table { background: transparent; font-size: 13px; }
+.branch-panel .ant-table-thead > tr > th, .branch-account-modal .ant-table-thead > tr > th { background: #f8f3eb; color: #6b6259; font-size: 12px; }
+.branch-panel .ant-table-tbody > tr > td { padding: 14px 12px; }
+.branch-panel .ant-tag { font-size: 11px; margin-right: 0; }
+.branch-panel > .ant-alert { margin: 16px 0; }
+.branch-account-cell { display: grid; gap: 6px; overflow-wrap: anywhere; }
+.branch-account-cell strong { font-size: 13px; }
+.branch-account-cell small { font-size: 11px; color: #6b6259; }
+.branch-recovery { display: flex; align-items: center; gap: 14px; margin-top: 20px; padding: 18px; border: 1px dashed #ded2c1; border-radius: 12px; background: #fcf8f1; }
+.branch-recovery > .anticon { font-size: 24px; color: #8f1216; }
+.branch-recovery > div { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.branch-recovery span:not(.anticon):not(.ant-tag), .branch-recovery small { font-size: 12px; color: #6b6259; }
+.branch-recovery strong { font-size: 14px; overflow-wrap: anywhere; }
+.branch-panel-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 18px; margin-top: 16px; border-top: 1px solid #e8e2d9; }
+.branch-panel-footer > span { color: #6b6259; font-size: 12px; }
+.branch-account-modal .ant-modal-body { max-height: calc(100dvh - 260px); overflow-y: auto; overscroll-behavior: contain; }
+.branch-account-modal .ant-steps { margin-bottom: 20px; }
+.branch-account-modal .ant-alert { margin-bottom: 18px; }
+.branch-account-modal .ant-form-item { margin-bottom: 18px; }
+.branch-account-modal .ant-form-item-label label { font-weight: 600; }
+.branch-account-modal .ant-form-item-extra { font-size: 11px; margin-top: 6px; }
+.branch-account-modal .ant-descriptions { margin-bottom: 18px; }
+.branch-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.branch-accounts-page .ant-alert-info, .branch-account-modal .ant-alert-info { background: #f4f7fc; border-color: #dce5f3; }
+.branch-accounts-page .ant-alert-info .ant-alert-message, .branch-accounts-page .ant-alert-info .ant-alert-description,
+.branch-account-modal .ant-alert-info .ant-alert-message, .branch-account-modal .ant-alert-info .ant-alert-description { color: #343a46; }
+@media (max-width: 1050px) {
+  .branch-selector { grid-template-columns: 1fr; gap: 16px; }
+}
+@media (max-width: 575px) {
+  .branch-accounts-heading { align-items: flex-start; flex-direction: column; }
+  .branch-accounts-heading h2.ant-typography { font-size: 26px; }
+  .branch-selector, .branch-panel, .branch-readiness { padding: 14px; }
+  .branch-selected-info, .branch-readiness, .branch-recovery, .branch-panel-footer { flex-wrap: wrap; }
+  .branch-selected-info > div, .branch-readiness > div:nth-child(2), .branch-recovery > div { flex-basis: calc(100% - 70px); }
+  .branch-readiness > .ant-btn { width: 100%; }
+  .branch-form-grid { grid-template-columns: 1fr; }
+  .branch-account-modal .ant-modal-body { max-height: calc(100dvh - 220px); }
+  .branch-tabs .ant-tabs-tab + .ant-tabs-tab { margin-left: 18px; }
+}

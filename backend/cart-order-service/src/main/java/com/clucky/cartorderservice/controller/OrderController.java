@@ -58,6 +58,7 @@ public class OrderController {
 
     @GetMapping
     public ResponseEntity<PageResponse<OrderResponse>> getOrders(
+            @RequestParam(value = "customerId", required = false) Long customerId,
             @RequestParam(value = "storeId", required = false) Long storeId,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "orderCode", required = false) String orderCode,
@@ -68,63 +69,50 @@ public class OrderController {
         int pageSize = Math.min(Math.max(1, size), 200);
         Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        PageResponse<OrderResponse> response = orderService.getOrders(storeId, status, orderCode, pageable);
+        PageResponse<OrderResponse> response = orderService.getOrders(customerId, storeId, status, orderCode, pageable);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<OrderResponse> getOrderDetails(@PathVariable("id") @Positive Long id) {
-        OrderResponse response = orderService.getOrderDetails(id);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<OrderResponse> getOrderById(@PathVariable("id") @Positive Long id) {
+        return ResponseEntity.ok(orderService.getOrderDetails(id));
     }
 
     @GetMapping("/code/{orderCode}")
     public ResponseEntity<OrderResponse> getOrderByCode(@PathVariable("orderCode") String orderCode) {
-        OrderResponse response = orderService.getOrderByCode(orderCode);
+        return ResponseEntity.ok(orderService.getOrderByCode(orderCode));
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<OrderResponse> updateOrderStatus(
+            @PathVariable("id") @Positive Long id,
+            @Valid @RequestBody UpdateOrderStatusRequest request) {
+        OrderResponse response = orderService.updateStatus(id, request);
         return ResponseEntity.ok(response);
     }
 
     @PutMapping("/{id}/cancel")
     public ResponseEntity<OrderResponse> cancelOrder(
             @PathVariable("id") @Positive Long id,
-            @RequestBody(required = false) CancelOrderRequest request
-    ) {
+            @RequestBody(required = false) CancelOrderRequest request) {
         OrderResponse response = orderService.cancelOrder(id, request);
         return ResponseEntity.ok(response);
     }
 
     @PutMapping("/{id}/reject")
-    public ResponseEntity<OrderResponse> rejectOrder(
-            @PathVariable("id") @Positive Long id,
-            @RequestBody(required = false) RejectOrderRequest request
-    ) {
-        CancelOrderRequest cancelRequest = request != null ? new CancelOrderRequest(request.reason()) : null;
-        OrderResponse response = orderService.rejectOrder(id, cancelRequest);
-        return ResponseEntity.ok(response);
-    }
-
-    @PutMapping("/{id}/status")
-    public ResponseEntity<OrderResponse> updateStatus(
-            @PathVariable("id") @Positive Long id,
-            @Valid @RequestBody UpdateOrderStatusRequest request
-    ) {
-        OrderResponse response = orderService.updateStatus(id, request);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/{id}/reorder")
-    public ResponseEntity<CartDto> reorder(@PathVariable("id") @Positive Long id) {
-        CartDto cart = orderService.reorder(id);
-        return ResponseEntity.ok(cart);
+    public ResponseEntity<OrderResponse> rejectOrder(@PathVariable("id") @Positive Long id,
+            @Valid @RequestBody CancelOrderRequest request) {
+        return ResponseEntity.ok(orderService.rejectOrder(id, request));
     }
 
     @PostMapping("/{id}/refund-requests")
-    public ResponseEntity<com.clucky.cartorderservice.dto.RefundRequestResponse> createRefundForOrder(
+    public ResponseEntity<RefundRequestResponse> createRefundRequestForOrder(
             @PathVariable("id") @Positive Long id,
-            @Valid @RequestBody com.clucky.cartorderservice.dto.CreateRefundRequest request) {
-        com.clucky.cartorderservice.dto.CreateRefundRequest effective = new com.clucky.cartorderservice.dto.CreateRefundRequest(
+            @Valid @RequestBody CreateRefundRequest request) {
+        CreateRefundRequest effective = new CreateRefundRequest(
                 id, request.reason(), request.bankName(), request.bankAccountNo(), request.bankAccountName()
         );
-        return ResponseEntity.status(HttpStatus.CREATED).body(refundRequestService.createRefundRequest(effective));
+        var result = refundRequestService.createRefundRequest(effective);
+        return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK).body(result.refund());
     }
 }

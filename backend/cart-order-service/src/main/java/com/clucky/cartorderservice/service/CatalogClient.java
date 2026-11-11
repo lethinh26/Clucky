@@ -21,12 +21,12 @@ public class CatalogClient {
 
     private final RestClient restClient;
     private final String catalogServiceUrl;
-    private final CatalogCredential credential;
+    private final InternalServiceCredential credential;
 
     public CatalogClient(
             RestClient restClient,
             @Value("${clucky.catalog.service-url:http://catalog-store-service}") String catalogServiceUrl,
-            CatalogCredential credential
+            InternalServiceCredential credential
     ) {
         this.restClient = restClient;
         this.catalogServiceUrl = catalogServiceUrl;

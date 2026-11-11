@@ -85,6 +85,7 @@ public class SecurityConfig {
                             "/api/auth/branch/challenge", "/api/auth/branch/finish").permitAll();
                     auth.requestMatchers(HttpMethod.PUT, "/api/auth/internal/branch-accounts/{storeId}").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/auth/internal/branch-accounts/{storeId}").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/auth/internal/customers/{customerId}/notification-contact").permitAll();
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })

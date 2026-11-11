@@ -27,7 +27,9 @@ public record RefundRequestResponse(
         Long confirmedBy,
         Instant createdAt,
         Instant updatedAt,
-        List<RefundAttemptResponse> attempts
+        List<RefundAttemptResponse> attempts,
+        String paymentOperation,
+        String paymentError
 ) {
     public RefundRequestResponse(
             Long id,
@@ -40,6 +42,6 @@ public record RefundRequestResponse(
             Instant reviewedAt
     ) {
         this(id, orderId, null, null, customerId, amount, reason, status, reviewedBy, reviewedAt,
-                null, null, null, null, 1, 0, null, null, null, null, null, null, List.of());
+                null, null, null, null, 1, 0, null, null, null, null, null, null, List.of(), null, null);
     }
 }

@@ -29,7 +29,7 @@ class RbacOrderRegressionTest {
     private final OrderStatusHistoryRepository history = mock(OrderStatusHistoryRepository.class);
     private final OrderEventPublisher events = mock(OrderEventPublisher.class);
     private final OrderService service = new OrderService(orders, mock(OrderItemRepository.class), history,
-            null, new AccessGuard(), null, events, null, null, null, null);
+            null, new AccessGuard(), null, events, null, null, null, null, mock(VoucherCheckoutRecovery.class), mock(CustomerProfileClient.class));
 
     @AfterEach
     void clearActor() { SecurityContextHolder.clearContext(); }

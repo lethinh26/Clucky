@@ -40,6 +40,7 @@ public class InventoryService {
     private final LowStockEpisodeRepository lowStockEpisodeRepository;
     private final LowStockAlertPublisher lowStockAlertPublisher;
     private final CatalogCacheService cacheService;
+    private final CatalogEvents events;
 
     public InventoryService(
             StoreInventoryRepository storeInventoryRepository,
@@ -48,7 +49,7 @@ public class InventoryService {
             ProductRepository productRepository,
             LowStockEpisodeRepository lowStockEpisodeRepository,
             LowStockAlertPublisher lowStockAlertPublisher,
-            CatalogCacheService cacheService
+            CatalogCacheService cacheService, CatalogEvents events
     ) {
         this.storeInventoryRepository = storeInventoryRepository;
         this.storeProductRepository = storeProductRepository;
@@ -57,6 +58,7 @@ public class InventoryService {
         this.lowStockEpisodeRepository = lowStockEpisodeRepository;
         this.lowStockAlertPublisher = lowStockAlertPublisher;
         this.cacheService = cacheService;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -90,6 +92,8 @@ public class InventoryService {
         StoreInventory inv = storeInventoryRepository.findByStoreIdAndProductId(storeId, productId)
                 .orElseGet(() -> new StoreInventory(null, store, product, 0, store.getLowStockThreshold(), updatedBy));
 
+        checkAdminVersion(inv.getVersion(), request.getExpectedVersion());
+
         int oldQuantity = inv.getQuantityAvailable() != null ? inv.getQuantityAvailable() : 0;
         int newQuantity = request.getQuantityAvailable() != null ? request.getQuantityAvailable() : oldQuantity;
         int storeThreshold = store.getLowStockThreshold();
@@ -99,7 +103,8 @@ public class InventoryService {
         inv.setUpdatedBy(updatedBy);
         inv.setUpdatedAt(OffsetDateTime.now());
 
-        StoreInventory saved = storeInventoryRepository.save(inv);
+        StoreInventory saved = storeInventoryRepository.saveAndFlush(inv);
+        events.audit("INVENTORY_UPDATED", "Product", productId, storeId);
 
         // Sync availability: If quantity is 0 or less, must mark is_sold_out = true
         storeProductRepository.findByStoreIdAndProductId(storeId, productId).ifPresent(sp -> {
@@ -108,7 +113,7 @@ public class InventoryService {
             } else if (request.getIsSoldOut() != null) {
                 sp.setIsSoldOut(request.getIsSoldOut());
             }
-            storeProductRepository.save(sp);
+            storeProductRepository.saveAndFlush(sp);
         });
 
         // Episode evaluation
@@ -118,21 +123,24 @@ public class InventoryService {
         return toResponse(saved, storeId, storeThreshold);
     }
 
-    public void updateStoreThreshold(Long storeId, Integer newThreshold) {
+    public long updateStoreThreshold(Long storeId, Integer newThreshold, Long expectedVersion) {
         if (newThreshold == null || newThreshold < 0) {
             throw new ApiException(ErrorCode.INVALID_THRESHOLD);
         }
 
+        if (com.clucky.catalogstoreservice.config.CurrentActor.require().role() == com.clucky.catalogstoreservice.dto.Role.ADMIN || expectedVersion != null)
+            events.expect("stores", storeId, expectedVersion);
         Store store = storeRepository.findById(storeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh: " + storeId));
 
         int oldThreshold = store.getLowStockThreshold();
         if (oldThreshold == newThreshold) {
-            return;
+            return store.getVersion();
         }
 
         store.setLowStockThreshold(newThreshold);
-        storeRepository.save(store);
+        storeRepository.saveAndFlush(store);
+        events.audit("STORE_THRESHOLD_UPDATED", "Store", storeId, storeId);
 
         // Re-evaluate affected products in store inventory
         List<StoreInventory> inventories = storeInventoryRepository.findByStoreIdWithProductAndCategory(storeId);
@@ -171,6 +179,7 @@ public class InventoryService {
         }
 
         cacheService.evictStoreMenuCache(storeId);
+        return store.getVersion();
     }
 
     public void updateProductAvailability(
@@ -187,6 +196,7 @@ public class InventoryService {
                     return new StoreProduct(null, s, p, null, true, false);
                 });
 
+        checkAdminVersion(sp.getVersion(), request.getExpectedVersion());
         Optional<StoreInventory> invOpt = storeInventoryRepository.findByStoreIdAndProductId(storeId, productId);
         int currentQty = invOpt.map(StoreInventory::getQuantityAvailable).orElse(0);
 
@@ -211,7 +221,8 @@ public class InventoryService {
         } else if (request.getStorePrice() != null) {
             sp.setStorePrice(request.getStorePrice());
         }
-        storeProductRepository.save(sp);
+        storeProductRepository.saveAndFlush(sp);
+        events.audit("PRODUCT_AVAILABILITY_UPDATED", "Product", productId, storeId);
 
         if (Boolean.TRUE.equals(request.getIsSoldOut()) && invOpt.isPresent()) {
             StoreInventory inv = invOpt.get();
@@ -273,16 +284,17 @@ public class InventoryService {
 
     private InventoryDto.InventoryResponse toResponse(StoreInventory inv, Long storeId, int storeThreshold) {
         Product p = inv.getProduct();
+        Optional<StoreProduct> availability = storeProductRepository.findByStoreIdAndProductId(storeId, p.getId());
         boolean isSoldOut = (inv.getQuantityAvailable() != null && inv.getQuantityAvailable() <= 0)
-                || storeProductRepository.findByStoreIdAndProductId(storeId, p.getId())
+                || availability
                         .map(StoreProduct::getIsSoldOut)
                         .orElse(false);
 
         String updatedByName = inv.getUpdatedBy() != null
-                ? (inv.getUpdatedBy() == 1L ? "Quản trị viên (Admin)" : "Nhân viên ca trực #" + inv.getUpdatedBy())
+                ? "Tài khoản #" + inv.getUpdatedBy()
                 : "Hệ thống";
 
-        return new InventoryDto.InventoryResponse(
+        var response = new InventoryDto.InventoryResponse(
                 storeId,
                 p.getId(),
                 p.getName(),
@@ -294,5 +306,16 @@ public class InventoryService {
                 inv.getUpdatedAt() != null ? inv.getUpdatedAt().format(DATE_FORMAT) : "",
                 updatedByName
         );
+        response.setVersion(inv.getVersion());
+        response.setAvailabilityVersion(availability.map(StoreProduct::getVersion).orElse(0L));
+        return response;
+    }
+
+    static void checkAdminVersion(Long version, Long expectedVersion) {
+        if (com.clucky.catalogstoreservice.config.CurrentActor.require().role() != com.clucky.catalogstoreservice.dto.Role.ADMIN
+                && expectedVersion == null) return;
+        if (expectedVersion == null || expectedVersion < 0)
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        if (!expectedVersion.equals(version)) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
     }
 }

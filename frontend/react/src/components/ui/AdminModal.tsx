@@ -57,8 +57,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       cancelText={cancelText}
       okButtonProps={{
         style: {
-          backgroundColor: '#8F1216',
-          borderColor: '#8F1216',
           borderRadius: 999,
           fontFamily: 'Quicksand, sans-serif',
           fontWeight: 700,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Popconfirm, Segmented, Select, Space, Spin, Table, Tag, Typography } from "antd";
+import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Drawer, Empty, Input, Popconfirm, Segmented, Select, Space, Spin, Table, Tag, Typography } from "antd";
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import { api, getErrorMessage, type Store } from "../../lib/api";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useAuth } from "../../context/AuthContext";
 import { notify } from "../../components/feedback";
+import { FinanceLookup, ReceiptConflictList } from "./FinanceDrawer";
 
 interface Receipt {
   id: string; transactionId: string; amount: number; direction: string | null; bank: string | null;
@@ -25,7 +26,7 @@ interface Snapshot {
   order: { orderId: number; orderCode: string; storeId: number; amount: number; status: string; paymentStatus: string; expiresAt: string | null };
   payments: Payment[];
 }
-interface Query { page: number; size: number; status?: string; storeId?: number; search?: string; bank?: string; from?: string; to?: string; unclassifiedOnly?: boolean }
+interface Query { page: number; size: number; status?: string; storeId?: number; search?: string; bank?: string; from?: string; to?: string; unclassifiedOnly?: boolean; conflictsOnly?: boolean }
 
 export function TransactionsPanel({ stores, revision }: { stores: Store[]; revision: number }) {
   const { isAdmin, user } = useAuth();
@@ -53,8 +54,14 @@ export function TransactionsPanel({ stores, revision }: { stores: Store[]; revis
   useEffect(() => { alive.current = true; return () => { alive.current = false; lookup.current?.abort(); }; }, []);
 
   useEffect(() => {
+    if (!isAdmin || selectedId) return;
+    const timer = window.setTimeout(() => setRefresh(value => value + 1), 15000);
+    return () => window.clearTimeout(timer);
+  }, [isAdmin, selectedId, refresh]);
+
+  useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setInbox(null);
     const params = { ...query, from: query.from ? `${query.from}T00:00:00+07:00` : undefined, to: query.to ? `${query.to}T23:59:59.999+07:00` : undefined };
     void api.get<Inbox>("/api/payments/transactions", { params, signal: controller.signal })
       .then(response => { if (!controller.signal.aborted) setInbox(response.data); })
@@ -127,8 +134,9 @@ export function TransactionsPanel({ stores, revision }: { stores: Store[]; revis
 
   return <Card className="payment-log-card">
     <div className="payment-log-toolbar"><div><Typography.Title level={4}>{t("log.title")}</Typography.Title><Typography.Text type="secondary">{t("log.total", { count: inbox?.page.totalElements ?? 0 })}</Typography.Text></div>
-      <Button loading={loading} onClick={() => setRefresh(value => value + 1)} disabled={assigning}>{t("reload")}</Button></div>
+      {!isAdmin && <Button loading={loading} onClick={() => setRefresh(value => value + 1)} disabled={assigning}>{t("reload")}</Button>}</div>
     <div className="payment-log-filters">
+      {isAdmin && <Checkbox checked={query.conflictsOnly} onChange={event => filter({ conflictsOnly: event.target.checked })}>{t("admin:ui.onlyReceiptsWithConflicts")}</Checkbox>}
       <Input.Search aria-label={t("searchReceipts")} placeholder={t("log.search")} allowClear maxLength={160} onSearch={search => filter({ search: search.trim() || undefined })} enterButton={t("search")} />
       {isAdmin && <Select aria-label={t("log.contentStore")} placeholder={t("log.contentStore")} showSearch allowClear disabled={query.unclassifiedOnly} optionFilterProp="label" value={query.storeId} onChange={storeId => filter({ storeId })} options={stores.map(store => ({ value: store.id, label: store.name }))} />}
       <Input.Search aria-label={t("bankName")} placeholder={t("log.bankFilter")} allowClear maxLength={100} onSearch={bank => filter({ bank: bank.trim() || undefined })} />
@@ -158,7 +166,7 @@ export function TransactionsPanel({ stores, revision }: { stores: Store[]; revis
     {inbox?.lastReceivedAt && <Typography.Text type="secondary">{t("lastWebhook")}: {time(inbox.lastReceivedAt)}</Typography.Text>}
     <Drawer open={selectedId !== null} onClose={() => { if (!assigning) setSelectedId(null); }} title={t("log.detailTitle")} width="min(600px, 100vw)"
       closable={!assigning} maskClosable={!assigning} keyboard={!assigning} className="payment-receipt-drawer">
-      {detailLoading ? <Spin /> : detailError ? <Alert type="error" message={detailError} action={<Button onClick={() => setRefresh(value => value + 1)}>{t("reload")}</Button>} /> : receipt && <>
+      {detailLoading ? <Spin /> : detailError ? <Alert type="error" message={detailError} action={!isAdmin && <Button onClick={() => setRefresh(value => value + 1)}>{t("reload")}</Button>} /> : receipt && <>
         <div className="payment-receipt-amount"><Typography.Title level={2}>{money(receipt.amount)}</Typography.Title>{statusTag(receipt)}</div>
         <Typography.Text type="secondary" copyable>{receipt.transactionId}</Typography.Text>
         <Descriptions column={1} size="small" className="payment-receipt-fields" items={[
@@ -174,7 +182,8 @@ export function TransactionsPanel({ stores, revision }: { stores: Store[]; revis
           <p className="payment-log-muted">{t(receipt.bankScopeSource === "CURRENT_CONFIG_BACKFILL" ? "log.backfillHint" : "log.suggestionsHint")}</p></div>}
         {receipt.assignedAt && <Alert type="success" showIcon message={t("log.assignmentHistory", { actor: receipt.assignedBy, time: time(receipt.assignedAt) })} description={receipt.assignmentReason} />}
         {receipt.conflictCount > 0 && <Alert type="warning" showIcon message={t("conflictHelp")} />}
-        {receipt.canAssign && <div className="payment-receipt-section"><Typography.Title level={4}>{t("log.assignTitle")}</Typography.Title>
+        {isAdmin && receipt.conflictCount > 0 && <ReceiptConflictList key={`${receipt.id}-${receipt.version}`} receiptId={receipt.id} />}
+        {!isAdmin && receipt.canAssign && <div className="payment-receipt-section"><Typography.Title level={4}>{t("log.assignTitle")}</Typography.Title>
           <Input.Search aria-label={t("log.orderCode")} placeholder={t("log.orderPlaceholder")} maxLength={80} value={orderCode} loading={lookupLoading} disabled={assigning || uncertain}
             enterButton={t("log.findOrder")} onSearch={() => void findOrder()} onChange={event => { lookup.current?.abort(); setLookupLoading(false); setOrderCode(event.target.value); setSnapshot(null); setAssignmentError(""); }} />
           {snapshot && payment && <div className="payment-order-preview"><strong>{snapshot.order.orderCode}</strong><span>{storeName(snapshot.order.storeId)}</span>
@@ -187,6 +196,8 @@ export function TransactionsPanel({ stores, revision }: { stores: Store[]; revis
           {assignmentError && <Alert type="error" showIcon message={assignmentError} action={!assigning && <Button onClick={() => setRefresh(value => value + 1)}>{t("reload")}</Button>} />}
         </div>}
       </>}
+      {isAdmin && selectedId && <FinanceLookup key={selectedId} receiptId={selectedId}
+        initialCode={receipt?.matchedOrderCode || receipt?.candidateOrderCode || undefined} onChanged={() => setRefresh(value => value + 1)} />}
     </Drawer>
   </Card>;
 }

@@ -170,7 +170,7 @@ public final class CatalogSelfCheck {
             product.getToppings().add(new ProductTopping(21L, product, "Sauce", BigDecimal.ZERO));
             ProductRepository products = stub(ProductRepository.class, (method, arguments) -> switch (method) {
                 case "findByIdWithCategory" -> Optional.of(product);
-                case "save" -> {
+                case "saveAndFlush" -> {
                     product.getOptions().stream().filter(option -> option.getId() == null).forEach(option -> option.setId(nextId++));
                     product.getToppings().stream().filter(topping -> topping.getId() == null).forEach(topping -> topping.setId(nextId++));
                     yield product;
@@ -182,7 +182,10 @@ public final class CatalogSelfCheck {
             ComboItemRepository combos = stub(ComboItemRepository.class,
                     (method, arguments) -> optionInCombo && ((List<?>) arguments[0]).contains(11L));
             service = new ProductService(products, null, options, toppings, combos, null, null, null,
-                    null, new CatalogCacheService(null));
+                    null, new CatalogCacheService(null), new com.clucky.catalogstoreservice.service.CatalogEvents(null, null, null, null) {
+                        @Override public void expect(String table, Long id, Long version) { }
+                        @Override public void audit(String action, String target, Long id, Long storeId) { }
+                    });
         }
     }
 

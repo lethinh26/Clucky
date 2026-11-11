@@ -18,16 +18,13 @@ public class PromotionClient {
 
     private final RestClient restClient;
     private final String promotionServiceUrl;
-    private final String serviceToken;
 
     public PromotionClient(
             RestClient restClient,
-            @Value("${clucky.promotion.service-url:http://promotion-loyalty-service}") String promotionServiceUrl,
-            @Value("${clucky.promotion.service-token:}") String serviceToken
+            @Value("${clucky.promotion.service-url:http://promotion-loyalty-service}") String promotionServiceUrl
     ) {
         this.restClient = restClient;
         this.promotionServiceUrl = promotionServiceUrl;
-        this.serviceToken = serviceToken;
     }
 
     public record VoucherValidationRequest(
@@ -51,32 +48,6 @@ public class PromotionClient {
 
 
 
-    public record VoucherReleaseRequest(
-            String code,
-            Long orderId,
-            Long customerId
-    ) {}
-
-
-    public void releaseVoucher(String rawCode, Long orderId, Long customerId) {
-        if (rawCode == null || rawCode.isBlank()) {
-            return;
-        }
-        String code = rawCode.trim().toUpperCase();
-        VoucherReleaseRequest req = new VoucherReleaseRequest(code, orderId, customerId);
-        try {
-            restClient.post()
-                    .uri(promotionServiceUrl + "/api/promotions/vouchers/release")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(req)
-                    .retrieve()
-                    .toBodilessEntity();
-            LOG.info("event=voucher_released code={} orderId={} customerId={}", code, orderId, customerId);
-        } catch (Exception ex) {
-            LOG.warn("event=voucher_release_failed code={} orderId={} customerId={} error={}",
-                    code, orderId, customerId, ex.getMessage());
-        }
-    }
 
 
     public VoucherResult validateVoucher(String rawCode, Long storeId, BigDecimal subtotal) {

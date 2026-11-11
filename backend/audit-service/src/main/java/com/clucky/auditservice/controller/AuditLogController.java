@@ -5,6 +5,10 @@ import com.clucky.auditservice.dto.AuditLogResponse;
 import com.clucky.auditservice.dto.PageResponse;
 import com.clucky.auditservice.service.AuditLogService;
 import jakarta.validation.Valid;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -19,5 +23,16 @@ public class AuditLogController {
     @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
     public PageResponse<AuditLogResponse> search(@Valid @ModelAttribute AuditLogQuery query) {
         return service.search(query);
+    }
+
+    @GetMapping("/api/audit-logs/export")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<byte[]> export(@Valid @ModelAttribute AuditLogQuery query) {
+        byte[] file = service.export(query);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.PRAGMA, "no-cache")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"audit-logs.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .contentLength(file.length).body(file);
     }
 }

@@ -10,6 +10,11 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Version
+    private long version;
+
+    public long getVersion() { return version; }
+
     @Column(nullable = false, length = 120)
     private String name;
 

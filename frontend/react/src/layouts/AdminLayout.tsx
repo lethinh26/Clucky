@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import React, { useState } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import { Layout, Menu, Breadcrumb, Button, Badge, Dropdown, Avatar, Tag, Flex, Typography, Drawer, Grid } from "antd";
+import { Layout, Menu, Breadcrumb, Button, Dropdown, Avatar, Tag, Flex, Typography, Drawer, Grid } from "antd";
 import { MenuProps } from "antd";
 import {
   DashboardOutlined,
@@ -14,7 +14,9 @@ import {
   CommentOutlined,
   BarChartOutlined,
   GiftOutlined,
-  BellOutlined,
+  TeamOutlined,
+  MailOutlined,
+  AuditOutlined,
   UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -26,6 +28,7 @@ import { roleHome } from "../lib/role-home";
 import { AdminFooter } from "../components/AdminFooter";
 import { PageLoadingContent } from "../components/ui-loader/page-loading";
 import { AdminNotificationCenter } from "../components/ui/AdminNotificationCenter";
+import { AdminNotificationCenter as LiveAdminNotifications } from "../pages/EmailLogs/AdminNotificationCenter";
 
 const routeBreadcrumbMap: Record<string, string> = {
   "/admin": "admin:nav.overview",
@@ -37,6 +40,9 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/staff/orders": "admin:nav.shiftOrders",
   "/admin/reviews": "admin:nav.reviews",
   "/admin/users": "admin:nav.users",
+  "/admin/customers": "admin:nav.customers",
+  "/admin/email-logs": "admin:nav.emailLogs",
+  "/admin/audit": "admin:nav.audit",
   "/admin/reports": "admin:nav.reports",
   "/admin/payments": "admin:nav.payments",
   "/admin/promotions": "admin:nav.promotions",
@@ -61,6 +67,9 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/staff/orders")) selectedKey = "staff-orders";
   else if (pathname.includes("/orders")) selectedKey = "orders";
   else if (pathname.includes("/users")) selectedKey = "users";
+  else if (pathname.includes("/customers")) selectedKey = "customers";
+  else if (pathname.includes("/email-logs")) selectedKey = "email-logs";
+  else if (pathname.includes("/audit")) selectedKey = "audit";
   else if (pathname.includes("/reviews")) selectedKey = "reviews";
   else if (pathname.includes("/reports")) selectedKey = "reports";
   else if (pathname.includes("/payments")) selectedKey = "payments";
@@ -81,6 +90,9 @@ export const AdminLayout: React.FC = () => {
       "reports",
       "payments",
       "promotions",
+      "customers",
+      "email-logs",
+      "audit",
     ],
     STORE_MANAGER: [
       "dashboard",
@@ -149,6 +161,24 @@ export const AdminLayout: React.FC = () => {
       icon: <BarChartOutlined />,
       label: t("admin:nav.reports"),
       onClick: () => navigate("/admin/reports"),
+    },
+    {
+      key: "customers",
+      icon: <TeamOutlined />,
+      label: t("admin:nav.customers"),
+      onClick: () => navigate("/admin/customers"),
+    },
+    {
+      key: "email-logs",
+      icon: <MailOutlined />,
+      label: t("admin:nav.emailLogs"),
+      onClick: () => navigate("/admin/email-logs"),
+    },
+    {
+      key: "audit",
+      icon: <AuditOutlined />,
+      label: t("admin:nav.audit"),
+      onClick: () => navigate("/admin/audit"),
     },
     {
       key: "payments",
@@ -443,20 +473,7 @@ export const AdminLayout: React.FC = () => {
 
 
             {/* Notification Center */}
-            <AdminNotificationCenter />
-            {false && (
-            <Badge dot color="#8F1216">
-              <Button
-                type="text"
-                shape="circle"
-                icon={
-                  <BellOutlined style={{ fontSize: 18, color: "#16100D" }} />
-                }
-                aria-label={t("admin:notifications.title")}
-                onClick={() => message.info(t("admin:notifications.empty"))}
-              />
-            </Badge>
-            )}
+            {user.role === "ADMIN" ? <LiveAdminNotifications /> : <AdminNotificationCenter />}
 
             {/* Profile Dropdown */}
             <LanguageSwitcher />

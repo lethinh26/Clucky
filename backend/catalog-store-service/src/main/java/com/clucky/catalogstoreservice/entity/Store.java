@@ -45,7 +45,7 @@ public class Store {
     private StoreStatus status = StoreStatus.OPEN;
 
     @Column(name = "account_readiness", nullable = false)
-    private String accountReadiness = "LEGACY";
+    private String accountReadiness = "UNPROVISIONED";
     public String getAccountReadiness() { return accountReadiness; }
     public void setAccountReadiness(String readiness) { this.accountReadiness = readiness; }
 

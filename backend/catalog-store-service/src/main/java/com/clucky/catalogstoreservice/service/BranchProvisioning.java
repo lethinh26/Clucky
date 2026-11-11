@@ -23,7 +23,6 @@ import org.springframework.web.client.RestClientResponseException;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.*;
 
@@ -38,11 +37,13 @@ public class BranchProvisioning {
     private final JwtSettings settings;
     private final TransactionTemplate transactions;
     private final RestClient client;
+    private final CatalogEvents events;
 
     public BranchProvisioning(JdbcTemplate jdbc, StoreService stores, CatalogCacheService cache, DiscoveryClient discovery,
-            ObjectMapper mapper, JwtSettings settings, TransactionTemplate transactions) {
+            ObjectMapper mapper, JwtSettings settings, TransactionTemplate transactions, CatalogEvents events) {
         this.jdbc = jdbc; this.stores = stores; this.cache = cache; this.discovery = discovery;
         this.mapper = mapper; this.settings = settings; this.transactions = transactions;
+        this.events = events;
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(3000); factory.setReadTimeout(5000);
         client = RestClient.builder().requestFactory(factory).build();
@@ -88,6 +89,18 @@ public class BranchProvisioning {
                 rows.isEmpty() || rows.getFirst().get("last_error") == null ? "" : rows.getFirst().get("last_error"));
     }
 
+    public Long managerUserId(long storeId) {
+        return jdbc.queryForObject("SELECT notification_manager_id FROM catalog_service.stores WHERE id=?", Long.class, storeId);
+    }
+
+    @Transactional
+    public Map<String, Object> retry(long storeId) {
+        synchronize(storeId);
+        var result = status(storeId);
+        events.audit("BRANCH_PROVISIONING_RETRIED", "Store", storeId, storeId);
+        return result;
+    }
+
     @Scheduled(fixedDelayString = "${clucky.branch.poll-ms:10000}")
     public void poll() {
         for (Long storeId : jdbc.queryForList("SELECT id FROM catalog_service.stores ORDER BY id", Long.class)) {
@@ -118,35 +131,31 @@ public class BranchProvisioning {
                         : client.get().uri(uri).header("X-Branch-Time", "" + time).header("X-Branch-Signature", signature).retrieve().body(JsonNode.class);
                 if (pair == null || pair.path("storeId").asLong() != storeId || pair.path("accounts").size() != 2) throw new IllegalStateException();
                 Set<String> roles = new HashSet<>(); Set<Long> ids = new HashSet<>(); boolean ready = true;
+                Long managerUserId = null;
                 for (JsonNode account : pair.path("accounts")) {
                     if (account.path("storeId").asLong() != storeId || !account.path("current").asBoolean() || account.path("id").asLong() <= 0) throw new IllegalStateException();
                     roles.add(account.path("role").asText()); ids.add(account.path("id").asLong());
                     ready &= account.path("activated").asBoolean() && "ACTIVE".equals(account.path("status").asText());
+                    if ("STORE_MANAGER".equals(account.path("role").asText()) && account.path("activated").asBoolean()
+                            && "ACTIVE".equals(account.path("status").asText())) managerUserId = account.path("id").asLong();
                 }
                 if (ids.size() != 2 || !roles.equals(Set.of("STAFF", "STORE_MANAGER"))) throw new IllegalStateException();
-                jdbc.update("UPDATE catalog_service.stores SET account_readiness=?,status=CASE WHEN ? THEN status ELSE 'CLOSED_TEMP' END WHERE id=?",
-                        ready ? "READY" : "PROVISIONED", ready, storeId);
+                jdbc.update("UPDATE catalog_service.stores SET notification_manager_id=? WHERE id=?", managerUserId, storeId);
+                jdbc.update("UPDATE catalog_service.stores SET version=version+1,account_readiness=?,status=CASE WHEN ? OR status='INACTIVE' THEN status ELSE 'CLOSED_TEMP' END "
+                                + "WHERE id=? AND (account_readiness<>? OR (NOT ? AND status NOT IN ('INACTIVE','CLOSED_TEMP')))",
+                        ready ? "READY" : "PROVISIONED", ready, storeId, ready ? "READY" : "PROVISIONED", ready);
                 jdbc.update("UPDATE catalog_service.account_provisioning SET last_error=NULL,updated_at=now() WHERE store_id=?", storeId);
                 cache.evictStoreMenuCache(storeId);
             } catch (Exception failure) {
-                if (failure instanceof RestClientResponseException response && response.getStatusCode().value() == 404
-                        && "LEGACY".equals(rows.getFirst().get("account_readiness"))) return;
+                jdbc.update("UPDATE catalog_service.stores SET notification_manager_id=NULL WHERE id=?", storeId);
+                boolean missing = jobs.isEmpty() && failure instanceof RestClientResponseException response && response.getStatusCode().value() == 404;
                 jdbc.update("UPDATE catalog_service.account_provisioning SET last_error='IDENTITY_PROVISIONING_PENDING',updated_at=now() WHERE store_id=?", storeId);
-                if (!"LEGACY".equals(rows.getFirst().get("account_readiness"))) {
-                    jdbc.update("UPDATE catalog_service.stores SET status='CLOSED_TEMP',account_readiness=CASE WHEN account_readiness='READY' THEN 'PROVISIONED' ELSE account_readiness END WHERE id=?", storeId);
-                    cache.evictStoreMenuCache(storeId);
-                }
+                jdbc.update("UPDATE catalog_service.stores SET version=version+1,status=CASE WHEN status='INACTIVE' THEN status ELSE 'CLOSED_TEMP' END,"
+                        + "account_readiness=CASE WHEN ? THEN 'UNPROVISIONED' WHEN account_readiness='READY' THEN 'PROVISIONED' ELSE account_readiness END "
+                        + "WHERE id=? AND (status NOT IN ('INACTIVE','CLOSED_TEMP') OR account_readiness='READY' OR (? AND account_readiness<>'UNPROVISIONED'))", missing, storeId, missing);
+                cache.evictStoreMenuCache(storeId);
             }
         });
     }
 
-    @Transactional
-    public void prepareMigration(long storeId, long time, String signature) {
-        if (time < Instant.now().getEpochSecond() - 120 || time > Instant.now().getEpochSecond() + 30
-                || !MessageDigest.isEqual(sign("branch-migration-v1:" + storeId + ":" + time).getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8)))
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        stores.getStoreById(storeId);
-        jdbc.update("UPDATE catalog_service.stores SET status='CLOSED_TEMP',account_readiness='PENDING' WHERE id=?", storeId);
-        cache.evictStoreMenuCache(storeId);
-    }
 }

@@ -1,6 +1,6 @@
 # Backlog Clucky
 
-**Sizing hiện hành: 10/11/2026 · 124 task chính · 505 SP.** Đã rà toàn bộ phạm vi sau gộp, gồm 17 task trước đó chưa có điểm. SP khớp task detail và chỉ mục; không cộng điểm mã cũ.
+**Sizing hiện hành: 11/11/2026 · 127 task chính · 520 SP.** Đã rà toàn bộ phạm vi sau gộp, gồm 17 task trước đó chưa có điểm. SP khớp task detail và chỉ mục; không cộng điểm mã cũ.
 
 ## Quy ước SP
 
@@ -17,6 +17,7 @@
 - Giữ PIC, sprint, dependency và User Story/AC của detail vừa cập nhật. Phase 2/hoãn giữ nguyên. SP không quy đổi thành giờ, remaining, capacity hoặc velocity đã đạt.
 - Cột Sprint lấy từ kế hoạch trong detail; không ghi đè Sprint vận hành trên Lark. Trạng thái/ngày/giờ công trong bảng này vẫn là snapshot nguồn.
 - **Đã đồng bộ Lark ngày 10/11/2026:** 124 task / 505 SP, title, dependency và một file detail mỗi task. Giữ 25 record ngoài repo / 58 SP; toàn SCRUM BOARD có 149 record / 563 SP. Giữ metadata vận hành của record đang có; metadata record khôi phục lấy từ bản sao lưu. Không chạy kiểm thử ứng dụng.
+- **Cập nhật Lark ngày 11/11/2026:** thêm `BE-82`, `BE-83`, `UI-53` vào Sprint 3 cho Trần Nguyễn Hữu Khánh, mỗi task 5 SP; cả ba record ở trạng thái TO DO và đã gắn file detail cùng dependency. Không chạy kiểm thử ứng dụng.
 
 [Task details](../tasks/README.md) · [Mã đã gộp](../tasks/README.md#ma-cu) · [Biên bản đồng bộ Lark 10/11](Lark_Backlog_Sync_2026-11-10.md)
 
@@ -26,9 +27,9 @@
 | --- | ---: | ---: |
 | Sprint 1 | 63 | 208 |
 | Sprint 2 | 17 | 102 |
-| Sprint 3 | 25 | 121 |
+| Sprint 3 | 28 | 136 |
 | Chưa gán sprint | 19 | 74 |
-| **Tổng** | **124** | **505** |
+| **Tổng** | **127** | **520** |
 
 Các nhóm công việc dưới đây giữ thứ tự tra cứu cũ; cột Sprint mới là phân nhóm hiện hành trong repository.
 
@@ -167,9 +168,12 @@ Các nhóm công việc dưới đây giữ thứ tự tra cứu cũ; cột Spri
 | [DEP-20](../tasks/DEP-20.md) | Xác minh gửi email an toàn trên production và bảo đảm email_logs được sao lưu, khôi phục cùng database | Mai Sơn Việt | BACKLOG | TO DO | Chưa xếp | Chưa xếp | DEP-06, BE-60 | 3 | 4 |
 | [DEP-22](../tasks/DEP-22.md) | Xác minh upload, đọc ảnh và sao lưu metadata trên production, bảo đảm cleanup không xóa asset vẫn đang được sử dụng | Mai Sơn Việt | BACKLOG | TO DO | Chưa xếp | Chưa xếp | DEP-06, BE-72 | 3 | 6 |
 | [BE-77](../tasks/BE-77.md) | Upload hoặc thay avatar qua Identity, lưu metadata Cloudinary và chỉ cho phép người dùng sửa ảnh của mình | Trần Nguyễn Hữu Khánh | BACKLOG | TO DO | Chưa xếp | Chưa xếp | BE-18, BE-72 | 3 | 8 |
+| [BE-82](../tasks/BE-82.md) | Quản lý tài khoản Customer toàn hệ thống cho Admin | Trần Nguyễn Hữu Khánh | 3 | TO DO | 11/11/2026 08:00 | 12/11/2026 23:59 | BE-09, BE-17, BE-43 | 5 | 10 |
+| [BE-83](../tasks/BE-83.md) | Cung cấp lịch sử mua hàng Customer cho Admin qua contract giữa service | Trần Nguyễn Hữu Khánh | 3 | TO DO | 11/11/2026 08:00 | 12/11/2026 23:59 | BE-09, BE-25, BE-27 | 5 | 10 |
 | [KAFKA-04](../tasks/KAFKA-04.md) | Phát sự kiện promotion.approved sau khi Admin duyệt voucher chi nhánh, kèm định danh để truy vết và chống xử lý lặp | Cao Tất Thành | 3 | TO DO | Chưa xếp | Chưa xếp | BE-35, KAFKA-01 | 2 | 4 |
 | [KAFKA-11](../tasks/KAFKA-11.md) | Thống nhất và tích hợp sự kiện khuyến mãi đã duyệt từ Promotion sang Notification, đủ dữ liệu chọn email và người nhận | Cao Tất Thành | 3 | TO DO | Chưa xếp | Chưa xếp | KAFKA-04, KAFKA-12 | 2 | 4 |
 | [UI-51](../tasks/UI-51.md) | Hiển thị trạng thái email liên quan đến đơn hoặc thanh toán cho Customer khi có contract được duyệt, không coi email lỗi là đơn lỗi | Trần Đức Anh | BACKLOG | TO DO | Chưa xếp | Chưa xếp | KAFKA-12, BE-27 | 2 | 4 |
+| [UI-53](../tasks/UI-53.md) | Màn quản lý Customer cho Admin | Trần Nguyễn Hữu Khánh | 3 | TO DO | 11/11/2026 08:00 | 12/11/2026 23:59 | BE-82, BE-83 | 5 | 10 |
 | [UI-50](../tasks/UI-50.md) | Màn tra cứu email log theo bộ lọc, xem chi tiết và gửi lại email lỗi khi API, quyền và chính sách được chốt | Mai Sơn Việt | BACKLOG | TO DO | Chưa xếp | Chưa xếp | BE-63 | 3 | 8 |
 
 ## Audit Service riêng cho trang quản trị — cập nhật 02/11/2026
@@ -201,3 +205,4 @@ Số lượng, SP và lần đồng bộ trước 10/11 chỉ là snapshot. Khô
 - [Phân loại 07/11](Backlog_Reclassification_2026-11-07.md) · [Snapshot trước phân loại](backlog-before-2026-11-07.md).
 - [Gộp task 08/11](Sprint_2_Consolidation_2026-11-08.md) · [Snapshot trước gộp](backlog-before-2026-11-08.md).
 - [Sizing Sprint 2 cũ](Sprint_2_Story_Points_2026-11-08.md) · [Trạng thái Sprint 3 cũ](Sprint_3_Status_2026-11-08.md).
+

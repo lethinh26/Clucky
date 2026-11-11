@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 
 class VoucherProposalSafetyTest {
     private final VoucherRepository repository = mock(VoucherRepository.class);
-    private final VoucherService service = new VoucherService(repository);
+    private final VoucherService service = new VoucherService(repository, mock(VoucherAuditOutbox.class), mock(VoucherStoreVerifier.class));
 
     @AfterEach void clearActor() { SecurityContextHolder.clearContext(); }
 
@@ -80,6 +80,7 @@ class VoucherProposalSafetyTest {
         when(repository.findByIdWithLock(1L)).thenReturn(Optional.of(voucher));
         when(repository.save(any())).thenAnswer(call -> call.getArgument(0));
         var request = request();
+        request.setVersion(voucher.getVersion());
         request.setStatus(VoucherStatus.ACTIVE);
         request.setStoreId(3L);
         assertThrows(ApiException.class, () -> service.updateVoucher(1L, request, 7L, "STORE_MANAGER", 2L));

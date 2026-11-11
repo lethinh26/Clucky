@@ -20,6 +20,8 @@ export interface AdminVoucher {
   maxDiscount?: number | null;
   totalLimit?: number | null;
   usedCount: number;
+  reservedCount?: number;
+  version?: number;
   startAt: string;
   endAt: string;
   scope: VoucherScope;
@@ -34,6 +36,7 @@ export interface AdminVoucher {
 }
 
 export interface VoucherPayload {
+  version?: number;
   code: string;
   title?: string;
   description?: string;

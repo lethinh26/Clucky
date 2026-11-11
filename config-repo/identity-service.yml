@@ -32,8 +32,6 @@ cloudinary:
   folder: ${CLOUDINARY_FOLDER:clucky}
 
 clucky:
-  branch:
-    approved-backup: ${BRANCH_MIGRATION_BACKUP_REFERENCE:}
   auth:
     google:
       enabled: ${FIREBASE_AUTH_ENABLED:false}

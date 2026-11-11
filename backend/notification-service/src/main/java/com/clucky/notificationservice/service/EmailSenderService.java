@@ -98,6 +98,8 @@ public class EmailSenderService {
             return;
         }
 
+        jdbc.update("UPDATE notification_service.email_logs SET subject = ? WHERE id = ? AND status = 'SENDING'", subject, email.getId());
+
         try {
             var message = mailSender.createMimeMessage();
             var helper = new MimeMessageHelper(message, "UTF-8");
