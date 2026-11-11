@@ -134,7 +134,7 @@ export default function AuditLogPage() {
         <Form form={form} layout="vertical" onFinish={applyFilters}>
           <Space wrap align="start">
             <Form.Item name="sourceService" label={t("admin:ui.domain")}>
-              <Select allowClear placeholder={t("admin:ui.allDomains")} options={auditDomains} style={{ width: 225 }} />
+              <Select allowClear placeholder={t("admin:ui.allDomains")} options={auditDomains.map(domain => ({ ...domain }))} style={{ width: 225 }} />
             </Form.Item>
             <Form.Item name="actorId" label={t("admin:ui.accountId")} rules={[{ type: 'integer', min: 1, max: Number.MAX_SAFE_INTEGER, message: t("admin:ui.enterAPositiveIntegerId") }]}>
               <InputNumber min={1} max={Number.MAX_SAFE_INTEGER} style={{ width: 170 }} />
