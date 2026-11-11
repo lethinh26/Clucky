@@ -453,9 +453,11 @@
   bottom: 0;
 }
 .orderCard {
-  padding: 18px;
-  gap: 12px;
+  padding: 22px;
+  gap: 14px;
   min-width: 0;
+  background: #fffdf9;
+  box-shadow: 0 10px 30px rgba(44, 29, 17, 0.05);
 }
 .cardHead {
   padding: 0 0 12px;
@@ -471,6 +473,11 @@
   margin-top: auto;
   padding-block: 10px 0;
 }
+.storeInfo { min-width: 0; max-width: 72%; }
+.itemsSummary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orderThumbs img { width: 64px; height: 64px; }
+.orderCode { font-size: 17px; }
+.cardPriceVal { font-size: 24px; }
 @media (min-width: 1100px) {
   .ordersList {
     display: grid;

@@ -9,7 +9,7 @@ import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-nav
 import Link from "@/components/ui-loader/navigation-link";
 import { Select } from "@base-ui/react/select";
 import { catalogApi, type StoreItem } from "@/lib/api";
-import { coordinates, emptyAddress, formatAddress, type Coordinates } from "@/lib/locations";
+import { coordinates, emptyAddress, formatAddress, profileApi, type Coordinates } from "@/lib/locations";
 import { CheckoutAddress } from "@/components/maps/checkout-address";
 import { BranchMap } from "@/components/maps/branch-map";
 import { stores as FALLBACK_STORES } from "@/lib/products";
@@ -134,6 +134,17 @@ export default function CheckoutPage() {
     useState<PaymentMethod>("BANK_TRANSFER");
   const [orderNote, setOrderNote] = useState("");
 
+  useEffect(() => {
+    if (userId === undefined) return;
+    let active = true;
+    profileApi.get().then(profile => {
+      if (!active) return;
+      setReceiverName(current => current || profile.fullName || "");
+      setReceiverPhone(current => current || profile.phone || "");
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [userId]);
+
   // Voucher & Loyalty states (Contract slots with M5)
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<{
@@ -177,12 +188,11 @@ export default function CheckoutPage() {
   const [deliveryQuote, setDeliveryQuote] = useState<{ key: string; data: ShippingQuote } | null>(null);
   const deliveryCheck = deliveryQuote?.key === previewKey ? deliveryQuote.data : undefined;
   const previewData = quote?.key === previewKey ? quote.data : null;
-  const baseShippingFee = orderType === "DELIVERY" ? 20000 : 0;
-  const shippingFee = orderType === "PICKUP" ? 0 : (previewData?.shippingFee ?? baseShippingFee);
+  const shippingFee = orderType === "PICKUP" ? 0 : (previewData?.shippingFee ?? 0);
   const voucherDiscount = previewData ? Math.max(0, previewData.discountAmount - (previewData.tierDiscount ?? 0)) : (appliedVoucher?.discount ?? 0);
   const pointsDiscount = previewData?.pointsAmount ?? (usePoints ? 5000 : 0);
   const calculatedTotal = Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
-  const totalAmount = previewData?.totalAmount ?? calculatedTotal;
+  const totalAmount = previewData?.totalAmount ?? (orderType === "PICKUP" ? calculatedTotal : null);
   const needsDeliveryAddress = orderType === "DELIVERY" && deliveryAddress.trim().length < 8;
   const needsDeliveryPoint = orderType === "DELIVERY" && !deliveryPoint;
   const orderBlockReason = !ready || !session.ready ? loyaltyText("cartLoading")
@@ -190,12 +200,14 @@ export default function CheckoutPage() {
     : !payloadItems || !items.length ? loyaltyText("cartInvalid")
     : !selectedStore ? loyaltyText("storeRequired")
     : needsDeliveryAddress ? loyaltyText("addressRequired")
+    : needsDeliveryPoint ? t("maps.deliveryPinRequired")
     : previewError ? previewError
+    : !previewData ? loyaltyText("quotePending")
     : null;
 
   useEffect(() => {
     setPreviewError(null);
-    if (!ready || !session.ready || !selectedStore || !payloadItems?.length || needsDeliveryAddress) {
+    if (!ready || !session.ready || !selectedStore || !payloadItems?.length || needsDeliveryAddress || needsDeliveryPoint) {
       setQuote(null); setPreviewLoading(false);
       return;
     }
@@ -215,7 +227,7 @@ export default function CheckoutPage() {
       }).finally(() => { if (active) setPreviewLoading(false); });
     }, 300);
     return () => { active = false; clearTimeout(timer); };
-  }, [ready, session.ready, selectedStore, payloadItems, needsDeliveryAddress, previewKey, previewPayload]);
+  }, [ready, session.ready, selectedStore, payloadItems, needsDeliveryAddress, needsDeliveryPoint, previewKey, previewPayload]);
 
   const handleApplyVoucher = (e: React.FormEvent) => {
     e.preventDefault();
@@ -642,7 +654,7 @@ export default function CheckoutPage() {
                       display: "block",
                     }}
                   >
-                    Bỏ áp dụng mã {appliedVoucher.code}
+                    {t("business.checkout.removeVoucher", { code: appliedVoucher.code })}
                   </button>
                 )}
 

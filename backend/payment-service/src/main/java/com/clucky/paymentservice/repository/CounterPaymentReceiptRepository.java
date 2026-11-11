@@ -10,6 +10,7 @@ public interface CounterPaymentReceiptRepository extends JpaRepository<CounterPa
     Optional<CounterPaymentReceipt> findByReceiptCode(String receiptCode);
     Optional<CounterPaymentReceipt> findByIdempotencyKey(String idempotencyKey);
     Optional<CounterPaymentReceipt> findByOrderCode(String orderCode);
+    List<CounterPaymentReceipt> findByOrderCodeOrderByCreatedAtDesc(String orderCode);
     List<CounterPaymentReceipt> findByOrderId(Long orderId);
     List<CounterPaymentReceipt> findByStoreId(Long storeId);
     List<CounterPaymentReceipt> findByStatus(String status);

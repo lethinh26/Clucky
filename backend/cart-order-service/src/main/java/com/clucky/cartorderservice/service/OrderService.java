@@ -660,11 +660,10 @@ public class OrderService {
             cancellationReason(order, request.note());
         }
 
-        if (request.paymentStatus() != null && !request.paymentStatus().isBlank()) {
-            String pStatus = request.paymentStatus().trim().toUpperCase();
-            if (Set.of("PENDING", "PAID", "COLLECTED", "REFUNDED").contains(pStatus)) {
-                order.setPaymentStatus(pStatus);
-            }
+        // A status action is not proof of collection or settlement. Payment state is
+        // changed only by the payment integration, never by a staff-supplied field.
+        if (request.paymentStatus() != null) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Không thể cập nhật trạng thái thanh toán qua API trạng thái đơn hàng");
         }
 
         if ("COMPLETED".equals(target)) {
@@ -672,6 +671,10 @@ public class OrderService {
                     || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
                 throw new ApiException(ErrorCode.PAYMENT_REQUIRED_BEFORE_HANDOVER, "Đơn hàng chưa được thanh toán đầy đủ trước khi bàn giao.");
             }
+        }
+        if ("PREPARING".equals(target) && "PICKUP".equalsIgnoreCase(order.getType())
+                && !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+            throw new ApiException(ErrorCode.PAYMENT_REQUIRED_BEFORE_HANDOVER, "Cần xác nhận thanh toán trước khi chế biến đơn lấy tại quầy.");
         }
         if ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)) {
             if (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
@@ -876,7 +879,7 @@ public class OrderService {
         String cleanOrderSource = (orderSource != null && !orderSource.isBlank()) ? orderSource.trim().toUpperCase() : null;
         String orderCodePattern = (orderCode != null && !orderCode.isBlank())
                 ? "%" + orderCode.trim().toLowerCase() + "%"
-                : null;
+                : "%";
 
         Instant createdFrom = null;
         Instant createdTo = null;

@@ -355,6 +355,7 @@ export default function OrderTrackingPage({
           orderCode={order.orderCode}
           status={order.status}
           type={order.type}
+          paymentStatus={order.paymentStatus}
           updatedAt={order.updatedAt ?? order.createdAt}
           history={order.timeline}
         />
@@ -450,7 +451,7 @@ export default function OrderTrackingPage({
                   {t("business.id.cancelThisOrder")}
                 </button>
               )}
-              {!refund?.status && !order.refundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER" && (
+              {!refund?.status && !order.refundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER" && order.paymentStatus === "PAID" && (
                 <button
                   type="button"
                   className={styles.outlineButton}
@@ -631,7 +632,7 @@ export default function OrderTrackingPage({
                     </p>
                   );
                 }
-                if (!activeRefundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER") {
+                if (!activeRefundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER" && order.paymentStatus === "PAID") {
                   return (
                     <div style={{ background: "#fffaf3", border: "1px solid #e8e2d9", borderRadius: "14px", padding: "14px 18px", marginTop: "14px" }}>
                       <p style={{ margin: "0 0 10px", color: "#8f1216", fontSize: "14px", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>

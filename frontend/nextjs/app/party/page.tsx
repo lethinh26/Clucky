@@ -4,7 +4,10 @@ import { notify, useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 import { useEffect, useState } from "react";
-import { coordinates, distanceKm } from "@/lib/locations";
+import { useRouter } from "next/navigation";
+import Link from "@/components/ui-loader/navigation-link";
+import { useSession } from "@/components/auth/use-session";
+import { coordinates, distanceKm, profileApi } from "@/lib/locations";
 import { useDistanceOrigin } from "@/components/maps/use-distance-origin";
 import styles from "./party.module.css";
 import { OrderDialog } from "@/components/order/order-dialog";
@@ -18,6 +21,8 @@ import {
 import { catalogApi, partyOrderApi, getErrorMessage, type BackendPartyOrder, type StoreItem } from "@/lib/api";
 
 export default function PartyOrderPage() {
+  const router = useRouter();
+  const session = useSession();
   const t = useTranslations();
   const maps = useTranslations("maps");
   const { money, number, locale } = useLocaleTools();
@@ -81,37 +86,48 @@ export default function PartyOrderPage() {
   useFeedback(submitError);
   const [createdPartyOrder, setCreatedPartyOrder] =
     useState<BackendPartyOrder | null>(null);
+  const userId = session.user?.userId;
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    profileApi.get().then(profile => {
+      if (!active) return;
+      setCustomerName(current => current || profile.fullName || "");
+      setCustomerPhone(current => current || profile.phone || "");
+      setCustomerEmail(current => current || profile.email || "");
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [userId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!session.ready) return;
+    if (!session.user) {
+      notify.error(t("business.party.loginToRequestParty"));
+      router.push("/login?redirect=/party");
+      return;
+    }
     if (storesLoading || storesError || !stores.some(store => String(store.id) === selectedStore)) {
       setSubmitError(maps("pickStore"));
       return;
     }
     setSubmitting(true);
     setSubmitError(null);
-    const chosenPkg = PARTY_PACKAGES.find((pkg) => pkg.id === selectedPackage);
-    const combinedNotes = notes.trim()
-      ? `${notes.trim()} (Pkg: ${selectedPackage})`
-      : `Pkg: ${selectedPackage}`;
-
-    const content = `Time: ${expectedTime}. Email: ${customerEmail.trim()}. Notes: ${notes.trim() || "None"}. Pkg: ${selectedPackage}`;
-
     try {
       const result = await partyOrderApi.create({
         storeId: Number(selectedStore),
         contactName: customerName.trim(),
         phone: customerPhone.trim(),
-        contactPhone: customerPhone.trim(),
         contactEmail: customerEmail.trim(),
         expectedDate,
         expectedTime,
         guestCount,
-        content,
-        notes: combinedNotes,
+        packageCode: selectedPackage,
+        content: notes.trim() || t("business.party.consultationRequest"),
       });
       setCreatedPartyOrder(result);
-      notify.success(t("common.feedback.orderCreated"));
+      notify.success(t("business.party.requestSubmitted"));
       setIsSuccessModalOpen(true);
     } catch (err: any) {
       console.warn("Party order API submission error:", err);
@@ -279,7 +295,7 @@ export default function PartyOrderPage() {
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
-                  }).format(new Date())}
+                  }).format(new Date(Date.now() + 24 * 60 * 60 * 1000))}
                   required
                   value={expectedDate}
                   onChange={(e) => setExpectedDate(e.target.value)}
@@ -366,12 +382,12 @@ export default function PartyOrderPage() {
               <CheckCircle2 size={48} />
             </div>
             <h2 id="party-success-title" className={styles.modalTitle}>
-              {t("business.party.yourDemoPartyRequestIsReady")}
+              {t("business.party.requestSubmitted")}
             </h2>
             <p className={styles.modalDesc}>
               {t("business.party.youHaveCompletedTheFormFor")}{" "}
               {guestCount}{" "}
-              {t("business.party.guestsThisIsAUiPreviewNoRequestHasBeenSentTo")}
+              {t("business.party.requestAwaitingContact")}
             </p>
             <dl className={styles.partyReceipt}>
               <div>
@@ -416,6 +432,9 @@ export default function PartyOrderPage() {
                 ID #{createdPartyOrder.id}
               </p>
             )}
+            <Link href="/cart" className={styles.modalBtn}>
+              {t("business.party.viewInCart")}
+            </Link>
             <button
               type="button"
               onClick={() => setIsSuccessModalOpen(false)}

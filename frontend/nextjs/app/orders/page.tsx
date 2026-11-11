@@ -235,6 +235,7 @@ export default function OrdersHistoryPage() {
                 <OrderProgress
                   status={order.status}
                   type={order.type}
+                  paymentStatus={order.paymentStatus}
                   compact
                   orderCode={order.orderCode}
                   updatedAt={order.updatedAt ?? order.createdAt}

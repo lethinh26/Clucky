@@ -26,6 +26,7 @@ import { displayOrderTime } from "../../../lib/order-demo";
 import { useOrders } from "../../../context/OrderContext";
 import { useAuth } from "../../../context/AuthContext";
 import styles from "../orders.module.css";
+import { CodEvidencePanel } from "./CodEvidencePanel";
 
 interface Props {
   order: AdminOrder | null;
@@ -249,7 +250,7 @@ export function OrderDetailDrawer({
           <h2 className={styles.drawerHeading}>{t("business:orderdetaildrawer.orderActions")}</h2>
           <p className={styles.actionHint}> {t("business:orderdetaildrawer.actionsDependOnTheCurrentStatusAndYourDemoRole")} </p>
           <div className={styles.drawerActions}>
-            {order.status === "CONFIRMED" && (
+            {order.status === "CONFIRMED" && (order.orderType !== "PICKUP" || ["PAID", "COLLECTED"].includes(order.paymentStatus)) && (
               <Button
                 type="primary"
                 icon={<ChefHat size={16} />}
@@ -266,13 +267,8 @@ export function OrderDetailDrawer({
             {order.paymentMethod === "COD" &&
               order.paymentStatus === "PENDING" &&
               !["CANCELLED", "COMPLETED"].includes(order.status) && (
-                <Button
-                  type="primary"
-                  icon={<Wallet size={16} />}
-                  onClick={() => onStatusChange(order.id, order.status, "COLLECT_COD")}
-                >
-                  {t("business:orderdetaildrawer.confirmCodCollection")}
-                </Button>
+                order.orderType === "PICKUP" && ["CONFIRMED", "PREPARING", "READY"].includes(order.status) &&
+                <CodEvidencePanel orderId={order.id} onCollect={() => onStatusChange(order.id, order.status, "COLLECT_COD")} />
               )}
             {["READY", "SHIPPING"].includes(order.status) && (
               <Button
@@ -294,6 +290,7 @@ export function OrderDetailDrawer({
             )}
             {order.status === "CANCELLED" &&
               order.paymentMethod === "BANK_TRANSFER" &&
+              order.paymentStatus === "PAID" &&
               !order.hasRefundRequest &&
               !order.refundStatus &&
               !isStaff && (

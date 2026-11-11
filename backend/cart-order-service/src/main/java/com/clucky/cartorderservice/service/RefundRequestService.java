@@ -94,10 +94,6 @@ public class RefundRequestService {
             }
         }
 
-        if (order.getPaymentExpiresAt() != null || order.getCollectionMethod() != null) {
-            throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
-        }
-
         // Eligibility 1: Method must be pure bank transfer
         if (!"BANK_TRANSFER".equalsIgnoreCase(order.getPaymentMethod())) {
             LOG.warn("event=refund_not_eligible reason=not_bank_transfer orderId={} method={}",
@@ -258,7 +254,6 @@ public class RefundRequestService {
             accessGuard.requireStore(order.getStoreId());
         }
 
-        if (order.getPaymentExpiresAt() != null) throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
         // Atomically reserve funds in Payment Service to prevent over-refunding
         paymentClient.reserveRefund(refund.getId(), order.getId(), order.getOrderCode(), refund.getAmount());
 
@@ -387,6 +382,12 @@ public class RefundRequestService {
         refund.setAttemptCount(nextAttemptNumber);
         refund.setCurrentAttemptId(attemptId);
         refund.setCurrentAttemptBankSnapshot(snapshotJson);
+        // Evidence belongs to a single bank transfer attempt, never to the
+        // refund request as a whole after bank details have changed.
+        refund.setEvidencePublicId(null);
+        refund.setEvidenceUrl(null);
+        refund.setEvidenceRegisteredAt(null);
+        refund.setEvidenceRegisteredBy(null);
         refund.setUpdatedAt(Instant.now());
         refund = refundRequestRepository.save(refund);
 
@@ -585,7 +586,18 @@ public class RefundRequestService {
             throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
         }
 
-        if (refund.getEvidencePublicId() == null || refund.getEvidencePublicId().isBlank()) {
+        if (refund.getEvidencePublicId() == null || refund.getEvidencePublicId().isBlank()
+                || refund.getCurrentAttemptId() == null) {
+            throw new ApiException(ErrorCode.EVIDENCE_REQUIRED);
+        }
+
+        RefundAttempt currentAttempt = refundAttemptRepository.findByAttemptId(refund.getCurrentAttemptId())
+                .orElseThrow(() -> new ApiException(ErrorCode.EVIDENCE_REQUIRED));
+        if (!"PROCESSING".equals(currentAttempt.getStatus())
+                || !refund.getId().equals(currentAttempt.getRefundRequestId())
+                || !refund.getEvidencePublicId().equals(currentAttempt.getEvidencePublicId())
+                || currentAttempt.getAmount().compareTo(refund.getAmount()) != 0
+                || !Objects.equals(currentAttempt.getBankAccountNo(), refund.getBankAccountNo())) {
             throw new ApiException(ErrorCode.EVIDENCE_REQUIRED);
         }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Printer,
   ChefHat,
@@ -33,6 +34,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
   onPrintSuccess,
   initialMode = "RECEIPT",
 }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [mode, setMode] = useState<"RECEIPT" | "KOT">(initialMode);
   const [isPaperFeeding, setIsPaperFeeding] = useState<boolean>(false);
@@ -82,7 +84,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
           }
         }
       } catch (err) {
-        console.warn("Lỗi gọi trackPrint:", err);
+        console.warn("receipt print tracking failed:", err);
       }
     }
 
@@ -249,7 +251,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                 </div>
                 <div className={styles.metaRow}>
                   <span>Thu ngân phục vụ:</span>
-                  <span>{order.cashierName || (user?.fullName ? `${user.fullName} (${user.role === "STAFF" ? "Staff" : user.role})` : "Nhân viên")}</span>
+                  <span>{order.cashierName || (user?.fullName ? `${user.fullName} (${user.role === "STAFF" ? "Staff" : user.role})` : t("business:staffactions.staff"))}</span>
                 </div>
                 {order.customerName && (
                   <div className={styles.metaRow}>

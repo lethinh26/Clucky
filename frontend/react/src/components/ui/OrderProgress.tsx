@@ -42,18 +42,24 @@ export function OrderProgress({
 
   const buildSteps = (): StepItem[] => {
     if (isCounter) {
-      // 4 bước tại quầy: Xác nhận -> Thanh toán -> Chờ nhận -> Hoàn tất
       const isPaid = ["PAID", "COLLECTED"].includes(order.paymentStatus);
+      const preparing = ["PREPARING", "READY", "COMPLETED"].includes(order.status);
+      const ready = ["READY", "COMPLETED"].includes(order.status);
       return [
         {
           key: "CONFIRMED",
           label: t("business:orderprogress.confirm"),
-          state: ["READY", "COMPLETED"].includes(order.status) || isPaid ? "done" : "current",
+          state: "done",
         },
         {
           key: "PAID",
           label: t("business:cart.checkout"),
-          state: isPaid ? "done" : order.status === "CONFIRMED" ? "current" : "next",
+          state: isPaid ? "done" : "current",
+        },
+        {
+          key: "PREPARING",
+          label: t("business:orderprogress.preparing"),
+          state: ready ? "done" : preparing ? "current" : "next",
         },
         {
           key: "READY",

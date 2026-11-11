@@ -10,9 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 @Service
 public class RefundEvidenceService {
@@ -57,6 +57,22 @@ public class RefundEvidenceService {
         if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
             throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
         }
+        try {
+            byte[] bytes = file.getBytes();
+            boolean jpeg = bytes.length >= 3 && (bytes[0] & 0xff) == 0xff
+                    && (bytes[1] & 0xff) == 0xd8 && (bytes[2] & 0xff) == 0xff;
+            boolean png = bytes.length >= 8 && Arrays.equals(Arrays.copyOf(bytes, 8),
+                    new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a});
+            boolean webp = bytes.length >= 12 && new String(bytes, 0, 4, java.nio.charset.StandardCharsets.US_ASCII).equals("RIFF")
+                    && new String(bytes, 8, 4, java.nio.charset.StandardCharsets.US_ASCII).equals("WEBP");
+            if (!("image/jpeg".equalsIgnoreCase(contentType) && jpeg
+                    || "image/png".equalsIgnoreCase(contentType) && png
+                    || "image/webp".equalsIgnoreCase(contentType) && webp)) {
+                throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+            }
+        } catch (IOException ex) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
     }
 
     public record UploadResult(String publicId, String secureUrl) {}
@@ -65,10 +81,7 @@ public class RefundEvidenceService {
         validateFile(file);
 
         if (cloudinary == null || !properties.isEnabled()) {
-            LOG.info("event=refund_evidence_local_fallback refundRequestId={}", refundRequestId);
-            String publicId = "local-evidence-" + refundRequestId + "-" + UUID.randomUUID();
-            String secureUrl = "/api/refund-requests/" + refundRequestId + "/evidence";
-            return new UploadResult(publicId, secureUrl);
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE, "Kho bằng chứng chưa được cấu hình");
         }
 
         try {
@@ -83,6 +96,9 @@ public class RefundEvidenceService {
             Map<?, ?> result = cloudinary.uploader().upload(file.getBytes(), params);
             String publicId = (String) result.get("public_id");
             String secureUrl = (String) result.get("secure_url");
+            if (publicId == null || publicId.isBlank() || secureUrl == null || secureUrl.isBlank()) {
+                throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+            }
 
             LOG.info("event=refund_evidence_uploaded refundRequestId={} attemptId={} publicId={}",
                     refundRequestId, attemptId, publicId);
@@ -100,16 +116,15 @@ public class RefundEvidenceService {
         }
 
         if (cloudinary == null || !properties.isEnabled()) {
-            return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='200'><rect width='400' height='200' fill='%23f1f5f9'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='16' fill='%23475569'>Evidence: " + publicId + "</text></svg>";
+            throw new ApiException(ErrorCode.EVIDENCE_DELIVERY_UNAVAILABLE);
         }
 
         try {
-            // Generate time-limited signed URL (valid for 10 minutes = 600s)
+            // Cloudinary download signature includes expires_at; a delivery URL
+            // generated with signed(true) alone has no expiry.
             long expiresAt = (System.currentTimeMillis() / 1000L) + 600L;
-            return cloudinary.url()
-                    .type("authenticated")
-                    .signed(true)
-                    .generate(publicId);
+            return cloudinary.privateDownload(publicId, null, ObjectUtils.asMap(
+                    "type", "authenticated", "expires_at", expiresAt, "attachment", false));
         } catch (Exception ex) {
             LOG.error("event=refund_evidence_signing_failed publicId={} error={}", publicId, ex.getMessage());
             throw new ApiException(ErrorCode.EVIDENCE_DELIVERY_UNAVAILABLE);

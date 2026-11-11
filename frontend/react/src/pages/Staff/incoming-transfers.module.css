@@ -10,6 +10,10 @@
   font-family: "Quicksand", system-ui, sans-serif;
 }
 
+.container :is(h1, h2, h3, strong, button, input, select) {
+  font-family: "Quicksand", "Segoe UI", system-ui, sans-serif;
+}
+
 /* Page Header */
 .pageHeader {
   display: flex;

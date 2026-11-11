@@ -17,6 +17,17 @@
 body {
   margin: 0;
   background: #f5ede0;
+  font-family: var(--font-body);
+}
+
+button, input, textarea, select, .ant-typography, .ant-table, .ant-form,
+.ant-input, .ant-select, .ant-btn, .ant-modal, .ant-card {
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, .ant-typography h1, .ant-typography h2, .ant-typography h3,
+.ant-card-head-title {
+  font-family: var(--font-heading);
 }
 
 .admin-layout {

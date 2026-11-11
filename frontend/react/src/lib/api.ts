@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { signIn, endSession, loadSession, refreshSession, expireSession, getSessionState, type SessionUser } from './session';
 import { getBrowserLocale, getErrorMessage as resolveError } from '../i18n/core';
+import { getTranslator } from '../i18n/translator';
 import type { StoreStatus } from '../types/store';
 import type { AdminVoucher, VoucherPayload } from '../types/promotion';
 
@@ -265,7 +266,7 @@ export interface PageResponse<T> {
 
 export const ordersApi = {
   list: (
-    params?: { storeId?: number; status?: string; page?: number; size?: number },
+    params?: { storeId?: number; status?: string; date?: string; page?: number; size?: number },
     signal?: AbortSignal
   ) =>
     api
@@ -447,21 +448,21 @@ export const refundsApi = {
 /* ---------- Party Orders ---------- */
 export interface BackendPartyOrder {
   id: number;
-  requestNumber?: string;
-  customerId?: number;
+  customerId: number;
   storeId: number;
   contactName: string;
-  contactPhone?: string;
-  phone?: string;
-  contactEmail?: string;
+  phone: string;
+  contactEmail: string;
   expectedDate: string;
-  expectedTime?: string;
+  expectedTime: string;
   guestCount: number;
+  packageCode: string;
+  content: string;
   status: 'NEW' | 'CONTACTED' | 'QUOTED' | 'CONFIRMED' | 'CLOSED' | 'CANCELLED';
-  depositAmount?: number;
-  notes?: string;
-  createdAt: string;
-  updatedAt?: string;
+  quoteAmount: number | null;
+  paymentMethod: 'BANK_TRANSFER' | 'CASH' | null;
+  consultationNote: string | null;
+  updatedAt: string;
 }
 
 export const partyOrdersApi = {
@@ -473,9 +474,9 @@ export const partyOrdersApi = {
       .get<any>('/api/party-orders', { params, signal })
       .then((r) => {
         if (r.data && Array.isArray(r.data.content)) {
-          return r.data.content as BackendPartyOrder[];
+          return { content: r.data.content as BackendPartyOrder[], totalPages: Number(r.data.totalPages) || 0 };
         }
-        return Array.isArray(r.data) ? (r.data as BackendPartyOrder[]) : [];
+        return { content: Array.isArray(r.data) ? (r.data as BackendPartyOrder[]) : [], totalPages: 1 };
       }),
   getById: (id: string | number, signal?: AbortSignal) =>
     api
@@ -484,13 +485,15 @@ export const partyOrdersApi = {
   updateStatus: (
     id: string | number,
     status: string,
-    reason?: string,
+    note?: string,
+    quoteAmount?: number,
+    paymentMethod?: 'BANK_TRANSFER' | 'CASH',
     signal?: AbortSignal
   ) =>
     api
       .put<BackendPartyOrder>(
         `/api/party-orders/${id}/status`,
-        { status, notes: reason },
+        { status, note, quoteAmount, paymentMethod },
         { signal }
       )
       .then((r) => r.data),
@@ -503,7 +506,7 @@ export const partyOrdersApi = {
     api
       .put<BackendPartyOrder>(
         `/api/party-orders/${id}/status`,
-        { status: 'CONFIRMED', notes: note },
+        { status: 'CONFIRMED', note },
         { signal }
       )
       .then((r) => r.data),
@@ -511,7 +514,7 @@ export const partyOrdersApi = {
     api
       .put<BackendPartyOrder>(
         `/api/party-orders/${id}/status`,
-        { status: 'CANCELLED', notes: reason },
+        { status: 'CANCELLED', note: reason },
         { signal }
       )
       .then((r) => r.data),
@@ -683,6 +686,38 @@ export interface ShiftSummaryData {
 }
 
 export const paymentsApi = {
+  getCodEvidence: (orderId: string | number) => api.get<{
+    status: 'MISSING' | 'PENDING' | 'APPROVED' | 'REJECTED';
+    uploaded_by?: number; reviewed_by?: number; review_reason?: string;
+  }>(`/api/payments/${orderId}/operations/cod-evidence`).then((r) => r.data),
+  getCodEvidenceImage: (orderId: string | number) => api.get<Blob>(
+    `/api/payments/${orderId}/operations/cod-evidence/image`, { responseType: 'blob' },
+  ).then((r) => r.data),
+  uploadCodEvidence: (orderId: string | number, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post(`/api/payments/${orderId}/operations/cod-evidence`, form).then((r) => r.data);
+  },
+  approveCodEvidence: (orderId: string | number) => api.post(
+    `/api/payments/${orderId}/operations/cod-evidence/approve`, {},
+  ).then((r) => r.data),
+  rejectCodEvidence: (orderId: string | number, reason: string) => api.post(
+    `/api/payments/${orderId}/operations/cod-evidence/reject`, { reason },
+  ).then((r) => r.data),
+  collectCod: async (orderId: string | number) => {
+    const { data } = await api.get<{ order: { version: string; amount: number | string; paymentStatus: string } }>(
+      `/api/payments/${orderId}/operations`,
+    );
+    if (data.order.paymentStatus !== 'PENDING') throw new Error(getTranslator(getBrowserLocale())('business:orderdemo.codNotPending'));
+    const amount = Number(data.order.amount);
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error(getTranslator(getBrowserLocale())('business:orderdemo.invalidOrderTotal'));
+    return api.post(
+      `/api/payments/${orderId}/operations/collection`,
+      { orderVersion: data.order.version, cashAmount: amount, transferAmount: 0,
+        cashTendered: amount, cashChange: 0, reason: 'COD collection confirmed' },
+      { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+    ).then((r) => r.data);
+  },
   collectCounter: (
     payload: CounterCollectionPayload,
     idempotencyKey?: string,
@@ -719,13 +754,22 @@ export const paymentsApi = {
         signal,
       })
       .then((r) => r.data),
-  listBankTransactions: (storeId?: number, signal?: AbortSignal) =>
-    api
-      .get<BackendBankTransaction[]>('/api/payments/bank-transactions', {
-        params: storeId ? { storeId } : undefined,
-        signal,
-      })
-      .then((r) => r.data),
+  listBankTransactions: async (storeId?: number, date?: string, signal?: AbortSignal) => {
+    const start = date ? new Date(`${date}T00:00:00+07:00`) : null;
+    const end = start ? new Date(start.getTime() + 86_400_000) : null;
+    type Row = { id: string; transactionId: string; maskedAccount: string;
+      amount: number; content: string; receivedAt: string; matchedOrderCode?: string | null };
+    const rows: Row[] = [];
+    for (let page = 0; ; page++) {
+      const response = await api.get<{ page: { content: Row[]; totalPages: number } }>(
+        '/api/payments/transactions', { params: { storeId, from: start?.toISOString(), to: end?.toISOString(), page, size: 100 }, signal });
+      rows.push(...response.data.page.content);
+      if (page + 1 >= response.data.page.totalPages || response.data.page.content.length === 0) break;
+    }
+    return rows.map(row => ({ id: Number(row.id), bankTxId: row.transactionId,
+      bankAccount: row.maskedAccount, amount: row.amount, content: row.content,
+      receivedAt: row.receivedAt, matchedOrderCode: row.matchedOrderCode }));
+  },
   listReceipts: (storeId?: number, signal?: AbortSignal) =>
     api
       .get<BackendCounterReceipt[]>('/api/payments/receipts', {

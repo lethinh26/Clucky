@@ -39,7 +39,19 @@ public class PaymentFlow {
     public record Session(Long orderId, String orderCode, Long customerId, Long storeId,
             BigDecimal amount, String status, String paymentMethod, Instant expiresAt) {}
     public record Context(long orderId, String orderCode, Long customerId, Long storeId, BigDecimal amount,
-            String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version) {}
+            String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version,
+            String orderSource, String orderType) {
+        public Context(long orderId, String orderCode, Long customerId, Long storeId, BigDecimal amount,
+                String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version,
+                String orderSource) {
+            this(orderId, orderCode, customerId, storeId, amount, status, paymentMethod, paymentStatus,
+                    expiresAt, version, orderSource, null);
+        }
+        public Context(long orderId, String orderCode, Long customerId, Long storeId, BigDecimal amount,
+                String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version) {
+            this(orderId, orderCode, customerId, storeId, amount, status, paymentMethod, paymentStatus, expiresAt, version, null, null);
+        }
+    }
     private record Payment(long id, long orderId, String orderCode, long customerId, long storeId, BigDecimal amount,
             BigDecimal received, String status, Instant expiresAt, String reference, Bank bank, boolean proposed, String closedReason) {}
     private static final RowMapper<Payment> PAYMENT = (row, index) -> new Payment(row.getLong("id"), row.getLong("order_id"),
@@ -161,7 +173,8 @@ public class PaymentFlow {
                     .uri(instances.getFirst().getUri().resolve("/api/orders/" + orderId + "/payment-context"))
                     .headers(headers -> headers.setBearerAuth(token.getToken().getTokenValue()));
             Context result = request.retrieve().body(Context.class);
-            if (result == null || result.orderId() != orderId || result.storeId() == null || result.customerId() == null
+            if (result == null || result.orderId() != orderId || result.storeId() == null
+                    || result.customerId() == null && !"COUNTER".equals(result.orderSource())
                     || result.version() == null || result.amount() == null) throw new ApiException(ErrorCode.UPSTREAM_ERROR);
             return result;
         } catch (RestClientResponseException failure) {

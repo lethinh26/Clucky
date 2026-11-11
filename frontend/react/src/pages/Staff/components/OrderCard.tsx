@@ -18,6 +18,7 @@ import type { StaffOrder } from "../../../mocks/mockStaffOrders";
 import type { AdminOrderStatus } from "../../../types/order";
 import { useElapsedTime } from "../../../hooks/useElapsedTime";
 import styles from "./order-card.module.css";
+import { useTranslation } from "react-i18next";
 
 interface OrderCardProps {
   order: StaffOrder;
@@ -40,6 +41,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onReprint,
   formatMoney = defaultFormatMoney,
 }) => {
+  const { t } = useTranslation();
   const { elapsedTimeText, isSlaBreached, isSlaWarning, diffMinutes } =
     useElapsedTime(order.createdAt);
 
@@ -66,31 +68,31 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       case "PENDING_PAYMENT":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenPending}`}>
-            <Clock3 size={13} /> Chờ tiền
+            <Clock3 size={13} /> {t("business:staffcard.pendingPayment")}
           </span>
         );
       case "CONFIRMED":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenConfirmed}`}>
-            <ChefHat size={13} /> Chờ nhận món
+            <ChefHat size={13} /> {t("business:staffcard.confirmed")}
           </span>
         );
       case "PREPARING":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenPreparing}`}>
-            <ChefHat size={13} /> Đang nấu
+            <ChefHat size={13} /> {t("business:staffcard.preparing")}
           </span>
         );
       case "READY":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenReady}`}>
-            <PackageCheck size={13} /> Sẵn sàng giao
+            <PackageCheck size={13} /> {t("business:staffcard.ready")}
           </span>
         );
       case "COMPLETED":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenCompleted}`}>
-            <CheckCircle2 size={13} /> Đã hoàn tất
+            <CheckCircle2 size={13} /> {t("business:staffcard.completed")}
           </span>
         );
       default:
@@ -107,20 +109,20 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     if (order.paymentStatus === "PAID") {
       return (
         <span className={`${styles.badgePayment} ${styles.badgePaymentPaid}`}>
-          <CheckCircle2 size={13} /> ĐÃ THANH TOÁN ONLINE
+          <CheckCircle2 size={13} /> {t("business:staffcard.paidOnline")}
         </span>
       );
     }
     if (order.paymentStatus === "COLLECTED") {
       return (
         <span className={`${styles.badgePayment} ${styles.badgePaymentCollected}`}>
-          <Wallet size={13} /> ĐÃ THU TẠI QUẦY
+          <Wallet size={13} /> {t("business:staffcard.collectedCounter")}
         </span>
       );
     }
     return (
       <span className={`${styles.badgePayment} ${styles.badgePaymentPending}`}>
-        <Wallet size={13} /> CHƯA THU TIỀN
+        <Wallet size={13} /> {t("business:staffcard.unpaid")}
       </span>
     );
   };
@@ -142,17 +144,17 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           <div className={styles.badgeRow}>
             {order.diningOption === "DINE_IN" ? (
               <span className={styles.badgeDiningIn}>
-                <Utensils size={12} /> ĂN TẠI QUÁN
+                <Utensils size={12} /> {t("business:staffcard.dineIn")}
               </span>
             ) : (
               <span className={styles.badgeTakeAway}>
-                <ShoppingBag size={12} /> MANG VỀ
+                <ShoppingBag size={12} /> {t("business:staffcard.takeAway")}
               </span>
             )}
 
             {order.orderSource === "COUNTER" ? (
               <span className={styles.badgeSourceCounter}>
-                <Store size={11} /> QUẦY
+                <Store size={11} /> {t("business:staffcard.counter")}
               </span>
             ) : (
               <span className={styles.badgeSourceWeb}>
@@ -175,13 +177,13 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
         {showSlaBreached && (
           <span className={styles.slaAlertBadge} role="alert">
-            <CircleAlert size={14} /> QUÁ HẠN: {diffMinutes} PHÚT
+            <CircleAlert size={14} /> {t("business:staffcard.overdue", { count: diffMinutes })}
           </span>
         )}
 
         {showSlaWarning && (
           <span className={styles.slaWarningBadge}>
-            <CircleAlert size={13} /> CẦN GẤP ({diffMinutes}p)
+            <CircleAlert size={13} /> {t("business:staffcard.urgent", { count: diffMinutes })}
           </span>
         )}
       </div>
@@ -189,7 +191,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       {/* Thông tin khách hàng */}
       <div className={styles.customerInfo}>
         <span className={styles.customerName}>
-          {order.customerName || "Khách vãng lai"}
+          {order.customerName || t("business:staffcard.walkInCustomer")}
         </span>
         {order.customerPhone && (
           <a
@@ -242,7 +244,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
         {/* Tổng tiền */}
         <div className={styles.totalRow}>
-          <span>Tổng thanh toán:</span>
+          <span>{t("business:staffcard.total")}:</span>
           <strong className={styles.totalAmount}>
             {formatMoney(order.total)}
           </strong>
@@ -261,25 +263,38 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           </button>
 
           {/* Theo từng trạng thái xử lý đơn */}
-          {order.status === "PENDING_PAYMENT" && (
+          {order.status === "PENDING_PAYMENT" && order.orderSource !== "WEB" && (
             <button
               type="button"
               className={`${styles.actionButton} ${styles.btnWarning}`}
               onClick={() => onPaymentCollect?.(order)}
               aria-label={"Thu tiền đơn " + formattedQueue}
             >
-              <Wallet size={18} /> Thu tiền quầy
+              <Wallet size={18} /> {t("business:staffcard.collectCounter")}
+            </button>
+          )}
+          {order.status === "PENDING_PAYMENT" && order.orderSource === "WEB" && (
+            <button type="button" className={`${styles.actionButton} ${styles.btnSecondary}`}
+              onClick={() => onViewDetails?.(order.id)}>
+              <Clock3 size={18} /> {t("business:staffcard.awaitingQr")}
             </button>
           )}
 
-          {order.status === "CONFIRMED" && (
+          {order.status === "CONFIRMED" && (order.orderType !== "PICKUP" || ["PAID", "COLLECTED"].includes(order.paymentStatus)) && (
             <button
               type="button"
               className={`${styles.actionButton} ${styles.btnPrimary}`}
               onClick={() => onStatusChange?.(order.id, "PREPARING")}
               aria-label={"Bắt đầu nấu đơn " + formattedQueue}
             >
-              <ChefHat size={18} /> Bắt đầu nấu
+              <ChefHat size={18} /> {t("business:staffcard.startCooking")}
+            </button>
+          )}
+
+          {order.status === "CONFIRMED" && order.orderType === "PICKUP" && order.paymentStatus === "PENDING" && (
+            <button type="button" className={`${styles.actionButton} ${styles.btnWarning}`}
+              onClick={() => order.orderSource === "WEB" ? onViewDetails?.(order.id) : onPaymentCollect?.(order)}>
+              <Wallet size={18} /> {order.orderSource === "WEB" ? t("business:orderdemo.openCodEvidence") : t("business:staffcard.collectCounter")}
             </button>
           )}
 
@@ -290,7 +305,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               onClick={() => onStatusChange?.(order.id, "READY")}
               aria-label={"Báo xong món đơn " + formattedQueue}
             >
-              <PackageCheck size={18} /> Đã xong món
+              <PackageCheck size={18} /> {t("business:staffcard.foodReady")}
             </button>
           )}
 
@@ -303,16 +318,16 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   onClick={() => onPaymentCollect?.(order)}
                   aria-label={"Thu tiền và bàn giao đơn " + formattedQueue}
                 >
-                  <Wallet size={18} /> Đã thu tiền & bàn giao
+                  <Wallet size={18} /> {order.orderSource === "WEB" && order.paymentMethod === "COD" ? t("business:orderdemo.openCodEvidence") : t("business:staffcard.collectAndHandOver")}
                 </button>
               ) : order.paymentStatus === "COLLECTED" ? (
                 <button
                   type="button"
                   className={`${styles.actionButton} ${styles.btnSuccess}`}
                   onClick={() => onStatusChange?.(order.id, "COMPLETED")}
-                  aria-label={"Thử lại bàn giao đơn " + formattedQueue}
+                  aria-label={t("business:staffactions.retryOrderHandover", { queue: formattedQueue })}
                 >
-                  <CheckCircle2 size={18} /> Thử lại bàn giao
+                  <CheckCircle2 size={18} /> {t("business:staffcard.retryHandover")}
                 </button>
               ) : (
                 <button
@@ -321,7 +336,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   onClick={() => onStatusChange?.(order.id, "COMPLETED")}
                   aria-label={"Bàn giao đơn " + formattedQueue}
                 >
-                  <CheckCircle2 size={18} /> Bàn giao cho khách
+                  <CheckCircle2 size={18} /> {t("business:staffcard.handOver")}
                 </button>
               )}
               <button
@@ -330,7 +345,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 onClick={() => onReprint?.(order)}
                 title="In lại hóa đơn / Xem bill"
               >
-                <Printer size={18} /> In lại bill
+                <Printer size={18} /> {t("business:staffcard.reprintReceipt")}
               </button>
             </>
           )}
@@ -343,7 +358,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 onClick={() => onReprint?.(order)}
                 title="In lại hóa đơn có watermark bản sao"
               >
-                <Printer size={18} /> In lại bill
+                <Printer size={18} /> {t("business:staffcard.reprintReceipt")}
               </button>
               <button
                 type="button"
@@ -351,7 +366,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 onClick={() => onViewDetails?.(order.id)}
                 aria-label={"Xem lại hóa đơn " + formattedQueue}
               >
-                <CheckCircle2 size={18} /> Đã hoàn tất ca
+                <CheckCircle2 size={18} /> {t("business:staffcard.completed")}
               </button>
             </>
           )}

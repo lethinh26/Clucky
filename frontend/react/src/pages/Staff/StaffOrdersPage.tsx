@@ -36,6 +36,7 @@ import { CounterOrderModal } from "./components/CounterOrderModal";
 import { CounterPaymentModal } from "./components/CounterPaymentModal";
 import { ReceiptBillModal } from "./components/ReceiptBillModal";
 import styles from "./staff-orders.module.css";
+import { loadOrderItemImages, orderItemImage, type OrderItemImages } from "../../lib/order-item-images";
 
 const SOUND_STORAGE_KEY = "clucky_staff_sound_enabled";
 
@@ -46,7 +47,18 @@ type WorkQueueKey =
   | "READY"
   | "COMPLETED";
 
-export function fromBackendOrderToStaffOrder(bo: BackendOrder): StaffOrder {
+const businessDate = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+
+async function loadStoreDayOrders(storeId: number, date: string): Promise<BackendOrder[]> {
+  const result: BackendOrder[] = [];
+  for (let page = 0; ; page++) {
+    const batch = await ordersApi.list({ storeId, date, page, size: 200 });
+    result.push(...batch);
+    if (batch.length < 200) return result;
+  }
+}
+
+export function fromBackendOrderToStaffOrder(bo: BackendOrder, images: OrderItemImages = new Map()): StaffOrder {
   const qNum = bo.queueNumber ?? (typeof bo.id === "number" ? bo.id : 1);
   const createdDate = bo.createdAt ? new Date(bo.createdAt) : new Date();
   const timeStr = `${String(createdDate.getHours()).padStart(2, "0")}:${String(
@@ -74,6 +86,7 @@ export function fromBackendOrderToStaffOrder(bo: BackendOrder): StaffOrder {
       lineTotal: item.lineTotal,
       note: item.note,
       options: optionsStr,
+      image: orderItemImage(item, images),
     };
   });
 
@@ -128,17 +141,39 @@ export function StaffOrdersPage() {
   const [orders, setOrders] = useState<StaffOrder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState(businessDate);
+  const imageMapRef = useRef<OrderItemImages | null>(null);
+  const todayRef = useRef(businessDate());
+  const fetchRevisionRef = useRef(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const today = businessDate();
+      if (today !== todayRef.current) {
+        const previous = todayRef.current;
+        todayRef.current = today;
+        setSelectedDate(date => date === previous ? today : date);
+      }
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const isFirstLoadDoneRef = useRef<boolean>(false);
   const prevConfirmedIdsRef = useRef<Set<string>>(new Set());
 
   // Hàm load danh sách đơn từ backend API
   const fetchOrders = useCallback(async (isSilent = false) => {
+    const revision = ++fetchRevisionRef.current;
     if (!isSilent) setIsLoading(true);
     try {
       const storeIdNum = user?.storeId ? Number(user.storeId) : 1;
-      const backendList = await ordersApi.list({ storeId: storeIdNum, size: 50 });
-      const converted = (backendList || []).map(fromBackendOrderToStaffOrder);
+      const [backendList, images] = await Promise.all([
+        loadStoreDayOrders(storeIdNum, selectedDate),
+        imageMapRef.current ? Promise.resolve(imageMapRef.current) : loadOrderItemImages(),
+      ]);
+      if (revision !== fetchRevisionRef.current) return;
+      imageMapRef.current = images;
+      const converted = (backendList || []).map(order => fromBackendOrderToStaffOrder(order, images));
       setOrders(converted);
       setFetchError(false);
       prevConfirmedIdsRef.current = new Set(
@@ -146,12 +181,13 @@ export function StaffOrdersPage() {
       );
       isFirstLoadDoneRef.current = true;
     } catch (err) {
+      if (revision !== fetchRevisionRef.current) return;
       console.warn("Lỗi tải danh sách đơn hàng từ backend cart-order-service:", err);
       setFetchError(true);
     } finally {
-      if (!isSilent) setIsLoading(false);
+      if (!isSilent && revision === fetchRevisionRef.current) setIsLoading(false);
     }
-  }, [user?.storeId]);
+  }, [user?.storeId, selectedDate]);
 
   // Load ban đầu khi mount
   useEffect(() => {
@@ -211,23 +247,24 @@ export function StaffOrdersPage() {
     localStorage.setItem(SOUND_STORAGE_KEY, String(nextState));
     if (nextState) {
       playChime();
-      message.success("Đã bật chuông báo đơn mới");
+      message.success(t("business:staffactions.bellEnabled"));
     } else {
-      message.info("Đã tắt chuông báo");
+      message.info(t("business:staffactions.bellDisabled"));
     }
   };
 
   // 7. Auto-polling ngầm (5s khi active, 15s khi background) đồng bộ với backend DB
   useEffect(() => {
     const pollIntervalTime = document.hidden ? 15000 : 5000;
+    let active = true;
 
     const intervalId = window.setInterval(async () => {
       if (!isFirstLoadDoneRef.current) return;
       try {
         const storeIdNum = user?.storeId ? Number(user.storeId) : 1;
-        const backendList = await ordersApi.list({ storeId: storeIdNum, size: 50 });
-        if (backendList) {
-          const converted = backendList.map(fromBackendOrderToStaffOrder);
+        const backendList = await loadStoreDayOrders(storeIdNum, selectedDate);
+        if (active && backendList) {
+          const converted = backendList.map(order => fromBackendOrderToStaffOrder(order, imageMapRef.current ?? new Map()));
 
           // Phát hiện đơn CONFIRMED mới xuất hiện
           const confirmedOrders = converted.filter(
@@ -243,9 +280,7 @@ export function StaffOrdersPage() {
             if (soundEnabled) {
               playChime();
             }
-            message.info(
-              "🔔 Đơn mới #" + String(newestOrder.queueNumber).padStart(3, "0") + " (" + newestOrder.orderCode + ") vừa vào!",
-            );
+            message.info(t("business:staffactions.newOrder", { queue: String(newestOrder.queueNumber).padStart(3, "0"), code: newestOrder.orderCode }));
           }
 
           prevConfirmedIdsRef.current = new Set(
@@ -260,9 +295,10 @@ export function StaffOrdersPage() {
     }, pollIntervalTime);
 
     return () => {
+      active = false;
       window.clearInterval(intervalId);
     };
-  }, [soundEnabled, playChime, user?.storeId]);
+  }, [soundEnabled, playChime, user?.storeId, selectedDate]);
 
   // 8. Lắng nghe phím tắt toàn cục: F1 (Nhập đơn nhanh)
   const handleOpenPOS = useCallback(() => {
@@ -307,37 +343,25 @@ export function StaffOrdersPage() {
     if (reason === "COLLECT_COD") {
       if (!Number.isNaN(numericId) && numericId > 0) {
         try {
-          await ordersApi.updateStatus(numericId, {
-            status: nextStatus,
-            note: "Xác nhận thu tiền COD",
-            paymentStatus: "COLLECTED",
-            version: targetOrder?.version,
-          });
+          await paymentsApi.collectCod(numericId);
+          await fetchOrders(false);
+          message.info(t("business:orderdemo.codCollectionPending"));
+          return true;
         } catch (err: any) {
           if (
             err?.response?.status === 409 ||
             err?.response?.data?.code === "RESOURCE_CONFLICT" ||
             err?.response?.data?.code === "CONCURRENCY_CONFLICT"
           ) {
-            message.warning("Đơn hàng vừa được cập nhật từ thiết bị khác. Đang làm mới dữ liệu...");
+            message.warning(t("business:staffactions.orderChanged"));
             await fetchOrders(false);
             return false;
           }
-          console.warn("Lỗi xác nhận thu COD backend:", err);
+          message.error(t("business:orderdemo.codCollectionError", { error: getErrorMessage(err) }));
+          return false;
         }
       }
-      setOrders((prev) =>
-        prev.map((order) => {
-          if (order.id !== orderId) return order;
-          return {
-            ...order,
-            paymentStatus: "COLLECTED",
-            updatedAt: new Date().toISOString(),
-          };
-        }),
-      );
-      message.success("Đã xác nhận thu tiền COD thành công!");
-      return true;
+      return false;
     }
 
     if (!Number.isNaN(numericId) && numericId > 0) {
@@ -361,14 +385,14 @@ export function StaffOrdersPage() {
         );
 
         const statusLabels: Record<string, string> = {
-          PREPARING: "Bếp đã nhận nấu",
-          READY: "Món đã sẵn sàng bàn giao",
+          PREPARING: t("business:staffactions.kitchenAccepted"),
+          READY: t("business:staffactions.mealReady"),
           COMPLETED: targetOrder
-            ? `Đơn hàng #${String(targetOrder.queueNumber).padStart(3, "0")} đã hoàn tất bàn giao!`
-            : "Đã hoàn tất bàn giao cho khách",
+            ? t("business:staffactions.orderHandedOver", { queue: String(targetOrder.queueNumber).padStart(3, "0") })
+            : t("business:staffactions.handedOver"),
         };
 
-        message.success(statusLabels[nextStatus] || "Đã cập nhật trạng thái");
+        message.success(statusLabels[nextStatus] || t("business:staffactions.statusUpdated"));
         return true;
       } catch (err: any) {
         if (
@@ -376,15 +400,12 @@ export function StaffOrdersPage() {
           err?.response?.data?.code === "RESOURCE_CONFLICT" ||
           err?.response?.data?.code === "CONCURRENCY_CONFLICT"
         ) {
-          message.warning("Đơn hàng vừa được cập nhật từ thiết bị khác. Đang làm mới dữ liệu...");
+          message.warning(t("business:staffactions.orderChanged"));
           await fetchOrders(false);
           return false;
         }
-        console.warn("Lỗi đồng bộ trạng thái đơn lên backend:", err);
-        message.error(
-          "Lỗi cập nhật trạng thái: " +
-            (err?.response?.data?.message || getErrorMessage(err)),
-        );
+        console.warn("order status synchronization failed:", err);
+        message.error(t("business:staffactions.statusUpdateFailed", { detail: getErrorMessage(err) }));
         return false;
       }
     }
@@ -393,6 +414,10 @@ export function StaffOrdersPage() {
 
   // Thu tiền quầy: mở CounterPaymentModal
   const handlePaymentCollect = (order: StaffOrder) => {
+    if (order.orderSource === "WEB" && order.paymentMethod === "COD") {
+      setSelectedOrderId(order.id);
+      return;
+    }
     setPaymentModalOrder(order);
   };
 
@@ -457,11 +482,8 @@ export function StaffOrdersPage() {
     try {
       receipt = await paymentsApi.collectCounter(collectionPayload);
     } catch (err: any) {
-      console.error("Lỗi Pha 1 thu tiền tại quầy:", err);
-      message.error(
-        "Lỗi thu tiền tại quầy: " +
-          (err?.response?.data?.message || getErrorMessage(err)),
-      );
+      console.error("counter collection failed:", err);
+      message.error(t("business:staffactions.collectionFailed", { detail: getErrorMessage(err) }));
       return;
     }
 
@@ -478,7 +500,7 @@ export function StaffOrdersPage() {
       bankDeclaredAmount: data.bankDeclaredAmount,
       bankRefCode: receipt.bankRefCode || data.refCode,
       manualAcceptanceReason: data.manualReason,
-      cashierName: receipt.staffName || user?.fullName || "Thu ngân",
+      cashierName: receipt.staffName || user?.fullName || t("business:staffactions.cashier"),
       printCount: receipt.printCount ?? 0,
       updatedAt: new Date().toISOString(),
     };
@@ -496,7 +518,7 @@ export function StaffOrdersPage() {
     try {
       const updatedBackend = await ordersApi.updateStatus(numericId, {
         status: "COMPLETED",
-        note: data.manualReason || "Đã thu tiền tại quầy và bàn giao",
+        note: data.manualReason || t("business:staffactions.collectedAndHandedOver"),
         version: order.version,
       });
 
@@ -510,27 +532,21 @@ export function StaffOrdersPage() {
         prev.map((o) => (o.id === order.id ? completedOrder : o)),
       );
       setActiveTab("COMPLETED");
-      message.success(
-        `Đơn hàng #${String(order.queueNumber).padStart(3, "0")} đã hoàn tất bàn giao!`,
-      );
+      message.success(t("business:staffactions.orderHandedOver", { queue: String(order.queueNumber).padStart(3, "0") }));
     } catch (err: any) {
       if (
         err?.response?.status === 409 ||
         err?.response?.data?.code === "RESOURCE_CONFLICT" ||
         err?.response?.data?.code === "CONCURRENCY_CONFLICT"
       ) {
-        message.warning(
-          "Đơn hàng vừa được cập nhật từ thiết bị khác. Đang làm mới dữ liệu...",
-        );
+        message.warning(t("business:staffactions.orderChanged"));
         await fetchOrders(false);
         return;
       }
 
-      console.warn("Lỗi Pha 2 bàn giao đơn hàng:", err);
+      console.warn("order handover failed:", err);
       // Giữ nguyên đơn tại tab READY, cập nhật Badge tiền thành "ĐÃ THU TẠI QUẦY", đổi nút thành "Thử lại bàn giao"
-      message.error(
-        "Lỗi kết nối khi cập nhật bàn giao. Đơn đã được thu tiền tại quầy, vui lòng bấm 'Thử lại bàn giao'.",
-      );
+      message.error(t("business:staffactions.handoverFailed"));
     }
   };
 
@@ -597,27 +613,27 @@ export function StaffOrdersPage() {
   const tabsConfig: { key: WorkQueueKey; label: string; count: number }[] = [
     {
       key: "PENDING_PAYMENT",
-      label: "Chờ tiền",
+      label: t("business:stafforderspage.pendingPayment"),
       count: queueCounts.PENDING_PAYMENT,
     },
     {
       key: "CONFIRMED",
-      label: "Mới xác nhận",
+      label: t("business:stafforderspage.newConfirmed"),
       count: queueCounts.CONFIRMED,
     },
     {
       key: "PREPARING",
-      label: "Đang chuẩn bị",
+      label: t("business:stafforderspage.preparing"),
       count: queueCounts.PREPARING,
     },
     {
       key: "READY",
-      label: "Sẵn sàng",
+      label: t("business:stafforderspage.ready"),
       count: queueCounts.READY,
     },
     {
       key: "COMPLETED",
-      label: "Tra cứu đã xong",
+      label: t("business:stafforderspage.completedLookup"),
       count: queueCounts.COMPLETED,
     },
   ];
@@ -683,7 +699,7 @@ export function StaffOrdersPage() {
               <span className={styles.branchName}>
                 {user?.storeName || "Store #01 - Cầu Giấy"}
               </span>
-              <span className={styles.branchStatus}>Đang mở ca phục vụ</span>
+              <span className={styles.branchStatus}>{t("business:stafforderspage.shiftOpen")}</span>
             </div>
           </div>
 
@@ -704,7 +720,7 @@ export function StaffOrdersPage() {
             }
           >
             {soundEnabled ? <Bell size={18} /> : <BellOff size={18} />}
-            <span>{soundEnabled ? "Chuông: BẬT" : "Chuông: TẮT"}</span>
+            <span>{t(soundEnabled ? "business:stafforderspage.soundOn" : "business:stafforderspage.soundOff")}</span>
           </button>
 
           {/* Link Tab Phụ: Sổ quỹ chi nhánh */}
@@ -715,7 +731,7 @@ export function StaffOrdersPage() {
             title="Xem chi tiết đối soát dòng tiền và két ca trực"
           >
             <Landmark size={17} />
-            <span>Sổ quỹ chi nhánh</span>
+            <span>{t("business:stafforderspage.cashLedger")}</span>
           </button>
 
           {/* Nút Đỏ Nổi Bật: Nhập đơn nhanh (F1) */}
@@ -725,7 +741,7 @@ export function StaffOrdersPage() {
             onClick={handleOpenPOS}
             title="Mở giao diện POS thu ngân để tạo đơn nhanh tại quầy (Phím F1)"
           >
-            <span>Nhập đơn nhanh</span>
+            <span>{t("business:stafforderspage.quickOrder")}</span>
             <span className={styles.shortcutBadge}>F1</span>
           </button>
         </div>
@@ -733,6 +749,12 @@ export function StaffOrdersPage() {
 
       {/* Thanh công cụ làm mới & trạng thái đồng bộ */}
       <div className={styles.simControls}>
+        <label htmlFor="staff-order-date">{t("business:stafforderspage.filterOrderDate")}</label>
+        <input id="staff-order-date" type="date" value={selectedDate} max={businessDate()}
+          onChange={event => { if (event.target.value) setSelectedDate(event.target.value); }} />
+        <button type="button" className={styles.simBtn} onClick={() => setSelectedDate(businessDate())}>
+          {t("business:stafforderspage.today")}
+        </button>
         <button
           type="button"
           className={styles.simBtn}
@@ -743,7 +765,7 @@ export function StaffOrdersPage() {
           <span>{t("admin:system.refresh")}</span>
         </button>
         <span style={{ marginLeft: "auto", color: "#6b6259" }}>
-          ⏱️ Auto-polling: <strong>5s</strong>
+          ⏱️ {t("business:stafforderspage.autoRefresh")}: <strong>5s</strong>
         </span>
       </div>
 
@@ -798,7 +820,7 @@ export function StaffOrdersPage() {
       <nav
         className={styles.tabsContainer}
         role="tablist"
-        aria-label="Các hàng đợi xử lý đơn hàng"
+        aria-label={t("business:stafforderspage.workQueues")}
       >
         {tabsConfig.map((tab) => {
           const isActive = activeTab === tab.key;
@@ -842,7 +864,7 @@ export function StaffOrdersPage() {
 
         <div className={styles.toolbarRight}>
           <span className={styles.queueInfo}>
-            {visibleOrders.length} đơn trong tab này
+            {visibleOrders.length} {t("business:stafforderspage.ordersInTab")}
           </span>
           <select
             className={styles.sortSelect}
@@ -850,10 +872,10 @@ export function StaffOrdersPage() {
             onChange={(e) =>
               setSortOrder(e.target.value as "NEWEST" | "OLDEST")
             }
-            aria-label="Sắp xếp thời gian"
+            aria-label={t("business:stafforderspage.sortByTime")}
           >
-            <option value="NEWEST">Mới nhất trước</option>
-            <option value="OLDEST">Cũ nhất trước</option>
+            <option value="NEWEST">{t("business:stafforderspage.newestFirst")}</option>
+            <option value="OLDEST">{t("business:stafforderspage.oldestFirst")}</option>
           </select>
         </div>
       </section>
@@ -864,11 +886,11 @@ export function StaffOrdersPage() {
           <CheckCircle2 size={48} />
           <h2 className={styles.emptyTitle}>{t("admin:system.emptyOrders")}</h2>
           <p className={styles.emptyText}>
-            Hàng đợi này hiện không có đơn hàng nào cần xử lý.
+            {t("business:stafforderspage.noOrdersInThisSection")}
           </p>
         </div>
       ) : (
-        <div className={styles.cardsGrid} role="region" aria-label="Danh sách đơn hàng">
+        <div className={styles.cardsGrid} role="region" aria-label={t("business:stafforderspage.storeOrders")}>
           {visibleOrders.map((order) => (
             <OrderCard
               key={order.id}
@@ -887,10 +909,7 @@ export function StaffOrdersPage() {
         order={selectedOrderForDrawer}
         open={Boolean(selectedOrderId)}
         onClose={() => setSelectedOrderId(null)}
-        onStatusChange={async (id, nextStatus) => {
-          handleStatusChange(id, nextStatus);
-          return true;
-        }}
+        onStatusChange={handleStatusChange}
       />
 
       {/* Phase 2: Modal Nhập Đơn Nhanh Quầy POS (F1) */}

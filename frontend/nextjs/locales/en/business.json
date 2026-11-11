@@ -131,6 +131,7 @@
     "oneLastCheck": "ONE LAST CHECK",
     "yourMealIsAlmostReady": "Your meal is almost ready",
     "voucherDiscount": "Voucher discount",
+    "removeVoucher": "Remove voucher {code}",
     "rewardPoints": "Reward points",
     "totalDue": "Total due",
     "editCart": "Edit cart",
@@ -222,6 +223,7 @@
     "submitRequest": "Submit request"
   },
   "party": {
+    "consultationRequest": "Party package consultation request",
     "customMenu": "Custom menu",
     "ourTeamWillCallToDesignAMenuThatFitsYourBudget": "Our team will call to design a menu that fits your budget.",
     "custom": "Custom",
@@ -244,6 +246,9 @@
     "individualPackagingGreetingCardsVatInvoiceHomeDelivery": "Individual packaging, greeting cards, VAT invoice, home delivery...",
     "sendPartyBookingRequest": "Send party booking request →",
     "yourDemoPartyRequestIsReady": "Your demo party request is ready!",
+    "requestSubmitted": "Party request submitted",
+    "loginToRequestParty": "Please sign in to submit a party request.",
+    "requestAwaitingContact": "guests. The store will contact you with a quote; no payment has been confirmed.",
     "youHaveCompletedTheFormFor": "You have completed the form for",
     "guestsThisIsAUiPreviewNoRequestHasBeenSentTo": "guests. This is a UI preview; no request has been sent to a store. You can return to adjust your details.",
     "guestCount": "Guest count",
@@ -253,7 +258,10 @@
     "partyPackage": "Party package",
     "theDemoFormHasBeenSavedInThisBrowser": "The demo form has been saved in this browser.",
     "couldNotSaveInThisBrowserYourDetailsRemainAvailableInThis": "Could not save in this browser; your details remain available in this session.",
-    "backToForm": "Back to form"
+    "backToForm": "Back to form",
+    "viewInCart": "View request in cart",
+    "partyRequests": "Party requests",
+    "quotePending": "Awaiting consultation and quote"
   },
   "stores": {
     "eyebrow": "Find your Clucky",

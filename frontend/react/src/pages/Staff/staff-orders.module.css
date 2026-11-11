@@ -1,5 +1,5 @@
 :root {
-  --font-fredoka: "Fredoka", "Fredoka", cursive, sans-serif;
+  --font-fredoka: "Quicksand", "Segoe UI", system-ui, sans-serif;
 }
 
 .staffContainer {
@@ -8,6 +8,10 @@
   padding: 16px 24px 48px;
   color: #16100d;
   font-family: var(--font-body, "Quicksand", system-ui, sans-serif);
+}
+
+.staffContainer :is(h1, h2, h3, strong, button, input, select) {
+  font-family: "Quicksand", "Segoe UI", system-ui, sans-serif;
 }
 
 /* === HEADER SECTION === */

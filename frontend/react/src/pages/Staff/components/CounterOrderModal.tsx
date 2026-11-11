@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Search,
@@ -50,6 +51,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
   onSuccess,
   existingOrderCount = 0,
 }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   // 1. Filter states
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
@@ -372,7 +374,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
 
       const qNum = created.queueNumber ?? (created.id || 1);
       const formattedQueue = `#${String(qNum).padStart(3, "0")}`;
-      message.success(`Tạo đơn quầy thành công! Số thứ tự: ${formattedQueue}`);
+      message.success(t("business:staffactions.counterCreated", { queue: formattedQueue }));
 
       setCartItems([]);
       setOrderNote("");
@@ -384,11 +386,10 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
         await onSubmitOrder(created as any);
       }
     } catch (err: any) {
-      console.error("Lỗi tạo đơn quầy:", err);
-      message.error(
-        "Lỗi tạo đơn quầy: " +
-          (err?.response?.data?.message || err?.message || "Không thể tạo đơn"),
-      );
+      console.error("counter order creation failed:", err);
+      message.error(t("business:staffactions.counterCreateFailed", {
+        detail: err?.response?.data?.message || err?.message || t("business:staffactions.unableToCreateOrder"),
+      }));
     } finally {
       setIsSubmitting(false);
     }

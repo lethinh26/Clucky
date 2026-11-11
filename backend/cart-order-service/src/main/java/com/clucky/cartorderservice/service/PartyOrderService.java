@@ -22,8 +22,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.RestClientException;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Service
 public class PartyOrderService {
@@ -31,15 +37,21 @@ public class PartyOrderService {
 
     private final PartyOrderRepository partyOrderRepository;
     private final AccessGuard accessGuard;
+    private final RestClient restClient;
+    private final String catalogServiceUrl;
 
-    public PartyOrderService(PartyOrderRepository partyOrderRepository, AccessGuard accessGuard) {
+    public PartyOrderService(PartyOrderRepository partyOrderRepository, AccessGuard accessGuard,
+            RestClient restClient,
+            @Value("${clucky.catalog.service-url:http://catalog-store-service}") String catalogServiceUrl) {
         this.partyOrderRepository = partyOrderRepository;
         this.accessGuard = accessGuard;
+        this.restClient = restClient;
+        this.catalogServiceUrl = catalogServiceUrl;
     }
 
     @Transactional
     public PartyOrderResponse createPartyOrder(CreatePartyOrderRequest request) {
-        if (request.expectedDate() == null || !request.expectedDate().isAfter(LocalDate.now())) {
+        if (request.expectedDate() == null || !request.expectedDate().isAfter(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
 
@@ -48,16 +60,33 @@ public class PartyOrderService {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
         Long customerId = actor.userId();
+        try {
+            JsonNode store = restClient.get().uri(catalogServiceUrl + "/api/stores/{id}", request.storeId())
+                    .retrieve().body(JsonNode.class);
+            if (store == null || store.path("id").asLong() != request.storeId()
+                    || !"OPEN".equals(store.path("status").asText())) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Chi nhánh không còn nhận yêu cầu đặt tiệc");
+            }
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 404) throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        } catch (RestClientException ex) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
 
         PartyOrder entity = new PartyOrder();
         entity.setCustomerId(customerId);
         entity.setStoreId(request.storeId());
         entity.setContactName(request.contactName().trim());
         entity.setPhone(request.phone().trim());
+        entity.setContactEmail(request.contactEmail().trim());
         entity.setExpectedDate(request.expectedDate());
+        entity.setExpectedTime(request.expectedTime());
         entity.setGuestCount(request.guestCount());
+        entity.setPackageCode(request.packageCode());
         entity.setContent(request.content().trim());
         entity.setStatus(PartyOrderStatus.NEW.name());
+        entity.setUpdatedAt(java.time.Instant.now());
 
         entity = partyOrderRepository.save(entity);
         LOG.info("event=party_order_created id={} customerId={} storeId={}",
@@ -139,11 +168,32 @@ public class PartyOrderService {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
+        String note = request.note() == null ? "" : request.note().trim();
+        if (("CONTACTED".equals(target) || "QUOTED".equals(target) || "CANCELLED".equals(target)) && note.isBlank()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Cần ghi chú nội dung liên hệ hoặc lý do thay đổi");
+        }
+        if ("QUOTED".equals(target)) {
+            if (request.quoteAmount() == null || request.quoteAmount().signum() <= 0
+                    || request.quoteAmount().stripTrailingZeros().scale() > 0
+                    || request.quoteAmount().compareTo(new java.math.BigDecimal("999999999999")) > 0
+                    || request.paymentMethod() == null
+                    || !java.util.Set.of("BANK_TRANSFER", "CASH").contains(request.paymentMethod())) {
+                throw new ApiException(ErrorCode.VALIDATION_ERROR, "Báo giá phải có số tiền và phương thức thanh toán hợp lệ");
+            }
+            entity.setQuoteAmount(request.quoteAmount());
+            entity.setPaymentMethod(request.paymentMethod());
+        }
+        if ("CONFIRMED".equals(target) && (entity.getQuoteAmount() == null || entity.getPaymentMethod() == null)) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+        if (!note.isBlank()) entity.setConsultationNote(note);
+
         entity.setStatus(target);
+        entity.setUpdatedAt(java.time.Instant.now());
         entity = partyOrderRepository.save(entity);
 
-        LOG.info("event=party_order_status_updated id={} storeId={} from={} to={} note={}",
-                entity.getId(), entity.getStoreId(), current, target, request.note());
+        LOG.info("event=party_order_status_updated id={} storeId={} from={} to={}",
+                entity.getId(), entity.getStoreId(), current, target);
 
         return DomainMapper.toResponse(entity);
     }

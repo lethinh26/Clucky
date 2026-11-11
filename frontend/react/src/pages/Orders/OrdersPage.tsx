@@ -73,7 +73,7 @@ export const OrdersPage: React.FC = () => {
     if (reason === "COLLECT_COD") {
       ok = await confirmCOD(orderId);
       if (ok) {
-        message.success(t("business:orderdemo.codCollectionConfirmed"));
+        message.info(t("business:orderdemo.codCollectionPending"));
         return true;
       }
     } else {

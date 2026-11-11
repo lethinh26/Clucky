@@ -19,8 +19,10 @@ import {
 } from "../lib/order-demo";
 import { useAuthState } from "./AuthContext";
 import { getSessionState } from "../lib/session";
+import { loadOrderItemImages, orderItemImage, type OrderItemImages } from "../lib/order-item-images";
 import {
   ordersApi,
+  paymentsApi,
   getErrorMessage,
   refundsApi,
   type BackendOrder,
@@ -29,7 +31,7 @@ import {
 
 const storageKey = "clucky-admin-orders-demo-v2";
 
-function mapBackendOrderToAdminOrder(be: BackendOrder): AdminOrder {
+function mapBackendOrderToAdminOrder(be: BackendOrder, images: OrderItemImages = new Map()): AdminOrder {
   const statusMap: Record<string, AdminOrderStatus> = {
     PENDING_PAYMENT: "PENDING_PAYMENT",
     CONFIRMED: "CONFIRMED",
@@ -48,7 +50,7 @@ function mapBackendOrderToAdminOrder(be: BackendOrder): AdminOrder {
     unitPrice: Number(it.unitPrice),
     lineTotal: Number(it.lineTotal),
     options: it.optionsSnapshot ? JSON.stringify(it.optionsSnapshot) : undefined,
-    image: "/images/food-placeholder.svg",
+    image: orderItemImage(it, images),
     note: it.note,
   }));
 
@@ -139,9 +141,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     try {
       const storeIdParam =
         user?.role === "ADMIN" || !user?.storeId ? undefined : Number(user.storeId);
-      const [remoteOrders, remoteRefunds] = await Promise.all([
+      const [remoteOrders, remoteRefunds, images] = await Promise.all([
         ordersApi.list({ storeId: storeIdParam }),
         refundsApi.list({ storeId: storeIdParam }),
+        loadOrderItemImages(),
       ]);
       if (revision !== getSessionState().revision) return;
       if (Array.isArray(remoteOrders)) {
@@ -154,7 +157,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           }
         }
         const mapped = remoteOrders.map((bo) => {
-            const adminOrder = mapBackendOrderToAdminOrder(bo);
+            const adminOrder = mapBackendOrderToAdminOrder(bo, images);
             const ref = refundByOrderId.get(Number(bo.id));
             if (ref) {
               adminOrder.hasRefundRequest = ["PENDING", "APPROVED", "PROCESSING", "WAITING_BANK_DETAILS"].includes(ref.status);
@@ -217,13 +220,18 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         if (action.type === "STATUS") {
           const saved = await ordersApi.updateStatus(id, action.status, action.reason);
           if (revision !== getSessionState().revision) return false;
-          latest.current = latest.current.map((entry) => entry.id === id
-            ? { ...entry, ...mapBackendOrderToAdminOrder(saved) } : entry);
+          latest.current = latest.current.map((entry) => {
+            if (entry.id !== id) return entry;
+            const updated = mapBackendOrderToAdminOrder(saved);
+            return { ...entry, ...updated, items: updated.items.map(item => ({
+              ...item, image: entry.items.find(previous => previous.id === item.id)?.image ?? item.image,
+            })) };
+          });
         } else if (action.type === "COD") {
-          const saved = await ordersApi.updateStatus(id, order.status, "COD_COLLECTED", "COLLECTED");
+          await paymentsApi.collectCod(id);
           if (revision !== getSessionState().revision) return false;
-          latest.current = latest.current.map((entry) => entry.id === id
-            ? { ...entry, ...mapBackendOrderToAdminOrder(saved), paymentStatus: "COLLECTED" } : entry);
+          await refreshOrders();
+          return true;
         } else {
           if (!order.refundRequestId) {
             setActionError(translate("errors:RESOURCE_NOT_FOUND"));

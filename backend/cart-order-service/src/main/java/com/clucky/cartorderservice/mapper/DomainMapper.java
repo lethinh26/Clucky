@@ -143,10 +143,17 @@ public final class DomainMapper {
                 entity.getStoreId(),
                 entity.getContactName(),
                 entity.getPhone(),
+                entity.getContactEmail(),
                 entity.getExpectedDate(),
+                entity.getExpectedTime(),
                 entity.getGuestCount(),
+                entity.getPackageCode(),
                 entity.getContent(),
-                entity.getStatus()
+                entity.getStatus(),
+                entity.getQuoteAmount(),
+                entity.getPaymentMethod(),
+                entity.getConsultationNote(),
+                entity.getUpdatedAt()
         );
     }
 }

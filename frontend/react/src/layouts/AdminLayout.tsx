@@ -35,6 +35,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/stores": "admin:nav.stores",
   "/admin/inventory": "admin:nav.inventory",
   "/admin/orders": "admin:nav.orders",
+  "/admin/party-orders": "admin:nav.partyOrders",
   "/admin/staff/orders": "admin:nav.shiftOrders",
   "/admin/reviews": "admin:nav.reviews",
   "/admin/users": "admin:nav.users",
@@ -61,6 +62,7 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/stores")) selectedKey = "stores";
   else if (pathname.includes("/inventory")) selectedKey = "inventory";
   else if (pathname.includes("/staff/orders")) selectedKey = "staff-orders";
+  else if (pathname.includes("/party-orders")) selectedKey = "party-orders";
   else if (pathname.includes("/orders")) selectedKey = "orders";
   else if (pathname.includes("/users")) selectedKey = "users";
   else if (pathname.includes("/reviews")) selectedKey = "reviews";
@@ -79,6 +81,7 @@ export const AdminLayout: React.FC = () => {
       "stores",
       "inventory",
       "orders",
+      "party-orders",
       "users",
       "reviews",
       "reports",
@@ -91,13 +94,14 @@ export const AdminLayout: React.FC = () => {
       "stores",
       "inventory",
       "orders",
+      "party-orders",
       "users",
       "reviews",
       "reports",
       "payments",
       "transfers",
     ],
-    STAFF: ["inventory", "orders", "transfers", "reviews", "payments"],
+    STAFF: ["inventory", "orders", "party-orders", "transfers", "reviews", "payments"],
   };
 
   const navItems: MenuProps["items"] = [
@@ -130,6 +134,12 @@ export const AdminLayout: React.FC = () => {
       icon: <FileTextOutlined />,
       label: t("admin:nav.orders"),
       onClick: () => navigate("/admin/orders"),
+    },
+    {
+      key: "party-orders",
+      icon: <FileTextOutlined />,
+      label: t("admin:nav.partyOrders"),
+      onClick: () => navigate("/admin/party-orders"),
     },
     {
       key: "transfers",

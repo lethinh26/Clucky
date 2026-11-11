@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Wallet,
@@ -49,6 +50,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
   onClose,
   onConfirmPayment,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<PaymentMethod>("CASH");
 
   // Tab 1: CASH state
@@ -115,6 +117,10 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
 
   const handleConfirm = async () => {
     if (isSubmitting) return;
+    if (activeTab !== "CASH" && !manualReason.trim()) {
+      message.error(t("business:orderdemo.manualBankReasonRequired"));
+      return;
+    }
     let finalMethod: PaymentMethod = activeTab;
     let finalTendered = 0;
     let finalChange = 0;
@@ -469,7 +475,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
             disabled={(activeTab === "CASH" && !isCashSufficient) || isSubmitting}
             onClick={handleConfirm}
           >
-            <span>{isSubmitting ? "Đang xử lý..." : "Xác nhận thu tiền"}</span>
+            <span>{t(isSubmitting ? "business:staffactions.processing" : "business:staffactions.confirmCollection")}</span>
             <ArrowRight size={18} />
           </button>
         </div>

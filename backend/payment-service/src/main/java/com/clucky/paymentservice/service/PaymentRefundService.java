@@ -11,6 +11,7 @@ import com.clucky.paymentservice.entity.RefundReservation;
 import com.clucky.paymentservice.exception.ApiException;
 import com.clucky.paymentservice.exception.ErrorCode;
 import com.clucky.paymentservice.repository.BankTransactionRepository;
+import com.clucky.paymentservice.repository.CounterPaymentReceiptRepository;
 import com.clucky.paymentservice.repository.PaymentRepository;
 import com.clucky.paymentservice.repository.RefundReservationRepository;
 import org.slf4j.Logger;
@@ -30,15 +31,18 @@ public class PaymentRefundService {
     private final PaymentRepository paymentRepository;
     private final BankTransactionRepository bankTransactionRepository;
     private final RefundReservationRepository refundReservationRepository;
+    private final CounterPaymentReceiptRepository counterReceiptRepository;
 
     public PaymentRefundService(
             PaymentRepository paymentRepository,
             BankTransactionRepository bankTransactionRepository,
-            RefundReservationRepository refundReservationRepository
+            RefundReservationRepository refundReservationRepository,
+            CounterPaymentReceiptRepository counterReceiptRepository
     ) {
         this.paymentRepository = paymentRepository;
         this.bankTransactionRepository = bankTransactionRepository;
         this.refundReservationRepository = refundReservationRepository;
+        this.counterReceiptRepository = counterReceiptRepository;
     }
 
     @Transactional(readOnly = true)
@@ -48,31 +52,48 @@ public class PaymentRefundService {
         }
 
         List<Payment> payments = paymentRepository.findByOrderIdOrderByIdDesc(orderId);
-        if (payments.isEmpty()) {
-            return new EligibleRefundQueryResponse(false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "No payment record found for order");
-        }
-
-        Payment payment = payments.get(0);
-        if (payment.getMethod() != PaymentMethod.BANK_TRANSFER) {
-            return new EligibleRefundQueryResponse(false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "Order payment method is not BANK_TRANSFER");
-        }
-
-        if (payment.getStatus() != PaymentStatus.PAID) {
-            return new EligibleRefundQueryResponse(false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "Payment is not in PAID status");
-        }
-
-        // Determine actual received amount from payment or matched bank transaction
-        BigDecimal receivedAmount = payment.getAmount();
-        if (payment.getOrderCode() != null) {
-            Optional<BankTransaction> tx = bankTransactionRepository.findByMatchedOrderCode(payment.getOrderCode());
-            if (tx.isPresent() && tx.get().getAmount() != null) {
-                receivedAmount = tx.get().getAmount();
+        BigDecimal receivedAmount;
+        BigDecimal paymentAmount;
+        if (!payments.isEmpty()) {
+            Payment payment = payments.get(0);
+            if (payment.getMethod() != PaymentMethod.BANK_TRANSFER || payment.getStatus() != PaymentStatus.PAID) {
+                return new EligibleRefundQueryResponse(false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "Bank payment is not paid");
             }
+            receivedAmount = payment.getAmount();
+            paymentAmount = payment.getAmount();
+            if (payment.getOrderCode() != null) {
+                Optional<BankTransaction> tx = bankTransactionRepository.findByMatchedOrderCode(payment.getOrderCode());
+                if (tx.isPresent() && tx.get().getAmount() != null) receivedAmount = tx.get().getAmount();
+            }
+        } else {
+            // Counter transfer is represented by a reconciled receipt, not a
+            // WEB Payment row. A manual acceptance alone is never refundable.
+            var receipts = counterReceiptRepository.findByOrderId(orderId).stream()
+                    .filter(receipt -> "BANK_TRANSFER".equals(receipt.getMethod())
+                            && "RECONCILED".equals(receipt.getStatus())
+                            && receipt.getBankTxId() != null && !receipt.getBankTxId().isBlank()
+                            && receipt.getBankAmountReconciled() != null
+                            && receipt.getBankAmountReconciled().signum() > 0
+                            && receipt.getCashAmount() != null && receipt.getCashAmount().signum() == 0)
+                    .toList();
+            if (receipts.size() != 1) {
+                return new EligibleRefundQueryResponse(false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "No reconciled bank transfer for order");
+            }
+            var receipt = receipts.getFirst();
+            var matchedTransaction = bankTransactionRepository.findByBankTxId(receipt.getBankTxId());
+            if (matchedTransaction.isEmpty()
+                    || !receipt.getOrderCode().equals(matchedTransaction.get().getMatchedOrderCode())
+                    || matchedTransaction.get().getAmount() == null
+                    || matchedTransaction.get().getAmount().signum() <= 0) {
+                return new EligibleRefundQueryResponse(false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "Bank transaction evidence is missing");
+            }
+            receivedAmount = receipt.getBankAmountReconciled().min(matchedTransaction.get().getAmount());
+            paymentAmount = receipt.getTotalDue();
         }
 
         BigDecimal targetOrderAmount = (orderTotalAmount != null && orderTotalAmount.compareTo(BigDecimal.ZERO) > 0)
                 ? orderTotalAmount
-                : payment.getAmount();
+                : paymentAmount;
 
         // Basic refund eligibility only covers up to the order amount; excess is excluded
         BigDecimal eligibleAmount = receivedAmount.min(targetOrderAmount);

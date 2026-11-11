@@ -42,7 +42,8 @@ public class OrderPaymentService {
             BigDecimal amount, String status, String paymentMethod, Instant expiresAt) {}
 
     public record Context(long orderId, String orderCode, Long customerId, Long storeId, BigDecimal amount,
-            String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version) {}
+            String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version,
+            String orderSource, String orderType) {}
 
     @Transactional(readOnly = true)
     public Context context(long id) {
@@ -54,7 +55,8 @@ public class OrderPaymentService {
 
     private Context context(Order order) {
         return new Context(order.getId(), order.getOrderCode(), order.getCustomerId(), order.getStoreId(), order.getTotalAmount(),
-                order.getStatus(), order.getPaymentMethod(), order.getPaymentStatus(), order.getPaymentExpiresAt(), order.getUpdatedAt());
+                order.getStatus(), order.getPaymentMethod(), order.getPaymentStatus(), order.getPaymentExpiresAt(), order.getUpdatedAt(),
+                order.getOrderSource(), order.getType());
     }
 
 
@@ -197,27 +199,20 @@ public class OrderPaymentService {
     @Transactional
     public void updatePaymentStatus(long id, String paymentStatus) {
         Order order = orders.lockById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-        if (com.clucky.cartorderservice.config.CurrentActor.require().role() != com.clucky.cartorderservice.dto.Role.ADMIN
-                && com.clucky.cartorderservice.config.CurrentActor.require().role() != com.clucky.cartorderservice.dto.Role.INTERNAL_SERVICE) {
-            access.requireStore(order.getStoreId());
+        if (com.clucky.cartorderservice.config.CurrentActor.require().role() != com.clucky.cartorderservice.dto.Role.INTERNAL_SERVICE) {
+            throw new org.springframework.security.access.AccessDeniedException("Payment service credential required");
+        }
+        if (!"COUNTER".equals(order.getOrderSource()) || !java.util.Set.of("CONFIRMED", "PREPARING", "READY").contains(order.getStatus())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Đơn hàng không cho phép cập nhật thu tiền quầy");
         }
         if ("COLLECTED".equalsIgnoreCase(paymentStatus)) {
+            if (!"PENDING".equals(order.getPaymentStatus())) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
             order.setPaymentStatus("COLLECTED");
-            if ("PENDING_PAYMENT".equals(order.getStatus())) {
-                String prev = order.getStatus();
-                order.setStatus("CONFIRMED");
-                OrderStatusHistory historyEntry = new OrderStatusHistory();
-                historyEntry.setOrderId(id);
-                historyEntry.setFromStatus(prev);
-                historyEntry.setToStatus("CONFIRMED");
-                historyEntry.setChangedRole("STAFF");
-                historyEntry.setReason("COUNTER_COLLECTED");
-                historyEntry.setCreatedAt(Instant.now());
-                history.save(historyEntry);
-                events.publishOrderStatusChanged(order, items.findByOrderIdOrderByIdAsc(id), prev);
-            }
         } else if ("PENDING".equalsIgnoreCase(paymentStatus)) {
+            if (!"COLLECTED".equals(order.getPaymentStatus())) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
             order.setPaymentStatus("PENDING");
+        } else {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
         orders.save(order);
     }

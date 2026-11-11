@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -9,7 +9,6 @@ import {
   Clock3,
   Search,
   Printer,
-  Link as LinkIcon,
   Landmark,
   X,
   FileCheck,
@@ -35,6 +34,7 @@ import styles from "./incoming-transfers.module.css";
 const formatVnd = (val: number) => {
   return new Intl.NumberFormat("vi-VN").format(val) + " đ";
 };
+const businessDate = (date: Date = new Date()) => date.toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 
 export function fromBackendBankTxToItem(
   b: BackendBankTransaction,
@@ -68,20 +68,29 @@ export const IncomingTransfersPage: React.FC = () => {
   const [shiftSummary, setShiftSummary] = useState<ShiftSummaryData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState(businessDate);
+  const loadRevisionRef = useRef(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSelectedDate(current => current === businessDate(new Date(Date.now() - 60_000)) ? businessDate() : current), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Active section tab: RECEIPTS (Biên lai thu quầy) vs BANK_TX (Giao dịch ngân hàng)
   const [activeSection, setActiveSection] = useState<"RECEIPTS" | "BANK_TX">("RECEIPTS");
 
   // Load dữ liệu sổ quỹ và giao dịch ngân hàng từ payment-service
   const loadPaymentData = useCallback(async () => {
+    const revision = ++loadRevisionRef.current;
     setIsLoading(true);
     try {
       const storeIdNum = user?.storeId ? Number(user.storeId) : 1;
       const [txList, rcList, summary] = await Promise.all([
-        paymentsApi.listBankTransactions(storeIdNum).catch(() => null),
+        paymentsApi.listBankTransactions(storeIdNum, selectedDate).catch(() => null),
         paymentsApi.listReceipts(storeIdNum).catch(() => null),
-        paymentsApi.getShiftSummary(storeIdNum).catch(() => null),
+        paymentsApi.getShiftSummary(storeIdNum, selectedDate).catch(() => null),
       ]);
+      if (revision !== loadRevisionRef.current) return;
 
       if (txList !== null && txList !== undefined) {
         const converted = txList.map((tx) =>
@@ -91,28 +100,27 @@ export const IncomingTransfersPage: React.FC = () => {
             user?.storeName || "Store #01 - Cầu Giấy",
           ),
         );
-        setTransactions(converted);
+        setTransactions(converted.filter(tx => businessDate(new Date(tx.transactionDate)) === selectedDate));
       } else {
         setTransactions([]);
       }
 
       if (rcList !== null && rcList !== undefined) {
-        setReceipts(rcList);
+        setReceipts(rcList.filter(receipt => businessDate(new Date(receipt.createdAt)) === selectedDate));
       } else {
         setReceipts([]);
       }
 
-      if (summary !== null && summary !== undefined) {
-        setShiftSummary(summary);
-      }
-      setFetchError(false);
+      setShiftSummary(summary);
+      setFetchError(txList === null || rcList === null || summary === null);
     } catch (err) {
+      if (revision !== loadRevisionRef.current) return;
       console.warn("Lỗi tải dữ liệu payment từ backend:", err);
       setFetchError(true);
     } finally {
-      setIsLoading(false);
+      if (revision === loadRevisionRef.current) setIsLoading(false);
     }
-  }, [user?.storeId, user?.storeName]);
+  }, [user?.storeId, user?.storeName, selectedDate]);
 
   useEffect(() => {
     loadPaymentData();
@@ -128,14 +136,10 @@ export const IncomingTransfersPage: React.FC = () => {
     "ALL" | "RECONCILED" | "PENDING_RECONCILIATION" | "VOIDED"
   >("ALL");
 
-  // Assign Order Dialog state
-  const [assigningTx, setAssigningTx] = useState<BankTransactionItem | null>(null);
-  const [assignedOrderCode, setAssignedOrderCode] = useState("");
-
   // Void Receipt Dialog state
   const [voidingReceipt, setVoidingReceipt] = useState<BackendCounterReceipt | null>(null);
   const [voidReason, setVoidReason] = useState<string>(
-    "Thu ngân bấm nhầm tiền mặt, khách chuyển sang quét QR",
+    t("business:transfers.defaultVoidReason"),
   );
   const [isVoiding, setIsVoiding] = useState<boolean>(false);
 
@@ -218,46 +222,20 @@ export const IncomingTransfersPage: React.FC = () => {
     setIsVoiding(true);
     try {
       await paymentsApi.voidReceipt(voidingReceipt.id, voidReason);
-      message.success(`Đã hủy biên lai ${voidingReceipt.receiptCode} thành công!`);
+      message.success(t("business:transfers.receiptVoided", { code: voidingReceipt.receiptCode }));
       setVoidingReceipt(null);
       await loadPaymentData();
     } catch (err: any) {
-      console.error("Lỗi hủy biên lai:", err);
-      message.error(
-        "Lỗi hủy biên lai: " +
-          (err?.response?.data?.message || getErrorMessage(err)),
-      );
+      console.error("receipt void failed:", err);
+      message.error(t("business:transfers.voidFailed", { detail: getErrorMessage(err) }));
     } finally {
       setIsVoiding(false);
     }
   };
 
-  // Handle assign transaction to order
-  const handleConfirmAssign = () => {
-    if (!assigningTx || !assignedOrderCode.trim()) return;
-
-    const trimmedCode = assignedOrderCode.trim().toUpperCase();
-    setTransactions((prev) =>
-      prev.map((tx) => {
-        if (tx.id !== assigningTx.id) return tx;
-        return {
-          ...tx,
-          status: "RECONCILED",
-          orderCode: trimmedCode,
-        };
-      }),
-    );
-
-    message.success(
-      "Đã liên kết giao dịch " + assigningTx.bankTxId + " với đơn " + trimmedCode + " thành công!",
-    );
-    setAssigningTx(null);
-    setAssignedOrderCode("");
-  };
-
   // Shift handover print simulation
   const handlePrintHandover = () => {
-    message.success("Đã xuất biên bản bàn giao két tiền ca trực thành công! (Mô phỏng)");
+    window.print();
   };
 
   return (
@@ -269,16 +247,16 @@ export const IncomingTransfersPage: React.FC = () => {
             type="button"
             className={styles.backLinkBtn}
             onClick={() => navigate("/admin/orders")}
-            title="Quay lại không gian quản lý đơn hàng"
+            title={t("business:transfers.backToOrders")}
           >
-            <ArrowLeft size={16} /> Quay lại danh sách đơn hàng
+            <ArrowLeft size={16} /> {t("business:transfers.backToOrders")}
           </button>
           <h1 className={styles.pageTitle}>
             <Landmark size={24} />
-            Sổ Quỹ Dòng Tiền & Két Ca Trực Chi Nhánh
+            {t("business:transfers.title")}
           </h1>
           <p className={styles.pageSubtitle}>
-            Theo dõi dòng tiền ngân hàng MBBank, đối soát VietQR và chốt ca tiền mặt quầy.
+            {t("business:transfers.subtitle")}
           </p>
         </div>
 
@@ -289,7 +267,7 @@ export const IncomingTransfersPage: React.FC = () => {
               <div className={styles.branchName}>
                 {user?.storeName || "Store #01 - Cầu Giấy"}
               </div>
-              <div className={styles.branchStatus}>Ca sáng: 06:00 - 14:00</div>
+              <div className={styles.branchStatus}>{selectedDate}</div>
             </div>
           </div>
 
@@ -297,13 +275,19 @@ export const IncomingTransfersPage: React.FC = () => {
             type="button"
             className={styles.printHandoverBtn}
             onClick={handlePrintHandover}
-            title="In biên bản bàn giao két ca trực"
+            title={t("business:transfers.printHandover")}
           >
             <Printer size={16} />
-            <span>In biên bản bàn giao két</span>
+            <span>{t("business:transfers.printHandover")}</span>
           </button>
         </div>
       </header>
+      <div className={styles.toolbar}>
+        <label htmlFor="ledger-date">{t("business:stafforderspage.filterOrderDate")}</label>
+        <input id="ledger-date" type="date" value={selectedDate} max={businessDate()}
+          onChange={event => { if (event.target.value) setSelectedDate(event.target.value); }} />
+        <button type="button" onClick={() => setSelectedDate(businessDate())}>{t("business:stafforderspage.today")}</button>
+      </div>
 
       {/* Cảnh báo lỗi kết nối backend */}
       {fetchError && (
@@ -354,11 +338,11 @@ export const IncomingTransfersPage: React.FC = () => {
 
       {/* 2. Shift Drawer Widget (3 Cards) */}
       {/* 2. Shift Drawer Widget (3 Cards) */}
-      <section className={styles.shiftDrawerWidget} aria-label="Widget két tiền ca trực">
+      <section className={styles.shiftDrawerWidget} aria-label={t("business:transfers.title")}>
         {/* Card 1: Két tiền mặt thực tế */}
         <div className={styles.widgetCard}>
           <div className={styles.widgetCardHeader}>
-            <span className={styles.widgetTitle}>Két Tiền Mặt Thực Tế</span>
+            <span className={styles.widgetTitle}>{t("business:transfers.cashDrawer")}</span>
             <div className={`${styles.widgetIconWrapper} ${styles.iconCash}`}>
               <Wallet size={20} />
             </div>
@@ -367,8 +351,8 @@ export const IncomingTransfersPage: React.FC = () => {
             {formatVnd(shiftSummary?.netCashInDrawer ?? shiftCashStats.netCashInDrawer)}
           </div>
           <div className={styles.widgetDescription}>
-            Tổng tiền mặt thu được trong ca sau khi trừ tiền thối (Tổng thu:{" "}
-            {formatVnd(shiftSummary?.totalCashCollected ?? shiftCashStats.totalCashCollected)} - Đã thối:{" "}
+            {t("business:transfers.cashExplanation")} ({t("business:transfers.collected")}: {" "}
+            {formatVnd(shiftSummary?.totalCashCollected ?? shiftCashStats.totalCashCollected)} - {t("business:transfers.change")}: {" "}
             {formatVnd(shiftSummary?.totalCashChangeGiven ?? shiftCashStats.totalCashChangeGiven)}).
           </div>
         </div>
@@ -376,7 +360,7 @@ export const IncomingTransfersPage: React.FC = () => {
         {/* Card 2: Chuyển khoản đã khớp sao kê */}
         <div className={styles.widgetCard}>
           <div className={styles.widgetCardHeader}>
-            <span className={styles.widgetTitle}>CK Đã Khớp Sao Kê</span>
+            <span className={styles.widgetTitle}>{t("business:transfers.reconciledTransfers")}</span>
             <div className={`${styles.widgetIconWrapper} ${styles.iconReconciled}`}>
               <CheckCircle2 size={20} />
             </div>
@@ -385,15 +369,14 @@ export const IncomingTransfersPage: React.FC = () => {
             {formatVnd(shiftSummary?.totalBankReconciled ?? shiftCashStats.totalBankReconciled)}
           </div>
           <div className={styles.widgetDescription}>
-            Tổng chuyển khoản trạng thái <strong>RECONCILED</strong> đã khớp chính
-            xác với đơn hàng trên hệ thống.
+            {t("business:transfers.reconciledExplanation")}
           </div>
         </div>
 
         {/* Card 3: Chuyển khoản chờ đối soát */}
         <div className={styles.widgetCard}>
           <div className={styles.widgetCardHeader}>
-            <span className={styles.widgetTitle}>CK Chờ Đối Soát</span>
+            <span className={styles.widgetTitle}>{t("business:transfers.pendingTransfers")}</span>
             <div className={`${styles.widgetIconWrapper} ${styles.iconPending}`}>
               <Clock3 size={20} />
             </div>
@@ -402,8 +385,7 @@ export const IncomingTransfersPage: React.FC = () => {
             {formatVnd(shiftSummary?.totalBankPending ?? shiftCashStats.totalBankPending)}
           </div>
           <div className={styles.widgetDescription}>
-            Khoản thu do thu ngân xác nhận thủ công hoặc webhook về muộn đang chờ
-            đối chiếu.
+            {t("business:transfers.pendingExplanation")}
           </div>
         </div>
       </section>
@@ -420,7 +402,7 @@ export const IncomingTransfersPage: React.FC = () => {
             onClick={() => setActiveSection("RECEIPTS")}
           >
             <Receipt size={16} />
-            <span>Biên lai thu ngân chi nhánh ({receipts.length})</span>
+            <span>{t("business:transfers.receipts")} ({receipts.length})</span>
           </button>
 
           <button
@@ -431,7 +413,7 @@ export const IncomingTransfersPage: React.FC = () => {
             onClick={() => setActiveSection("BANK_TX")}
           >
             <Landmark size={16} />
-            <span>Giao dịch ngân hàng MBBank ({transactions.length})</span>
+            <span>{t("business:transfers.bankTransactions")} ({transactions.length})</span>
           </button>
         </div>
 
@@ -443,8 +425,8 @@ export const IncomingTransfersPage: React.FC = () => {
               className={styles.searchInput}
               placeholder={
                 activeSection === "RECEIPTS"
-                  ? "Tìm theo mã biên lai, mã đơn, số tiền, thu ngân..."
-                  : "Tìm theo mã giao dịch, số tiền, nội dung CK..."
+                  ? t("business:transfers.searchReceipts")
+                  : t("business:transfers.searchTransactions")
               }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -455,10 +437,10 @@ export const IncomingTransfersPage: React.FC = () => {
             {activeSection === "RECEIPTS" ? (
               <>
                 {[
-                  { key: "ALL", label: "Tất cả" },
-                  { key: "RECONCILED", label: "Hợp lệ (RECONCILED)" },
-                  { key: "PENDING_RECONCILIATION", label: "Chờ đối soát" },
-                  { key: "VOIDED", label: "Đã hủy (VOIDED)" },
+                  { key: "ALL", label: t("business:transfers.all") },
+                  { key: "RECONCILED", label: t("business:transfers.reconciled") },
+                  { key: "PENDING_RECONCILIATION", label: t("business:transfers.pending") },
+                  { key: "VOIDED", label: t("business:transfers.voided") },
                 ].map((f) => {
                   const isActive = receiptStatusFilter === f.key;
                   return (
@@ -486,10 +468,10 @@ export const IncomingTransfersPage: React.FC = () => {
             ) : (
               <>
                 {[
-                  { key: "ALL", label: "Tất cả" },
-                  { key: "RECONCILED", label: "Đã khớp (RECONCILED)" },
-                  { key: "PENDING_RECONCILIATION", label: "Chờ đối soát" },
-                  { key: "UNASSIGNED", label: "Chưa gán đơn" },
+                  { key: "ALL", label: t("business:transfers.all") },
+                  { key: "RECONCILED", label: t("business:transfers.reconciled") },
+                  { key: "PENDING_RECONCILIATION", label: t("business:transfers.pending") },
+                  { key: "UNASSIGNED", label: t("business:transfers.unassigned") },
                 ].map((f) => {
                   const isActive = statusFilter === f.key;
                   return (
@@ -524,15 +506,15 @@ export const IncomingTransfersPage: React.FC = () => {
             <table className={styles.txTable}>
               <thead>
                 <tr>
-                  <th>MÃ BIÊN LAI</th>
-                  <th>ĐƠN HÀNG & STT</th>
-                  <th>THỜI GIAN</th>
-                  <th>PHƯƠNG THỨC</th>
-                  <th>TỔNG THU</th>
-                  <th>CHI TIẾT TIỀN</th>
-                  <th>THU NGÂN</th>
-                  <th>TRẠNG THÁI</th>
-                  <th>THAO TÁC</th>
+                  <th>{t("business:transfers.receiptCode")}</th>
+                  <th>{t("business:transfers.orderAndQueue")}</th>
+                  <th>{t("business:transfers.time")}</th>
+                  <th>{t("business:transfers.method")}</th>
+                  <th>{t("business:transfers.totalCollected")}</th>
+                  <th>{t("business:transfers.paymentDetails")}</th>
+                  <th>{t("business:transfers.cashier")}</th>
+                  <th>{t("business:transfers.status")}</th>
+                  <th>{t("business:transfers.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -542,7 +524,7 @@ export const IncomingTransfersPage: React.FC = () => {
                       colSpan={9}
                       style={{ textAlign: "center", padding: 32, color: "#9c9186" }}
                     >
-                      Không có biên lai thu ngân nào phù hợp với bộ lọc hiện tại.
+                      {t("business:transfers.noReceipts")}
                     </td>
                   </tr>
                 ) : (
@@ -552,7 +534,7 @@ export const IncomingTransfersPage: React.FC = () => {
                         <strong>{rc.receiptCode}</strong>
                         {rc.printCount > 1 && (
                           <div style={{ fontSize: 11, color: "#22577a", fontWeight: 700 }}>
-                            Đã in: {rc.printCount} lần
+                            {t("business:transfers.printedTimes", { count: rc.printCount })}
                           </div>
                         )}
                       </td>
@@ -566,10 +548,10 @@ export const IncomingTransfersPage: React.FC = () => {
                       <td>
                         <span style={{ fontWeight: 700, fontSize: 12 }}>
                           {rc.method === "CASH"
-                            ? "TIỀN MẶT"
+                            ? t("business:transfers.cash")
                             : rc.method === "BANK_TRANSFER"
-                            ? "CHUYỂN KHOẢN"
-                            : "KẾT HỢP"}
+                            ? t("business:transfers.bankTransfer")
+                            : t("business:transfers.split")}
                         </span>
                       </td>
                       <td>
@@ -580,9 +562,9 @@ export const IncomingTransfersPage: React.FC = () => {
                       <td style={{ fontSize: 12, lineHeight: 1.4 }}>
                         {rc.method === "CASH" && (
                           <>
-                            Nhận: {formatVnd(rc.cashTendered)}
+                            {t("business:transfers.received")}: {formatVnd(rc.cashTendered)}
                             <br />
-                            Thối: {formatVnd(rc.cashChange)}
+                            {t("business:transfers.change")}: {formatVnd(rc.cashChange)}
                           </>
                         )}
                         {rc.method === "BANK_TRANSFER" && (
@@ -597,7 +579,7 @@ export const IncomingTransfersPage: React.FC = () => {
                         )}
                         {rc.method === "SPLIT" && (
                           <>
-                            Tiền mặt: {formatVnd(rc.cashAmount)}
+                            {t("business:transfers.cash")}: {formatVnd(rc.cashAmount)}
                             <br />
                             CK: {formatVnd(rc.bankAmountDeclared)}
                           </>
@@ -607,22 +589,22 @@ export const IncomingTransfersPage: React.FC = () => {
                       <td>
                         {rc.status === "RECONCILED" && (
                           <span className={`${styles.statusTag} ${styles.tagReconciled}`}>
-                            <CheckCircle2 size={12} /> HỢP LỆ
+                            <CheckCircle2 size={12} /> {t("business:transfers.reconciled")}
                           </span>
                         )}
                         {rc.status === "PENDING_RECONCILIATION" && (
                           <span className={`${styles.statusTag} ${styles.tagPending}`}>
-                            <Clock3 size={12} /> CHỜ ĐỐI SOÁT
+                            <Clock3 size={12} /> {t("business:transfers.pending")}
                           </span>
                         )}
                         {rc.status === "VOIDED" && (
                           <span className={`${styles.statusTag} ${styles.tagVoided}`}>
-                            <X size={12} /> ĐÃ HỦY
+                            <X size={12} /> {t("business:transfers.voided")}
                           </span>
                         )}
                         {rc.status === "DISCREPANCY" && (
                           <span className={`${styles.statusTag} ${styles.tagPending}`}>
-                            LỆCH TIỀN
+                            {t("business:transfers.discrepancy")}
                           </span>
                         )}
                       </td>
@@ -633,18 +615,16 @@ export const IncomingTransfersPage: React.FC = () => {
                             className={styles.voidBtn}
                             onClick={() => {
                               setVoidingReceipt(rc);
-                              setVoidReason(
-                                "Thu ngân bấm nhầm tiền mặt, khách chuyển sang quét QR",
-                              );
+                              setVoidReason(t("business:transfers.defaultVoidReason"));
                             }}
-                            title="Hủy biên lai thu tiền nhầm"
+                            title={t("business:transfers.voidReceipt")}
                           >
                             <Trash2 size={13} />
-                            <span>Hủy biên lai</span>
+                            <span>{t("business:transfers.voidReceipt")}</span>
                           </button>
                         ) : (
                           <span style={{ color: "#9c9186", fontSize: 12, fontStyle: "italic" }}>
-                            Đã hủy
+                            {t("business:transfers.voided")}
                           </span>
                         )}
                       </td>
@@ -657,14 +637,14 @@ export const IncomingTransfersPage: React.FC = () => {
             <table className={styles.txTable}>
               <thead>
                 <tr>
-                  <th>MÃ GIAO DỊCH</th>
-                  <th>THỜI GIAN</th>
-                  <th>SỐ TIỀN</th>
-                  <th>NGÂN HÀNG & STK</th>
-                  <th>NỘI DUNG CHUYỂN KHOẢN</th>
-                  <th>MÃ ĐƠN LIÊN KẾT</th>
-                  <th>TRẠNG THÁI</th>
-                  <th>THAO TÁC</th>
+                  <th>{t("business:transfers.transactionCode")}</th>
+                  <th>{t("business:transfers.time")}</th>
+                  <th>{t("business:transfers.amount")}</th>
+                  <th>{t("business:transfers.bankAccount")}</th>
+                  <th>{t("business:transfers.transferContent")}</th>
+                  <th>{t("business:transfers.linkedOrder")}</th>
+                  <th>{t("business:transfers.status")}</th>
+                  <th>{t("business:transfers.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -674,7 +654,7 @@ export const IncomingTransfersPage: React.FC = () => {
                       colSpan={8}
                       style={{ textAlign: "center", padding: 32, color: "#9c9186" }}
                     >
-                      Không có giao dịch ngân hàng nào phù hợp với bộ lọc hiện tại.
+                      {t("business:transfers.noTransactions")}
                     </td>
                   </tr>
                 ) : (
@@ -708,42 +688,29 @@ export const IncomingTransfersPage: React.FC = () => {
                           </span>
                         ) : (
                           <span style={{ color: "#9c9186", fontStyle: "italic" }}>
-                            (Chưa có)
+                            {t("business:transfers.none")}
                           </span>
                         )}
                       </td>
                       <td>
                         {tx.status === "RECONCILED" && (
                           <span className={`${styles.statusTag} ${styles.tagReconciled}`}>
-                            <CheckCircle2 size={12} /> ĐÃ KHỚP ĐƠN
+                            <CheckCircle2 size={12} /> {t("business:transfers.reconciled")}
                           </span>
                         )}
                         {tx.status === "PENDING_RECONCILIATION" && (
                           <span className={`${styles.statusTag} ${styles.tagPending}`}>
-                            <Clock3 size={12} /> CHỜ ĐỐI SOÁT
+                            <Clock3 size={12} /> {t("business:transfers.pending")}
                           </span>
                         )}
                         {tx.status === "UNASSIGNED" && (
                           <span className={`${styles.statusTag} ${styles.tagUnassigned}`}>
-                            CHƯA GÁN ĐƠN
+                            {t("business:transfers.unassigned")}
                           </span>
                         )}
                       </td>
                       <td>
-                        {tx.status !== "RECONCILED" && (
-                          <button
-                            type="button"
-                            className={styles.assignBtn}
-                            onClick={() => {
-                              setAssigningTx(tx);
-                              setAssignedOrderCode(tx.orderCode || "CLU-20261110-0015");
-                            }}
-                            title="Gán mã đơn hàng quầy cho giao dịch này"
-                          >
-                            <LinkIcon size={13} />
-                            <span>Gán đơn</span>
-                          </button>
-                        )}
+                        {tx.orderCode || "—"}
                       </td>
                     </tr>
                   ))
@@ -754,67 +721,13 @@ export const IncomingTransfersPage: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. Assign Order Modal */}
-      {assigningTx && (
-        <div className={styles.assignModalOverlay} role="dialog" aria-modal="true">
-          <div className={styles.assignModalWindow}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h2 className={styles.assignTitle}>Gán Giao Dịch Vào Đơn Quầy</h2>
-              <button
-                type="button"
-                style={{ border: "none", background: "transparent", cursor: "pointer" }}
-                onClick={() => setAssigningTx(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div style={{ fontSize: 13, color: "#6b6259", lineHeight: 1.5 }}>
-              Khớp giao dịch <strong>{assigningTx.bankTxId}</strong> (+{formatVnd(assigningTx.amount)})
-              vào đơn hàng tại quầy để chuyển trạng thái sang <strong>RECONCILED</strong>.
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 700, color: "#16100d" }}>
-                Nhập hoặc chọn mã đơn hàng (ví dụ: CLU-20261110-0015):
-              </label>
-              <input
-                type="text"
-                className={styles.assignInput}
-                placeholder="CLU-20261110-XXXX"
-                value={assignedOrderCode}
-                onChange={(e) => setAssignedOrderCode(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            <div className={styles.assignFooter}>
-              <button
-                type="button"
-                className={styles.btnCancel}
-                onClick={() => setAssigningTx(null)}
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                className={styles.btnConfirm}
-                onClick={handleConfirmAssign}
-              >
-                Xác nhận gán đơn
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 5. Void Receipt Modal (Hủy Biên Lai Thu Tiền Nhầm) */}
       {voidingReceipt && (
         <div className={styles.assignModalOverlay} role="dialog" aria-modal="true">
           <div className={styles.assignModalWindow}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 className={styles.assignTitle} style={{ color: "#b42318" }}>
-                Hủy Biên Lai Thu Tiền Nhầm
+                {t("business:transfers.voidTitle")}
               </h2>
               <button
                 type="button"
@@ -826,21 +739,21 @@ export const IncomingTransfersPage: React.FC = () => {
             </div>
 
             <div style={{ fontSize: 13, color: "#6b6259", lineHeight: 1.5 }}>
-              Xác nhận hủy biên lai <strong>{voidingReceipt.receiptCode}</strong> cho đơn hàng{" "}
-              <strong style={{ color: "#8f1216" }}>{voidingReceipt.orderCode}</strong> (Số thứ tự #{String(voidingReceipt.queueNumber || 1).padStart(3, "0")}) với số tiền{" "}
-              <strong>{formatVnd(voidingReceipt.totalDue)}</strong>.
+              {t("business:transfers.voidDescription", { receipt: voidingReceipt.receiptCode,
+                order: voidingReceipt.orderCode, queue: String(voidingReceipt.queueNumber || 1).padStart(3, "0"),
+                amount: formatVnd(voidingReceipt.totalDue) })}
               <br />
-              Đơn hàng sẽ được chuyển về trạng thái <strong>CHƯA THU TIỀN</strong> (PENDING) để thu ngân thu lại đúng phương thức.
+              {t("business:transfers.voidEffect")}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: 13, fontWeight: 700, color: "#16100d" }}>
-                Lý do hủy biên lai (bắt buộc):
+                {t("business:transfers.voidReason")}
               </label>
               <input
                 type="text"
                 className={styles.assignInput}
-                placeholder="Nhập lý do hủy biên lai..."
+                placeholder={t("business:transfers.voidReasonPlaceholder")}
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
                 autoFocus
@@ -854,7 +767,7 @@ export const IncomingTransfersPage: React.FC = () => {
                 disabled={isVoiding}
                 onClick={() => setVoidingReceipt(null)}
               >
-                Hủy bỏ
+                {t("business:transfers.cancel")}
               </button>
               <button
                 type="button"
@@ -863,7 +776,7 @@ export const IncomingTransfersPage: React.FC = () => {
                 disabled={isVoiding || !voidReason.trim()}
                 onClick={handleConfirmVoid}
               >
-                {isVoiding ? "Đang xử lý hủy..." : "Xác nhận hủy biên lai"}
+                {t(isVoiding ? "business:transfers.voiding" : "business:transfers.confirmVoid")}
               </button>
             </div>
           </div>

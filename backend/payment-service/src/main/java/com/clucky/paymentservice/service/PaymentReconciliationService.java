@@ -1,6 +1,8 @@
 package com.clucky.paymentservice.service;
 
 import com.clucky.paymentservice.dto.BankWebhookPayload;
+import com.clucky.paymentservice.exception.ApiException;
+import com.clucky.paymentservice.exception.ErrorCode;
 import com.clucky.paymentservice.entity.BankTransaction;
 import com.clucky.paymentservice.entity.CounterPaymentReceipt;
 import com.clucky.paymentservice.repository.BankTransactionRepository;
@@ -15,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Service
 public class PaymentReconciliationService {
@@ -43,6 +46,11 @@ public class PaymentReconciliationService {
         // 1. Idempotency Gate for bank_tx_id
         Optional<BankTransaction> existingTx = bankTransactionRepository.findByBankTxId(payload.id());
         if (existingTx.isPresent()) {
+            BankTransaction previous = existingTx.get();
+            if (payload.transferAmount() == null || previous.getAmount().compareTo(payload.transferAmount()) != 0
+                    || !java.util.Objects.equals(previous.getContent(), payload.content())) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Mã giao dịch đã tồn tại với nội dung khác");
+            }
             LOG.info("Bank transaction already processed: {}", payload.id());
             return true;
         }
@@ -72,11 +80,14 @@ public class PaymentReconciliationService {
             String receiptCode = receipt.getReceiptCode() != null ? receipt.getReceiptCode().toUpperCase() : "";
             String bankRef = receipt.getBankRefCode() != null ? receipt.getBankRefCode().toUpperCase() : "";
 
-            if ((!orderCode.isEmpty() && (contentUpper.contains(orderCode) || refCodeUpper.contains(orderCode)))
-                    || (!receiptCode.isEmpty() && (contentUpper.contains(receiptCode) || refCodeUpper.contains(receiptCode)))
-                    || (!bankRef.isEmpty() && (contentUpper.contains(bankRef) || refCodeUpper.contains(bankRef)))) {
+            if (containsReference(contentUpper, orderCode) || containsReference(refCodeUpper, orderCode)
+                    || containsReference(contentUpper, receiptCode) || containsReference(refCodeUpper, receiptCode)
+                    || containsReference(contentUpper, bankRef) || containsReference(refCodeUpper, bankRef)) {
+                if (matchedReceipt != null && !matchedReceipt.getId().equals(receipt.getId())) {
+                    matchedReceipt = null;
+                    break; // Ambiguous reference: retain the bank transaction for manual review.
+                }
                 matchedReceipt = receipt;
-                break;
             }
         }
 
@@ -114,5 +125,11 @@ public class PaymentReconciliationService {
         // If no counter receipt matched, save transaction for reference
         bankTransactionRepository.save(tx);
         return true;
+    }
+
+    private static boolean containsReference(String text, String reference) {
+        if (reference == null || reference.isBlank()) return false;
+        return Pattern.compile("(?<![A-Z0-9])" + Pattern.quote(reference) + "(?![A-Z0-9])")
+                .matcher(text).find();
     }
 }
