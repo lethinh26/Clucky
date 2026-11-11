@@ -253,7 +253,7 @@ export function OrderDetailDrawer({
           <h2 className={styles.drawerHeading}>{t("business:orderdetaildrawer.orderActions")}</h2>
           <p className={styles.actionHint}> {t("business:orderdetaildrawer.actionsDependOnTheCurrentStatusAndYourDemoRole")} </p>
           <div className={styles.drawerActions}>
-            {onOpenFinance && <Button icon={<Wallet size={16} />} onClick={() => onOpenFinance(order)}>Tài chính / thu tiền / hoàn tiền</Button>}
+            {onOpenFinance && <Button icon={<Wallet size={16} />} onClick={() => onOpenFinance(order)}>{t("admin:ui.financeCollectionRefunds")}</Button>}
             {order.status === "CONFIRMED" && (
               <Button
                 type="primary"

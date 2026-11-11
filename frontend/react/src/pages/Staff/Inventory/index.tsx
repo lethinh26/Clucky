@@ -305,7 +305,7 @@ export const StaffInventoryPage: React.FC = () => {
           />
           <StatusBadge
             status={(isAdmin ? stockState(record, storeThreshold).soldOut : record.isSoldOut) ? 'error' : 'success'}
-            text={isAdmin && record.quantityAvailable <= 0 ? 'Hết tồn kho' : record.isSoldOut ? t("business:inventory.salesDisabled") : t("business:catalog.available")}
+            text={isAdmin && record.quantityAvailable <= 0 ? t("admin:ui.outOfStock") : record.isSoldOut ? t("business:inventory.salesDisabled") : t("business:catalog.available")}
             size="small"
           />
         </div>
@@ -348,10 +348,10 @@ export const StaffInventoryPage: React.FC = () => {
   if (loadError) return <Alert type="error" showIcon message={loadError} action={<Button loading={loading} onClick={fetchInventory}>{t('common:retry')}</Button>} />;
   return (
     <div className={isAdmin ? 'inventory-admin' : undefined}>
-      {isAdmin ? <header className="inventory-header"><div><span className="inventory-eyebrow">TỒN KHO CHI NHÁNH</span><h1>Kiểm kê & khả năng phục vụ</h1><p>Ghi nhận số lượng thực tế và quản lý món đang phục vụ tại từng chi nhánh.</p></div>
-        <div className="inventory-store-select"><label htmlFor="inventory-store">Chi nhánh đang quản lý</label><Select id="inventory-store" aria-label="Chi nhánh đang quản lý" size="large" showSearch optionFilterProp="label" value={activeStoreId} disabled={busy || loading} loading={loading} placeholder="Chọn chi nhánh" onChange={value => { setAdminSelectedStoreId(value); setSearchTerm(''); setStatusFilter('ALL'); }} options={stores.map(store => ({ value: store.id, label: store.name }))} /></div>
-        <div className="inventory-threshold-banner"><div><WarningOutlined /><span>Ngưỡng cảnh báo chi nhánh: <strong>{loading ? '—' : currentStore ? `≤ ${storeThreshold} phần ăn` : 'Chưa có chi nhánh'}</strong></span></div>
-          <Button icon={<EditOutlined />} disabled={!currentStore || busy || loading} onClick={() => { setThresholdInput(storeThreshold); setThresholdStore(currentStore ?? null); setThresholdError(''); setThresholdModalOpen(true); }}>Sửa ngưỡng</Button>
+      {isAdmin ? <header className="inventory-header"><div><span className="inventory-eyebrow">{t("admin:ui.branchInventory")}</span><h1>{t("admin:ui.stockCountAvailability")}</h1><p>{t("admin:ui.recordActualQuantitiesAndManageDishesAvailableAt")}</p></div>
+        <div className="inventory-store-select"><label htmlFor="inventory-store">{t("admin:ui.managedBranch")}</label><Select id="inventory-store" aria-label={t("admin:ui.managedBranch")} size="large" showSearch optionFilterProp="label" value={activeStoreId} disabled={busy || loading} loading={loading} placeholder={t("accounts:store")} onChange={value => { setAdminSelectedStoreId(value); setSearchTerm(''); setStatusFilter('ALL'); }} options={stores.map(store => ({ value: store.id, label: store.name }))} /></div>
+        <div className="inventory-threshold-banner"><div><WarningOutlined /><span>{t("admin:ui.branchWarningThreshold")} <strong>{loading ? '—' : currentStore ? t("admin:ui.portions579", { value1: storeThreshold }) : t("admin:ui.noBranchAvailable")}</strong></span></div>
+          <Button icon={<EditOutlined />} disabled={!currentStore || busy || loading} onClick={() => { setThresholdInput(storeThreshold); setThresholdStore(currentStore ?? null); setThresholdError(''); setThresholdModalOpen(true); }}>{t("admin:ui.editThreshold")}</Button>
         </div>
       </header> : <>
       {/* Header Info */}
@@ -554,29 +554,29 @@ export const StaffInventoryPage: React.FC = () => {
         onCancel={() => { if (!savingStock) { setModalOpen(false); void fetchInventory(); } }}
         onOk={handleUpdateStockSubmit}
         confirmLoading={savingStock}
-        title={isAdmin ? 'Cập nhật tồn kho' : t("business:inventory.updateInventory", { value1: editingItem?.productName })}
+        title={isAdmin ? t("admin:ui.updateStock") : t("business:inventory.updateInventory", { value1: editingItem?.productName })}
         subtitle={isAdmin ? editingStore?.name : t("business:inventory.recordActualQuantitiesAfterShiftStocktake")}
         width={isAdmin ? 560 : 480}
-        okText={isAdmin ? 'Lưu kiểm kê' : undefined}
+        okText={isAdmin ? t("admin:ui.saveStockCount") : undefined}
         okButtonProps={{ disabled: isAdmin && (!quantityValid || quantityDifference === 0) }}
       >
-        {isAdmin && editingItem && <div className="inventory-product-summary"><div className="inventory-thumb"><CatalogImage url={editingItem.imageUrl} name={editingItem.productName} /></div><div><strong>{editingItem.productName}</strong><span>{editingItem.categoryName} · Mã món #{editingItem.productId}</span></div></div>}
-        {isAdmin && stockError && <Alert type="error" showIcon message={stockError} description="Dữ liệu nhập được giữ lại. Nếu có xung đột phiên bản, đóng biểu mẫu và mở lại sau khi danh sách được cập nhật." />}
+        {isAdmin && editingItem && <div className="inventory-product-summary"><div className="inventory-thumb"><CatalogImage url={editingItem.imageUrl} name={editingItem.productName} /></div><div><strong>{editingItem.productName}</strong><span>{editingItem.categoryName} {t("admin:ui.dishId")}{editingItem.productId}</span></div></div>}
+        {isAdmin && stockError && <Alert type="error" showIcon message={stockError} description={t("admin:ui.yourInputIsPreservedIfThereIsA")} />}
         <Form name="inventory-stock" form={form} layout="vertical" disabled={savingStock} onFinish={handleUpdateStockSubmit}>
-          {isAdmin && <div className="inventory-recorded"><span>Số lượng đang ghi nhận</span><strong>{editingItem?.quantityAvailable ?? '—'} <small>phần ăn</small></strong></div>}
+          {isAdmin && <div className="inventory-recorded"><span>{t("admin:ui.recordedQuantity")}</span><strong>{editingItem?.quantityAvailable ?? '—'} <small>{t("business:cart.servings")}</small></strong></div>}
           <Form.Item
             name="quantityAvailable"
-            label={isAdmin ? 'Số lượng thực tế sau kiểm kê' : t("business:inventory.actualRemainingQuantityServings")}
-            rules={[{ required: true, message: t("business:inventory.pleaseEnterTheInventoryQuantity") }, { type: 'integer', min: 0, max: 9999, message: 'Nhập số nguyên từ 0 đến 9.999.' }]}
-            extra={isAdmin ? 'Nhập tổng số phần còn lại, không phải số lượng cần cộng thêm.' : undefined}
+            label={isAdmin ? t("admin:ui.actualQuantityAfterCounting") : t("business:inventory.actualRemainingQuantityServings")}
+            rules={[{ required: true, message: t("business:inventory.pleaseEnterTheInventoryQuantity") }, { type: 'integer', min: 0, max: 9999, message: t("admin:ui.enterAWholeNumberFrom0To9") }]}
+            extra={isAdmin ? t("admin:ui.enterTheTotalPortionsRemainingNotTheQuantity") : undefined}
           >
             <InputNumber disabled={isStaff || savingStock} min={0} max={9999} precision={0} size={isAdmin ? 'large' : undefined} style={{ width: '100%', height: isAdmin ? undefined : 40 }} />
           </Form.Item>
           {isAdmin ? <>
-            {quantityDifference !== null && <div className={`inventory-difference ${quantityDifference < 0 ? 'is-decrease' : ''}`}><span>Chênh lệch so với hiện tại</span><strong>{quantityDifference > 0 ? '+' : ''}{quantityDifference} phần ăn</strong></div>}
-            {quantityValid && quantityInput === 0 && <Alert type="warning" showIcon message="Món sẽ hết tồn kho" description="Lưu số lượng 0 sẽ tắt khả năng bán món tại chi nhánh này." />}
-            {quantityValid && quantityInput! > 0 && editingItem?.isSoldOut && <Alert type="info" showIcon message="Món đang tắt bán tại quán" description="Cập nhật tồn kho không tự bật bán lại. Sau khi lưu, dùng công tắc ở bảng nếu muốn phục vụ món." />}
-            <div className="inventory-audit-note"><span>Người cập nhật</span><strong>{user.fullName}</strong><p>Thời gian và tài khoản thực hiện được ghi nhận khi lưu thành công.</p></div>
+            {quantityDifference !== null && <div className={`inventory-difference ${quantityDifference < 0 ? 'is-decrease' : ''}`}><span>{t("admin:ui.differenceFromCurrentStock")}</span><strong>{quantityDifference > 0 ? '+' : ''}{quantityDifference} {t("business:cart.servings")}</strong></div>}
+            {quantityValid && quantityInput === 0 && <Alert type="warning" showIcon message={t("admin:ui.thisDishWillBeOutOfStock")} description={t("admin:ui.savingAQuantityOf0DisablesSalesOf")} />}
+            {quantityValid && quantityInput! > 0 && editingItem?.isSoldOut && <Alert type="info" showIcon message={t("admin:ui.salesOfThisDishAreDisabledAtThe")} description={t("admin:ui.updatingStockDoesNotReEnableSalesAutomatically")} />}
+            <div className="inventory-audit-note"><span>{t("admin:ui.updatedBy")}</span><strong>{user.fullName}</strong><p>{t("admin:ui.theTimeAndActingAccountAreRecordedWhen")}</p></div>
           </> : <>
           <div style={{ marginBottom: 16 }}>
             <span style={{ color: '#6B6259', fontSize: 13 }}>
@@ -628,12 +628,12 @@ export const StaffInventoryPage: React.FC = () => {
         title={t("business:inventory.editStoreThreshold")}
         subtitle={isAdmin ? thresholdStore?.name : t("business:inventory.storeThresholdSubtitle")}
         width={isAdmin ? 520 : 420}
-        okText={isAdmin ? 'Lưu ngưỡng cảnh báo' : undefined}
+        okText={isAdmin ? t("admin:ui.saveWarningThreshold") : undefined}
         okButtonProps={{ disabled: isAdmin && (!thresholdValid || thresholdInput === thresholdStore?.lowStockThreshold) }}
       >
-        {isAdmin && <><p className="inventory-modal-hint">Một ngưỡng dùng chung cho mọi món trong chi nhánh. Cảnh báo xuất hiện khi số phần còn lại nhỏ hơn hoặc bằng ngưỡng này.</p>
-          <div className="inventory-recorded"><span>Ngưỡng hiện tại</span><strong>≤ {thresholdStore?.lowStockThreshold ?? storeThreshold} <small>phần ăn</small></strong></div></>}
-        {isAdmin && thresholdError && <Alert type="error" showIcon message={thresholdError} description="Nếu dữ liệu đã thay đổi, đóng biểu mẫu và mở lại với thông tin mới nhất." />}
+        {isAdmin && <><p className="inventory-modal-hint">{t("admin:ui.oneThresholdAppliesToAllDishesInThe")}</p>
+          <div className="inventory-recorded"><span>{t("admin:ui.currentThreshold")}</span><strong>≤ {thresholdStore?.lowStockThreshold ?? storeThreshold} <small>{t("business:cart.servings")}</small></strong></div></>}
+        {isAdmin && thresholdError && <Alert type="error" showIcon message={thresholdError} description={t("admin:ui.ifTheDataHasChangedCloseTheForm")} />}
         <div style={{ padding: '12px 0' }}>
           <label htmlFor="inventory-threshold-value" style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>
             {t("business:inventory.storeLowStockThreshold")}
@@ -648,7 +648,7 @@ export const StaffInventoryPage: React.FC = () => {
             onChange={(val) => setThresholdInput(isAdmin ? val : val ?? 0)}
             style={{ width: '100%', height: 40 }}
           />
-          {isAdmin && <p className="inventory-modal-hint">Thay đổi này chỉ cập nhật ngưỡng cảnh báo, không thay đổi số lượng tồn kho hay tự bật/tắt bán.</p>}
+          {isAdmin && <p className="inventory-modal-hint">{t("admin:ui.thisOnlyUpdatesTheWarningThresholdItDoes")}</p>}
         </div>
       </AdminModal>
     </div>

@@ -1,14 +1,15 @@
+import i18n from "../i18n/index.ts";
 import { api, type PageResponse } from './api';
 
 export const auditDomains = [
-  { value: 'identity-service', label: 'Tài khoản' },
-  { value: 'cart-order-service', label: 'Đơn hàng' },
-  { value: 'payment-service', label: 'Thanh toán' },
-  { value: 'catalog-store-service', label: 'Danh mục / chi nhánh' },
-  { value: 'promotion-loyalty-service', label: 'Khuyến mãi / tích điểm' },
-  { value: 'review-report-service', label: 'Đánh giá / báo cáo' },
-  { value: 'notification-service', label: 'Thông báo' },
-  { value: 'shipping-service', label: 'Phí giao hàng' },
+  { value: 'identity-service', get label() { return i18n.t("accounts:account"); } },
+  { value: 'cart-order-service', get label() { return i18n.t("business:promotionUi.order"); } },
+  { value: 'payment-service', get label() { return i18n.t("business:cart.checkout"); } },
+  { value: 'catalog-store-service', get label() { return i18n.t("admin:ui.catalogBranches"); } },
+  { value: 'promotion-loyalty-service', get label() { return i18n.t("admin:ui.promotionsLoyalty"); } },
+  { value: 'review-report-service', get label() { return i18n.t("admin:ui.reviewsReports"); } },
+  { value: 'notification-service', get label() { return i18n.t("common:toast.info"); } },
+  { value: 'shipping-service', get label() { return i18n.t("business:ordersummarycard.deliveryFee"); } },
 ];
 
 export interface AuditLogEntry {

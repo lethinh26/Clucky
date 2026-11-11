@@ -64,7 +64,7 @@ export const CatalogPage: React.FC = () => {
   }, [isAdmin, refetch]);
 
   const mutate = async (operation: () => Promise<void>) => {
-    if (!isAdmin || lock.current) throw new Error('Thao tác chưa sẵn sàng. Vui lòng thử lại.');
+    if (!isAdmin || lock.current) throw new Error(t("admin:ui.thisActionIsNotReadyPleaseTryAgain"));
     lock.current = true; setBusy(true);
     try { await operation(); } finally { await refetch(); lock.current = false; setBusy(false); }
   };
@@ -95,40 +95,40 @@ export const CatalogPage: React.FC = () => {
     catch (failure) { setError(getErrorMessage(failure)); }
   };
   const actions = (kind: 'products' | 'combos' | 'categories', row: AdminProduct | AdminCombo | AdminCategory, edit: () => void) => <Space size={4}>
-    <Button type="text" icon={<EditOutlined />} disabled={busy || loading} onClick={edit} aria-label={`${text('edit', 'Sửa')} ${row.name}`}>{text('edit', 'Sửa')}</Button>
-    <Tooltip title={text('delete', 'Xóa')}><Button type="text" danger icon={<DeleteOutlined />} disabled={busy || loading} onClick={() => remove(kind, row)} aria-label={`${text('delete', 'Xóa')} ${row.name}`} /></Tooltip>
+    <Button type="text" icon={<EditOutlined />} disabled={busy || loading} onClick={edit} aria-label={`${text('edit', t("business:account.edit"))} ${row.name}`}>{text('edit', t("business:account.edit"))}</Button>
+    <Tooltip title={text('delete', t("admin:ui.delete"))}><Button type="text" danger icon={<DeleteOutlined />} disabled={busy || loading} onClick={() => remove(kind, row)} aria-label={`${text('delete', t("admin:ui.delete"))} ${row.name}`} /></Tooltip>
   </Space>;
   const identity = (row: AdminProduct | AdminCombo, edit: () => void) => <div className="catalog-item">
     <div className="catalog-thumb"><CatalogImage url={row.imageUrl} name={row.name} /></div>
     <div className="catalog-item-copy"><button type="button" className="catalog-item-name" disabled={busy || loading} onClick={edit}>{row.name}</button>
-      <p className="catalog-item-description">{row.description}</p><span className="catalog-item-meta">#{row.id}{'basePrice' in row && row.options?.length ? ` · ${row.options.length} nhóm tùy chọn` : ''}</span>
+      <p className="catalog-item-description">{row.description}</p><span className="catalog-item-meta">#{row.id}{'basePrice' in row && row.options?.length ? t("admin:ui.optionGroups", { value1: row.options.length }) : ''}</span>
     </div>
   </div>;
   const saleStatus = (kind: 'products' | 'combos', row: AdminProduct | AdminCombo) => <div className={`catalog-status ${row.isActive ? 'is-active' : ''}`}>
-    <Switch size="small" checked={row.isActive} disabled={busy || loading} aria-label={`Cho phép bán ${row.name}`} onChange={active => void toggle(kind, row, active)} />
-    <span>{row.isActive ? 'Bật bán' : 'Ngừng bán'}</span>
+    <Switch size="small" checked={row.isActive} disabled={busy || loading} aria-label={t("admin:ui.allowSalesOf", { value1: row.name })} onChange={active => void toggle(kind, row, active)} />
+    <span>{row.isActive ? t("admin:ui.enableSales") : t("business:stores.salesStopped")}</span>
   </div>;
   const productColumns: TableColumnsType<AdminProduct> = [
-    { title: text('dish', 'Món ăn'), key: 'name', width: 380, sorter: (first, second) => first.name.localeCompare(second.name, 'vi'), render: (_, row) => identity(row, () => openProduct(row)) },
-    { title: text('category', 'Danh mục'), dataIndex: 'categoryName', width: 170, render: name => <span className="catalog-category-tag">{name || 'Chưa phân loại'}</span> },
-    { title: text('price', 'Giá bán'), dataIndex: 'basePrice', width: 150, sorter: (first, second) => first.basePrice - second.basePrice, render: value => <span className="catalog-price">{money(value)}</span> },
-    { title: 'Cho phép bán', key: 'status', width: 150, render: (_, row) => saleStatus('products', row) },
-    { title: text('actions', 'Thao tác'), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('products', row, () => openProduct(row)) },
+    { title: text('dish', t("business:catalog.dish")), key: 'name', width: 380, sorter: (first, second) => first.name.localeCompare(second.name, 'vi'), render: (_, row) => identity(row, () => openProduct(row)) },
+    { title: text('category', t("business:catalog.category")), dataIndex: 'categoryName', width: 170, render: name => <span className="catalog-category-tag">{name || t("payments:unclassified")}</span> },
+    { title: text('price', t("admin:ui.salePrice")), dataIndex: 'basePrice', width: 150, sorter: (first, second) => first.basePrice - second.basePrice, render: value => <span className="catalog-price">{money(value)}</span> },
+    { title: t("admin:ui.availableForSale"), key: 'status', width: 150, render: (_, row) => saleStatus('products', row) },
+    { title: text('actions', t("accounts:action")), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('products', row, () => openProduct(row)) },
   ];
   const comboColumns: TableColumnsType<AdminCombo> = [
     { title: 'Combo', key: 'name', width: 350, sorter: (first, second) => first.name.localeCompare(second.name, 'vi'), render: (_, row) => identity(row, () => openCombo(row)) },
-    { title: text('items', 'Thành phần'), key: 'items', width: 240, render: (_, row) => <div className="catalog-items-summary">{row.items.slice(0, 3).map((item, index) => <Tag key={item.id ?? index}>{item.quantity} × {item.productName}</Tag>)}{row.items.length > 3 && <Tag>+{row.items.length - 3} món</Tag>}</div> },
-    { title: 'Giá combo', dataIndex: 'comboPrice', width: 145, sorter: (first, second) => first.comboPrice - second.comboPrice, render: value => <span className="catalog-price">{money(value)}</span> },
-    { title: 'Thời gian áp dụng', key: 'schedule', width: 165, render: (_, row) => <div className="catalog-hint">{!row.startAt && !row.endAt ? 'Không giới hạn' : <>{row.startAt && <div>Từ {date(row.startAt, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}{row.endAt && <div>Đến {date(row.endAt, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}</>}</div> },
-    { title: 'Cho phép bán', key: 'status', width: 145, render: (_, row) => saleStatus('combos', row) },
-    { title: text('actions', 'Thao tác'), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('combos', row, () => openCombo(row)) },
+    { title: text('items', t("admin:ui.contents")), key: 'items', width: 240, render: (_, row) => <div className="catalog-items-summary">{row.items.slice(0, 3).map((item, index) => <Tag key={item.id ?? index}>{item.quantity} × {item.productName}</Tag>)}{row.items.length > 3 && <Tag>+{row.items.length - 3} {t("business:orderspage.items")}</Tag>}</div> },
+    { title: t("admin:ui.comboPrice122"), dataIndex: 'comboPrice', width: 145, sorter: (first, second) => first.comboPrice - second.comboPrice, render: value => <span className="catalog-price">{money(value)}</span> },
+    { title: t("admin:ui.availabilityPeriod"), key: 'schedule', width: 165, render: (_, row) => <div className="catalog-hint">{!row.startAt && !row.endAt ? t("admin:ui.unlimited") : <>{row.startAt && <div>{t("admin:ui.from")} {date(row.startAt, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}{row.endAt && <div>{t("admin:ui.to")} {date(row.endAt, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}</>}</div> },
+    { title: t("admin:ui.availableForSale"), key: 'status', width: 145, render: (_, row) => saleStatus('combos', row) },
+    { title: text('actions', t("accounts:action")), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('combos', row, () => openCombo(row)) },
   ];
   const categoryColumns: TableColumnsType<AdminCategory> = [
-    { title: 'Danh mục', dataIndex: 'name', width: 300, render: (_, row) => <div><button type="button" className="catalog-item-name" disabled={busy || loading} onClick={() => openCategory(row)}>{row.name}</button><span className="catalog-item-meta">#{row.id}</span></div> },
-    { title: 'Món trong danh mục', key: 'products', width: 180, render: (_, row) => <span>{catalog.products.filter(item => item.categoryId === row.id).length} món</span> },
-    { title: 'Thứ tự hiển thị', dataIndex: 'sortOrder', width: 160, sorter: (first, second) => first.sortOrder - second.sortOrder },
-    { title: 'Trạng thái', dataIndex: 'isActive', width: 160, render: value => <Tag color={value ? 'green' : 'default'}>{value ? 'Đang hoạt động' : 'Ngừng hoạt động'}</Tag> },
-    { title: text('actions', 'Thao tác'), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('categories', row, () => openCategory(row)) },
+    { title: t("business:catalog.category"), dataIndex: 'name', width: 300, render: (_, row) => <div><button type="button" className="catalog-item-name" disabled={busy || loading} onClick={() => openCategory(row)}>{row.name}</button><span className="catalog-item-meta">#{row.id}</span></div> },
+    { title: t("admin:ui.dishesInCategory"), key: 'products', width: 180, render: (_, row) => <span>{catalog.products.filter(item => item.categoryId === row.id).length} {t("business:orderspage.items")}</span> },
+    { title: t("admin:ui.displayOrder"), dataIndex: 'sortOrder', width: 160, sorter: (first, second) => first.sortOrder - second.sortOrder },
+    { title: t("accounts:status"), dataIndex: 'isActive', width: 160, render: value => <Tag color={value ? 'green' : 'default'}>{value ? t("admin:ui.active") : t("business:stores.inactive")}</Tag> },
+    { title: text('actions', t("accounts:action")), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('categories', row, () => openCategory(row)) },
   ];
   const matchesStatus = (row: { isActive: boolean }) => status === 'ALL' || row.isActive === (status === 'ACTIVE');
   const products = catalog.products.filter(row => matchesStatus(row) && (!categoryId || row.categoryId === categoryId) && matchesCatalogSearch([row.name, row.categoryName], search));
@@ -137,42 +137,42 @@ export const CatalogPage: React.FC = () => {
   const total = tab === 'products' ? products.length : tab === 'combos' ? combos.length : categories.length;
   const filtered = Boolean(search || status !== 'ALL' || (tab === 'products' && categoryId));
   const resetFilters = () => { setSearch(''); setStatus('ALL'); setCategoryId(undefined); setPage(1); };
-  const empty = { emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? 'Không tìm thấy kết quả phù hợp. Thử thay đổi bộ lọc.' : 'Chưa có dữ liệu. Bắt đầu bằng nút thêm mới ở phía trên.'} /> };
+  const empty = { emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? t("admin:ui.noMatchingResultsTryChangingYourFilters") : t("admin:ui.noDataYetUseTheAddButtonAbove")} /> };
   const pagination = { current: Math.min(page, Math.max(1, Math.ceil(total / pageSize))), pageSize, total, showSizeChanger: true, pageSizeOptions: [10, 20, 50], hideOnSinglePage: false,
     onChange: (next: number, size: number) => { setPage(size === pageSize ? next : 1); setPageSize(size); } };
   const panel = <>
     <div className="catalog-toolbar">
-      <Input className="catalog-search" size="large" prefix={<SearchOutlined />} allowClear aria-label="Tìm kiếm thực đơn" placeholder={tab === 'combos' ? 'Tìm combo hoặc món trong combo…' : tab === 'categories' ? 'Tìm danh mục…' : 'Tìm tên món hoặc danh mục…'} value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} />
-      {tab === 'products' && <Select className="catalog-filter" size="large" allowClear placeholder="Tất cả danh mục" aria-label="Lọc danh mục" value={categoryId} onChange={value => { setCategoryId(value); setPage(1); }} options={catalog.categories.map(row => ({ value: row.id, label: row.name }))} />}
-      <Select className="catalog-filter" size="large" aria-label="Lọc trạng thái" value={status} onChange={value => { setStatus(value); setPage(1); }} options={[{ value: 'ALL', label: 'Tất cả trạng thái' }, { value: 'ACTIVE', label: tab === 'categories' ? 'Đang hoạt động' : 'Cho phép bán' }, { value: 'INACTIVE', label: tab === 'categories' ? 'Ngừng hoạt động' : 'Ngừng bán' }]} />
+      <Input className="catalog-search" size="large" prefix={<SearchOutlined />} allowClear aria-label={t("admin:ui.searchMenu")} placeholder={tab === 'combos' ? t("admin:ui.searchCombosOrDishesInACombo") : tab === 'categories' ? t("admin:ui.searchCategories") : t("admin:ui.searchDishNamesOrCategories")} value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} />
+      {tab === 'products' && <Select className="catalog-filter" size="large" allowClear placeholder={t("admin:ui.allCategories")} aria-label={t("admin:ui.filterCategories")} value={categoryId} onChange={value => { setCategoryId(value); setPage(1); }} options={catalog.categories.map(row => ({ value: row.id, label: row.name }))} />}
+      <Select className="catalog-filter" size="large" aria-label={t("admin:ui.filterStatus")} value={status} onChange={value => { setStatus(value); setPage(1); }} options={[{ value: 'ALL', label: t("business:paymentspage.allStatuses") }, { value: 'ACTIVE', label: tab === 'categories' ? t("admin:ui.active") : t("admin:ui.availableForSale") }, { value: 'INACTIVE', label: tab === 'categories' ? t("business:stores.inactive") : t("business:stores.salesStopped") }]} />
     </div>
-    <div className="catalog-table-caption"><span>{loading ? 'Đang tải thực đơn…' : `${total} ${tab === 'products' ? 'món ăn' : tab === 'combos' ? 'combo' : 'danh mục'}`}{!loading && filtered ? ' phù hợp' : ''}</span>{filtered ? <Button type="link" size="small" onClick={resetFilters}>Xóa bộ lọc</Button> : <span>Quản lý toàn hệ thống</span>}</div>
+    <div className="catalog-table-caption"><span>{loading ? t("admin:ui.loadingMenu") : `${total} ${tab === 'products' ? t("admin:ui.dishes") : tab === 'combos' ? 'combo' : t("admin:ui.categories")}`}{!loading && filtered ? t("admin:ui.matching") : ''}</span>{filtered ? <Button type="link" size="small" onClick={resetFilters}>{t("business:orderspage.clearFilters")}</Button> : <span>{t("admin:ui.systemWideManagement")}</span>}</div>
     {tab === 'products' ? <Table<AdminProduct> className="catalog-table" rowKey="id" loading={loading} columns={productColumns} dataSource={products} pagination={pagination} locale={empty} scroll={{ x: 980 }} />
       : tab === 'combos' ? <Table<AdminCombo> className="catalog-table" rowKey="id" loading={loading} columns={comboColumns} dataSource={combos} pagination={pagination} locale={empty} scroll={{ x: 1210 }}
         expandable={{ rowExpandable: row => row.items.length > 0, expandedRowRender: row => <div className="catalog-expand">{row.items.map((item, index) => {
           const dish = catalog.products.find(candidate => candidate.id === item.productId);
           const choice = dish?.options?.flatMap(group => group.choices).find(option => Number(option.id.replace(/^opt-/, '')) === item.optionId);
-          return <div key={item.id ?? index} className="catalog-expand-item"><div className="catalog-thumb"><CatalogImage url={dish?.imageUrl} name={item.productName} /></div><div><strong>{item.quantity} × {item.productName}</strong><p>{choice?.name ?? (item.optionId ? `Tùy chọn #${item.optionId}` : 'Không cố định tùy chọn')}</p></div></div>;
+          return <div key={item.id ?? index} className="catalog-expand-item"><div className="catalog-thumb"><CatalogImage url={dish?.imageUrl} name={item.productName} /></div><div><strong>{item.quantity} × {item.productName}</strong><p>{choice?.name ?? (item.optionId ? t("admin:ui.option146", { value1: item.optionId }) : t("admin:ui.noFixedOption147"))}</p></div></div>;
         })}</div> }} />
         : <Table<AdminCategory> className="catalog-table" rowKey="id" loading={loading} columns={categoryColumns} dataSource={categories} pagination={pagination} locale={empty} scroll={{ x: 850 }} />}
   </>;
-  if (!isAdmin) return <Result status="403" title="403" subTitle={text('adminOnly', 'Chỉ Quản trị viên được quản lý danh mục.')} />;
+  if (!isAdmin) return <Result status="403" title="403" subTitle={text('adminOnly', t("admin:ui.onlyAdministratorsCanManageTheCatalog"))} />;
 
   return <section className="catalog-page" aria-busy={loading || busy}>
-    <div className="catalog-page-header"><div><span className="catalog-eyebrow">QUẢN TRỊ THỰC ĐƠN</span><h2>{text('title', 'Thực đơn & combo')}</h2><p>Chăm chút từng món ăn, quản lý giá bán và cách món xuất hiện trên thực đơn.</p></div>
-      <Button type="primary" icon={<PlusOutlined />} disabled={busy || loading} onClick={() => tab === 'products' ? openProduct(null) : tab === 'combos' ? openCombo(null) : openCategory(null)}>{tab === 'products' ? 'Thêm món ăn' : tab === 'combos' ? 'Tạo combo' : 'Thêm danh mục'}</Button>
+    <div className="catalog-page-header"><div><span className="catalog-eyebrow">{t("admin:ui.menuAdministration")}</span><h2>{text('title', t("admin:ui.menuCombos150"))}</h2><p>{t("admin:ui.manageEveryDishItsPriceAndHowIt")}</p></div>
+      <Button type="primary" icon={<PlusOutlined />} disabled={busy || loading} onClick={() => tab === 'products' ? openProduct(null) : tab === 'combos' ? openCombo(null) : openCategory(null)}>{tab === 'products' ? t("admin:ui.addDish") : tab === 'combos' ? t("admin:ui.createCombo") : t("admin:ui.addCategory")}</Button>
     </div>
-    {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => void refetch()} disabled={loading}>{text('retry', 'Thử lại')}</Button>} />}
+    {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => void refetch()} disabled={loading}>{text('retry', t("business:dashboard.retry"))}</Button>} />}
     <div className="catalog-panel"><Tabs activeKey={tab} onChange={value => { setTab(value); resetFilters(); }} items={[
-      { key: 'products', label: <span className="catalog-tab-label"><ShopOutlined />{text('products', 'Món ăn')}<span className="catalog-count">{catalog.products.length}</span></span>, children: tab === 'products' ? panel : null },
+      { key: 'products', label: <span className="catalog-tab-label"><ShopOutlined />{text('products', t("business:catalog.dish"))}<span className="catalog-count">{catalog.products.length}</span></span>, children: tab === 'products' ? panel : null },
       { key: 'combos', label: <span className="catalog-tab-label"><AppstoreOutlined />{text('combos', 'Combo')}<span className="catalog-count">{catalog.combos.length}</span></span>, children: tab === 'combos' ? panel : null },
-      { key: 'categories', label: <span className="catalog-tab-label"><TagsOutlined />{text('categories', 'Danh mục')}<span className="catalog-count">{catalog.categories.length}</span></span>, children: tab === 'categories' ? panel : null },
+      { key: 'categories', label: <span className="catalog-tab-label"><TagsOutlined />{text('categories', t("business:catalog.category"))}<span className="catalog-count">{catalog.categories.length}</span></span>, children: tab === 'categories' ? panel : null },
     ]} /></div>
     <ProductForm open={productOpen} initialProduct={product} onClose={() => { if (!lock.current) setProductOpen(false); }} categories={catalog.categories} onSaveProduct={saveProduct} />
     <ComboForm open={comboOpen} combo={combo} products={catalog.products} onClose={() => { if (!lock.current) setComboOpen(false); }} onSave={saveCombo} />
     <Modal className="catalog-modal" centered width={520} maskClosable={false} closable={!busy} keyboard={!busy} cancelButtonProps={{ disabled: busy }}
-      title={<div className="catalog-modal-heading"><span className="catalog-eyebrow">PHÂN LOẠI THỰC ĐƠN</span><h3>{category ? text('editCategory', 'Sửa danh mục') : text('createCategory', 'Thêm danh mục')}</h3><p>Nhóm các món ăn để khách dễ tìm và lựa chọn.</p></div>} open={categoryOpen} confirmLoading={busy}
-      onCancel={() => { if (!busy) setCategoryOpen(false); }} okText={text('save', 'Lưu')} cancelText={text('cancel', 'Hủy')} onOk={async () => {
+      title={<div className="catalog-modal-heading"><span className="catalog-eyebrow">{t("admin:ui.menuCategories")}</span><h3>{category ? text('editCategory', t("admin:ui.editCategory")) : text('createCategory', t("admin:ui.addCategory"))}</h3><p>{t("admin:ui.groupDishesToHelpCustomersFindAndChoose")}</p></div>} open={categoryOpen} confirmLoading={busy}
+      onCancel={() => { if (!busy) setCategoryOpen(false); }} okText={text('save', t("payments:save"))} cancelText={text('cancel', t("business:account.cancel"))} onOk={async () => {
         try {
           const values = await categoryForm.validateFields();
           await mutate(async () => { await administration.saveCategory(values, category); });
@@ -181,19 +181,19 @@ export const CatalogPage: React.FC = () => {
       }}>
       {categoryError && <Alert type="error" showIcon message={categoryError} />}
       <Form name="catalog-category" form={categoryForm} layout="vertical" disabled={busy}>
-        <Form.Item name="name" label={text('name', 'Tên')} rules={[{ required: true, whitespace: true }, { max: 120 }]}><Input maxLength={120} /></Form.Item>
-        <Form.Item name="sortOrder" label="Thứ tự hiển thị" extra="Số nhỏ hơn được hiển thị trước." rules={[{ required: true }, { type: 'integer', min: 0 }]}><InputNumber min={0} precision={0} /></Form.Item>
-        <div className="catalog-publication"><div><strong>Danh mục hoạt động</strong><p>Cho phép hiển thị danh mục trên thực đơn.</p></div><Form.Item name="isActive" valuePropName="checked"><Switch aria-label="Danh mục hoạt động" /></Form.Item></div>
+        <Form.Item name="name" label={text('name', t("admin:ui.name"))} rules={[{ required: true, whitespace: true }, { max: 120 }]}><Input maxLength={120} /></Form.Item>
+        <Form.Item name="sortOrder" label={t("admin:ui.displayOrder")} extra={t("admin:ui.lowerNumbersAppearFirst")} rules={[{ required: true }, { type: 'integer', min: 0 }]}><InputNumber min={0} precision={0} /></Form.Item>
+        <div className="catalog-publication"><div><strong>{t("admin:ui.activeCategory")}</strong><p>{t("admin:ui.showThisCategoryOnTheMenu")}</p></div><Form.Item name="isActive" valuePropName="checked"><Switch aria-label={t("admin:ui.activeCategory")} /></Form.Item></div>
       </Form>
     </Modal>
-    <Modal className="catalog-modal" centered width={480} maskClosable={false} closable={!busy} keyboard={!busy} cancelButtonProps={{ disabled: busy }} open={Boolean(deletion)} title={text('confirmDelete', 'Xác nhận xóa')} confirmLoading={busy} okButtonProps={{ danger: true }} okText={text('delete', 'Xóa')} cancelText={text('cancel', 'Hủy')}
+    <Modal className="catalog-modal" centered width={480} maskClosable={false} closable={!busy} keyboard={!busy} cancelButtonProps={{ disabled: busy }} open={Boolean(deletion)} title={text('confirmDelete', t("admin:ui.confirmDeletion"))} confirmLoading={busy} okButtonProps={{ danger: true }} okText={text('delete', t("admin:ui.delete"))} cancelText={text('cancel', t("business:account.cancel"))}
       onCancel={() => { if (!busy) setDeletion(null); }} onOk={async () => {
         if (!deletion) return;
         try { await mutate(async () => { await administration.remove(deletion.kind, deletion.row); }); setDeletion(null); }
         catch (failure) { setDeleteError(getErrorMessage(failure)); }
       }}>
       {deletion && <div className="catalog-delete-summary">{deletion.kind !== 'categories' && <div className="catalog-thumb"><CatalogImage url={deletion.row.imageUrl} name={deletion.row.name} preview={false} /></div>}<div><strong>{deletion.row.name}</strong><p className="catalog-hint">#{deletion.row.id}</p></div></div>}
-      <p>{text('references', 'Không thể xóa dữ liệu đang được tham chiếu. Có thể ngừng bán thay vì xóa.')}</p>
+      <p>{text('references', t("admin:ui.referencedDataCannotBeDeletedYouCanStop"))}</p>
       {deleteError && <Alert type="error" showIcon message={deleteError} />}
     </Modal>
   </section>;

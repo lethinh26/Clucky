@@ -36,24 +36,24 @@ export function BranchAccountsPage() {
   useEffect(() => { const controller = new AbortController(); void load(controller.signal); return () => controller.abort(); }, [load]);
   const selectedStore = stores.find(store => store.id === storeId);
   if (isAdmin) return <div className="branch-accounts-page">
-    <header className="branch-accounts-heading"><div><span className="branch-eyebrow">QUẢN TRỊ TOÀN HỆ THỐNG</span><Typography.Title level={2}>{t('title')}</Typography.Title>
-      <Typography.Text type="secondary">Quản lý tài khoản, bảo mật và lịch sử truy cập theo từng chi nhánh.</Typography.Text></div>
-      <Tag icon={<ShopOutlined />}>{stores.length} chi nhánh</Tag></header>
-    {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => void load()}>Thử lại</Button>} />}
+    <header className="branch-accounts-heading"><div><span className="branch-eyebrow">{t("admin:ui.systemAdministration")}</span><Typography.Title level={2}>{t('title')}</Typography.Title>
+      <Typography.Text type="secondary">{t("admin:ui.manageAccountsSecurityAndAccessHistoryForEach")}</Typography.Text></div>
+      <Tag icon={<ShopOutlined />}>{stores.length} {t("admin:ui.branches720")}</Tag></header>
+    {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => void load()}>{t("business:dashboard.retry")}</Button>} />}
     <section className="branch-selector">
-      <div><label htmlFor="branch-account-store">Chi nhánh quản lý</label><Select id="branch-account-store" showSearch optionFilterProp="label" aria-label={t('store')}
-        placeholder="Tìm theo tên, mã hoặc địa chỉ chi nhánh" value={storeId} loading={loading} disabled={branchBusy}
+      <div><label htmlFor="branch-account-store">{t("admin:ui.managedBranch721")}</label><Select id="branch-account-store" showSearch optionFilterProp="label" aria-label={t('store')}
+        placeholder={t("admin:ui.searchByBranchNameIdOrAddress")} value={storeId} loading={loading} disabled={branchBusy}
         filterOption={(input, option) => matchesStoreSearch([option?.label, option?.address], input)}
         onChange={setStoreId} options={stores.map(store => ({ value: store.id, label: `#${store.id} · ${store.name}`, address: store.address }))}
-        notFoundContent={loading ? 'Đang tải chi nhánh…' : 'Không tìm thấy chi nhánh'} /></div>
+        notFoundContent={loading ? t("admin:ui.loadingBranches") : t("admin:ui.noBranchesFound")} /></div>
       {selectedStore ? <div className="branch-selected-info"><ShopOutlined /><div><strong>{selectedStore.name}</strong><span>{selectedStore.address}</span></div>
         <Tag color={selectedStore.status === 'OPEN' ? 'success' : selectedStore.status === 'INACTIVE' ? 'default' : 'gold'}>
-          {selectedStore.status === 'OPEN' ? 'Đang mở cửa' : selectedStore.status === 'INACTIVE' ? 'Ngừng hoạt động' : 'Tạm đóng cửa'}</Tag></div>
-        : <p className="branch-hint">Mỗi chi nhánh có tài khoản quản lý và tài khoản tác nghiệp riêng. Chọn chi nhánh để xem đúng dữ liệu và quyền truy cập.</p>}
+          {selectedStore.status === 'OPEN' ? t("business:stores.open") : selectedStore.status === 'INACTIVE' ? t("business:stores.inactive") : t("admin:ui.temporarilyClosed")}</Tag></div>
+        : <p className="branch-hint">{t("admin:ui.eachBranchHasItsOwnManagerAndShared")}</p>}
     </section>
     {storeId ? <BranchDetails key={`branch-accounts:${storeId}`} storeId={storeId} storeName={selectedStore?.name} onBusyChange={setBranchBusy} />
-      : <section className="branch-empty"><Empty image={<TeamOutlined />} description={<><strong>Chọn chi nhánh để bắt đầu</strong><p>Xem tài khoản hiện hành, hỗ trợ khôi phục và kiểm tra nhật ký của chi nhánh.</p></>} />
-        <div className="branch-role-guide"><span><SafetyCertificateOutlined /> Tài khoản quản lý chi nhánh</span><span><TeamOutlined /> Tài khoản tác nghiệp dùng chung</span></div></section>}
+      : <section className="branch-empty"><Empty image={<TeamOutlined />} description={<><strong>{t("admin:ui.selectABranchToGetStarted")}</strong><p>{t("admin:ui.viewCurrentAccountsAssistWithRecoveryAndReview")}</p></>} />
+        <div className="branch-role-guide"><span><SafetyCertificateOutlined /> {t("admin:ui.branchManagerAccount")}</span><span><TeamOutlined /> {t("admin:ui.sharedOperationsAccount")}</span></div></section>}
   </div>;
   return <Space direction="vertical" size="large" style={{ width: "100%" }}>
     <Typography.Title level={2}>{t("title")}</Typography.Title>
@@ -146,7 +146,7 @@ function BranchDetails({ storeId, storeName, onBusyChange }: { storeId: number; 
       if (!challenge) return;
       await api.post("/api/auth/branch/management/finish", { ...values, challengeId: challenge.id });
       setChallenge(null); verification.resetFields(); management.resetFields(); setManagementOpen(false); setNotice("done");
-      if (isAdmin) await load().catch(failure => setError(`Đã lưu thay đổi, nhưng chưa tải được trạng thái mới: ${getErrorMessage(failure)}`));
+      if (isAdmin) await load().catch(failure => setError(t("admin:ui.changesSavedButTheUpdatedStatusCouldNot", { value1: getErrorMessage(failure) })));
     }, isAdmin);
   }
   const loadAudit = useCallback(async (page: number, signal?: AbortSignal) => {
@@ -181,23 +181,23 @@ function BranchDetails({ storeId, storeName, onBusyChange }: { storeId: number; 
       { value: 'RECOVERY', label: t('changeRecovery') }, ...(isAdmin ? [{ value: 'RESET', label: t('reset') }] : []),
     ]} /></Form.Item>
     <Form.Item noStyle shouldUpdate={(previous, current) => previous.purpose !== current.purpose}>{({ getFieldValue }) => getFieldValue('purpose') === 'RECOVERY' &&
-      <Form.Item name="newEmail" label={t('newEmail')} preserve={false} rules={[{ required: true, type: 'email', max: 255 }]}><Input autoComplete="email" maxLength={255} placeholder={isAdmin ? 'Nhập email nhận mã khôi phục của chi nhánh' : undefined} /></Form.Item>}
+      <Form.Item name="newEmail" label={t('newEmail')} preserve={false} rules={[{ required: true, type: 'email', max: 255 }]}><Input autoComplete="email" maxLength={255} placeholder={isAdmin ? t("admin:ui.enterTheEmailThatReceivesBranchRecoveryCodes") : undefined} /></Form.Item>}
     </Form.Item>
     <Form.Item name="currentPassword" label={t('currentPassword')} rules={[{ required: true, max: 72 }]}><Input.Password autoComplete="current-password" maxLength={72} /></Form.Item>
     {!isAdmin && <Button htmlType="submit" loading={busy}>{t('request')}</Button>}
   </Form>;
   const verificationForm = challenge && <Form id={`branch-verification-${storeId}`} key={`verification:${challenge.id}`} form={verification} layout="vertical" onFinish={finishManagement} disabled={busy}>
     {!isAdmin && <><p>{t('target')}: {challenge.targetId} — {challenge.purpose}</p><p>{t('challenge')}: {challenge.id}</p></>}
-    <Form.Item name="otp" label={isAdmin ? 'Mã OTP gửi đến email Admin' : t('otp')} rules={[{ required: true, pattern: /^\d{8}$/, message: 'Nhập đủ 8 chữ số OTP.' }]}><Input inputMode="numeric" maxLength={8} autoComplete="one-time-code" /></Form.Item>
+    <Form.Item name="otp" label={isAdmin ? t("admin:ui.otpSentToTheAdminEmail") : t('otp')} rules={[{ required: true, pattern: /^\d{8}$/, message: t("admin:ui.enterAll8OtpDigits") }]}><Input inputMode="numeric" maxLength={8} autoComplete="one-time-code" /></Form.Item>
     {challenge.purpose === 'RECOVERY' ? <Form.Item name="newEmailOtp" label={t('newOtp')} rules={[{ required: true, pattern: /^\d{8}$/ }]}><Input inputMode="numeric" maxLength={8} autoComplete="off" /></Form.Item>
       : <Form.Item name="password" label={t('password')} rules={[{ required: true, pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$/ }]}><Input.Password autoComplete="new-password" maxLength={72} /></Form.Item>}
     {!isAdmin && <Button htmlType="submit" type="primary" loading={busy}>{t('confirm')}</Button>}
   </Form>;
   const displayColumns: TableColumnsType<Account> = [
-    { title: 'Tài khoản', width: 220, render: (_, account) => <div className="branch-account-cell"><strong>{account.login}</strong><small>#{account.id} · {account.current ? 'Tài khoản hiện hành' : 'Tài khoản cũ'}</small></div> },
-    { title: 'Vai trò', width: 185, render: (_, account) => <Tag icon={account.role === 'STORE_MANAGER' ? <SafetyCertificateOutlined /> : <TeamOutlined />}>{accountRole(account.role)}</Tag> },
-    { title: 'Trạng thái', width: 135, render: (_, account) => <Tag color={account.status === 'ACTIVE' ? 'success' : 'error'}>{account.status === 'ACTIVE' ? 'Đang hoạt động' : account.status === 'LOCKED' ? 'Đã khóa' : account.status}</Tag> },
-    { title: 'Kích hoạt', width: 140, render: (_, account) => <Tag color={account.activated ? 'success' : 'gold'}>{account.activated ? 'Đã kích hoạt' : 'Chờ kích hoạt'}</Tag> },
+    { title: t("accounts:account"), width: 220, render: (_, account) => <div className="branch-account-cell"><strong>{account.login}</strong><small>#{account.id} · {account.current ? t("accounts:current") : t("admin:ui.legacyAccount")}</small></div> },
+    { title: t("accounts:role"), width: 185, render: (_, account) => <Tag icon={account.role === 'STORE_MANAGER' ? <SafetyCertificateOutlined /> : <TeamOutlined />}>{accountRole(account.role)}</Tag> },
+    { title: t("accounts:status"), width: 135, render: (_, account) => <Tag color={account.status === 'ACTIVE' ? 'success' : 'error'}>{account.status === 'ACTIVE' ? t("admin:ui.active") : account.status === 'LOCKED' ? t("business:users.locked") : account.status}</Tag> },
+    { title: t("accounts:activation"), width: 140, render: (_, account) => <Tag color={account.activated ? 'success' : 'gold'}>{account.activated ? t("accounts:activated") : t("admin:ui.awaitingActivation")}</Tag> },
   ];
   const readiness = pair?.readiness ?? status?.readiness;
 
@@ -207,75 +207,75 @@ function BranchDetails({ storeId, storeName, onBusyChange }: { storeId: number; 
     {detailLoading && <Card><Skeleton active paragraph={{ rows: 5 }} /></Card>}
     {!detailLoading && <>
       <section className="branch-readiness"><div className="branch-readiness-icon"><SafetyCertificateOutlined /></div><div><strong>{accountReadiness(readiness)}</strong>
-        <p>{readiness === 'READY' ? 'Tài khoản hiện hành đã sẵn sàng. Trạng thái mở cửa của chi nhánh được quản lý riêng.'
-          : readiness === 'UNPROVISIONED' ? 'Chi nhánh chưa có tài khoản quản lý và tác nghiệp. Hệ thống không tự tạo tài khoản hoặc mật khẩu thay thế.'
-          : readiness === 'PROVISIONED' ? 'Tài khoản đã được cấp. Hoàn tất kích hoạt qua email khôi phục để sẵn sàng sử dụng.' : 'Hệ thống đang đồng bộ trạng thái tài khoản chi nhánh.'}</p></div>
-        {(status?.error || readiness === 'PENDING') && readiness !== 'UNPROVISIONED' && <Button loading={busy} onClick={() => void run(async () => { await api.post(`/api/stores/${storeId}/accounts-retry`); await load(); })}>Thử cấp lại tài khoản</Button>}
+        <p>{readiness === 'READY' ? t("admin:ui.currentAccountsAreReadyTheBranchSOpening")
+          : readiness === 'UNPROVISIONED' ? t("admin:ui.thisBranchHasNoManagerOrStaffAccounts739")
+          : readiness === 'PROVISIONED' ? t("admin:ui.accountsHaveBeenProvisionedCompleteActivationUsingThe") : t("admin:ui.theSystemIsSynchronizingBranchAccountStatus")}</p></div>
+        {(status?.error || readiness === 'PENDING') && readiness !== 'UNPROVISIONED' && <Button loading={busy} onClick={() => void run(async () => { await api.post(`/api/stores/${storeId}/accounts-retry`); await load(); })}>{t("admin:ui.retryAccountProvisioning")}</Button>}
       </section>
-      {status?.error && <Alert type="warning" showIcon message="Đồng bộ tài khoản chưa hoàn tất" description={status.error} />}
+      {status?.error && <Alert type="warning" showIcon message={t("admin:ui.accountSynchronizationIsIncomplete")} description={status.error} />}
       <Tabs className="branch-tabs" activeKey={activeTab} onChange={setActiveTab} items={[
-        { key: 'accounts', label: 'Tài khoản hiện hành', icon: <TeamOutlined />, children: pair ? <section className="branch-panel">
-          <div className="branch-panel-heading"><div><h3>Tài khoản truy cập chi nhánh</h3><p>Tài khoản tác nghiệp được dùng chung, không đại diện cho một nhân viên cụ thể.</p></div><Tag>{pair.accounts.length} tài khoản</Tag></div>
+        { key: 'accounts', label: t("accounts:current"), icon: <TeamOutlined />, children: pair ? <section className="branch-panel">
+          <div className="branch-panel-heading"><div><h3>{t("admin:ui.branchAccessAccounts")}</h3><p>{t("admin:ui.theOperationsAccountIsSharedAndDoesNot")}</p></div><Tag>{pair.accounts.length} {t("business:users.accountNoun")}</Tag></div>
           <Table<Account> rowKey="id" size="middle" dataSource={pair.accounts} pagination={false} scroll={{ x: 760 }} columns={[...displayColumns,
-            { title: 'Thao tác', width: 100, fixed: 'right', render: (_, account) => <Dropdown trigger={['click']} menu={{ items: [
-              { key: 'reset', label: 'Đặt lại mật khẩu', icon: <KeyOutlined />, disabled: !account.activated || !account.current },
-              { key: 'recovery', label: 'Đổi email khôi phục', icon: <MailOutlined />, disabled: !account.current },
-              { type: 'divider' }, { key: 'lock', label: account.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản', danger: account.status === 'ACTIVE',
+            { title: t("accounts:action"), width: 100, fixed: 'right', render: (_, account) => <Dropdown trigger={['click']} menu={{ items: [
+              { key: 'reset', label: t("accounts:reset"), icon: <KeyOutlined />, disabled: !account.activated || !account.current },
+              { key: 'recovery', label: t("accounts:changeRecovery"), icon: <MailOutlined />, disabled: !account.current },
+              { type: 'divider' }, { key: 'lock', label: account.status === 'ACTIVE' ? t("business:users.lockAccount") : t("business:users.unlockAccount"), danger: account.status === 'ACTIVE',
                 icon: account.status === 'ACTIVE' ? <LockOutlined /> : <UnlockOutlined />, disabled: !account.current },
             ], onClick: ({ key }) => { if (key === 'lock') { setDialogError(''); setAccountToLock(account); } else beginManagement(account, key === 'reset' ? 'RESET' : 'RECOVERY'); } }}>
-              <Button disabled={busy} icon={<MoreOutlined />} aria-label={`Thao tác tài khoản ${account.login}`}>Quản lý</Button></Dropdown> },
+              <Button disabled={busy} icon={<MoreOutlined />} aria-label={t("admin:ui.actionsForAccount", { value1: account.login })}>{t("admin:ui.manager")}</Button></Dropdown> },
           ]} />
-          <div className="branch-recovery"><MailOutlined /><div><span>Email khôi phục của chi nhánh</span><strong>{pair.recoveryEmail || 'Chưa thiết lập'}</strong><small>Thông tin khôi phục được dùng chung cho cặp tài khoản hiện hành.</small></div>
-            <Tag color={pair.verified ? 'success' : 'gold'}>{pair.verified ? 'Đã xác minh' : 'Chưa xác minh'}</Tag>
-            {!pair.recoveryEmail && pair.accounts[0] && <Button disabled={busy} onClick={() => beginManagement(pair.accounts[0], 'RECOVERY')}>Thiết lập email khôi phục</Button>}</div>
-          {!pair.recoveryEmail && <Alert type="warning" showIcon message="Chưa có email để tự khôi phục tài khoản."
-            description="Đăng nhập và mật khẩu hiện tại vẫn giữ nguyên. Admin cần thiết lập email khôi phục thực tế và xác minh OTP; hệ thống không tự dùng email cũ làm email khôi phục chung." />}
-          {pair.accounts.some(account => !account.activated) && <Alert type="info" showIcon message="Tài khoản chưa kích hoạt cần dùng mã được gửi tới email khôi phục." description="Chức năng đặt lại mật khẩu chỉ dùng cho tài khoản đã kích hoạt." />}
-        </section> : <section className="branch-panel"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chi nhánh chưa có cặp tài khoản hiện hành">
-          <p className="branch-hint">{readiness === 'UNPROVISIONED' ? 'Không tìm thấy tài khoản quản lý hoặc tác nghiệp được cấp cho chi nhánh này.' : 'Trạng thái cấp tài khoản sẽ tự cập nhật khi hệ thống đồng bộ xong.'}</p>
+          <div className="branch-recovery"><MailOutlined /><div><span>{t("admin:ui.branchRecoveryEmail")}</span><strong>{pair.recoveryEmail || t("admin:ui.notConfigured")}</strong><small>{t("admin:ui.recoveryInformationIsSharedByTheCurrentAccount")}</small></div>
+            <Tag color={pair.verified ? 'success' : 'gold'}>{pair.verified ? t("admin:ui.verified") : t("admin:ui.unverified")}</Tag>
+            {!pair.recoveryEmail && pair.accounts[0] && <Button disabled={busy} onClick={() => beginManagement(pair.accounts[0], 'RECOVERY')}>{t("admin:ui.setUpRecoveryEmail")}</Button>}</div>
+          {!pair.recoveryEmail && <Alert type="warning" showIcon message={t("admin:ui.noEmailIsConfiguredForAccountSelfRecovery")}
+            description={t("admin:ui.existingLoginsAndPasswordsAreUnchangedAdminMust")} />}
+          {pair.accounts.some(account => !account.activated) && <Alert type="info" showIcon message={t("admin:ui.unactivatedAccountsMustUseTheCodeSentTo")} description={t("admin:ui.passwordResetIsOnlyAvailableForActivatedAccounts")} />}
+        </section> : <section className="branch-panel"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("admin:ui.thisBranchHasNoCurrentAccountPair")}>
+          <p className="branch-hint">{readiness === 'UNPROVISIONED' ? t("admin:ui.noManagerOrStaffAccountProvisionedForThis") : t("admin:ui.provisioningStatusUpdatesAutomaticallyWhenSynchronizationFinishes")}</p>
         </Empty></section> },
-        { key: 'audit', label: 'Nhật ký tài khoản', icon: <AuditOutlined />, children: <section className="branch-panel">
-          <div className="branch-panel-heading"><div><h3>Lịch sử tài khoản & truy cập</h3><p>Chỉ hiển thị sự kiện tài khoản của chi nhánh đang chọn. Tài khoản dùng chung không xác định danh tính nhân viên.</p></div>
-            <Tag>{auditTotal} sự kiện</Tag></div>
+        { key: 'audit', label: t("admin:ui.accountLog"), icon: <AuditOutlined />, children: <section className="branch-panel">
+          <div className="branch-panel-heading"><div><h3>{t("admin:ui.accountAccessHistory")}</h3><p>{t("admin:ui.onlyAccountEventsForTheSelectedBranchAre")}</p></div>
+            <Tag>{auditTotal} {t("admin:ui.events")}</Tag></div>
           {auditError && <Alert type="error" showIcon message={auditError} />}
           <Table<Audit> rowKey="id" size="small" loading={auditLoading} dataSource={audit} scroll={{ x: 760 }}
-            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có sự kiện tài khoản được ghi nhận" /> }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("admin:ui.noAccountEventsRecordedYet")} /> }}
             pagination={{ current: auditPage + 1, pageSize: 20, total: auditTotal, showSizeChanger: false, hideOnSinglePage: true, onChange: page => { setAudit([]); setAuditPage(page - 1); } }} columns={[
-              { title: 'Thời gian · giờ Việt Nam', width: 175, render: (_, entry) => orderDate(entry.occurredAt, locale) },
-              { title: 'Thao tác', width: 235, render: (_, entry) => accountAuditAction(entry.action) },
-              { title: 'Người thực hiện', width: 175, render: (_, entry) => <div className="branch-account-cell"><span>#{entry.actorId}</span><small>{entry.actorRole ? accountRole(entry.actorRole) : 'Chưa rõ vai trò'}</small></div> },
-              { title: 'Đối tượng', width: 100, render: (_, entry) => entry.targetId ? `#${entry.targetId}` : '—' },
-              { title: 'Kết quả', render: (_, entry) => <Tag color={entry.detail?.result === 'SUCCESS' ? 'success' : entry.detail?.result === 'FAILED' ? 'error' : 'default'}>
-                {entry.detail?.result === 'SUCCESS' ? 'Thành công' : entry.detail?.result === 'FAILED' ? 'Thất bại' : entry.detail?.result || 'Chưa có kết quả'}</Tag> },
+              { title: t("admin:ui.timeVietnamTime"), width: 175, render: (_, entry) => orderDate(entry.occurredAt, locale) },
+              { title: t("accounts:action"), width: 235, render: (_, entry) => accountAuditAction(entry.action) },
+              { title: t("admin:ui.performedBy"), width: 175, render: (_, entry) => <div className="branch-account-cell"><span>#{entry.actorId}</span><small>{entry.actorRole ? accountRole(entry.actorRole) : t("admin:ui.unknownRole")}</small></div> },
+              { title: t("admin:ui.target"), width: 100, render: (_, entry) => entry.targetId ? `#${entry.targetId}` : '—' },
+              { title: t("accounts:result"), render: (_, entry) => <Tag color={entry.detail?.result === 'SUCCESS' ? 'success' : entry.detail?.result === 'FAILED' ? 'error' : 'default'}>
+                {entry.detail?.result === 'SUCCESS' ? t("common:toast.success") : entry.detail?.result === 'FAILED' ? t("business:orderdetaildrawer.failed") : entry.detail?.result || t("admin:ui.noResultsYet")}</Tag> },
             ]} />
         </section> },
       ]} />
     </>}
-    <AdminModal className="branch-account-modal" centered width={560} open={managementOpen} title="Hỗ trợ tài khoản chi nhánh" subtitle={storeName || `Chi nhánh #${storeId}`}
+    <AdminModal className="branch-account-modal" centered width={560} open={managementOpen} title={t("admin:ui.branchAccountSupport")} subtitle={storeName || t("business:reviews.storeNumber", { value1: storeId })}
       confirmLoading={busy} onCancel={() => { setManagementOpen(false); setChallenge(null); management.resetFields(); verification.resetFields(); setDialogError(''); }}
-      okText={challenge ? 'Xác nhận thay đổi' : 'Gửi mã xác minh'} cancelText="Đóng" okButtonProps={{ htmlType: 'submit', form: challenge ? `branch-verification-${storeId}` : `branch-management-${storeId}` }}>
-      <Steps size="small" current={challenge ? 1 : 0} items={[{ title: 'Thông tin thay đổi' }, { title: 'Xác minh OTP' }]} />
-      <Alert type="info" showIcon message={challenge ? 'Mã xác minh đã được gửi đến email.' : 'Thay đổi được bảo vệ bằng mật khẩu Admin và OTP.'}
-        description={challenge?.purpose === 'RECOVERY' ? 'Nhập mã từ email Admin và email khôi phục mới. Đổi email ảnh hưởng cả cặp tài khoản của chi nhánh.' : t('adminHelp')} />
+      okText={challenge ? t("admin:ui.confirmChange") : t("admin:ui.sendVerificationCode")} cancelText={t("business:orderdetaildrawer.close")} okButtonProps={{ htmlType: 'submit', form: challenge ? `branch-verification-${storeId}` : `branch-management-${storeId}` }}>
+      <Steps size="small" current={challenge ? 1 : 0} items={[{ title: t("admin:ui.changeDetails") }, { title: t("admin:ui.verifyOtp") }]} />
+      <Alert type="info" showIcon message={challenge ? t("admin:ui.aVerificationCodeHasBeenSentByEmail") : t("admin:ui.changesAreProtectedByTheAdminPasswordAnd")}
+        description={challenge?.purpose === 'RECOVERY' ? t("admin:ui.enterTheCodesFromTheAdminEmailAnd") : t('adminHelp')} />
       {dialogError && <Alert type="error" showIcon message={dialogError} />}
       {challenge ? <><Descriptions size="small" column={1} items={[
-        { key: 'target', label: 'Tài khoản', children: pair?.accounts.find(account => account.id === challenge.targetId)?.login || `#${challenge.targetId}` },
-        { key: 'purpose', label: 'Thay đổi', children: challenge.purpose === 'RECOVERY' ? 'Đổi email khôi phục' : 'Đặt lại mật khẩu' },
-        ...(challenge.purpose === 'RECOVERY' ? [{ key: 'email', label: 'Email mới', children: challenge.newEmail }] : []),
+        { key: 'target', label: t("accounts:account"), children: pair?.accounts.find(account => account.id === challenge.targetId)?.login || `#${challenge.targetId}` },
+        { key: 'purpose', label: t("admin:ui.change"), children: challenge.purpose === 'RECOVERY' ? t("accounts:changeRecovery") : t("accounts:reset") },
+        ...(challenge.purpose === 'RECOVERY' ? [{ key: 'email', label: t("admin:ui.newEmail"), children: challenge.newEmail }] : []),
       ]} />{verificationForm}</> : managementForm}
     </AdminModal>
-    <AdminModal className="branch-account-modal" centered width={480} open={accountToLock !== null} title={accountToLock?.status === 'ACTIVE' ? 'Khóa tài khoản chi nhánh' : 'Mở khóa tài khoản chi nhánh'}
-      subtitle={accountToLock?.login} confirmLoading={busy} onCancel={() => { setAccountToLock(null); setDialogError(''); }} okText={accountToLock?.status === 'ACTIVE' ? 'Xác nhận khóa' : 'Xác nhận mở khóa'} cancelText="Quay lại"
+    <AdminModal className="branch-account-modal" centered width={480} open={accountToLock !== null} title={accountToLock?.status === 'ACTIVE' ? t("admin:ui.lockBranchAccount") : t("admin:ui.unlockBranchAccount")}
+      subtitle={accountToLock?.login} confirmLoading={busy} onCancel={() => { setAccountToLock(null); setDialogError(''); }} okText={accountToLock?.status === 'ACTIVE' ? t("admin:ui.confirmLocking") : t("admin:ui.confirmUnlocking")} cancelText={t("admin:ui.goBack")}
       okButtonProps={{ danger: accountToLock?.status === 'ACTIVE' }} onOk={async () => {
         if (!accountToLock) return;
         const success = await run(async () => {
           await api.put(`/api/auth/branch/accounts/${accountToLock.id}/lock`, null, { params: { locked: accountToLock.status === 'ACTIVE' } });
           setNotice('done');
-          await load().catch(failure => setError(`Đã đổi trạng thái tài khoản, nhưng chưa tải được dữ liệu mới: ${getErrorMessage(failure)}`));
+          await load().catch(failure => setError(t("admin:ui.accountStatusChangedButTheUpdatedDataCould", { value1: getErrorMessage(failure) })));
         }, true);
         if (success) setAccountToLock(null);
       }}>
-      <Alert type="warning" showIcon message="Toàn bộ phiên đăng nhập của tài khoản sẽ bị thu hồi." description="Thay đổi chỉ áp dụng cho tài khoản đã chọn. Mở khóa không thay thế việc kích hoạt và không tự mở bán chi nhánh." />
+      <Alert type="warning" showIcon message={t("admin:ui.allLoginSessionsForThisAccountWillBe")} description={t("admin:ui.thisChangeOnlyAffectsTheSelectedAccountUnlocking")} />
       {dialogError && <Alert type="error" showIcon message={dialogError} />}
     </AdminModal>
   </div>;

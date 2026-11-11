@@ -334,7 +334,7 @@ export const StoresPage: React.FC = () => {
               />
             </Tooltip>
           )}
-          {isAdmin && <Button danger disabled={saving || record.status === 'INACTIVE'} onClick={() => { setDeactivationError(''); setDeactivation(record); }}>Ngừng hoạt động</Button>}
+          {isAdmin && <Button danger disabled={saving || record.status === 'INACTIVE'} onClick={() => { setDeactivationError(''); setDeactivation(record); }}>{t("business:stores.inactive")}</Button>}
         </Space>
       ),
     },
@@ -343,7 +343,7 @@ export const StoresPage: React.FC = () => {
   return (
     <div className={isAdmin ? 'stores-admin-page' : undefined}>
       {loadError && <Alert type="error" showIcon title={loadError} action={<Button loading={loading} onClick={() => void fetchStores()}>{t('common:retry')}</Button>} />}
-      <Modal className="stores-modal" centered width={520} maskClosable={false} closable={!saving} keyboard={!saving} cancelButtonProps={{ disabled: saving }} open={Boolean(deactivation)} title="Ngừng hoạt động chi nhánh" okText="Ngừng hoạt động" cancelText="Hủy" confirmLoading={saving} okButtonProps={{ danger: true }}
+      <Modal className="stores-modal" centered width={520} maskClosable={false} closable={!saving} keyboard={!saving} cancelButtonProps={{ disabled: saving }} open={Boolean(deactivation)} title={t("admin:ui.deactivateBranch")} okText={t("business:stores.inactive")} cancelText={t("business:account.cancel")} confirmLoading={saving} okButtonProps={{ danger: true }}
         onCancel={() => { if (!mutationLock.current) setDeactivation(null); }} onOk={async () => {
           if (!deactivation || mutationLock.current || !isAdmin) return;
           mutationLock.current = true; setSaving(true); setDeactivationError('');
@@ -354,8 +354,8 @@ export const StoresPage: React.FC = () => {
           finally { mutationLock.current = false; setSaving(false); }
         }}>
         <div className="stores-confirm-store"><ShopOutlined /><div><strong>{deactivation?.name}</strong><p className="stores-note">{deactivation?.address}</p></div></div>
-        <p>Chi nhánh chuyển sang INACTIVE, không nhận đơn mới. Mã chi nhánh, lịch sử, tồn kho và tài khoản chi nhánh được giữ nguyên. Đây không phải xóa dữ liệu hay khóa tài khoản.</p>
-        {deactivationError && <Alert type="error" showIcon title={deactivationError} description="Nếu phiên bản đã thay đổi, đóng hộp thoại và chọn lại chi nhánh từ danh sách mới." />}
+        <p>{t("admin:ui.theBranchBecomesInactiveAndStopsAcceptingNew")}</p>
+        {deactivationError && <Alert type="error" showIcon title={deactivationError} description={t("admin:ui.ifTheVersionHasChangedCloseTheDialog")} />}
       </Modal>
       {isAdmin ? <AdminStores stores={stores} loading={loading} busy={saving || savingLocation} onCreate={handleOpenCreateModal}
         onEdit={handleOpenEditModal} onLocation={store => { setLocationError(''); setLocationStore(store); setLocationPoint({ latitude: store.latitude ?? null, longitude: store.longitude ?? null }); }}
@@ -442,7 +442,7 @@ export const StoresPage: React.FC = () => {
       {/* Create / Edit Store Modal */}
       <AdminModal className={isAdmin ? 'stores-modal' : undefined} centered={isAdmin} styles={isAdmin ? {} : undefined} maskClosable={isAdmin ? false : undefined}
         open={Boolean(locationStore)} confirmLoading={savingLocation} onCancel={() => { if (!savingLocation) setLocationStore(null); }} title={t('maps:viewLocation')} subtitle={locationStore?.name} width={isAdmin ? 880 : 740}
-        okText={isAdmin ? 'Lưu vị trí' : undefined}
+        okText={isAdmin ? t("admin:ui.saveLocation") : undefined}
         onOk={async () => {
           if (!locationStore || locationLock.current) return;
           if ((locationPoint.latitude == null) !== (locationPoint.longitude == null)) { message.error(t('maps:pinHint')); return; }
@@ -454,7 +454,7 @@ export const StoresPage: React.FC = () => {
           } catch (error) { if (isAdmin) setLocationError(getErrorMessage(error)); else message.error(getErrorMessage(error)); await fetchStores(); }
           finally { locationLock.current = false; setSavingLocation(false); }
         }}>
-        {isAdmin && <div className="stores-location-note"><CompassOutlined /><div><strong>Định vị chính xác cửa hàng</strong><p>{locationStore?.address}</p><span>Tìm địa chỉ hoặc chọn điểm trên bản đồ. Kiểm tra tọa độ trước khi lưu.</span></div></div>}
+        {isAdmin && <div className="stores-location-note"><CompassOutlined /><div><strong>{t("admin:ui.locateTheBranchPrecisely")}</strong><p>{locationStore?.address}</p><span>{t("admin:ui.searchAnAddressOrChooseAPointOn")}</span></div></div>}
         {locationError && <Alert type="error" showIcon message={locationError} />}
         {locationStore && <div className={isAdmin ? 'stores-location-picker' : undefined}><StoreLocationPicker key={locationStore.id} address={locationStore.address} value={locationPoint} onChange={savingLocation ? undefined : setLocationPoint} /></div>}
       </AdminModal>
@@ -470,7 +470,7 @@ export const StoresPage: React.FC = () => {
         title={editingStore ? t("business:stores.editStoreDetails") : t("business:stores.setUpANewStore")}
         subtitle={t("business:stores.detailsShownInTheCustomerAppAndUsedForOrderRouting")}
         width={isAdmin ? 980 : 680}
-        okText={isAdmin ? editingStore ? 'Lưu thay đổi' : 'Tạo chi nhánh' : undefined}
+        okText={isAdmin ? editingStore ? t("business:account.saveChanges") : t("admin:ui.createBranch") : undefined}
         styles={isAdmin ? {} : {
           container: { background: '#FFFFFF' },
           header: { background: '#FFFFFF', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #EEEEEE' },
@@ -478,7 +478,7 @@ export const StoresPage: React.FC = () => {
           footer: { background: '#FFFFFF', marginTop: 20, paddingTop: 16, borderTop: '1px solid #EEEEEE' },
         }}
       >
-        {saveError && <Alert type="error" showIcon title={saveError} description="Nếu phiên bản đã thay đổi, đóng biểu mẫu và mở lại từ danh sách mới." />}
+        {saveError && <Alert type="error" showIcon title={saveError} description={t("admin:ui.ifTheVersionHasChangedCloseTheForm")} />}
         <Form name="store-editor" form={form} layout="vertical" disabled={saving} onFinish={handleFormSubmit}>
           {isAdmin ? <AdminStoreFields store={editingStore} /> : <>
           {!editingStore && <Form.Item name="recoveryEmail" label={t("accounts:recovery")} rules={[{ required: true, type: 'email', max: 255 }]}><Input autoComplete="email" /></Form.Item>}

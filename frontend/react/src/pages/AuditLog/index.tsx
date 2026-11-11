@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, DatePicker, Descriptions, Form, Input, InputNumber, Result, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -24,6 +25,7 @@ const formatTime = (value: string) => new Intl.DateTimeFormat('vi-VN', {
 }).format(new Date(value));
 
 export default function AuditLogPage() {
+  const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const [form] = Form.useForm<FilterValues>();
   const [query, setQuery] = useState<AuditFilters & { page: number; size: number }>({ page: 0, size: 20 });
@@ -108,74 +110,74 @@ export default function AuditLogPage() {
   };
 
   const columns: TableColumnsType<AuditLogEntry> = [
-    { title: 'Thời gian (VN)', dataIndex: 'occurredAt', render: formatTime, width: 185 },
-    { title: 'Lĩnh vực', dataIndex: 'sourceService', render: (value: string) => auditDomains.find((domain) => domain.value === value)?.label ?? value },
-    { title: 'Tài khoản thao tác', render: (_, entry) => <Space wrap><Typography.Text>#{entry.actorId}</Typography.Text><Tag>{entry.actorRole}</Tag></Space> },
-    { title: 'Chi nhánh', dataIndex: 'storeId', render: (value: number | null) => value == null ? 'Toàn chuỗi / không gắn quán' : stores.find(store => store.id === value)?.name ?? `#${value}` },
-    { title: 'Thao tác', dataIndex: 'action' },
-    { title: 'Đối tượng', render: (_, entry) => `${entry.targetType} #${entry.targetId}` },
+    { title: t("admin:ui.timeVietnam"), dataIndex: 'occurredAt', render: formatTime, width: 185 },
+    { title: t("admin:ui.domain"), dataIndex: 'sourceService', render: (value: string) => auditDomains.find((domain) => domain.value === value)?.label ?? value },
+    { title: t("admin:ui.actingAccount"), render: (_, entry) => <Space wrap><Typography.Text>#{entry.actorId}</Typography.Text><Tag>{entry.actorRole}</Tag></Space> },
+    { title: t("business:party.store"), dataIndex: 'storeId', render: (value: number | null) => value == null ? t("admin:ui.allBranchesNoBranchAssigned") : stores.find(store => store.id === value)?.name ?? `#${value}` },
+    { title: t("accounts:action"), dataIndex: 'action' },
+    { title: t("admin:ui.target"), render: (_, entry) => `${entry.targetType} #${entry.targetId}` },
   ];
 
-  if (!isAdmin) return <Result status="403" title="Không có quyền" subTitle="Nhật ký toàn hệ thống chỉ dành cho Admin." />;
+  if (!isAdmin) return <Result status="403" title={t("business:users.notPermitted")} subTitle={t("admin:ui.onlyAdminCanAccessSystemWideAuditLogs")} />;
 
   return (
     <div style={{ fontFamily: 'Quicksand, sans-serif' }}>
-      <PageIntro eyebrow="Admin toàn hệ thống" title="Nhật ký thao tác"
-        description="Lịch sử đã ghi nhận tại Audit Service. ID tài khoản dùng chung không xác định một nhân viên cá nhân."
+      <PageIntro eyebrow={t("admin:ui.systemAdministrator")} title={t("admin:ui.activityLog")}
+        description={t("admin:ui.historyRecordedByAuditServiceASharedAccount")}
         action={<Space wrap>
-          <Button icon={<DownloadOutlined />} loading={exporting} disabled={loading || !data || exporting} onClick={download}>Xuất CSV</Button>
+          <Button icon={<DownloadOutlined />} loading={exporting} disabled={loading || !data || exporting} onClick={download}>{t("admin:ui.exportCsv")}</Button>
         </Space>} />
       <Alert showIcon type="info" style={{ marginBottom: 16 }}
-        message="Nhật ký nhận bất đồng bộ; danh sách rỗng không chứng minh chưa từng có thao tác."
-        description="Lọc ngày theo giờ Việt Nam. Xuất tối đa 10.000 bản ghi khớp bộ lọc, không chỉ trang hiện tại; không xuất nội dung tự do, email hoặc thông tin thanh toán." />
+        message={t("admin:ui.logsArriveAsynchronouslyAnEmptyListDoesNot")}
+        description={t("admin:ui.datesUseVietnamTimeExportUpTo10")} />
       <Card style={{ marginBottom: 16, background: '#FFFAF3' }}>
         <Form form={form} layout="vertical" onFinish={applyFilters}>
           <Space wrap align="start">
-            <Form.Item name="sourceService" label="Lĩnh vực">
-              <Select allowClear placeholder="Tất cả lĩnh vực" options={auditDomains} style={{ width: 225 }} />
+            <Form.Item name="sourceService" label={t("admin:ui.domain")}>
+              <Select allowClear placeholder={t("admin:ui.allDomains")} options={auditDomains} style={{ width: 225 }} />
             </Form.Item>
-            <Form.Item name="actorId" label="ID tài khoản" rules={[{ type: 'integer', min: 1, max: Number.MAX_SAFE_INTEGER, message: 'Nhập ID nguyên dương.' }]}>
+            <Form.Item name="actorId" label={t("admin:ui.accountId")} rules={[{ type: 'integer', min: 1, max: Number.MAX_SAFE_INTEGER, message: t("admin:ui.enterAPositiveIntegerId") }]}>
               <InputNumber min={1} max={Number.MAX_SAFE_INTEGER} style={{ width: 170 }} />
             </Form.Item>
-            <Form.Item name="storeId" label="Chi nhánh">
-              <Select allowClear showSearch optionFilterProp="label" placeholder="Toàn chuỗi" style={{ width: 230 }}
+            <Form.Item name="storeId" label={t("business:party.store")}>
+              <Select allowClear showSearch optionFilterProp="label" placeholder={t("business:dashboard.scopeChain")} style={{ width: 230 }}
                 options={stores.map(store => ({ value: store.id, label: store.name }))} />
             </Form.Item>
-            <Form.Item name="dates" label="Khoảng ngày (VN)">
+            <Form.Item name="dates" label={t("admin:ui.dateRangeVietnam")}>
               <DatePicker.RangePicker format="DD/MM/YYYY" />
             </Form.Item>
-            <Form.Item name="action" label="Mã thao tác" rules={[{ pattern: /^[A-Za-z0-9._:-]{1,100}$/, message: 'Mã thao tác không hợp lệ.' }]}>
-              <Input allowClear placeholder="Ví dụ: CUSTOMER_LOCKED" maxLength={100} style={{ width: 230 }} />
+            <Form.Item name="action" label={t("admin:ui.actionCode")} rules={[{ pattern: /^[A-Za-z0-9._:-]{1,100}$/, message: t("admin:ui.invalidActionCode") }]}>
+              <Input allowClear placeholder={t("admin:ui.exampleCustomerLocked")} maxLength={100} style={{ width: 230 }} />
             </Form.Item>
-            <Form.Item name="targetType" label="Loại đối tượng" rules={[{ pattern: /^[A-Za-z0-9._:-]{1,100}$/, message: 'Loại đối tượng không hợp lệ.' }]}>
-              <Input allowClear placeholder="Ví dụ: Order, Customer" maxLength={100} style={{ width: 200 }} />
+            <Form.Item name="targetType" label={t("admin:ui.targetType")} rules={[{ pattern: /^[A-Za-z0-9._:-]{1,100}$/, message: t("admin:ui.invalidTargetType") }]}>
+              <Input allowClear placeholder={t("admin:ui.exampleOrderCustomer")} maxLength={100} style={{ width: 200 }} />
             </Form.Item>
-            <Form.Item name="targetId" label="ID đối tượng" rules={[{ type: 'integer', min: 1, max: Number.MAX_SAFE_INTEGER }]}>
+            <Form.Item name="targetId" label={t("admin:ui.targetId")} rules={[{ type: 'integer', min: 1, max: Number.MAX_SAFE_INTEGER }]}>
               <InputNumber min={1} max={Number.MAX_SAFE_INTEGER} style={{ width: 170 }} />
             </Form.Item>
           </Space>
           <Space>
-            <Button type="primary" htmlType="submit">Áp dụng bộ lọc</Button>
-            <Button onClick={() => { form.resetFields(); setQuery({ page: 0, size: query.size }); }}>Xóa bộ lọc</Button>
+            <Button type="primary" htmlType="submit">{t("admin:ui.applyFilters")}</Button>
+            <Button onClick={() => { form.resetFields(); setQuery({ page: 0, size: query.size }); }}>{t("business:orderspage.clearFilters")}</Button>
           </Space>
         </Form>
       </Card>
       {storeError && <Alert type="warning" showIcon message={storeError} style={{ marginBottom: 16 }}
-        action={<Button onClick={() => setRefresh(value => value + 1)}>Thử lại danh sách chi nhánh</Button>} />}
+        action={<Button onClick={() => setRefresh(value => value + 1)}>{t("admin:ui.retryLoadingBranches")}</Button>} />}
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }}
-        action={<Button onClick={() => setRefresh((value) => value + 1)}>Thử lại</Button>} />}
-      {exportError && <Alert type="error" showIcon message={exportError} description="Nếu vượt giới hạn xuất, hãy thu hẹp bộ lọc." style={{ marginBottom: 16 }} />}
+        action={<Button onClick={() => setRefresh((value) => value + 1)}>{t("business:dashboard.retry")}</Button>} />}
+      {exportError && <Alert type="error" showIcon message={exportError} description={t("admin:ui.narrowYourFiltersIfTheExportLimitIs")} style={{ marginBottom: 16 }} />}
       <Table<AuditLogEntry> rowKey="eventId" columns={columns} dataSource={data?.content ?? []} loading={loading}
-        scroll={{ x: 1100 }} locale={{ emptyText: error ? 'Không tải được nhật ký.' : 'Không có nhật ký khớp bộ lọc.' }}
+        scroll={{ x: 1100 }} locale={{ emptyText: error ? t("admin:ui.unableToLoadAuditLogs") : t("admin:ui.noLogsMatchYourFilters") }}
         pagination={{ current: query.page + 1, pageSize: query.size, total: data?.totalElements ?? 0,
-          showSizeChanger: true, pageSizeOptions: [20, 50, 100, 200], showTotal: (total) => `${total} bản ghi`,
+          showSizeChanger: true, pageSizeOptions: [20, 50, 100, 200], showTotal: (total) => t("admin:ui.records", { value1: total }),
           onChange: (page, size) => setQuery((current) => ({ ...current, page: size === current.size ? page - 1 : 0, size })),
         }}
         expandable={{ expandedRowRender: (entry) => <>
           <Descriptions size="small" column={1} items={[
             { key: 'event', label: 'Event ID', children: entry.eventId },
             { key: 'correlation', label: 'Correlation ID', children: entry.correlationId },
-            { key: 'received', label: 'Ghi nhận (VN)', children: formatTime(entry.createdAt) },
+            { key: 'received', label: t("admin:ui.recordedAtVietnam"), children: formatTime(entry.createdAt) },
           ]} />
           <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(entry.detail, null, 2)}</pre>
         </> }} />

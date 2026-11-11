@@ -1,3 +1,4 @@
+import i18n from "../../i18n/index.ts";
 import dayjs from 'dayjs';
 
 export function storeTime(value: string | null | undefined) {
@@ -12,5 +13,5 @@ export function matchesStoreSearch(values: (string | null | undefined)[], query:
 }
 
 export function readinessLabel(value?: string) {
-  return ({ READY: 'Sẵn sàng', UNPROVISIONED: 'Chưa có tài khoản', PENDING: 'Đang cấp tài khoản', PROVISIONED: 'Chờ kích hoạt' } as Record<string, string>)[value ?? ''] ?? 'Chưa xác định';
+  return ({ get READY() { return i18n.t("business:orderprogress.ready"); }, get UNPROVISIONED() { return i18n.t("admin:ui.noAccountAvailable"); }, get PENDING() { return i18n.t("admin:ui.provisioningAccounts"); }, get PROVISIONED() { return i18n.t("admin:ui.awaitingActivation"); } } as Record<string, string>)[value ?? ''] ?? i18n.t("admin:ui.unknown");
 }

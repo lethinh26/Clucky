@@ -144,7 +144,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           reviewNote
         );
       }
-      message.info("Đã tiếp nhận yêu cầu xét duyệt. Theo dõi trạng thái mới; đặt giữ tiền có thể còn đang xử lý.");
+      message.info(t("admin:ui.theReviewRequestHasBeenReceivedMonitorThe"));
       
       syncParent();
       if (activeRefund.current === order.refundRequestId) await fetchRefundDetails(order.refundRequestId);
@@ -279,7 +279,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
       setConfirmModalOpen(false);
       setConfirmationPending(updated.status !== "REFUNDED");
       if (updated.status === "REFUNDED") message.success(t("business:refundmodal.confirmRefundSuccess"));
-      else message.info("Yêu cầu xác nhận đã được tiếp nhận, đang chờ hoàn tất chi trả.");
+      else message.info(t("admin:ui.theConfirmationRequestHasBeenReceivedAndIs"));
       
     } catch (err) {
       message.error(getErrorMessage(err));
@@ -322,8 +322,8 @@ export const RefundModal: React.FC<RefundModalProps> = ({
         keyboard={!submitting && !uploadingEvidence}
       >
         {loadError && <Alert type="error" showIcon message={loadError} />}
-        {confirmationPending && <Alert type="info" showIcon message={`Đang chờ Payment xử lý ${refund?.paymentOperation || 'CONFIRM'}. Trạng thái hiện tại: ${refund?.status}. Chưa phải đã hoàn tất chi trả.`} />}
-        {refund?.paymentError && <Alert type="warning" showIcon message={refund.paymentError} description="Backend đang lưu yêu cầu để thử lại; không tạo khoản hoàn tiền mới." />}
+        {confirmationPending && <Alert type="info" showIcon message={t("admin:ui.waitingForPaymentToProcessCurrentStatusThe", { value1: refund?.paymentOperation || 'CONFIRM', value2: refund?.status })} />}
+        {refund?.paymentError && <Alert type="warning" showIcon message={refund.paymentError} description={t("admin:ui.theBackendHasSavedTheRequestForRetry")} />}
         <Spin spinning={loading || submitting || uploadingEvidence}>
           {refund && <>
           {/* Summary Information */}
@@ -465,7 +465,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
 
           {/* C. PROCESSING */}
           {currentStatus === "PROCESSING" && !ownsAttempt && <Alert type="info" showIcon
-            message={`Lượt chuyển tiền đang do tài khoản #${currentAttempt?.createdBy ?? "—"} xử lý. Không thực hiện thêm một lần chuyển tiền.`} />}
+            message={t("admin:ui.accountIsHandlingThisTransferAttemptDoNot", { value1: currentAttempt?.createdBy ?? "—" })} />}
           {!refund?.paymentOperation && !confirmationPending && currentStatus === "PROCESSING" && ownsAttempt && (
             <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 16 }}>
               <Alert
@@ -549,7 +549,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 <Button
                   danger
                     disabled={hasEvidence}
-                    title={hasEvidence ? "Đã có chứng từ chuyển tiền; cần đối chiếu kết quả, không mở lượt chuyển khác." : undefined}
+                    title={hasEvidence ? t("admin:ui.transferEvidenceAlreadyExistsReconcileTheResultInstead") : undefined}
                   onClick={() => {
                     setInvalidReason("");
                     setInvalidModalOpen(true);
@@ -669,9 +669,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           onChange={(e) => setInvalidReason(e.target.value)}
           placeholder={t("business:refundmodal.invalidBankPlaceholder")}
         />
-        {currentStatus === "PROCESSING" && <Checkbox checked={transferNotCompleted} onChange={event => setTransferNotCompleted(event.target.checked)} style={{ marginTop: 16 }}>
-          Tôi đã kiểm tra ngân hàng: chưa chuyển tiền thành công, không có giao dịch đang chờ hoặc chưa rõ kết quả.
-        </Checkbox>}
+        {currentStatus === "PROCESSING" && <Checkbox checked={transferNotCompleted} onChange={event => setTransferNotCompleted(event.target.checked)} style={{ marginTop: 16 }}>{t("admin:ui.iHaveCheckedTheBankNoSuccessfulTransfer")} </Checkbox>}
       </Modal>
 
       {/* Sub-modal: Update Bank Details */}

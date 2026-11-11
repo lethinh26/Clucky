@@ -65,29 +65,29 @@ export function RefundsPanel({ orderId, stores = [], revision = 0, onChanged }: 
   }, [selected]);
 
   return <section className="refunds-panel">
-    <div className="order-section-heading"><h3>{orderId ? 'Yêu cầu hoàn tiền' : 'Yêu cầu hoàn tiền toàn chuỗi'}</h3>
-      <Tag>{page?.totalElements ?? 0} yêu cầu</Tag></div>
+    <div className="order-section-heading"><h3>{orderId ? t("business:orderspage.refundRequest") : t("admin:ui.refundRequestsAcrossAllBranches")}</h3>
+      <Tag>{page?.totalElements ?? 0} {t("admin:ui.requests")}</Tag></div>
     <Space wrap>
-      {!orderId && <Select aria-label="Chi nhánh hoàn tiền" placeholder="Tất cả chi nhánh" allowClear style={{ width: 200 }} value={query.storeId}
+      {!orderId && <Select aria-label={t("admin:ui.refundBranch")} placeholder={t("business:stores.allStores")} allowClear style={{ width: 200 }} value={query.storeId}
         options={stores.map(store => ({ value: store.id, label: store.name }))} onChange={storeId => setQuery(current => ({ ...current, storeId, page: 0 }))} />}
-      <Select aria-label="Trạng thái hoàn tiền" placeholder="Tất cả trạng thái" allowClear style={{ width: 220 }} value={query.status}
+      <Select aria-label={t("admin:ui.refundStatus")} placeholder={t("business:paymentspage.allStatuses")} allowClear style={{ width: 220 }} value={query.status}
         options={Object.entries(statusLabels).map(([value, label]) => ({ value, label }))}
         onChange={status => setQuery(current => ({ ...current, status, page: 0 }))} />
     </Space>
     {error && <Alert type="error" showIcon message={error} />}
     <Table<BackendRefund> rowKey="id" size="small" loading={loading} dataSource={page?.content ?? []} scroll={{ x: orderId ? 520 : 720 }}
-      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={query.status ? 'Không có yêu cầu phù hợp trạng thái đã chọn' : 'Chưa có yêu cầu hoàn tiền'} /> }}
+      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={query.status ? t("admin:ui.noRequestsMatchTheSelectedStatus") : t("admin:ui.noRefundRequestsYet")} /> }}
       pagination={{ current: query.page + 1, pageSize: query.size, total: page?.totalElements ?? 0, showSizeChanger: true, pageSizeOptions: [20, 50, 100],
         hideOnSinglePage: true,
         onChange: (next, size) => setQuery(current => ({ ...current, page: size === current.size ? next - 1 : 0, size })) }} columns={[
-        { title: "Yêu cầu", dataIndex: "id", width: 85, render: id => `#${id}` },
-        { title: "Đơn hàng", hidden: !!orderId, render: (_, refund) => refund.orderCode || `#${refund.orderId}` },
-        { title: "Số tiền", width: 120, align: 'right', dataIndex: "amount", render: amount => <strong className="order-amount">{money(amount)}</strong> },
-        { title: "Trạng thái", width: 145, dataIndex: "status", render: status => <Tag color={status === 'REFUNDED' ? 'success' : status === 'REJECTED' ? 'error' : status === 'PENDING' || status === 'WAITING_BANK_DETAILS' ? 'gold' : 'processing'}>{statusLabels[status] ?? status}</Tag> },
-        { title: "Lý do", dataIndex: "reason", ellipsis: true },
-        { title: "Thao tác", width: 90, render: (_, refund) => <Button type="link" size="small" onClick={() => setSelected(refund.id)}>Chi tiết</Button> },
+        { title: t("admin:ui.request"), dataIndex: "id", width: 85, render: id => `#${id}` },
+        { title: t("business:promotionUi.order"), hidden: !!orderId, render: (_, refund) => refund.orderCode || `#${refund.orderId}` },
+        { title: t("business:paymentspage.amount"), width: 120, align: 'right', dataIndex: "amount", render: amount => <strong className="order-amount">{money(amount)}</strong> },
+        { title: t("accounts:status"), width: 145, dataIndex: "status", render: status => <Tag color={status === 'REFUNDED' ? 'success' : status === 'REJECTED' ? 'error' : status === 'PENDING' || status === 'WAITING_BANK_DETAILS' ? 'gold' : 'processing'}>{statusLabels[status] ?? status}</Tag> },
+        { title: t("admin:ui.reason"), dataIndex: "reason", ellipsis: true },
+        { title: t("accounts:action"), width: 90, render: (_, refund) => <Button type="link" size="small" onClick={() => setSelected(refund.id)}>{t("business:orderdetaildrawer.details")}</Button> },
       ]} />
-    {detailLoading && <Spin aria-label="Đang tải chi tiết hoàn tiền" />}
+    {detailLoading && <Spin aria-label={t("admin:ui.loadingRefundDetails")} />}
     {detailError && <Alert type="error" message={detailError} />}
     {selected !== null && order?.refundRequestId === selected && <RefundModal key={selected} order={order} open onClose={() => setSelected(null)}
       onChanged={() => { setRefresh(value => value + 1); onChanged?.(); }} />}

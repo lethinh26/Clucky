@@ -486,7 +486,7 @@ export const PromotionsPage: React.FC = () => {
                 / {record.totalLimit ? record.totalLimit : '∞'}
               </span>
             </div>
-            <Text type="secondary" style={{ fontSize: 11 }}>Đang giữ: {record.reservedCount ?? 0}</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>{t("admin:ui.reserved")} {record.reservedCount ?? 0}</Text>
             {percent !== null ? (
               <Progress
                 percent={percent}
@@ -496,14 +496,14 @@ export const PromotionsPage: React.FC = () => {
                 trailColor="#E8E2D9"
               />
             ) : (
-              <div style={{ fontSize: 11, color: '#6B6259', fontStyle: 'italic' }}>Không giới hạn</div>
+              <div style={{ fontSize: 11, color: '#6B6259', fontStyle: 'italic' }}>{t("admin:ui.unlimited")}</div>
             )}
           </div>
         );
       },
     },
     {
-      title: 'Trạng thái',
+      title: t("accounts:status"),
       key: 'status',
       width: 135,
       render: (_, record) => {
@@ -583,20 +583,20 @@ export const PromotionsPage: React.FC = () => {
       },
     },
     {
-      title: 'Thao tác',
+      title: t("accounts:action"),
       key: 'actions',
       width: 120,
       fixed: 'right',
       render: (_, record) => (
         <Space size={4}>
-          <Tooltip title="Xem chi tiết">
+          <Tooltip title={t("business:orderspage.viewDetails")}>
             <Button
               type="text"
               size="small"
               className="voucher-action-btn"
               icon={<EyeOutlined style={{ color: '#0284C7', fontSize: 14 }} />}
               onClick={() => handleOpenDetail(record)}
-              aria-label="Xem chi tiết"
+              aria-label={t("business:orderspage.viewDetails")}
             />
           </Tooltip>
           <Tooltip title="Chỉnh sửa">
@@ -611,13 +611,13 @@ export const PromotionsPage: React.FC = () => {
           </Tooltip>
           <Popconfirm
             title="Xác nhận xóa voucher?"
-            description={'Xóa mã "' + record.code + '"? Mã đã dùng hoặc đang giữ lượt cho đơn hàng sẽ được vô hiệu hóa, giữ nguyên lịch sử.'}
-            okText="Xóa"
-            cancelText="Hủy"
+            description={t("admin:ui.deleteVoucher") + record.code + t("admin:ui.vouchersAlreadyUsedOrReservedForOrdersWill")}
+            okText={t("admin:ui.delete")}
+            cancelText={t("business:account.cancel")}
             okButtonProps={{ danger: true }}
             onConfirm={() => handleDeleteVoucher(record)}
           >
-            <Tooltip title="Xóa">
+            <Tooltip title={t("admin:ui.delete")}>
               <Button
                 type="text"
                 size="small"
@@ -715,7 +715,7 @@ export const PromotionsPage: React.FC = () => {
                     onClick={() => setStatusFilter('ACTIVE')}
                   >
                     <div>
-                      <div className="kpi-label">Đang hoạt động</div>
+                      <div className="kpi-label">{t("admin:ui.active")}</div>
                       <div className="kpi-value" style={{ color: '#1E7A46' }}>{kpiStats.active}</div>
                     </div>
                     <div className="kpi-icon" style={{ background: '#ECFDF5', color: '#10B981' }}>
@@ -782,7 +782,7 @@ export const PromotionsPage: React.FC = () => {
                             onChange={setStoreFilter}
                             style={{ width: 215 }}
                             options={[
-                              { value: 'ALL', label: 'Tất cả chi nhánh' },
+                              { value: 'ALL', label: t("business:stores.allStores") },
                               ...stores.map((s) => ({
                                 value: s.id,
                                 label: `🏪 ${s.name}`,
@@ -797,7 +797,7 @@ export const PromotionsPage: React.FC = () => {
                           onChange={setStatusFilter}
                           style={{ width: 170 }}
                           options={[
-                            { value: 'ALL', label: 'Tất cả trạng thái' },
+                            { value: 'ALL', label: t("business:paymentspage.allStatuses") },
                             { value: 'ACTIVE', label: '🟢 Đang chạy' },
                             { value: 'UPCOMING', label: '🔵 Sắp diễn ra' },
                             { value: 'EXPIRED', label: '⚪ Đã hết hạn' },

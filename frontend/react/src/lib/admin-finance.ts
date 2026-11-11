@@ -1,3 +1,4 @@
+import i18n from "../i18n/index.ts";
 import { api, type BackendOrder, type BackendRefund, type PageResponse } from "./api";
 import type { AdminOrder } from "../types/order";
 
@@ -71,13 +72,13 @@ export function collectionState(collection: Collection) {
 }
 
 export function receiptSelectionIssue(receipt: Receipt, order: Pick<PaymentSnapshot['order'], 'storeId' | 'orderCode'>) {
-  if (receipt.direction !== 'in') return 'Không phải giao dịch tiền vào.';
-  if (!Number.isSafeInteger(receipt.amount) || receipt.amount <= 0) return 'Số tiền giao dịch không hợp lệ.';
-  if (receipt.storeId != null && receipt.storeId !== order.storeId) return 'Giao dịch thuộc chi nhánh khác.';
-  if (receipt.matchedOrderCode && receipt.matchedOrderCode !== order.orderCode) return `Đã phân bổ cho đơn ${receipt.matchedOrderCode}.`;
-  if (receipt.candidateOrderCode && receipt.candidateOrderCode !== order.orderCode) return `Mã chuyển khoản đang tham chiếu đơn ${receipt.candidateOrderCode}.`;
-  if (['STORE_ORDER_CONFLICT', 'STORE_REFERENCE_CONFLICT', 'AMBIGUOUS_REFERENCE'].includes(receipt.reason ?? '')) return 'Tham chiếu chi nhánh hoặc đơn hàng chưa nhất quán; cần kiểm tra trước.';
-  if (receipt.reason === 'SUB_ACCOUNT_REVIEW') return 'Giao dịch tài khoản phụ cần được kiểm tra riêng.';
+  if (receipt.direction !== 'in') return i18n.t("admin:ui.thisIsNotAnIncomingTransaction");
+  if (!Number.isSafeInteger(receipt.amount) || receipt.amount <= 0) return i18n.t("admin:ui.theTransactionAmountIsInvalid");
+  if (receipt.storeId != null && receipt.storeId !== order.storeId) return i18n.t("admin:ui.thisTransactionBelongsToAnotherBranch");
+  if (receipt.matchedOrderCode && receipt.matchedOrderCode !== order.orderCode) return i18n.t("admin:ui.alreadyAllocatedToOrder", { value1: receipt.matchedOrderCode });
+  if (receipt.candidateOrderCode && receipt.candidateOrderCode !== order.orderCode) return i18n.t("admin:ui.theTransferReferencePointsToOrder", { value1: receipt.candidateOrderCode });
+  if (['STORE_ORDER_CONFLICT', 'STORE_REFERENCE_CONFLICT', 'AMBIGUOUS_REFERENCE'].includes(receipt.reason ?? '')) return i18n.t("admin:ui.theBranchOrOrderReferenceIsInconsistentReview");
+  if (receipt.reason === 'SUB_ACCOUNT_REVIEW') return i18n.t("admin:ui.subAccountTransactionsRequireASeparateReview");
   return '';
 }
 

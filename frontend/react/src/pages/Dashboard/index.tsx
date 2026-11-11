@@ -649,7 +649,7 @@ export default function Dashboard({
       )}
 
       {orderError && <Alert type="error" showIcon message={orderError} style={{ marginBottom: 16 }} />}
-      {storeError && <Alert type="warning" showIcon message="Chưa tải được danh sách chi nhánh" description={storeError} style={{ marginBottom: 16 }} />}
+      {storeError && <Alert type="warning" showIcon message={t("admin:ui.unableToLoadTheBranchList")} description={storeError} style={{ marginBottom: 16 }} />}
 
       {dashboard && !dashboard.projectionActive && (
         <Alert
@@ -670,8 +670,8 @@ export default function Dashboard({
 
       {dashboard && (
         <Alert type="warning" showIcon style={{ marginBottom: 16 }}
-          message="Số liệu từ projection đã lưu, không phải số dư ngân hàng hoặc doanh thu ròng sau hoàn tiền."
-          description={`Policy: ${dashboard.revenueEventPolicy ?? 'false'}. ${lastUpdatedLabel}. Bật policy không chứng minh dữ liệu đã đầy đủ hoặc cập nhật tức thời.`} />
+          message={t("admin:ui.figuresComeFromTheStoredProjectionNotBank")}
+          description={t("admin:ui.policyEnablingAPolicyDoesNotGuaranteeComplete", { value1: dashboard.revenueEventPolicy ?? 'false', value2: lastUpdatedLabel })} />
       )}
 
       {loading && !dashboard ? (

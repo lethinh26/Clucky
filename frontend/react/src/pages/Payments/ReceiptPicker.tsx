@@ -36,49 +36,49 @@ export function ReceiptPicker({ snapshot, selectedId, onSelect, onClose }: {
   }, [query, scope, order.orderCode, order.storeId]);
 
   return <Modal open centered className="receipt-picker" width={1040} onCancel={onClose} footer={null}
-    title={<div><strong>Chọn giao dịch ngân hàng</strong><p>Đơn {order.orderCode} · Tổng thanh toán {money(order.amount)}</p></div>}>
+    title={<div><strong>{t("admin:ui.selectBankTransaction")}</strong><p>{t("admin:ui.order")} {order.orderCode} {t("admin:ui.amountDue")} {money(order.amount)}</p></div>}>
     <div className="receipt-picker-controls">
-      <Segmented<'order' | 'store' | 'all'> block value={scope} aria-label="Phạm vi tìm giao dịch" options={[
-        { value: 'order', label: 'Liên quan đơn này' }, { value: 'store', label: 'Cùng chi nhánh' }, { value: 'all', label: 'Toàn hệ thống' },
+      <Segmented<'order' | 'store' | 'all'> block value={scope} aria-label={t("admin:ui.transactionSearchScope")} options={[
+        { value: 'order', label: t("admin:ui.relatedToThisOrder") }, { value: 'store', label: t("admin:ui.sameBranch") }, { value: 'all', label: t("admin:promotions.scope.all") },
       ]} onChange={value => { setScope(value); setSearch(''); setSearchError(''); setQuery(current => ({ ...current, page: 0, search: undefined })); }} />
-      {scope === 'order' ? <p className="receipt-search-hint">Tìm mã đơn trong nội dung chuyển khoản và tham chiếu đã lưu. Đây là gợi ý tìm kiếm, không phải xác nhận tiền đã khớp.</p>
-        : <Input.Search value={search} prefix={<SearchOutlined />} aria-label="Tìm giao dịch ngân hàng" placeholder="Mã giao dịch ngân hàng, nội dung chuyển khoản hoặc mã đơn"
-          allowClear maxLength={120} enterButton="Tìm giao dịch" onChange={event => setSearch(event.target.value)} onSearch={value => {
-            if (value.includes('\0')) { setSearchError('Nội dung tìm kiếm không hợp lệ.'); return; }
+      {scope === 'order' ? <p className="receipt-search-hint">{t("admin:ui.searchForTheOrderIdInTransferDescriptions")}</p>
+        : <Input.Search value={search} prefix={<SearchOutlined />} aria-label={t("admin:ui.searchBankTransactions")} placeholder={t("admin:ui.bankTransactionIdTransferDescriptionOrOrderId")}
+          allowClear maxLength={120} enterButton={t("admin:ui.searchTransactions")} onChange={event => setSearch(event.target.value)} onSearch={value => {
+            if (value.includes('\0')) { setSearchError(t("admin:ui.invalidSearchContent")); return; }
             setSearchError(''); setQuery(current => ({ ...current, page: 0, search: value.trim() || undefined }));
           }} />}
       <div className="receipt-picker-filters">
-        <Select allowClear value={query.status} aria-label="Trạng thái giao dịch" placeholder="Tất cả trạng thái" options={
+        <Select allowClear value={query.status} aria-label={t("payments:receiptStatus")} placeholder={t("business:paymentspage.allStatuses")} options={
           ['UNMATCHED', 'PENDING_RECONCILIATION', 'MATCHED', 'LATE_RECEIPT', 'IGNORED'].map(status => ({ value: status, label: t(`receiptStatuses.${status}`) }))
         } onChange={status => setQuery(current => ({ ...current, page: 0, status }))} />
         <DatePicker.RangePicker value={query.from && query.to ? [dayjs(query.from.slice(0, 10)), dayjs(query.to.slice(0, 10))] : null}
-          format="DD/MM/YYYY" placeholder={['Nhận từ ngày', 'Đến ngày']} aria-label="Khoảng ngày hệ thống nhận giao dịch" onChange={dates => setQuery(current => ({
+          format="DD/MM/YYYY" placeholder={[t("admin:ui.receivedFrom"), t("payments:toDate")]} aria-label={t("admin:ui.transactionReceiptDateRange")} onChange={dates => setQuery(current => ({
           ...current, page: 0, from: dates?.[0] ? `${dates[0].format('YYYY-MM-DD')}T00:00:00+07:00` : undefined,
           to: dates?.[1] ? `${dates[1].format('YYYY-MM-DD')}T23:59:59.999+07:00` : undefined,
         }))} />
       </div>
-      <small className="order-muted">Ngày lọc theo thời điểm hệ thống nhận giao dịch · giờ Việt Nam. Không tìm thấy? Mở rộng sang toàn hệ thống để tìm cả giao dịch chưa xác định chi nhánh.</small>
+      <small className="order-muted">{t("admin:ui.datesFilterWhenTheSystemReceivedTransactionsIn")}</small>
     </div>
-    {error && <Alert type="error" showIcon message="Chưa tải được giao dịch ngân hàng" description={error} />}
+    {error && <Alert type="error" showIcon message={t("admin:ui.unableToLoadBankTransactions")} description={error} />}
     {searchError && <Alert type="error" showIcon message={searchError} />}
     <Table<Receipt> rowKey="id" size="small" loading={loading} dataSource={page?.content ?? []} scroll={{ x: 850 }}
-      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={error ? 'Không thể hiển thị dữ liệu lúc này' : 'Không có giao dịch phù hợp bộ lọc'}>
-        {!error && scope !== 'all' && <Button onClick={() => { setScope('all'); setSearch(''); setQuery({ page: 0, size: 8 }); }}>Tìm trên toàn hệ thống</Button>}
-        {!error && scope === 'all' && <p className="receipt-search-hint">Chỉ giao dịch đã được hệ thống tiếp nhận mới xuất hiện ở đây. Không tạo biên nhận thủ công để thay thế bằng chứng ngân hàng.</p>}
+      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={error ? t("admin:ui.dataCannotBeDisplayedRightNow") : t("admin:ui.noTransactionsMatchYourFilters")}>
+        {!error && scope !== 'all' && <Button onClick={() => { setScope('all'); setSearch(''); setQuery({ page: 0, size: 8 }); }}>{t("admin:ui.searchSystemWide")}</Button>}
+        {!error && scope === 'all' && <p className="receipt-search-hint">{t("admin:ui.onlyTransactionsReceivedByTheSystemAppearHere")}</p>}
       </Empty> }}
       pagination={{ current: query.page + 1, pageSize: query.size, total: page?.totalElements ?? 0, showSizeChanger: false,
-        showTotal: total => `${total} giao dịch`, onChange: next => setQuery(current => ({ ...current, page: next - 1 })) }} columns={[
-        { title: 'Giao dịch / ngân hàng', width: 250, render: (_, receipt) => <div className="receipt-picker-cell"><strong>{receipt.transactionId}</strong>
-          <span>{receipt.bank || 'Chưa rõ ngân hàng'} · {receipt.maskedAccount || 'Chưa có tài khoản'}</span>
-          <small>{orderDate(receipt.bankOccurredAt || receipt.receivedAt, locale)}{receipt.bankOccurredAt ? '' : ' · Giờ tiếp nhận'}</small></div> },
-        { title: 'Số tiền', width: 165, align: 'right', render: (_, receipt) => <div className="receipt-picker-cell receipt-picker-amount"><strong>{receipt.direction === 'out' ? '−' : '+'}{money(receipt.amount)}</strong>
-          {receipt.direction === 'in' && <small>{receipt.amount === order.amount ? 'Bằng tổng tiền đơn' : `${receipt.amount > order.amount ? 'Cao hơn' : 'Thấp hơn'} tổng đơn ${money(Math.abs(receipt.amount - order.amount))}`}</small>}</div> },
-        { title: 'Nội dung & trạng thái', render: (_, receipt) => <div className="receipt-picker-cell"><span className="receipt-content">{receipt.content || 'Không có nội dung chuyển khoản'}</span>
-          <div><Tag>{t(`receiptStatuses.${receipt.status}`, { defaultValue: receipt.status })}</Tag>{receipt.conflictCount > 0 && <Tag color="warning">Có xung đột</Tag>}</div>
-          <small>{receipt.matchedOrderCode ? `Đã phân bổ: ${receipt.matchedOrderCode}` : receipt.candidateOrderCode ? `Tham chiếu: ${receipt.candidateOrderCode}` : 'Chưa gắn với đơn hàng'}</small>
+        showTotal: total => t("admin:ui.transactions547", { value1: total }), onChange: next => setQuery(current => ({ ...current, page: next - 1 })) }} columns={[
+        { title: t("admin:ui.transactionBank"), width: 250, render: (_, receipt) => <div className="receipt-picker-cell"><strong>{receipt.transactionId}</strong>
+          <span>{receipt.bank || t("admin:ui.unknownBank")} · {receipt.maskedAccount || t("admin:ui.noAccountAvailable")}</span>
+          <small>{orderDate(receipt.bankOccurredAt || receipt.receivedAt, locale)}{receipt.bankOccurredAt ? '' : t("admin:ui.receiptTime")}</small></div> },
+        { title: t("business:paymentspage.amount"), width: 165, align: 'right', render: (_, receipt) => <div className="receipt-picker-cell receipt-picker-amount"><strong>{receipt.direction === 'out' ? '−' : '+'}{money(receipt.amount)}</strong>
+          {receipt.direction === 'in' && <small>{receipt.amount === order.amount ? t("admin:ui.equalsTheOrderTotal") : t("admin:ui.theOrderTotalBy", { value1: receipt.amount > order.amount ? t("admin:ui.higherThan552") : t("admin:ui.lowerThan553"), value2: money(Math.abs(receipt.amount - order.amount)) })}</small>}</div> },
+        { title: t("admin:ui.descriptionStatus"), render: (_, receipt) => <div className="receipt-picker-cell"><span className="receipt-content">{receipt.content || t("payments:log.noContent")}</span>
+          <div><Tag>{t(`receiptStatuses.${receipt.status}`, { defaultValue: receipt.status })}</Tag>{receipt.conflictCount > 0 && <Tag color="warning">{t("admin:ui.hasConflicts")}</Tag>}</div>
+          <small>{receipt.matchedOrderCode ? t("admin:ui.allocated", { value1: receipt.matchedOrderCode }) : receipt.candidateOrderCode ? t("admin:ui.reference", { value1: receipt.candidateOrderCode }) : t("admin:ui.notLinkedToAnOrder")}</small>
           {receiptSelectionIssue(receipt, order) && <small className="receipt-selection-error">{receiptSelectionIssue(receipt, order)}</small>}</div> },
         { title: '', width: 135, render: (_, receipt) => <Button size="small" type={receipt.id === selectedId ? 'primary' : 'default'} disabled={loading || !!receiptSelectionIssue(receipt, order)}
-          aria-label={`Chọn giao dịch ${receipt.transactionId}`} onClick={() => onSelect(receipt)}>{receipt.id === selectedId ? 'Đang chọn' : 'Chọn giao dịch'}</Button> },
+          aria-label={t("admin:ui.selectTransaction560", { value1: receipt.transactionId })} onClick={() => onSelect(receipt)}>{receipt.id === selectedId ? t("admin:ui.selected") : t("admin:ui.selectTransaction")}</Button> },
       ]} />
   </Modal>;
 }

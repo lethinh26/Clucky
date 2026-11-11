@@ -629,11 +629,11 @@ export const ReportsPage: React.FC = () => {
         }
       />
 
-      {storeError && <Alert type="warning" showIcon message="Chưa tải được danh sách chi nhánh" description={storeError} style={{ marginBottom: 16 }} />}
+      {storeError && <Alert type="warning" showIcon message={t("admin:ui.unableToLoadTheBranchList")} description={storeError} style={{ marginBottom: 16 }} />}
       {report && (
         <Alert type="warning" showIcon style={{ marginBottom: 16 }}
-          message={report.projectionActive ? 'Báo cáo cập nhật bất đồng bộ, có thể có độ trễ.' : 'Tạm dừng ghi nhận doanh thu mới; chỉ hiển thị số liệu lịch sử đã lưu.'}
-          description="Số liệu này chưa trừ các khoản hoàn tiền. Đối chiếu giao dịch thực nhận tại Thanh toán & Đối soát; không dùng báo cáo này thay sổ đối soát." />
+          message={report.projectionActive ? t("admin:ui.reportsUpdateAsynchronouslyAndMayBeDelayed") : t("admin:ui.newRevenueRecognitionIsPausedOnlyStoredHistorical")}
+          description={t("admin:ui.theseFiguresDoNotDeductRefundsReconcileActual")} />
       )}
 
       {loading ? (
@@ -641,7 +641,7 @@ export const ReportsPage: React.FC = () => {
           <Skeleton active paragraph={{ rows: 5 }} />
         </Card>
       ) : !report ? (
-        <Empty description="Chưa có dữ liệu báo cáo cho bộ lọc hiện tại." />
+        <Empty description={t("admin:ui.noReportDataForTheCurrentFilters")} />
       ) : (
         <>
           <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
@@ -838,9 +838,7 @@ export const ReportsPage: React.FC = () => {
                       })}
                     </div>
                     <Flex justify="space-between" align="center" style={{ marginTop: 16 }}>
-                      <Text type="secondary" style={{ color: '#6B6259', fontSize: 13 }}>
-                        Số liệu projection đã lưu theo policy đang hiển thị, không phải ledger hoàn tiền.
-                      </Text>
+                      <Text type="secondary" style={{ color: '#6B6259', fontSize: 13 }}>{t("admin:ui.storedProjectionFiguresFollowTheDisplayedPolicyThey")} </Text>
                       <Text
                         strong
                         style={{ color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 16 }}

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Empty, Pagination, Popover, Space, Spin, Typography } from 'antd';
 import { BellOutlined, CheckOutlined } from '@ant-design/icons';
@@ -8,6 +9,7 @@ import { getErrorMessage, ordersApi } from '../../lib/api';
 import { adminNotificationsApi, type AdminNotification, type NotificationPage } from '../../lib/admin-notifications';
 
 export function AdminNotificationCenter() {
+  const { t } = useTranslation();
   const { isAdmin, user } = useAuth();
   const { date } = useLocaleTools();
   const navigate = useNavigate();
@@ -87,23 +89,23 @@ export function AdminNotificationCenter() {
 
   const content = <div style={{ width: 'min(380px, calc(100vw - 48px))' }}>
     <Space style={{ marginBottom: 12 }}>
-      <Typography.Text strong>Thông báo Admin</Typography.Text>
-      <Button size="small" disabled={!unread || loading} loading={saving} onClick={() => void markRead()}>Đọc tất cả</Button>
+      <Typography.Text strong>{t("admin:ui.adminNotifications")}</Typography.Text>
+      <Button size="small" disabled={!unread || loading} loading={saving} onClick={() => void markRead()}>{t("admin:ui.markAllAsRead")}</Button>
     </Space>
-    {error ? <Alert type="error" showIcon title="Không tải hoặc cập nhật được thông báo" description={error} /> : loading ? <Spin aria-label="Đang tải thông báo" /> :
+    {error ? <Alert type="error" showIcon title={t("admin:ui.unableToLoadOrUpdateNotifications")} description={error} /> : loading ? <Spin aria-label={t("admin:ui.loadingNotifications")} /> :
       result?.content.length ? <ul style={{ padding: 0, margin: 0, listStyle: 'none', maxHeight: 420, overflowY: 'auto' }}>
         {result.content.map(notification => <li key={notification.id} style={{ padding: '12px 0', borderBottom: '1px solid #eee' }}>
           <Typography.Text strong={!notification.isRead}>{notification.title}</Typography.Text>
           <Typography.Paragraph style={{ marginBottom: 4 }}>{notification.content}</Typography.Paragraph>
           <Space wrap>
             {['ORDER', 'INVENTORY'].includes(notification.type) && <Button size="small" type="link" disabled={saving}
-              onClick={() => void viewNotification(notification)}>Xem chi tiết</Button>}
+              onClick={() => void viewNotification(notification)}>{t("business:orderspage.viewDetails")}</Button>}
             <Typography.Text type="secondary">{date(notification.createdAt, { dateStyle: 'short', timeStyle: 'short' })}</Typography.Text>
-            {notification.isRead ? <Typography.Text type="secondary">Đã đọc</Typography.Text> :
-              <Button size="small" icon={<CheckOutlined />} disabled={saving} aria-label={`Đánh dấu đã đọc: ${notification.title}`} onClick={() => void markRead(notification.id)}>Đánh dấu đã đọc</Button>}
+            {notification.isRead ? <Typography.Text type="secondary">{t("admin:ui.read")}</Typography.Text> :
+              <Button size="small" icon={<CheckOutlined />} disabled={saving} aria-label={t("admin:ui.markAsRead", { value1: notification.title })} onClick={() => void markRead(notification.id)}>{t("business:promotionUi.markRead")}</Button>}
           </Space>
         </li>)}
-      </ul> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có thông báo." />}
+      </ul> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("admin:ui.noNotificationsYet")} />}
     {!error && <Pagination size="small" current={page + 1} pageSize={10} total={result?.totalElements ?? 0} showSizeChanger={false}
       disabled={loading || saving} onChange={value => setPage(value - 1)} style={{ marginTop: 12 }} />}
   </div>;
@@ -111,7 +113,7 @@ export function AdminNotificationCenter() {
   return <Popover trigger="click" placement="bottomRight" open={open} onOpenChange={setOpen} content={content}>
     <Badge count={unread ?? 0} dot={Boolean(error)}>
       <Button type="text" icon={<BellOutlined />} aria-expanded={open}
-        aria-label={error ? 'Thông báo chưa tải được' : `Thông báo Admin${unread === null ? '' : `, ${unread} chưa đọc`}`} />
+        aria-label={error ? t("admin:ui.unableToLoadNotifications") : t("admin:ui.adminNotifications272", { value1: unread === null ? '' : t("admin:ui.unread", { value1: unread }) })} />
     </Badge>
   </Popover>;
 }

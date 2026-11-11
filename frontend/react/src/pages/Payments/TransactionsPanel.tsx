@@ -136,7 +136,7 @@ export function TransactionsPanel({ stores, revision }: { stores: Store[]; revis
     <div className="payment-log-toolbar"><div><Typography.Title level={4}>{t("log.title")}</Typography.Title><Typography.Text type="secondary">{t("log.total", { count: inbox?.page.totalElements ?? 0 })}</Typography.Text></div>
       {!isAdmin && <Button loading={loading} onClick={() => setRefresh(value => value + 1)} disabled={assigning}>{t("reload")}</Button>}</div>
     <div className="payment-log-filters">
-      {isAdmin && <Checkbox checked={query.conflictsOnly} onChange={event => filter({ conflictsOnly: event.target.checked })}>Chỉ biên nhận có xung đột</Checkbox>}
+      {isAdmin && <Checkbox checked={query.conflictsOnly} onChange={event => filter({ conflictsOnly: event.target.checked })}>{t("admin:ui.onlyReceiptsWithConflicts")}</Checkbox>}
       <Input.Search aria-label={t("searchReceipts")} placeholder={t("log.search")} allowClear maxLength={160} onSearch={search => filter({ search: search.trim() || undefined })} enterButton={t("search")} />
       {isAdmin && <Select aria-label={t("log.contentStore")} placeholder={t("log.contentStore")} showSearch allowClear disabled={query.unclassifiedOnly} optionFilterProp="label" value={query.storeId} onChange={storeId => filter({ storeId })} options={stores.map(store => ({ value: store.id, label: store.name }))} />}
       <Input.Search aria-label={t("bankName")} placeholder={t("log.bankFilter")} allowClear maxLength={100} onSearch={bank => filter({ bank: bank.trim() || undefined })} />

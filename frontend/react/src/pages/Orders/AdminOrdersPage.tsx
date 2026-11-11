@@ -89,37 +89,37 @@ export function AdminOrdersPage() {
   }
 
   return <div className="admin-orders">
-    <header className="admin-orders-heading"><div><span className="order-eyebrow">QUẢN TRỊ TOÀN HỆ THỐNG</span>
-      <Typography.Title level={2}>Quản lý đơn hàng</Typography.Title>
-      <Typography.Text type="secondary">Theo dõi đơn hàng, thanh toán và hoàn tiền tại các chi nhánh.</Typography.Text></div>
-      <Tag icon={<FileTextOutlined />}>{total.toLocaleString('vi-VN')} đơn hàng</Tag></header>
-    {customerId && <Alert type="info" message={`Đang lọc đơn của khách hàng #${customerId}`} />}
-    {invalidCustomer && <Alert type="error" message="customerId trên URL không hợp lệ; không tải danh sách toàn chuỗi thay thế." />}
-    {invalidOrderCode && <Alert type="error" message="Mã đơn trên URL không hợp lệ." />}
+    <header className="admin-orders-heading"><div><span className="order-eyebrow">{t("admin:ui.systemAdministration")}</span>
+      <Typography.Title level={2}>{t("admin:ui.orderManagement")}</Typography.Title>
+      <Typography.Text type="secondary">{t("admin:ui.trackOrdersPaymentsAndRefundsAcrossBranches")}</Typography.Text></div>
+      <Tag icon={<FileTextOutlined />}>{total.toLocaleString('vi-VN')} {t("admin:ui.orders309")}</Tag></header>
+    {customerId && <Alert type="info" message={t("admin:ui.filteringOrdersForCustomer", { value1: customerId })} />}
+    {invalidCustomer && <Alert type="error" message={t("admin:ui.theCustomeridInTheUrlIsInvalidThe")} />}
+    {invalidOrderCode && <Alert type="error" message={t("admin:ui.theOrderIdInTheUrlIsInvalid")} />}
     <div className="admin-orders-list">
     <div className="admin-orders-filters">
-      <Input.Search aria-label="Tìm mã đơn" placeholder="Tìm theo mã đơn hàng" prefix={<SearchOutlined />} defaultValue={linkedOrderCode} allowClear maxLength={80} onSearch={orderCode => setQuery(current => ({ ...current, page: 0, orderCode: orderCode.trim() || undefined }))} />
-      <Select aria-label="Lọc chi nhánh" placeholder="Tất cả chi nhánh" allowClear showSearch optionFilterProp="label" value={query.storeId}
+      <Input.Search aria-label={t("admin:ui.searchOrderId")} placeholder={t("admin:ui.searchByOrderId")} prefix={<SearchOutlined />} defaultValue={linkedOrderCode} allowClear maxLength={80} onSearch={orderCode => setQuery(current => ({ ...current, page: 0, orderCode: orderCode.trim() || undefined }))} />
+      <Select aria-label={t("business:orderspage.filterStores")} placeholder={t("business:stores.allStores")} allowClear showSearch optionFilterProp="label" value={query.storeId}
         options={stores.map(store => ({ value: store.id, label: store.name }))} onChange={storeId => setQuery(current => ({ ...current, page: 0, storeId }))} />
-      <Select aria-label="Lọc trạng thái đơn" placeholder="Tất cả trạng thái" allowClear value={query.status}
+      <Select aria-label={t("admin:ui.filterOrderStatus")} placeholder={t("business:paymentspage.allStatuses")} allowClear value={query.status}
         options={["PENDING_PAYMENT", "CONFIRMED", "PREPARING", "READY", "SHIPPING", "COMPLETED", "CANCELLED"].map(status => ({ value: status, label: t(orderStatusKeys[status as AdminOrder["status"]]) }))}
         onChange={status => setQuery(current => ({ ...current, page: 0, status }))} />
     </div>
     {storeError && <Alert type="warning" message={storeError} />}
     {error && <Alert type="error" message={error} />}
     <Table<AdminOrder> rowKey="id" size="middle" loading={loading} dataSource={orders} scroll={{ x: 1120 }}
-      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có đơn hàng phù hợp bộ lọc" /> }}
+      locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("admin:ui.noOrdersMatchYourFilters")} /> }}
       pagination={{ current: query.page + 1, pageSize: query.size, total, showSizeChanger: true, pageSizeOptions: [20, 50, 100],
-        showTotal: count => `${count.toLocaleString('vi-VN')} đơn hàng`,
+        showTotal: count => t("admin:ui.orders", { value1: count.toLocaleString('vi-VN') }),
         onChange: (page, size) => setQuery(current => ({ ...current, page: size === current.size ? page - 1 : 0, size })) }} columns={[
-        { title: "Đơn hàng", width: 235, render: (_, order) => <div className="order-cell"><Button type="link" onClick={() => openDetail(order.id)}>{order.orderCode}</Button><small>{orderDate(order.createdAt, locale)}</small></div> },
-        { title: "Khách hàng", width: 175, render: (_, order) => <div className="order-cell"><strong>{order.customerName}</strong><small>{order.customerPhone || 'Chưa có số điện thoại'}</small></div> },
-        { title: "Chi nhánh / nhận món", width: 220, render: (_, order) => <div className="order-cell"><span>{stores.find(store => store.id === Number(order.storeId))?.name || order.storeName}</span><small>{order.orderType === 'PICKUP' ? 'Nhận tại quầy' : 'Giao tận nơi'}</small></div> },
-        { title: "Trạng thái", width: 155, render: (_, order) => <OrderStatusBadge status={order.status} /> },
-        { title: "Thanh toán", width: 185, render: (_, order) => <div className="order-cell"><Tag color={paymentColor(order.paymentStatus)}>{t(`admin:paymentStates.${order.paymentStatus ?? 'UNKNOWN'}`, { defaultValue: 'Chưa xác minh thanh toán' })}</Tag><small>{paymentMethodLabel(order.paymentMethod)}</small></div> },
-        { title: "Tổng tiền", width: 130, align: 'right', dataIndex: "total", render: amount => <strong className="order-amount">{money(amount)}</strong> },
-        { title: "Thao tác", width: 125, fixed: 'right', render: (_, order) => <Space direction="vertical" size={0}><Button type="link" size="small" onClick={() => openDetail(order.id)}>Chi tiết</Button>
-          <Button type="text" size="small" icon={<WalletOutlined />} onClick={() => setFinanceId(Number(order.id))}>Tài chính</Button></Space> },
+        { title: t("business:promotionUi.order"), width: 235, render: (_, order) => <div className="order-cell"><Button type="link" onClick={() => openDetail(order.id)}>{order.orderCode}</Button><small>{orderDate(order.createdAt, locale)}</small></div> },
+        { title: t("admin:nav.customers"), width: 175, render: (_, order) => <div className="order-cell"><strong>{order.customerName}</strong><small>{order.customerPhone || t("admin:ui.noPhoneNumberProvided")}</small></div> },
+        { title: t("admin:ui.branchFulfillment"), width: 220, render: (_, order) => <div className="order-cell"><span>{stores.find(store => store.id === Number(order.storeId))?.name || order.storeName}</span><small>{order.orderType === 'PICKUP' ? t("business:orderdetaildrawer.counterPickup") : t("business:checkout.homeDelivery")}</small></div> },
+        { title: t("accounts:status"), width: 155, render: (_, order) => <OrderStatusBadge status={order.status} /> },
+        { title: t("business:cart.checkout"), width: 185, render: (_, order) => <div className="order-cell"><Tag color={paymentColor(order.paymentStatus)}>{t(`admin:paymentStates.${order.paymentStatus ?? 'UNKNOWN'}`, { defaultValue: t("admin:paymentStates.UNKNOWN") })}</Tag><small>{paymentMethodLabel(order.paymentMethod)}</small></div> },
+        { title: t("business:id.total"), width: 130, align: 'right', dataIndex: "total", render: amount => <strong className="order-amount">{money(amount)}</strong> },
+        { title: t("accounts:action"), width: 125, fixed: 'right', render: (_, order) => <Space direction="vertical" size={0}><Button type="link" size="small" onClick={() => openDetail(order.id)}>{t("business:orderdetaildrawer.details")}</Button>
+          <Button type="text" size="small" icon={<WalletOutlined />} onClick={() => setFinanceId(Number(order.id))}>{t("admin:ui.finance")}</Button></Space> },
       ]} />
     </div>
     {selectedId !== null && <AdminOrderDrawer key={`order-details:${selectedId}`} order={selected} refund={refund} loading={detailLoading} error={detailError} refundError={refundError}

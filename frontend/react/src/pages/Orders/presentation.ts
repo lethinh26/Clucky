@@ -1,15 +1,16 @@
+import i18n from "../../i18n/index.ts";
 export const orderLabels: Record<string, string> = {
-  PENDING_PAYMENT: 'Chờ thanh toán', CONFIRMED: 'Đã xác nhận', PREPARING: 'Đang chế biến',
-  READY: 'Sẵn sàng nhận món', SHIPPING: 'Đang giao', COMPLETED: 'Đã hoàn thành', DELIVERED: 'Đã hoàn thành', CANCELLED: 'Đã hủy',
+  get PENDING_PAYMENT() { return i18n.t("admin:paymentStates.PENDING"); }, get CONFIRMED() { return i18n.t("business:orderstatuschip.confirmed"); }, get PREPARING() { return i18n.t("admin:ui.preparing"); },
+  get READY() { return i18n.t("admin:ui.readyForPickup"); }, get SHIPPING() { return i18n.t("business:orderprogress.delivering"); }, get COMPLETED() { return i18n.t("business:orders.completed"); }, get DELIVERED() { return i18n.t("business:orders.completed"); }, get CANCELLED() { return i18n.t("business:orders.cancelled"); },
 };
 
 export const paymentLabels: Record<string, string> = {
-  PENDING: 'Chờ thanh toán', PAID: 'Đã thanh toán', COLLECTED: 'Đã thu tiền', REFUNDED: 'Đã hoàn tiền',
-  FAILED: 'Thất bại', EXPIRED: 'Hết hạn', CANCELLED: 'Đã hủy', UNKNOWN: 'Chưa xác minh',
+  get PENDING() { return i18n.t("admin:paymentStates.PENDING"); }, get PAID() { return i18n.t("admin:paymentStates.PAID"); }, get COLLECTED() { return i18n.t("business:stafforderspage.paymentCollected"); }, get REFUNDED() { return i18n.t("admin:paymentStates.REFUNDED"); },
+  get FAILED() { return i18n.t("business:orderdetaildrawer.failed"); }, get EXPIRED() { return i18n.t("business:paymentstatusbadge.expired"); }, get CANCELLED() { return i18n.t("business:orders.cancelled"); }, get UNKNOWN() { return i18n.t("admin:ui.unverified"); },
 };
 
 export function paymentMethodLabel(method?: string) {
-  return ({ BANK_TRANSFER: 'Chuyển khoản ngân hàng', COD: 'Thanh toán khi nhận món', CASH: 'Tiền mặt', MIXED: 'Tiền mặt & chuyển khoản' } as Record<string, string>)[method ?? ''] ?? method ?? 'Chưa xác định';
+  return ({ get BANK_TRANSFER() { return i18n.t("business:id.bankTransfer"); }, get COD() { return i18n.t("admin:ui.payOnReceipt"); }, get CASH() { return i18n.t("admin:ui.cash"); }, get MIXED() { return i18n.t("admin:ui.cashBankTransfer"); } } as Record<string, string>)[method ?? ''] ?? method ?? i18n.t("admin:ui.unknown");
 }
 
 export function paymentColor(status?: string) {
@@ -28,16 +29,16 @@ export function orderDate(value?: string | null, locale = 'vi') {
 export function historyReason(reason?: string, status?: string) {
   if (!reason || reason === status) return '';
   const creationPrefix = 'Order created with payment method: ';
-  if (reason.startsWith(creationPrefix)) return `Đặt đơn · ${paymentMethodLabel(reason.slice(creationPrefix.length))}`;
+  if (reason.startsWith(creationPrefix)) return i18n.t("admin:ui.orderPlaced400", { value1: paymentMethodLabel(reason.slice(creationPrefix.length)) });
   if (reason.startsWith('Status updated to ')) return '';
-  return ({ PAYMENT_EXPIRED: 'Quá thời hạn thanh toán. Hệ thống tự động hủy đơn.', PAYMENT_FAILED: 'Thanh toán không thành công.',
-    'Payment failed / cancelled by saga compensation': 'Hệ thống hủy đơn do thanh toán không thành công hoặc giao dịch bị hủy.',
+  return ({ get PAYMENT_EXPIRED() { return i18n.t("admin:ui.thePaymentDeadlineExpiredTheSystemAutomaticallyCancelled"); }, get PAYMENT_FAILED() { return i18n.t("admin:ui.paymentUnsuccessful"); },
+    get 'Payment failed / cancelled by saga compensation'() { return i18n.t("admin:ui.theSystemCancelledTheOrderBecausePaymentFailed"); },
   } as Record<string, string>)[reason] ?? reason;
 }
 
 export function actorLabel(role?: string) {
-  return ({ CUSTOMER: 'Khách hàng', ADMIN: 'Quản trị viên', STAFF: 'Nhân viên chi nhánh', STORE_MANAGER: 'Quản lý chi nhánh',
-    SYSTEM: 'Hệ thống', SYSTEM_SAGA: 'Hệ thống tự động', SYSTEM_PAYMENT: 'Hệ thống thanh toán' } as Record<string, string>)[role ?? ''] ?? role;
+  return ({ get CUSTOMER() { return i18n.t("admin:nav.customers"); }, get ADMIN() { return i18n.t("admin:roles.admin"); }, get STAFF() { return i18n.t("admin:ui.branchStaff"); }, get STORE_MANAGER() { return i18n.t("admin:roles.manager"); },
+    get SYSTEM() { return i18n.t("business:promotionUi.system"); }, get SYSTEM_SAGA() { return i18n.t("admin:ui.automatedSystem"); }, get SYSTEM_PAYMENT() { return i18n.t("admin:ui.paymentSystem"); } } as Record<string, string>)[role ?? ''] ?? role;
 }
 
 export function catalogItemPath(item: { itemType: string; productId?: number; comboId?: number }) {

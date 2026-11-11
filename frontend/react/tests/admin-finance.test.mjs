@@ -4,13 +4,14 @@ import vm from "node:vm";
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
 import ts from "typescript";
+import i18n from "../src/i18n/index.ts";
 
 const source = readFileSync(new URL("../src/lib/admin-finance.ts", import.meta.url), "utf8");
-const compiled = ts.transpileModule(source.replace(/^import .* from "\.\/api";\r?\n/m, ""), {
+const compiled = ts.transpileModule(source.replace(/^import .* from "(?:\.\/api|\.\.\/i18n\/index\.ts)";\r?\n/gm, ""), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 });
 const module = { exports: {} };
-vm.runInNewContext(compiled.outputText, { module, exports: module.exports, crypto: webcrypto });
+vm.runInNewContext(compiled.outputText, { module, exports: module.exports, crypto: webcrypto, i18n });
 const { validCollection, canCollect, collectionBody, canAdopt, collectionState, reconciliationBody, receiptSelectionIssue, financeOperation, orderForAdmin } = module.exports;
 const future = new Date(Date.now() + 3600000).toISOString();
 const past = new Date(Date.now() - 3600000).toISOString();

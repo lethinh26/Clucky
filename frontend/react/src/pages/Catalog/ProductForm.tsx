@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Form, Input, InputNumber, Modal, Progress, Select, Switch } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -8,6 +9,7 @@ export function ProductForm({ open, onClose, initialProduct, categories, onSaveP
   open: boolean; onClose: () => void; initialProduct?: Product | null; categories: CatalogCategory[];
   onSaveProduct: (product: Partial<Product>, file?: File, progress?: (percent: number) => void) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [form] = Form.useForm<Product>();
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -32,74 +34,74 @@ export function ProductForm({ open, onClose, initialProduct, categories, onSaveP
     } finally { lock.current = false; setSaving(false); }
   };
   return <Modal className="catalog-modal" open={open} width={1040} centered
-    title={<div className="catalog-modal-heading"><span className="catalog-eyebrow">THỰC ĐƠN / MÓN ĂN</span><h3>{initialProduct ? 'Chỉnh sửa món ăn' : 'Thêm món ăn mới'}</h3><p>Thông tin, hình ảnh và các lựa chọn khi khách đặt món.</p></div>}
-    okText={initialProduct ? 'Lưu thay đổi' : 'Tạo món ăn'} cancelText="Hủy"
+    title={<div className="catalog-modal-heading"><span className="catalog-eyebrow">{t("admin:ui.menuDishes")}</span><h3>{initialProduct ? t("admin:ui.editDish") : t("business:catalog.addANewDish")}</h3><p>{t("admin:ui.informationImagesAndOptionsForCustomersOrderingThis")}</p></div>}
+    okText={initialProduct ? t("business:account.saveChanges") : t("admin:ui.createDish")} cancelText={t("business:account.cancel")}
     confirmLoading={saving} cancelButtonProps={{ disabled: saving }} keyboard={!saving}
     onOk={() => form.submit()} onCancel={() => { if (!lock.current) onClose(); }} maskClosable={false} closable={!saving}>
-    {error && <Alert type="error" showIcon title={error} description="Nếu dữ liệu đã thay đổi, đóng biểu mẫu và mở lại từ danh sách mới. Nếu lỗi tải ảnh, thông tin món đã được lưu; thử lưu lại để tải ảnh, không tạo thêm món." />}
+    {error && <Alert type="error" showIcon title={error} description={t("admin:ui.ifTheDataHasChangedCloseThisForm169")} />}
     <Form name="catalog-product" form={form} layout="vertical" disabled={saving} scrollToFirstError={{ focus: true }} onFinish={values => void save(values)}>
       <div className="catalog-editor"><div className="catalog-editor-main">
       <section className="catalog-section">
-        <div className="catalog-section-heading"><span>01</span><h4>Thông tin món ăn</h4></div>
-        <Form.Item name="name" label="Tên món" rules={[{ required: true, whitespace: true, message: 'Nhập tên món ăn.' }, { max: 180 }]}><Input size="large" maxLength={180} placeholder="Tên món hiển thị trên thực đơn" /></Form.Item>
+        <div className="catalog-section-heading"><span>01</span><h4>{t("admin:ui.dishInformation")}</h4></div>
+        <Form.Item name="name" label={t("admin:ui.dishName")} rules={[{ required: true, whitespace: true, message: t("admin:ui.enterADishName") }, { max: 180 }]}><Input size="large" maxLength={180} placeholder={t("admin:ui.dishNameShownOnTheMenu")} /></Form.Item>
         <div className="catalog-field-grid">
-          <Form.Item name="categoryId" label="Danh mục" rules={[{ required: true, message: 'Chọn danh mục cho món ăn.' }]}><Select showSearch placeholder="Chọn danh mục" optionFilterProp="label" options={categories.map(category => ({ value: category.id, label: `${category.name}${category.isActive ? '' : ' (ngừng bán)'}` }))} /></Form.Item>
-          <Form.Item name="basePrice" label="Giá bán (₫)" rules={[{ required: true }, { type: 'integer', min: 0, max: 999999999999 }]}><InputNumber<number> min={0} max={999999999999} precision={0} formatter={value => `${value ?? ''}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')} parser={value => Number(value?.replace(/\./g, ''))} /></Form.Item>
+          <Form.Item name="categoryId" label={t("business:catalog.category")} rules={[{ required: true, message: t("admin:ui.selectACategoryForThisDish") }]}><Select showSearch placeholder={t("business:productform.selectCategory")} optionFilterProp="label" options={categories.map(category => ({ value: category.id, label: `${category.name}${category.isActive ? '' : t("admin:ui.notForSale")}` }))} /></Form.Item>
+          <Form.Item name="basePrice" label={t("admin:ui.salePrice176")} rules={[{ required: true }, { type: 'integer', min: 0, max: 999999999999 }]}><InputNumber<number> min={0} max={999999999999} precision={0} formatter={value => `${value ?? ''}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')} parser={value => Number(value?.replace(/\./g, ''))} /></Form.Item>
         </div>
-        <Form.Item name="description" label="Mô tả món ăn" rules={[{ required: true, whitespace: true, message: 'Thêm mô tả món ăn.' }]}><Input.TextArea rows={3} placeholder="Giới thiệu hương vị, thành phần và khẩu phần của món…" /></Form.Item>
+        <Form.Item name="description" label={t("admin:ui.dishDescription")} rules={[{ required: true, whitespace: true, message: t("admin:ui.addADishDescription") }]}><Input.TextArea rows={3} placeholder={t("admin:ui.describeTheFlavorIngredientsAndPortionSize")} /></Form.Item>
         <div className="catalog-field-grid">
-          <Form.Item name="kcal" label="Năng lượng (kcal)" rules={[{ type: 'integer', min: 0 }]}><InputNumber min={0} precision={0} /></Form.Item>
-          <Form.Item name="spicyLevel" label="Độ cay" rules={[{ type: 'integer', min: 0, max: 3 }]}><Select options={[{ value: 0, label: 'Không cay' }, { value: 1, label: 'Cay nhẹ' }, { value: 2, label: 'Cay vừa' }, { value: 3, label: 'Cay nhiều' }]} /></Form.Item>
+          <Form.Item name="kcal" label={t("admin:ui.energyKcal")} rules={[{ type: 'integer', min: 0 }]}><InputNumber min={0} precision={0} /></Form.Item>
+          <Form.Item name="spicyLevel" label={t("admin:ui.spiceLevel")} rules={[{ type: 'integer', min: 0, max: 3 }]}><Select options={[{ value: 0, label: t("business:catalog.notSpicy") }, { value: 1, label: t("admin:ui.mild") }, { value: 2, label: t("business:catalog.medium") }, { value: 3, label: t("admin:ui.hot") }]} /></Form.Item>
         </div>
       </section>
       <section className="catalog-section">
-      <div className="catalog-section-heading"><span>02</span><h4>Tùy chọn món ăn</h4></div>
+      <div className="catalog-section-heading"><span>02</span><h4>{t("admin:ui.dishOptions")}</h4></div>
       <Form.List name="options">
         {(groups, { add, remove }) => <>
-          {!groups.length && <div className="catalog-empty-note">Chưa có nhóm tùy chọn. Thêm nhóm khi khách cần chọn kích cỡ, hương vị hoặc một biến thể của món.</div>}
+          {!groups.length && <div className="catalog-empty-note">{t("admin:ui.noOptionGroupsYetAddAGroupWhen")}</div>}
           {groups.map(group => <div key={group.key} className="catalog-option-card">
-            <div className="catalog-option-header"><span>Nhóm {group.name + 1}</span><Button type="text" size="small" danger icon={<DeleteOutlined />} disabled={saving} onClick={() => remove(group.name)}>Xóa nhóm</Button></div>
+            <div className="catalog-option-header"><span>{t("admin:ui.group")} {group.name + 1}</span><Button type="text" size="small" danger icon={<DeleteOutlined />} disabled={saving} onClick={() => remove(group.name)}>{t("admin:ui.removeGroup")}</Button></div>
             <div className="catalog-field-grid">
-              <Form.Item name={[group.name, 'name']} label="Tên nhóm" rules={[{ required: true, whitespace: true }, { max: 80 }]}><Input maxLength={80} placeholder="Tên nhóm lựa chọn" /></Form.Item>
-              <Form.Item name={[group.name, 'required']} label="Khách bắt buộc chọn" valuePropName="checked"><Switch /></Form.Item>
+              <Form.Item name={[group.name, 'name']} label={t("admin:ui.groupName")} rules={[{ required: true, whitespace: true }, { max: 80 }]}><Input maxLength={80} placeholder={t("admin:ui.optionGroupName")} /></Form.Item>
+              <Form.Item name={[group.name, 'required']} label={t("admin:ui.selectionRequired")} valuePropName="checked"><Switch /></Form.Item>
             </div>
-            <Form.List name={[group.name, 'choices']} rules={[{ validator: async (_, choices) => { if (!choices?.length) throw new Error('Thêm ít nhất một lựa chọn.'); } }]}>
+            <Form.List name={[group.name, 'choices']} rules={[{ validator: async (_, choices) => { if (!choices?.length) throw new Error(t("admin:ui.addAtLeastOneOption")); } }]}>
               {(choices, controls, meta) => <>
                 {choices.map(choice => <div key={choice.key} className="catalog-option-row">
                   <Form.Item name={[choice.name, 'id']} hidden><Input /></Form.Item>
-                  <Form.Item name={[choice.name, 'name']} label="Lựa chọn" rules={[{ required: true, whitespace: true }, { max: 100 }]}><Input maxLength={100} /></Form.Item>
-                  <Form.Item name={[choice.name, 'priceAdjustment']} label="Giá thêm (₫)" rules={[{ required: true }, { type: 'integer', min: 0, max: 999999999999 }]}><InputNumber min={0} max={999999999999} precision={0} /></Form.Item>
-                  <Button type="text" danger icon={<DeleteOutlined />} aria-label={`Xóa lựa chọn ${choice.name + 1} của nhóm ${group.name + 1}`} disabled={saving} onClick={() => controls.remove(choice.name)} />
+                  <Form.Item name={[choice.name, 'name']} label={t("admin:ui.option")} rules={[{ required: true, whitespace: true }, { max: 100 }]}><Input maxLength={100} /></Form.Item>
+                  <Form.Item name={[choice.name, 'priceAdjustment']} label={t("admin:ui.additionalPrice")} rules={[{ required: true }, { type: 'integer', min: 0, max: 999999999999 }]}><InputNumber min={0} max={999999999999} precision={0} /></Form.Item>
+                  <Button type="text" danger icon={<DeleteOutlined />} aria-label={t("admin:ui.removeOptionFromGroup", { value1: choice.name + 1, value2: group.name + 1 })} disabled={saving} onClick={() => controls.remove(choice.name)} />
                 </div>)}
                 <Form.ErrorList errors={meta.errors} />
-                <Button size="small" type="text" icon={<PlusOutlined />} disabled={saving} onClick={() => controls.add({ id: `new-${crypto.randomUUID()}`, name: '', priceAdjustment: 0 })}>Thêm lựa chọn</Button>
+                <Button size="small" type="text" icon={<PlusOutlined />} disabled={saving} onClick={() => controls.add({ id: `new-${crypto.randomUUID()}`, name: '', priceAdjustment: 0 })}>{t("admin:ui.addOption")}</Button>
               </>}
             </Form.List>
           </div>)}
-          <Button className="catalog-add-row" icon={<PlusOutlined />} disabled={saving} onClick={() => add({ name: '', required: true, choices: [{ id: `new-${crypto.randomUUID()}`, name: '', priceAdjustment: 0 }] })}>Thêm nhóm tùy chọn</Button>
+          <Button className="catalog-add-row" icon={<PlusOutlined />} disabled={saving} onClick={() => add({ name: '', required: true, choices: [{ id: `new-${crypto.randomUUID()}`, name: '', priceAdjustment: 0 }] })}>{t("admin:ui.addOptionGroup")}</Button>
         </>}
       </Form.List>
       </section>
       <section className="catalog-section">
-      <div className="catalog-section-heading"><span>03</span><h4>Topping bán kèm</h4></div>
+      <div className="catalog-section-heading"><span>03</span><h4>{t("admin:ui.addOnToppings")}</h4></div>
       <Form.List name="toppings">
         {(toppings, { add, remove }) => <>
-          {!toppings.length && <div className="catalog-empty-note">Chưa có topping. Chỉ thêm các phần bán kèm thực tế của món.</div>}
+          {!toppings.length && <div className="catalog-empty-note">{t("admin:ui.noToppingsYetOnlyAddToppingsActuallyOffered")}</div>}
           {toppings.map(topping => <div key={topping.key} className="catalog-option-row">
             <Form.Item name={[topping.name, 'id']} hidden><Input /></Form.Item>
-            <Form.Item name={[topping.name, 'name']} label="Tên topping" rules={[{ required: true, whitespace: true }, { max: 120 }]}><Input maxLength={120} /></Form.Item>
-            <Form.Item name={[topping.name, 'price']} label="Giá (₫)" rules={[{ required: true }, { type: 'integer', min: 0, max: 999999999999 }]}><InputNumber min={0} max={999999999999} precision={0} /></Form.Item>
-            <Button type="text" danger icon={<DeleteOutlined />} aria-label={`Xóa topping ${topping.name + 1}`} disabled={saving} onClick={() => remove(topping.name)} />
+            <Form.Item name={[topping.name, 'name']} label={t("admin:ui.toppingName")} rules={[{ required: true, whitespace: true }, { max: 120 }]}><Input maxLength={120} /></Form.Item>
+            <Form.Item name={[topping.name, 'price']} label={t("admin:ui.price")} rules={[{ required: true }, { type: 'integer', min: 0, max: 999999999999 }]}><InputNumber min={0} max={999999999999} precision={0} /></Form.Item>
+            <Button type="text" danger icon={<DeleteOutlined />} aria-label={t("admin:ui.removeTopping", { value1: topping.name + 1 })} disabled={saving} onClick={() => remove(topping.name)} />
           </div>)}
-          <Button className="catalog-add-row" icon={<PlusOutlined />} disabled={saving} onClick={() => add({ id: `new-${crypto.randomUUID()}`, name: '', price: 0 })}>Thêm topping</Button>
+          <Button className="catalog-add-row" icon={<PlusOutlined />} disabled={saving} onClick={() => add({ id: `new-${crypto.randomUUID()}`, name: '', price: 0 })}>{t("admin:ui.addTopping")}</Button>
         </>}
       </Form.List>
       </section>
       </div><aside className="catalog-editor-aside">
-        <h4>Hình ảnh món ăn</h4>
-        <ImageField file={file} url={initialProduct?.imageUrl} name={initialProduct?.name || 'Món ăn mới'} disabled={saving} onChange={setFile} />
+        <h4>{t("admin:ui.dishImage")}</h4>
+        <ImageField file={file} url={initialProduct?.imageUrl} name={initialProduct?.name || t("admin:ui.newDish")} disabled={saving} onChange={setFile} />
         {saving && file && <Progress percent={progress} size="small" />}
-        <div className="catalog-publication"><div><strong>Cho phép bán</strong><p>Khả năng đặt món còn phụ thuộc tồn kho và trạng thái từng chi nhánh.</p></div><Form.Item name="isActive" valuePropName="checked"><Switch aria-label="Cho phép bán món ăn" /></Form.Item></div>
+        <div className="catalog-publication"><div><strong>{t("admin:ui.availableForSale")}</strong><p>{t("admin:ui.orderingAvailabilityAlsoDependsOnEachBranchS")}</p></div><Form.Item name="isActive" valuePropName="checked"><Switch aria-label={t("admin:ui.allowDishSales")} /></Form.Item></div>
       </aside></div>
     </Form>
   </Modal>;

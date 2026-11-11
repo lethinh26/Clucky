@@ -202,8 +202,8 @@ function BankAccounts() {
     <>
       <Tabs defaultActiveKey="transactions" items={[
         { key: "transactions", label: t("transactionsTab"), children: <TransactionsPanel stores={stores} revision={revision} /> },
-        { key: "finance", label: "Thu tiền / đối soát / legacy", children: <FinanceLookup onChanged={() => setRevision(value => value + 1)} /> },
-        { key: "refunds", label: "Hoàn tiền", children: <RefundsPanel stores={stores} revision={revision} onChanged={() => setRevision(value => value + 1)} /> },
+        { key: "finance", label: t("admin:ui.collectionReconciliationLegacy"), children: <FinanceLookup onChanged={() => setRevision(value => value + 1)} /> },
+        { key: "refunds", label: t("business:orderspage.refund"), children: <RefundsPanel stores={stores} revision={revision} onChanged={() => setRevision(value => value + 1)} /> },
         { key: "accounts", label: t("accounts"), children: data && !error && <Space direction="vertical" size="middle" style={{ width: "100%" }}>
       <Card title={t("accounts")} extra={<Button type="primary" disabled={busy || loading} onClick={() => edit("new")}>{t("add")}</Button>}>
         <div className="payments-table-scroll" role="region" aria-label={t("accounts")} tabIndex={0}>
