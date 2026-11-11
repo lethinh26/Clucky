@@ -65,6 +65,9 @@ jobs:
     name: Playwright / customer and admin
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --shm-size=1g
     timeout-minutes: 30
     defaults:
       run:
@@ -90,9 +93,6 @@ jobs:
       - name: Install admin dependencies
         run: npm ci
         working-directory: frontend/react
-
-      - name: Install Chromium
-        run: npx --no-install playwright install --with-deps chromium
 
       # The existing Playwright suite starts Next.js in production mode,
       # plus the admin production preview and the Google/payment fixture server.

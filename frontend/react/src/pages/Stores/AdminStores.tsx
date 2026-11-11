@@ -72,7 +72,7 @@ export function AdminStores({ stores, loading, busy, onCreate, onEdit, onLocatio
     </div> },
   ];
   return <section className="stores-admin" aria-busy={loading || busy}>
-    <header className="stores-header"><div><span className="stores-eyebrow">{t("admin:ui.cluckyNetwork")}</span><h1>{t("admin:roles.manager")}</h1><p>{t("admin:ui.informationServiceHoursAndDeliveryCoverageForEach")}</p></div>
+    <header className="stores-header"><div><span className="stores-eyebrow">{t("admin:ui.cluckyNetwork")}</span><h1>{t("admin:nav.stores")}</h1><p>{t("admin:ui.informationServiceHoursAndDeliveryCoverageForEach")}</p></div>
       <div className="stores-header-actions"><Button icon={<SettingOutlined />} onClick={() => setShippingOpen(true)} disabled={busy}>{t("business:ordersummarycard.deliveryFee")}</Button><Button type="primary" icon={<PlusOutlined />} onClick={onCreate} disabled={blocked}>{t("admin:ui.addBranch")}</Button></div>
     </header>
     <div className="stores-overview">
