@@ -25,7 +25,7 @@ export function useElapsedTime(
     if (!createdAt) {
       return {
         diffMinutes: 0,
-        elapsedTimeText: "Chờ 0 phút",
+        elapsedTimeText: "0m",
         isSlaBreached: false,
         isSlaWarning: false,
       };
@@ -39,7 +39,7 @@ export function useElapsedTime(
     if (isNaN(createdTime)) {
       return {
         diffMinutes: 0,
-        elapsedTimeText: "Chờ 0 phút",
+        elapsedTimeText: "0m",
         isSlaBreached: false,
         isSlaWarning: false,
       };
@@ -51,7 +51,7 @@ export function useElapsedTime(
 
     const isSlaBreached = diffMinutes >= 10;
     const isSlaWarning = diffMinutes >= 6 && diffMinutes < 10;
-    const elapsedTimeText = `Chờ ${diffMinutes} phút`;
+    const elapsedTimeText = `${diffMinutes}m`;
 
     return {
       diffMinutes,

@@ -30,7 +30,7 @@ interface CounterPaymentModalProps {
 }
 
 const formatVnd = (val: number) => {
-  return `${new Intl.NumberFormat("vi-VN").format(val)} đ`;
+  return new Intl.NumberFormat("vi-VN").format(val) + " đ";
 };
 
 // VietQR dynamic QR code image builder
@@ -85,7 +85,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
   const quickBills = useMemo(() => {
     if (!order) return [];
     const list: { label: string; value: number }[] = [];
-    list.push({ label: `Đủ tiền: ${formatVnd(totalDue)}`, value: totalDue });
+    list.push({ label: "Đủ tiền: " + formatVnd(totalDue), value: totalDue });
 
     const presets = [50000, 100000, 200000, 500000];
     presets.forEach((val) => {
@@ -108,7 +108,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);
     setCopiedText(label);
-    message.success(`Đã sao chép ${label}`);
+    message.success("Đã sao chép " + label);
     setTimeout(() => setCopiedText(""), 2000);
   };
 

@@ -84,7 +84,7 @@ export function fromBackendOrderToStaffOrder(bo: BackendOrder): StaffOrder {
     diningOption: diningOpt,
     customerName:
       bo.receiverName ||
-      (bo.customerId ? `Khách hàng #${bo.customerId}` : `Khách quầy #${qNum}`),
+      (bo.customerId ? "Khách hàng #" + bo.customerId : "Khách quầy #" + qNum),
     customerPhone: bo.receiverPhone || "",
     storeId: String(bo.storeId),
     storeName: bo.storeName || "Store #01 - Cầu Giấy",
@@ -237,9 +237,7 @@ export function StaffOrdersPage() {
               playChime();
             }
             message.info(
-              `🔔 Đơn mới #${String(newestOrder.queueNumber).padStart(3, "0")} (${
-                newestOrder.orderCode
-              }) vừa vào!`,
+              "🔔 Đơn mới #" + String(newestOrder.queueNumber).padStart(3, "0") + " (" + newestOrder.orderCode + ") vừa vào!",
             );
           }
 
@@ -273,7 +271,7 @@ export function StaffOrdersPage() {
       queueNumber,
       orderSource: "COUNTER",
       diningOption: orderPayload.diningOption || "DINE_IN",
-      customerName: orderPayload.customerName || `Khách vãng lai #${queueNumber}`,
+      customerName: orderPayload.customerName || ("Khách vãng lai #" + queueNumber),
       customerPhone: orderPayload.customerPhone || "",
       storeId: user?.storeId ? String(user.storeId) : "1",
       storeName: user?.storeName || "Store #01 - Cầu Giấy",
@@ -295,7 +293,7 @@ export function StaffOrdersPage() {
     setOrders((prev) => [newOrder, ...prev]);
     setActiveTab("CONFIRMED");
     message.success(
-      `Đã tạo đơn #${String(newOrder.queueNumber).padStart(3, "0")} thành công!`,
+      "Đã tạo đơn #" + String(newOrder.queueNumber).padStart(3, "0") + " thành công!",
     );
   };
 
@@ -552,7 +550,7 @@ export function StaffOrdersPage() {
     return {
       id: found.id,
       orderCode: found.orderCode,
-      customerName: found.customerName || `Khách hàng #${found.queueNumber}`,
+      customerName: found.customerName || ("Khách hàng #" + found.queueNumber),
       customerPhone: found.customerPhone || "",
       storeId: found.storeId,
       storeName: found.storeName,
@@ -588,12 +586,11 @@ export function StaffOrdersPage() {
         <div className={styles.headerLeft}>
           <span className={styles.eyebrow}>
             <Sparkles size={13} />
-            Không Gian Tác Nghiệp Quầy & Bếp - Clucky
+            {t("business:stafforderspage.staffWorkspace")}
           </span>
-          <h1>Quản Lý Đơn Hàng Chi Nhánh</h1>
+          <h1>{t("business:stafforderspage.storeOrders")}</h1>
           <p className={styles.headerSubtitle}>
-            Xử lý hàng đợi chế biến, kiểm soát thời gian chờ SLA và bàn giao món
-            chuẩn Fast-Food.
+            {t("business:stafforderspage.acceptOrdersTrackProgressAndConfirmCashCollectionInOnePlace")}
           </p>
         </div>
 
@@ -749,16 +746,16 @@ export function StaffOrdersPage() {
       </nav>
 
       {/* 3. Toolbar Tìm Kiếm & Sắp Xếp */}
-      <section className={styles.toolbar} aria-label="Tìm kiếm và sắp xếp đơn">
+      <section className={styles.toolbar} aria-label={t("business:stafforderspage.searchAndFilterShiftOrders")}>
         <div className={styles.searchBox}>
           <Search size={16} />
           <input
             type="text"
             className={styles.searchInput}
-            placeholder="Tìm theo số thứ tự #012, mã CLU-XXXX, tên hoặc SĐT..."
+            aria-label={t("business:stafforderspage.searchShiftOrders")}
+            placeholder={t("business:stafforderspage.orderCodeNameOrPhoneNumber")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Tìm kiếm đơn hàng"
           />
         </div>
 

@@ -47,22 +47,22 @@ export function OrderProgress({
       return [
         {
           key: "CONFIRMED",
-          label: t("business:orderprogress.confirm", "Xác nhận"),
+          label: t("business:orderprogress.confirm"),
           state: ["READY", "COMPLETED"].includes(order.status) || isPaid ? "done" : "current",
         },
         {
           key: "PAID",
-          label: t("business:orderdetaildrawer.payment", "Thanh toán"),
+          label: t("business:cart.checkout"),
           state: isPaid ? "done" : order.status === "CONFIRMED" ? "current" : "next",
         },
         {
           key: "READY",
-          label: t("business:orderprogress.awaitingCollection", "Chờ nhận"),
+          label: t("business:orderprogress.awaitingCollection"),
           state: order.status === "COMPLETED" ? "done" : order.status === "READY" ? "current" : "next",
         },
         {
           key: "COMPLETED",
-          label: t("business:orderprogress.complete", "Hoàn tất"),
+          label: t("business:orderprogress.complete"),
           state: order.status === "COMPLETED" ? "done" : "next",
         },
       ];
@@ -73,17 +73,17 @@ export function OrderProgress({
       return [
         {
           key: "PREPARING",
-          label: t("business:orderprogress.preparing", "Chế biến"),
+          label: t("business:orderprogress.preparing"),
           state: ["READY", "SHIPPING", "COMPLETED"].includes(order.status) ? "done" : "current",
         },
         {
           key: "READY",
-          label: order.orderType === "DELIVERY" ? t("business:orderspage.delivery", "Giao hàng") : t("business:orderprogress.ready", "Chờ nhận"),
+          label: order.orderType === "DELIVERY" ? t("business:orderspage.delivery") : t("business:orderprogress.ready"),
           state: order.status === "COMPLETED" ? "done" : ["READY", "SHIPPING"].includes(order.status) ? "current" : "next",
         },
         {
           key: "COMPLETED",
-          label: t("business:orderprogress.complete", "Hoàn tất"),
+          label: t("business:orderprogress.complete"),
           state: order.status === "COMPLETED" ? "done" : "next",
         },
       ];
@@ -94,27 +94,27 @@ export function OrderProgress({
     return [
       {
         key: "CONFIRMED",
-        label: t("business:orderprogress.confirm", "Xác nhận"),
+        label: t("business:orderprogress.confirm"),
         state: ["PREPARING", "READY", "SHIPPING", "COMPLETED"].includes(order.status) ? "done" : "current",
       },
       {
         key: "PREPARING",
-        label: t("business:orderprogress.preparing", "Chế biến"),
+        label: t("business:orderprogress.preparing"),
         state: ["READY", "SHIPPING", "COMPLETED"].includes(order.status) ? "done" : order.status === "PREPARING" ? "current" : "next",
       },
       {
         key: "READY",
-        label: order.orderType === "DELIVERY" ? t("business:orderspage.delivery", "Giao hàng") : t("business:orderprogress.ready", "Chờ nhận"),
+        label: order.orderType === "DELIVERY" ? t("business:orderspage.delivery") : t("business:orderprogress.ready"),
         state: order.status === "COMPLETED" || isCollected ? "done" : ["READY", "SHIPPING"].includes(order.status) ? "current" : "next",
       },
       {
         key: "PAID",
-        label: t("business:orderdetaildrawer.cashCod", "Thanh toán (COD)"),
+        label: t("business:cart.checkout"),
         state: isCollected ? "done" : ["READY", "SHIPPING"].includes(order.status) ? "current" : "next",
       },
       {
         key: "COMPLETED",
-        label: t("business:orderprogress.complete", "Hoàn tất"),
+        label: t("business:orderprogress.complete"),
         state: order.status === "COMPLETED" ? "done" : "next",
       },
     ];

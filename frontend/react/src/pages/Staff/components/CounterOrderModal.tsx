@@ -32,7 +32,7 @@ interface CounterOrderModalProps {
 }
 
 const formatVnd = (val: number) => {
-  return `${new Intl.NumberFormat("vi-VN").format(val)} đ`;
+  return new Intl.NumberFormat("vi-VN").format(val) + " đ";
 };
 
 export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
@@ -333,7 +333,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
         queueNumber,
         orderSource: "COUNTER",
         diningOption,
-        customerName: `Khách vãng lai #${queueNumber}`,
+        customerName: "Khách vãng lai #" + queueNumber,
         customerPhone: "",
         orderType: "PICKUP",
         status: "CONFIRMED",
@@ -514,8 +514,8 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
                       onClick={() => handleOpenCustomizer(product)}
                       title={
                         isSoldOut
-                          ? `${product.name} (Tạm hết hàng)`
-                          : `Chọn món ${product.name}`
+                          ? product.name + " (Tạm hết hàng)"
+                          : "Chọn món " + product.name
                       }
                     >
                       <div className={styles.imageContainer}>

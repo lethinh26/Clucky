@@ -29,7 +29,7 @@ import {
 import styles from "./incoming-transfers.module.css";
 
 const formatVnd = (val: number) => {
-  return `${new Intl.NumberFormat("vi-VN").format(val)} đ`;
+  return new Intl.NumberFormat("vi-VN").format(val) + " đ";
 };
 
 export function fromBackendBankTxToItem(
@@ -185,7 +185,7 @@ export const IncomingTransfersPage: React.FC = () => {
     );
 
     message.success(
-      `Đã liên kết giao dịch ${assigningTx.bankTxId} với đơn ${trimmedCode} thành công!`,
+      "Đã liên kết giao dịch " + assigningTx.bankTxId + " với đơn " + trimmedCode + " thành công!",
     );
     setAssigningTx(null);
     setAssignedOrderCode("");

@@ -29,7 +29,7 @@ interface OrderCardProps {
 }
 
 const defaultFormatMoney = (amount: number): string => {
-  return `${new Intl.NumberFormat("vi-VN").format(amount)} đ`;
+  return new Intl.NumberFormat("vi-VN").format(amount) + " đ";
 };
 
 export const OrderCard: React.FC<OrderCardProps> = ({
@@ -129,7 +129,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     <article
       className={cardClassName}
       tabIndex={0}
-      aria-label={`Đơn hàng ${formattedQueue} mã ${order.orderCode}`}
+      aria-label={"Đơn hàng " + formattedQueue + " mã " + order.orderCode}
     >
       {/* 1. Header Thẻ */}
       <div className={styles.cardHeader}>
@@ -196,7 +196,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             href={`tel:${order.customerPhone}`}
             className={styles.customerPhone}
             tabIndex={0}
-            aria-label={`Gọi khách hàng ${order.customerPhone}`}
+            aria-label={"Gọi khách hàng " + order.customerPhone}
           >
             {order.customerPhone}
           </a>
@@ -254,7 +254,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             type="button"
             className={`${styles.actionButton} ${styles.btnSecondary}`}
             onClick={() => onViewDetails?.(order.id)}
-            aria-label={`Xem chi tiết đơn ${formattedQueue}`}
+            aria-label={"Xem chi tiết đơn " + formattedQueue}
             title="Xem chi tiết"
           >
             <Eye size={18} />
@@ -266,7 +266,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               type="button"
               className={`${styles.actionButton} ${styles.btnWarning}`}
               onClick={() => onPaymentCollect?.(order)}
-              aria-label={`Thu tiền đơn ${formattedQueue}`}
+              aria-label={"Thu tiền đơn " + formattedQueue}
             >
               <Wallet size={18} /> Thu tiền quầy
             </button>
@@ -277,7 +277,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               type="button"
               className={`${styles.actionButton} ${styles.btnPrimary}`}
               onClick={() => onStatusChange?.(order.id, "PREPARING")}
-              aria-label={`Bắt đầu nấu đơn ${formattedQueue}`}
+              aria-label={"Bắt đầu nấu đơn " + formattedQueue}
             >
               <ChefHat size={18} /> Bắt đầu nấu
             </button>
@@ -288,7 +288,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               type="button"
               className={`${styles.actionButton} ${styles.btnSuccess}`}
               onClick={() => onStatusChange?.(order.id, "READY")}
-              aria-label={`Báo xong món đơn ${formattedQueue}`}
+              aria-label={"Báo xong món đơn " + formattedQueue}
             >
               <PackageCheck size={18} /> Đã xong món
             </button>
@@ -301,7 +301,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   type="button"
                   className={`${styles.actionButton} ${styles.btnWarning}`}
                   onClick={() => onPaymentCollect?.(order)}
-                  aria-label={`Thu tiền và bàn giao đơn ${formattedQueue}`}
+                  aria-label={"Thu tiền và bàn giao đơn " + formattedQueue}
                 >
                   <Wallet size={18} /> Đã thu tiền & bàn giao
                 </button>
@@ -310,7 +310,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   type="button"
                   className={`${styles.actionButton} ${styles.btnSuccess}`}
                   onClick={() => onStatusChange?.(order.id, "COMPLETED")}
-                  aria-label={`Bàn giao đơn ${formattedQueue}`}
+                  aria-label={"Bàn giao đơn " + formattedQueue}
                 >
                   <CheckCircle2 size={18} /> Bàn giao cho khách
                 </button>
@@ -340,7 +340,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 type="button"
                 className={`${styles.actionButton} ${styles.btnSecondary}`}
                 onClick={() => onViewDetails?.(order.id)}
-                aria-label={`Xem lại hóa đơn ${formattedQueue}`}
+                aria-label={"Xem lại hóa đơn " + formattedQueue}
               >
                 <CheckCircle2 size={18} /> Đã hoàn tất ca
               </button>

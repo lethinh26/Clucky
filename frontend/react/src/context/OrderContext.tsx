@@ -220,7 +220,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           latest.current = latest.current.map((entry) => entry.id === id
             ? { ...entry, ...mapBackendOrderToAdminOrder(saved) } : entry);
         } else if (action.type === "COD") {
-          const saved = await ordersApi.updateStatus(id, order.status, "Xác nhận đã thu tiền COD", "COLLECTED");
+          const saved = await ordersApi.updateStatus(id, order.status, "COD_COLLECTED", "COLLECTED");
           if (revision !== getSessionState().revision) return false;
           latest.current = latest.current.map((entry) => entry.id === id
             ? { ...entry, ...mapBackendOrderToAdminOrder(saved), paymentStatus: "COLLECTED" } : entry);

@@ -21,7 +21,7 @@ interface ReceiptBillModalProps {
 }
 
 const formatVnd = (val: number) => {
-  return `${new Intl.NumberFormat("vi-VN").format(val)} đ`;
+  return new Intl.NumberFormat("vi-VN").format(val) + " đ";
 };
 
 export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
@@ -67,7 +67,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
       if (printMode === "RECEIPT") {
         message.success(
           isReprint
-            ? `Đã in lại bản sao hóa đơn #${nextCount} thành công! (Mô phỏng máy in nhiệt K80)`
+            ? "Đã in lại bản sao hóa đơn #" + nextCount + " thành công! (Mô phỏng máy in nhiệt K80)"
             : "Đã in hóa đơn thành công! (Mô phỏng máy in nhiệt K80)",
         );
       } else {
@@ -101,7 +101,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                 title="In hóa đơn bán lẻ cho khách"
               >
                 <Printer size={16} />
-                <span>In hóa đơn {isReprint ? `(Lần ${printCount + 1})` : ""}</span>
+                <span>In hóa đơn {isReprint ? "(Lần " + (printCount + 1) + ")" : ""}</span>
               </button>
 
               <button
