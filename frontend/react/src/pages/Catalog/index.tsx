@@ -228,7 +228,7 @@ export const CatalogPage: React.FC = () => {
           <div>
             <div
               style={{
-                fontFamily: 'Baloo 2, sans-serif',
+                fontFamily: 'Fredoka, Quicksand, sans-serif',
                 fontWeight: 600,
                 fontSize: 15,
                 color: '#16100D',
@@ -271,7 +271,7 @@ export const CatalogPage: React.FC = () => {
       render: (price) => (
         <span
           style={{
-            fontFamily: 'Baloo 2, sans-serif',
+            fontFamily: 'Fredoka, Quicksand, sans-serif',
             color: '#8F1216',
             fontWeight: 700,
             fontSize: 16,
@@ -374,7 +374,7 @@ export const CatalogPage: React.FC = () => {
           <div>
             <div
               style={{
-                fontFamily: 'Baloo 2, sans-serif',
+                fontFamily: 'Fredoka, Quicksand, sans-serif',
                 fontWeight: 600,
                 fontSize: 15,
                 color: '#16100D',
@@ -435,7 +435,7 @@ export const CatalogPage: React.FC = () => {
       render: (price) => (
         <span
           style={{
-            fontFamily: 'Baloo 2, sans-serif',
+            fontFamily: 'Fredoka, Quicksand, sans-serif',
             color: '#8F1216',
             fontWeight: 700,
             fontSize: 16,
@@ -499,7 +499,7 @@ export const CatalogPage: React.FC = () => {
         <div>
           <h1
             style={{
-              fontFamily: 'Baloo 2, sans-serif',
+              fontFamily: 'Fredoka, Quicksand, sans-serif',
               fontWeight: 700,
               fontSize: 28,
               color: '#16100D',

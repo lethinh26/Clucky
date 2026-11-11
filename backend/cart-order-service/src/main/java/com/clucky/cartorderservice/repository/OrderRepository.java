@@ -31,13 +31,32 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         SELECT o FROM Order o
         WHERE (:storeId IS NULL OR o.storeId = :storeId)
           AND (:status IS NULL OR o.status = :status)
-          AND (:orderCode IS NULL OR LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :orderCode, '%')))
         ORDER BY o.createdAt DESC
     """)
-    Page<Order> findOrders(
+    Page<Order> findOrdersWithoutCode(
+        @Param("storeId") Long storeId,
+        @Param("status") String status,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT o FROM Order o
+        WHERE (:storeId IS NULL OR o.storeId = :storeId)
+          AND (:status IS NULL OR o.status = :status)
+          AND (LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :orderCode, '%')))
+        ORDER BY o.createdAt DESC
+    """)
+    Page<Order> findOrdersWithCode(
         @Param("storeId") Long storeId,
         @Param("status") String status,
         @Param("orderCode") String orderCode,
         Pageable pageable
     );
+
+    default Page<Order> findOrders(Long storeId, String status, String orderCode, Pageable pageable) {
+        if (orderCode != null && !orderCode.isBlank()) {
+            return findOrdersWithCode(storeId, status, orderCode.trim(), pageable);
+        }
+        return findOrdersWithoutCode(storeId, status, pageable);
+    }
 }

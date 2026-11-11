@@ -67,7 +67,7 @@
 }
 
 .queueNumber {
-  font-family: var(--font-fredoka, "Fredoka", "Baloo 2", cursive, sans-serif);
+  font-family: var(--font-fredoka, "Fredoka", "Fredoka", cursive, sans-serif);
   font-size: 24px;
   font-weight: 700;
   color: #8f1216;
@@ -415,7 +415,7 @@
 }
 
 .totalAmount {
-  font-family: var(--font-fredoka, "Fredoka", "Baloo 2", cursive, sans-serif);
+  font-family: var(--font-fredoka, "Fredoka", "Fredoka", cursive, sans-serif);
   font-size: 20px;
   font-weight: 700;
   color: #8f1216;

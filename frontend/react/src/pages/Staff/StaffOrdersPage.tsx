@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Bell,
   BellOff,
   Store,
   Search,
-  PlusCircle,
-  RotateCcw,
   CheckCircle2,
-  Clock3,
-  ChefHat,
-  PackageCheck,
+  AlertCircle,
+  RefreshCw,
   Landmark,
   Sparkles,
 } from "lucide-react";
@@ -18,8 +16,6 @@ import { message } from "../../components/feedback";
 import { useAuth } from "../../context/AuthContext";
 import { ordersApi, type BackendOrder } from "../../lib/api";
 import {
-  createInitialStaffOrders,
-  generateIncomingMockOrder,
   type StaffOrder,
   type StaffOrderItem,
   type PaymentMethod,
@@ -111,6 +107,7 @@ export function fromBackendOrderToStaffOrder(bo: BackendOrder): StaffOrder {
 }
 
 export function StaffOrdersPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -120,11 +117,13 @@ export function StaffOrdersPage() {
     return saved !== null ? saved === "true" : true;
   });
 
-  // 2. Data Layer: Khởi tạo danh sách đơn hàng
-  const [orders, setOrders] = useState<StaffOrder[]>(() => {
-    return createInitialStaffOrders();
-  });
+  // 2. Data Layer: Khởi tạo danh sách đơn hàng (trống ban đầu, load từ backend API)
+  const [orders, setOrders] = useState<StaffOrder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<boolean>(false);
+
+  const isFirstLoadDoneRef = useRef<boolean>(false);
+  const prevConfirmedIdsRef = useRef<Set<string>>(new Set());
 
   // Hàm load danh sách đơn từ backend API
   const fetchOrders = useCallback(async (isSilent = false) => {
@@ -132,20 +131,16 @@ export function StaffOrdersPage() {
     try {
       const storeIdNum = user?.storeId ? Number(user.storeId) : 1;
       const backendList = await ordersApi.list({ storeId: storeIdNum, size: 50 });
-      if (backendList && backendList.length > 0) {
-        const converted = backendList.map(fromBackendOrderToStaffOrder);
-        setOrders(converted);
-        prevConfirmedIdsRef.current = new Set(
-          converted.filter((o) => o.status === "CONFIRMED").map((o) => o.id),
-        );
-      } else if (!isSilent) {
-        setOrders(createInitialStaffOrders());
-      }
+      const converted = (backendList || []).map(fromBackendOrderToStaffOrder);
+      setOrders(converted);
+      setFetchError(false);
+      prevConfirmedIdsRef.current = new Set(
+        converted.filter((o) => o.status === "CONFIRMED").map((o) => o.id),
+      );
+      isFirstLoadDoneRef.current = true;
     } catch (err) {
-      console.warn("Chưa thể kết nối cart-order-service, dùng dữ liệu khởi tạo:", err);
-      if (!isSilent) {
-        setOrders(createInitialStaffOrders());
-      }
+      console.warn("Lỗi tải danh sách đơn hàng từ backend cart-order-service:", err);
+      setFetchError(true);
     } finally {
       if (!isSilent) setIsLoading(false);
     }
@@ -215,24 +210,16 @@ export function StaffOrdersPage() {
     }
   };
 
-  // 6. Theo dõi danh sách ID đơn CONFIRMED để kích hoạt chuông khi có đơn mới
-  const prevConfirmedIdsRef = useRef<Set<string>>(
-    new Set(
-      orders
-        .filter((o) => o.status === "CONFIRMED")
-        .map((o) => o.id),
-    ),
-  );
-
   // 7. Auto-polling ngầm (5s khi active, 15s khi background) đồng bộ với backend DB
   useEffect(() => {
     const pollIntervalTime = document.hidden ? 15000 : 5000;
 
     const intervalId = window.setInterval(async () => {
+      if (!isFirstLoadDoneRef.current) return;
       try {
         const storeIdNum = user?.storeId ? Number(user.storeId) : 1;
         const backendList = await ordersApi.list({ storeId: storeIdNum, size: 50 });
-        if (backendList && backendList.length > 0) {
+        if (backendList) {
           const converted = backendList.map(fromBackendOrderToStaffOrder);
 
           // Phát hiện đơn CONFIRMED mới xuất hiện
@@ -240,18 +227,12 @@ export function StaffOrdersPage() {
             (o) => o.status === "CONFIRMED",
           );
 
-          let hasNewConfirmed = false;
-          let newestOrder: StaffOrder | null = null;
+          const newConfirmedList = confirmedOrders.filter(
+            (order) => !prevConfirmedIdsRef.current.has(order.id),
+          );
 
-          for (const order of confirmedOrders) {
-            if (!prevConfirmedIdsRef.current.has(order.id)) {
-              hasNewConfirmed = true;
-              newestOrder = order;
-              break;
-            }
-          }
-
-          if (hasNewConfirmed && newestOrder) {
+          if (newConfirmedList.length > 0) {
+            const newestOrder = newConfirmedList[0];
             if (soundEnabled) {
               playChime();
             }
@@ -266,6 +247,7 @@ export function StaffOrdersPage() {
             confirmedOrders.map((o) => o.id),
           );
           setOrders(converted);
+          setFetchError(false);
         }
       } catch {
         // Bỏ qua lỗi kết nối tạm thời khi polling chạy ngầm
@@ -331,29 +313,41 @@ export function StaffOrdersPage() {
     };
   }, [handleOpenPOS]);
 
-  // 9. Nút mô phỏng tạo thêm 1 đơn mới khách đặt qua Web (Để test Auto-polling & Chuông)
-  const handleSimulateIncomingOrder = () => {
-    const newOrder = generateIncomingMockOrder(orders.length);
-    setOrders((prev) => [newOrder, ...prev]);
-    if (soundEnabled) {
-      playChime();
-    }
-    message.success(
-      `Đã mô phỏng khách đặt Web #${String(newOrder.queueNumber).padStart(
-        3,
-        "0",
-      )} (Chuông ting-ting)`,
-    );
-  };
-
-  // Nút đặt lại/đồng bộ dữ liệu từ DB
-  const handleResetMockData = () => {
+  // 9. Nút làm mới dữ liệu từ backend DB
+  const handleRefresh = () => {
     fetchOrders(false);
-    message.info("Đã đồng bộ lại dữ liệu đơn hàng từ cơ sở dữ liệu");
+    message.success(t("admin:system.refreshed"));
   };
 
   // 10. Chuyển trạng thái đơn (đồng bộ cập nhật về backend cart-order-service)
-  const handleStatusChange = async (orderId: string, nextStatus: AdminOrderStatus) => {
+  const handleStatusChange = async (
+    orderId: string,
+    nextStatus: AdminOrderStatus,
+    reason?: string,
+  ) => {
+    if (reason === "COLLECT_COD") {
+      const numericId = Number(orderId);
+      if (!Number.isNaN(numericId) && numericId > 0) {
+        try {
+          await ordersApi.updateStatus(numericId, nextStatus, "Xác nhận thu tiền COD", "COLLECTED");
+        } catch (err) {
+          console.warn("Lỗi xác nhận thu COD backend:", err);
+        }
+      }
+      setOrders((prev) =>
+        prev.map((order) => {
+          if (order.id !== orderId) return order;
+          return {
+            ...order,
+            paymentStatus: "COLLECTED",
+            updatedAt: new Date().toISOString(),
+          };
+        }),
+      );
+      message.success("Đã xác nhận thu tiền COD thành công!");
+      return true;
+    }
+
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id !== orderId) return order;
@@ -381,6 +375,7 @@ export function StaffOrdersPage() {
         console.warn("Lỗi đồng bộ trạng thái đơn lên backend:", err);
       }
     }
+    return true;
   };
 
   // Thu tiền quầy: mở CounterPaymentModal
@@ -428,6 +423,27 @@ export function StaffOrdersPage() {
         return targetOrder;
       }),
     );
+
+    const numericId = Number(data.orderId);
+    if (!Number.isNaN(numericId) && numericId > 0) {
+      const nextStatus =
+        paymentModalOrder?.status === "READY"
+          ? "COMPLETED"
+          : paymentModalOrder?.status === "PENDING_PAYMENT"
+          ? "CONFIRMED"
+          : paymentModalOrder?.status || "CONFIRMED";
+
+      ordersApi
+        .updateStatus(
+          numericId,
+          nextStatus,
+          data.manualReason || "Đã thu tiền tại quầy",
+          "COLLECTED",
+        )
+        .catch((err) =>
+          console.warn("Lỗi cập nhật trạng thái thu tiền lên backend:", err),
+        );
+    }
 
     setPaymentModalOrder(null);
     message.success("Đã xác nhận thu tiền thành công!");
@@ -613,18 +629,15 @@ export function StaffOrdersPage() {
             <span>{soundEnabled ? "Chuông: BẬT" : "Chuông: TẮT"}</span>
           </button>
 
-          {/* Link Tab Phụ: Tiền vào chi nhánh */}
+          {/* Link Tab Phụ: Sổ quỹ chi nhánh */}
           <button
             type="button"
             className={styles.transfersLink}
-            onClick={() => {
-              navigate("/staff/transfers");
-              message.info("Chuyển tới sổ quỹ dòng tiền chi nhánh");
-            }}
+            onClick={() => navigate("/admin/transfers")}
             title="Xem chi tiết đối soát dòng tiền và két ca trực"
           >
             <Landmark size={17} />
-            <span>Tiền vào chi nhánh</span>
+            <span>Sổ quỹ chi nhánh</span>
           </button>
 
           {/* Nút Đỏ Nổi Bật: Nhập đơn nhanh (F1) */}
@@ -640,29 +653,68 @@ export function StaffOrdersPage() {
         </div>
       </header>
 
-      {/* Thanh công cụ mô phỏng cho Tester / Reviewer */}
+      {/* Thanh công cụ làm mới & trạng thái đồng bộ */}
       <div className={styles.simControls}>
-        <span>🛠️ Công cụ hỗ trợ test nhanh:</span>
         <button
           type="button"
           className={styles.simBtn}
-          onClick={handleSimulateIncomingOrder}
-          title="Thêm 1 đơn mới đặt qua Web vào tab 'Mới xác nhận' để test chuông Web Audio API"
+          onClick={handleRefresh}
+          title={t("admin:system.refresh")}
         >
-          <PlusCircle size={14} /> Thêm đơn Web mới (+1 Ting-Ting)
-        </button>
-        <button
-          type="button"
-          className={styles.simBtn}
-          onClick={handleResetMockData}
-          title="Khôi phục lại 12 đơn mẫu chuẩn ban đầu"
-        >
-          <RotateCcw size={14} /> Đặt lại dữ liệu mẫu
+          <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+          <span>{t("admin:system.refresh")}</span>
         </button>
         <span style={{ marginLeft: "auto", color: "#6b6259" }}>
-          ⏱️ Auto-polling: <strong>5 giây/lần</strong>
+          ⏱️ Auto-polling: <strong>5s</strong>
         </span>
       </div>
+
+      {/* Cảnh báo lỗi kết nối backend */}
+      {fetchError && (
+        <div
+          style={{
+            margin: "0 0 16px 0",
+            padding: "12px 18px",
+            backgroundColor: "#FEF3F2",
+            border: "1px solid #FECDCA",
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              color: "#B42318",
+              fontWeight: 600,
+              fontSize: "14px",
+            }}
+          >
+            <AlertCircle size={20} />
+            <span>{t("admin:system.notConnected")}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchOrders(false)}
+            style={{
+              padding: "6px 16px",
+              backgroundColor: "#B42318",
+              color: "#FFF",
+              border: "none",
+              borderRadius: "8px",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: "13px",
+            }}
+          >
+            {t("admin:system.retry")}
+          </button>
+        </div>
+      )}
 
       {/* 2. Hệ Thống 5 Tab Công Việc (Work Queues) */}
       <nav
@@ -732,10 +784,9 @@ export function StaffOrdersPage() {
       {visibleOrders.length === 0 ? (
         <div className={styles.emptyState}>
           <CheckCircle2 size={48} />
-          <h2 className={styles.emptyTitle}>Không có đơn hàng nào</h2>
+          <h2 className={styles.emptyTitle}>{t("admin:system.emptyOrders")}</h2>
           <p className={styles.emptyText}>
-            Hàng đợi này hiện đang trống. Hãy kiểm tra các tab khác hoặc nhấn nút
-            "Thêm đơn Web mới" để thử nghiệm.
+            Hàng đợi này hiện không có đơn hàng nào cần xử lý.
           </p>
         </div>
       ) : (

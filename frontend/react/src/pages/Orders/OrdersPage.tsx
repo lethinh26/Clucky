@@ -37,6 +37,7 @@ export const OrdersPage: React.FC = () => {
   const {
     orders,
     updateStatus,
+    confirmCOD,
     reviewRefund,
     storageError,
     actionError,
@@ -67,16 +68,25 @@ export const OrdersPage: React.FC = () => {
     newStatus: AdminOrderStatus,
     reason?: string,
   ) => {
-    const ok = await updateStatus(orderId, newStatus, reason);
-    if (!ok) {
-      message.warning(
-        actionError ||
-          t("business:orderspage.cannotChangeStatusYetCheckTheProgressAndConfirmPaymentCollectionBefore"),
-      );
-      return false;
+    let ok = false;
+    if (reason === "COLLECT_COD") {
+      ok = await confirmCOD(orderId);
+      if (ok) {
+        message.success(t("business:orderdemo.codCollectionConfirmed"));
+        return true;
+      }
+    } else {
+      ok = await updateStatus(orderId, newStatus, reason);
+      if (ok) {
+        message.success(t("business:orderspage.orderUpdated", { value1: t(statusLabels[newStatus]) }));
+        return true;
+      }
     }
-    message.success(t("business:orderspage.orderUpdated", { value1: t(statusLabels[newStatus]) }));
-    return true;
+    message.warning(
+      actionError ||
+        t("business:orderspage.cannotChangeStatusYetCheckTheProgressAndConfirmPaymentCollectionBefore"),
+    );
+    return false;
   };
 
   const handleConfirmRefund = async (

@@ -1,5 +1,5 @@
 :root {
-  --font-fredoka: "Fredoka", "Baloo 2", cursive, sans-serif;
+  --font-fredoka: "Fredoka", "Fredoka", cursive, sans-serif;
 }
 
 .staffContainer {
@@ -40,7 +40,7 @@
 }
 
 .pageHeader h1 {
-  font-family: var(--font-fredoka, "Fredoka", "Baloo 2", cursive, sans-serif);
+  font-family: var(--font-fredoka, "Fredoka", "Fredoka", cursive, sans-serif);
   font-size: clamp(22px, 2.5vw, 32px);
   font-weight: 700;
   color: #16100d;
@@ -416,7 +416,7 @@
 }
 
 .emptyTitle {
-  font-family: var(--font-fredoka, "Fredoka", "Baloo 2", cursive, sans-serif);
+  font-family: var(--font-fredoka, "Fredoka", "Fredoka", cursive, sans-serif);
   font-size: 22px;
   font-weight: 700;
   color: #16100d;

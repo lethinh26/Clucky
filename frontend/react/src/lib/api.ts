@@ -261,12 +261,13 @@ export const ordersApi = {
     id: string | number,
     status: string,
     reason?: string,
+    paymentStatus?: string,
     signal?: AbortSignal
   ) =>
     api
       .put<BackendOrder>(
         `/api/orders/${id}/status`,
-        { status, note: reason },
+        { status, note: reason, paymentStatus },
         { signal }
       )
       .then((r) => r.data),

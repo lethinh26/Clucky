@@ -19,6 +19,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  BankOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext";
 import { getErrorMessage } from "../lib/api";
@@ -82,6 +83,7 @@ export const AdminLayout: React.FC = () => {
       "reviews",
       "reports",
       "payments",
+      "transfers",
       "promotions",
     ],
     STORE_MANAGER: [
@@ -93,8 +95,9 @@ export const AdminLayout: React.FC = () => {
       "reviews",
       "reports",
       "payments",
+      "transfers",
     ],
-    STAFF: ["inventory", "orders", "reviews"],
+    STAFF: ["orders", "transfers", "inventory", "reviews"],
   };
 
   const navItems: MenuProps["items"] = [
@@ -127,6 +130,12 @@ export const AdminLayout: React.FC = () => {
       icon: <FileTextOutlined />,
       label: t("admin:nav.orders"),
       onClick: () => navigate("/admin/orders"),
+    },
+    {
+      key: "transfers",
+      icon: <BankOutlined />,
+      label: t("admin:nav.transfers"),
+      onClick: () => navigate("/admin/transfers"),
     },
     {
       key: "staff-orders",
@@ -255,7 +264,7 @@ export const AdminLayout: React.FC = () => {
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span
                 style={{
-                  fontFamily: "Baloo 2, sans-serif",
+                  fontFamily: "Fredoka, Quicksand, sans-serif",
                   fontWeight: 700,
                   fontSize: 22,
                   color: "#FFFAF3",
@@ -332,7 +341,7 @@ export const AdminLayout: React.FC = () => {
               {t("admin:currentRole")}{" "}</div>
             <div
               style={{
-                fontFamily: "Baloo 2, sans-serif",
+                fontFamily: "Fredoka, Quicksand, sans-serif",
                 color: "#C9A227",
                 fontWeight: 600,
                 fontSize: 13,
@@ -480,7 +489,7 @@ export const AdminLayout: React.FC = () => {
                   size={34}
                   style={{
                     backgroundColor: "#8F1216",
-                    fontFamily: "Baloo 2, sans-serif",
+                    fontFamily: "Fredoka, Quicksand, sans-serif",
                     fontWeight: 700,
                     color: "#FFFAF3",
                   }}

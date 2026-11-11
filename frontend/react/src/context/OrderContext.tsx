@@ -210,10 +210,6 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         setActionError(translate("errors:RESOURCE_NOT_FOUND"));
         return false;
       }
-      if (action.type === "COD") {
-        setActionError(translate("admin:collectionUnavailable"));
-        return false;
-      }
       setActionError("");
       try {
         if (action.type === "STATUS") {
@@ -221,6 +217,11 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
           if (revision !== getSessionState().revision) return false;
           latest.current = latest.current.map((entry) => entry.id === id
             ? { ...entry, ...mapBackendOrderToAdminOrder(saved) } : entry);
+        } else if (action.type === "COD") {
+          const saved = await ordersApi.updateStatus(id, order.status, "Xác nhận đã thu tiền COD", "COLLECTED");
+          if (revision !== getSessionState().revision) return false;
+          latest.current = latest.current.map((entry) => entry.id === id
+            ? { ...entry, ...mapBackendOrderToAdminOrder(saved), paymentStatus: "COLLECTED" } : entry);
         } else {
           if (!order.refundRequestId) {
             setActionError(translate("errors:RESOURCE_NOT_FOUND"));

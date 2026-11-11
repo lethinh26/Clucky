@@ -239,8 +239,13 @@ export function OrderDetailDrawer({
             {order.paymentMethod === "COD" &&
               order.paymentStatus === "PENDING" &&
               !["CANCELLED", "COMPLETED"].includes(order.status) && (
-                <div><Button disabled icon={<Wallet size={16} />}>{t("business:orderdetaildrawer.confirmCodCollection")}</Button>
-                  <p>{t('admin:collectionUnavailable')}</p></div>
+                <Button
+                  type="primary"
+                  icon={<Wallet size={16} />}
+                  onClick={() => onStatusChange(order.id, order.status, "COLLECT_COD")}
+                >
+                  {t("business:orderdetaildrawer.confirmCodCollection")}
+                </Button>
               )}
             {["READY", "SHIPPING"].includes(order.status) && (
               <Button
@@ -278,8 +283,11 @@ export function OrderDetailDrawer({
         cancelText={t("business:id.keepOrder")}
         okButtonProps={{ danger: true, disabled: !reason.trim() }}
         onOk={async () => {
-          if (await onStatusChange(order.id, "CANCELLED", reason.trim()))
+          const success = await onStatusChange(order.id, "CANCELLED", reason.trim());
+          if (success) {
             setCancelOpen(false);
+            onClose();
+          }
         }}
       >
         <p> {t("business:orderdetaildrawer.enterACancellationReasonPaidOrdersWillCreateARefundRequestIn")} </p>

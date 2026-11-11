@@ -9,6 +9,7 @@
     "inventory": "Store inventory",
     "orders": "Order management",
     "shiftOrders": "Shift orders",
+    "transfers": "Cash Drawer & Transfers",
     "reviews": "Review management",
     "users": "User management",
     "reports": "Reports & statistics",
@@ -16,6 +17,8 @@
     "promotions": "Promotions & Vouchers"
   },
   "breadcrumb": {
+    "orders": "Order Management",
+    "transfers": "Cash Drawer & Transfers",
     "catalog": "Menu & combos",
     "stores": "Stores",
     "reviews": "Reviews & replies",
@@ -99,5 +102,14 @@
       "title": "Feature in Roadmap (Phase 2 / Backlog)",
       "description": "This interface layout is crafted according to architecture specifications for upcoming phases. Live backend API integration is currently pending."
     }
+  },
+  "system": {
+    "notConnected": "Not connected to backend system",
+    "retry": "Retry",
+    "emptyOrders": "No orders found for this branch",
+    "soundEnabled": "Notification sound: ON",
+    "soundDisabled": "Notification sound: OFF",
+    "refresh": "Refresh data",
+    "refreshed": "Synchronized latest data"
   }
 }

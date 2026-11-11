@@ -9,6 +9,7 @@
     "inventory": "Tồn kho Chi nhánh",
     "orders": "Quản lý Đơn hàng",
     "shiftOrders": "Đơn hàng Ca trực",
+    "transfers": "Sổ Quỹ & Két Ca Trực",
     "reviews": "Quản lý Đánh giá",
     "users": "Quản lý Người dùng",
     "reports": "Báo cáo & Thống kê",
@@ -16,6 +17,8 @@
     "promotions": "Quản lý Khuyến mãi & Voucher"
   },
   "breadcrumb": {
+    "orders": "Quản lý Đơn hàng",
+    "transfers": "Sổ Quỹ Chi Nhánh",
     "catalog": "Thực đơn & Combo",
     "stores": "Hệ thống Chi nhánh",
     "reviews": "Đánh giá & Phản hồi",
@@ -99,5 +102,14 @@
       "title": "Chức năng thuộc Kế hoạch phát triển (Phase 2 / Backlog)",
       "description": "Khung giao diện này được thiết kế theo quy chuẩn kiến trúc để chuẩn bị cho giai đoạn tiếp theo. Hiện tại hệ thống chưa kích hoạt tích hợp API thực tế cho chức năng này."
     }
+  },
+  "system": {
+    "notConnected": "Chưa kết nối với hệ thống",
+    "retry": "Thử lại",
+    "emptyOrders": "Chưa có đơn hàng nào tại chi nhánh",
+    "soundEnabled": "Chuông báo: BẬT",
+    "soundDisabled": "Chuông báo: TẮT",
+    "refresh": "Làm mới dữ liệu",
+    "refreshed": "Đã đồng bộ dữ liệu mới nhất"
   }
 }

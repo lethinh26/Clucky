@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Store,
@@ -12,11 +13,12 @@ import {
   Landmark,
   X,
   FileCheck,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { message } from "../../components/feedback";
 import { useAuth } from "../../context/AuthContext";
 import {
-  createInitialBankTransactions,
   type BankTransactionItem,
 } from "../../mocks/mockPosCatalog";
 import {
@@ -52,15 +54,15 @@ export function fromBackendBankTxToItem(
 }
 
 export const IncomingTransfersPage: React.FC = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
 
   // Transactions state
-  const [transactions, setTransactions] = useState<BankTransactionItem[]>(() =>
-    createInitialBankTransactions(),
-  );
+  const [transactions, setTransactions] = useState<BankTransactionItem[]>([]);
   const [receipts, setReceipts] = useState<BackendCounterReceipt[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<boolean>(false);
 
   // Load dữ liệu sổ quỹ và giao dịch ngân hàng từ payment-service
   const loadPaymentData = useCallback(async () => {
@@ -72,7 +74,7 @@ export const IncomingTransfersPage: React.FC = () => {
         paymentsApi.listReceipts(storeIdNum).catch(() => null),
       ]);
 
-      if (txList && txList.length > 0) {
+      if (txList !== null && txList !== undefined) {
         const converted = txList.map((tx) =>
           fromBackendBankTxToItem(
             tx,
@@ -81,13 +83,19 @@ export const IncomingTransfersPage: React.FC = () => {
           ),
         );
         setTransactions(converted);
+      } else {
+        setTransactions([]);
       }
 
-      if (rcList && rcList.length > 0) {
+      if (rcList !== null && rcList !== undefined) {
         setReceipts(rcList);
+      } else {
+        setReceipts([]);
       }
+      setFetchError(false);
     } catch (err) {
-      console.warn("Chưa thể tải dữ liệu payment từ backend, giữ dữ liệu ban đầu:", err);
+      console.warn("Lỗi tải dữ liệu payment từ backend:", err);
+      setFetchError(true);
     } finally {
       setIsLoading(false);
     }
@@ -109,8 +117,8 @@ export const IncomingTransfersPage: React.FC = () => {
 
   // Calculate Shift Drawer Widget stats (tính trực tiếp từ hóa đơn thu ngân và giao dịch ngân hàng)
   const shiftCashStats = useMemo(() => {
-    let totalCashCollected = 2450000;
-    let totalCashChangeGiven = 600000;
+    let totalCashCollected = 0;
+    let totalCashChangeGiven = 0;
 
     if (receipts.length > 0) {
       totalCashCollected = receipts.reduce(
@@ -185,10 +193,7 @@ export const IncomingTransfersPage: React.FC = () => {
 
   // Shift handover print simulation
   const handlePrintHandover = () => {
-    message.success("Đang xuất biên bản bàn giao két tiền ca trực...");
-    setTimeout(() => {
-      window.print();
-    }, 300);
+    message.success("Đã xuất biên bản bàn giao két tiền ca trực thành công! (Mô phỏng)");
   };
 
   return (
@@ -235,6 +240,53 @@ export const IncomingTransfersPage: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* Cảnh báo lỗi kết nối backend */}
+      {fetchError && (
+        <div
+          style={{
+            margin: "0 0 20px 0",
+            padding: "12px 18px",
+            backgroundColor: "#FEF3F2",
+            border: "1px solid #FECDCA",
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              color: "#B42318",
+              fontWeight: 600,
+              fontSize: "14px",
+            }}
+          >
+            <AlertCircle size={20} />
+            <span>{t("admin:system.notConnected")}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadPaymentData()}
+            style={{
+              padding: "6px 16px",
+              backgroundColor: "#B42318",
+              color: "#FFF",
+              border: "none",
+              borderRadius: "8px",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: "13px",
+            }}
+          >
+            {t("admin:system.retry")}
+          </button>
+        </div>
+      )}
 
       {/* 2. Shift Drawer Widget (3 Cards) */}
       <section className={styles.shiftDrawerWidget} aria-label="Widget két tiền ca trực">

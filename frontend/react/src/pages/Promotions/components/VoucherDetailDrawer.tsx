@@ -72,7 +72,7 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
             status={voucher.status}
           />
         </div>
-        <Title level={4} style={{ margin: 0, fontFamily: 'Baloo 2, sans-serif' }}>
+        <Title level={4} style={{ margin: 0, fontFamily: 'Fredoka, Quicksand, sans-serif' }}>
           {voucher.title || voucher.code}
         </Title>
         {voucher.description && (

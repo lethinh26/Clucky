@@ -83,7 +83,7 @@ export function OrdersTable({ compact = false, orders = mockOrders }: { compact?
       dataIndex: 'code',
       key: 'code',
       render: (value: string) => (
-        <Typography.Text strong style={{ color: '#16100D', fontFamily: 'Baloo 2, sans-serif' }}>
+        <Typography.Text strong style={{ color: '#16100D', fontFamily: 'Fredoka, Quicksand, sans-serif' }}>
           {value}
         </Typography.Text>
       ),
@@ -231,7 +231,7 @@ export function RevenueChart({ range = '7d' }: { range?: string }) {
         <Typography.Text type="secondary" style={{ color: '#6B6259' }}>
           {range === '30d' ? t("business:dashboard.totalMonthlyRevenue") : t("business:dashboard.totalRevenueToday")}
         </Typography.Text>
-        <Typography.Text strong style={{ color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 18 }}>
+        <Typography.Text strong style={{ color: '#8F1216', fontFamily: 'Fredoka, Quicksand, sans-serif', fontSize: 18 }}>
           {totalAmount}
         </Typography.Text>
       </Flex>

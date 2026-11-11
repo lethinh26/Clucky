@@ -421,12 +421,21 @@ public class OrderService {
         if ("CANCELLED".equals(target)) {
             cancellationReason(order, request.note());
         }
+
+        if (request.paymentStatus() != null && !request.paymentStatus().isBlank()) {
+            String pStatus = request.paymentStatus().trim().toUpperCase();
+            if (Set.of("PENDING", "PAID", "COLLECTED", "REFUNDED").contains(pStatus)) {
+                order.setPaymentStatus(pStatus);
+            }
+        }
+
         if (("COMPLETED".equals(target) || ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)))
                 && !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
         if (current.equals(target)) {
+            order = orderRepository.save(order);
             List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
             List<OrderStatusHistory> histories = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
             return DomainMapper.toResponse(order, items, histories);

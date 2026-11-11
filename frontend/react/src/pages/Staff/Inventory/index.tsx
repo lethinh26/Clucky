@@ -170,7 +170,7 @@ export const StaffInventoryPage: React.FC = () => {
           <div>
             <div
               style={{
-                fontFamily: 'Baloo 2, sans-serif',
+                fontFamily: 'Fredoka, Quicksand, sans-serif',
                 fontWeight: 600,
                 fontSize: 15,
                 color: '#16100D',
@@ -205,7 +205,7 @@ export const StaffInventoryPage: React.FC = () => {
           <div>
             <span
               style={{
-                fontFamily: 'Baloo 2, sans-serif',
+                fontFamily: 'Fredoka, Quicksand, sans-serif',
                 fontSize: 20,
                 fontWeight: 700,
                 color: isLow ? '#D97706' : qty === 0 ? '#B42318' : '#1E7A46',
@@ -313,7 +313,7 @@ export const StaffInventoryPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <h1
               style={{
-                fontFamily: 'Baloo 2, sans-serif',
+                fontFamily: 'Fredoka, Quicksand, sans-serif',
                 fontWeight: 700,
                 fontSize: 28,
                 color: '#16100D',
@@ -371,7 +371,7 @@ export const StaffInventoryPage: React.FC = () => {
               title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.totalStockItems")}</span>}
               value={totalItems}
               suffix={t("business:orderspage.items")}
-              valueStyle={{ fontFamily: 'Baloo 2', color: '#16100D', fontWeight: 700 }}
+              valueStyle={{ fontFamily: 'Fredoka', color: '#16100D', fontWeight: 700 }}
               prefix={<InboxOutlined style={{ color: '#22577A' }} />}
             />
           </Card>
@@ -389,7 +389,7 @@ export const StaffInventoryPage: React.FC = () => {
               title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:catalog.available")}</span>}
               value={availableCount}
               suffix={t("business:orderspage.items")}
-              valueStyle={{ fontFamily: 'Baloo 2', color: '#1E7A46', fontWeight: 700 }}
+              valueStyle={{ fontFamily: 'Fredoka', color: '#1E7A46', fontWeight: 700 }}
               prefix={<CheckCircleOutlined style={{ color: '#1E7A46' }} />}
             />
           </Card>
@@ -408,7 +408,7 @@ export const StaffInventoryPage: React.FC = () => {
               title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.lowStock")}</span>}
               value={lowStockCount}
               suffix={t("business:orderspage.items")}
-              valueStyle={{ fontFamily: 'Baloo 2', color: '#D97706', fontWeight: 700 }}
+              valueStyle={{ fontFamily: 'Fredoka', color: '#D97706', fontWeight: 700 }}
               prefix={<WarningOutlined style={{ color: '#D97706' }} />}
             />
           </Card>
@@ -427,7 +427,7 @@ export const StaffInventoryPage: React.FC = () => {
               title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.salesPausedThisShift")}</span>}
               value={soldOutCount}
               suffix={t("business:orderspage.items")}
-              valueStyle={{ fontFamily: 'Baloo 2', color: '#B42318', fontWeight: 700 }}
+              valueStyle={{ fontFamily: 'Fredoka', color: '#B42318', fontWeight: 700 }}
               prefix={<StopOutlined style={{ color: '#B42318' }} />}
             />
           </Card>

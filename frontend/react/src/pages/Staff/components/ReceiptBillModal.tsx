@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Printer,
   ChefHat,
@@ -34,6 +34,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
   const [mode, setMode] = useState<"RECEIPT" | "KOT">(initialMode);
   const [isPaperFeeding, setIsPaperFeeding] = useState<boolean>(false);
   const [printCount, setPrintCount] = useState<number>(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open && order) {
@@ -42,6 +43,12 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
       setIsPaperFeeding(false);
     }
   }, [open, order, initialMode]);
+
+  useEffect(() => {
+    if (open && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [open, mode]);
 
   if (!open || !order) return null;
 
@@ -53,12 +60,6 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
     setIsPaperFeeding(true);
 
     setTimeout(() => {
-      try {
-        window.print();
-      } catch (e) {
-        console.warn("Print error:", e);
-      }
-
       const nextCount = printCount + 1;
       setPrintCount(nextCount);
       onPrintSuccess?.(order.id, nextCount);
@@ -66,11 +67,11 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
       if (printMode === "RECEIPT") {
         message.success(
           isReprint
-            ? `Đã in lại bản sao hóa đơn #${nextCount} thành công!`
-            : "Đã in hóa đơn thành công!",
+            ? `Đã in lại bản sao hóa đơn #${nextCount} thành công! (Mô phỏng máy in nhiệt K80)`
+            : "Đã in hóa đơn thành công! (Mô phỏng máy in nhiệt K80)",
         );
       } else {
-        message.success("Đã in phiếu chế biến bếp (KOT) thành công!");
+        message.success("Đã in phiếu chế biến bếp (KOT) thành công! (Mô phỏng máy in nhiệt K80)");
       }
 
       setIsPaperFeeding(false);
@@ -149,7 +150,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
         </div>
 
         {/* Paper Scroll Area */}
-        <div className={styles.paperScrollContainer}>
+        <div className={styles.paperScrollContainer} ref={scrollContainerRef}>
           <article
             className={`${styles.receiptPaper} ${
               isPaperFeeding ? styles.paperFeeding : ""

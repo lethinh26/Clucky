@@ -20,7 +20,7 @@
   margin: 9px 0 8px;
   color: #211813;
   font:
-    600 clamp(29px, 3vw, 39px) / 1.1 "Baloo 2",
+    600 clamp(29px, 3vw, 39px) / 1.1 "Fredoka",
     sans-serif;
   letter-spacing: -0.035em;
 }
@@ -103,7 +103,7 @@
   display: block;
   margin-top: 10px;
   font:
-    600 39px/1.2 "Baloo 2",
+    600 39px/1.2 "Fredoka",
     sans-serif;
   color: #49362b;
   letter-spacing: -0.04em;
@@ -143,7 +143,7 @@
   margin: 0;
   color: #211813;
   font:
-    600 23px/1.2 "Baloo 2",
+    600 23px/1.2 "Fredoka",
     sans-serif;
   letter-spacing: -0.025em;
 }

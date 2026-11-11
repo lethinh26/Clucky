@@ -72,9 +72,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
     }
   }, [open, order]);
 
-  if (!open || !order) return null;
-
-  const totalDue = order.total || 0;
+  const totalDue = order?.total || 0;
 
   // CASH calculations
   const cashChange = Math.max(0, cashTendered - totalDue);
@@ -85,6 +83,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
 
   // Quick cash bill suggestions
   const quickBills = useMemo(() => {
+    if (!order) return [];
     const list: { label: string; value: number }[] = [];
     list.push({ label: `Đủ tiền: ${formatVnd(totalDue)}`, value: totalDue });
 
@@ -102,7 +101,9 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
     }
 
     return list;
-  }, [totalDue]);
+  }, [totalDue, order]);
+
+  if (!open || !order) return null;
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard?.writeText(text);

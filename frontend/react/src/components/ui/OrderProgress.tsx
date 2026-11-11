@@ -35,15 +35,92 @@ export function OrderProgress({
       /* Keep the toggle usable without persistence. */
     }
   };
-  const current = {
-    PENDING_PAYMENT: 0,
-    CONFIRMED: 1,
-    PREPARING: 2,
-    READY: 3,
-    SHIPPING: 3,
-    COMPLETED: 4,
-    CANCELLED: -1,
-  }[order.status];
+  const isCounter = order.orderType === "PICKUP";
+  const isOnlinePaid = !isCounter && ["PAID", "COLLECTED"].includes(order.paymentStatus);
+
+  type StepItem = { key: string; label: string; state: "done" | "current" | "next" };
+
+  const buildSteps = (): StepItem[] => {
+    if (isCounter) {
+      // 4 bước tại quầy: Xác nhận -> Thanh toán -> Chờ nhận -> Hoàn tất
+      const isPaid = ["PAID", "COLLECTED"].includes(order.paymentStatus);
+      return [
+        {
+          key: "CONFIRMED",
+          label: t("business:orderprogress.confirm", "Xác nhận"),
+          state: ["READY", "COMPLETED"].includes(order.status) || isPaid ? "done" : "current",
+        },
+        {
+          key: "PAID",
+          label: t("business:orderdetaildrawer.payment", "Thanh toán"),
+          state: isPaid ? "done" : order.status === "CONFIRMED" ? "current" : "next",
+        },
+        {
+          key: "READY",
+          label: t("business:orderprogress.awaitingCollection", "Chờ nhận"),
+          state: order.status === "COMPLETED" ? "done" : order.status === "READY" ? "current" : "next",
+        },
+        {
+          key: "COMPLETED",
+          label: t("business:orderprogress.complete", "Hoàn tất"),
+          state: order.status === "COMPLETED" ? "done" : "next",
+        },
+      ];
+    }
+
+    if (isOnlinePaid) {
+      // Đặt online đã thanh toán: Bỏ qua xác nhận -> Vào thẳng Chế biến -> Chờ nhận/Giao -> Hoàn tất
+      return [
+        {
+          key: "PREPARING",
+          label: t("business:orderprogress.preparing", "Chế biến"),
+          state: ["READY", "SHIPPING", "COMPLETED"].includes(order.status) ? "done" : "current",
+        },
+        {
+          key: "READY",
+          label: order.orderType === "DELIVERY" ? t("business:orderspage.delivery", "Giao hàng") : t("business:orderprogress.ready", "Chờ nhận"),
+          state: order.status === "COMPLETED" ? "done" : ["READY", "SHIPPING"].includes(order.status) ? "current" : "next",
+        },
+        {
+          key: "COMPLETED",
+          label: t("business:orderprogress.complete", "Hoàn tất"),
+          state: order.status === "COMPLETED" ? "done" : "next",
+        },
+      ];
+    }
+
+    // Đặt online tiền mặt (COD): Xác nhận -> Chế biến -> Chờ nhận/Giao -> Thanh toán COD -> Hoàn tất
+    const isCollected = ["PAID", "COLLECTED"].includes(order.paymentStatus);
+    return [
+      {
+        key: "CONFIRMED",
+        label: t("business:orderprogress.confirm", "Xác nhận"),
+        state: ["PREPARING", "READY", "SHIPPING", "COMPLETED"].includes(order.status) ? "done" : "current",
+      },
+      {
+        key: "PREPARING",
+        label: t("business:orderprogress.preparing", "Chế biến"),
+        state: ["READY", "SHIPPING", "COMPLETED"].includes(order.status) ? "done" : order.status === "PREPARING" ? "current" : "next",
+      },
+      {
+        key: "READY",
+        label: order.orderType === "DELIVERY" ? t("business:orderspage.delivery", "Giao hàng") : t("business:orderprogress.ready", "Chờ nhận"),
+        state: order.status === "COMPLETED" || isCollected ? "done" : ["READY", "SHIPPING"].includes(order.status) ? "current" : "next",
+      },
+      {
+        key: "PAID",
+        label: t("business:orderdetaildrawer.cashCod", "Thanh toán (COD)"),
+        state: isCollected ? "done" : ["READY", "SHIPPING"].includes(order.status) ? "current" : "next",
+      },
+      {
+        key: "COMPLETED",
+        label: t("business:orderprogress.complete", "Hoàn tất"),
+        state: order.status === "COMPLETED" ? "done" : "next",
+      },
+    ];
+  };
+
+  const currentSteps = buildSteps();
   return (
     <section
       className="m3-admin-disclosure"
@@ -79,28 +156,16 @@ export function OrderProgress({
             <p className="order-stopped">{t("business:orderprogress.orderCancelledProgressHasStopped")}</p>
           ) : (
             <ol className="m3-admin-progress-rail">
-              {[
-                t("business:cart.checkout"),
-                t("business:orderprogress.confirm"),
-                t("business:orderprogress.preparing"),
-                order.orderType === "PICKUP" ? t("business:orderprogress.awaitingCollection") : t("business:orderprogress.ready"),
-                t("business:orderprogress.complete"),
-              ].map((label, index) => (
+              {currentSteps.map((step, index) => (
                 <li
-                  key={label}
-                  data-state={
-                    index < current
-                      ? "done"
-                      : index === current
-                        ? "current"
-                        : "next"
-                  }
-                  aria-current={index === current ? "step" : undefined}
+                  key={step.key}
+                  data-state={step.state}
+                  aria-current={step.state === "current" ? "step" : undefined}
                 >
                   <span>
-                    {index < current ? <Check size={13} /> : index + 1}
+                    {step.state === "done" ? <Check size={13} /> : index + 1}
                   </span>
-                  {label}
+                  {step.label}
                 </li>
               ))}
             </ol>
