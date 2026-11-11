@@ -14,7 +14,13 @@ import {
 } from "lucide-react";
 import { message } from "../../components/feedback";
 import { useAuth } from "../../context/AuthContext";
-import { ordersApi, type BackendOrder } from "../../lib/api";
+import {
+  ordersApi,
+  paymentsApi,
+  type BackendOrder,
+  type CounterCollectionPayload,
+  getErrorMessage,
+} from "../../lib/api";
 import {
   type StaffOrder,
   type StaffOrderItem,
@@ -102,6 +108,7 @@ export function fromBackendOrderToStaffOrder(bo: BackendOrder): StaffOrder {
     time: timeStr,
     createdAt: bo.createdAt || new Date().toISOString(),
     updatedAt: bo.updatedAt,
+    version: bo.version ?? 0,
     printCount: 0,
   };
 }
@@ -263,38 +270,9 @@ export function StaffOrdersPage() {
   }, []);
 
   // Xử lý tạo đơn quầy mới từ CounterOrderModal
-  const handleCreateCounterOrder = async (orderPayload: Partial<StaffOrder>) => {
-    const queueNumber = orderPayload.queueNumber || (15 + orders.length);
-    const newOrder: StaffOrder = {
-      id: `ord-staff-counter-${Date.now()}`,
-      orderCode: orderPayload.orderCode || `CLU-${Date.now()}`,
-      queueNumber,
-      orderSource: "COUNTER",
-      diningOption: orderPayload.diningOption || "DINE_IN",
-      customerName: orderPayload.customerName || ("Khách vãng lai #" + queueNumber),
-      customerPhone: orderPayload.customerPhone || "",
-      storeId: user?.storeId ? String(user.storeId) : "1",
-      storeName: user?.storeName || "Store #01 - Cầu Giấy",
-      orderType: "PICKUP",
-      status: "CONFIRMED",
-      paymentMethod: orderPayload.paymentMethod || "CASH",
-      paymentStatus: "PENDING",
-      subtotal: orderPayload.subtotal || 0,
-      discount: orderPayload.discount || 0,
-      shippingFee: 0,
-      total: orderPayload.total || 0,
-      note: orderPayload.note,
-      time: orderPayload.time || "Vừa xong",
-      createdAt: orderPayload.createdAt || new Date().toISOString(),
-      items: orderPayload.items || [],
-      printCount: 0,
-    };
-
-    setOrders((prev) => [newOrder, ...prev]);
+  const handleCounterOrderSuccess = async () => {
+    await fetchOrders(false);
     setActiveTab("CONFIRMED");
-    message.success(
-      "Đã tạo đơn #" + String(newOrder.queueNumber).padStart(3, "0") + " thành công!",
-    );
   };
 
   useEffect(() => {
@@ -323,12 +301,28 @@ export function StaffOrdersPage() {
     nextStatus: AdminOrderStatus,
     reason?: string,
   ) => {
+    const numericId = Number(orderId);
+    const targetOrder = orders.find((o) => o.id === orderId);
+
     if (reason === "COLLECT_COD") {
-      const numericId = Number(orderId);
       if (!Number.isNaN(numericId) && numericId > 0) {
         try {
-          await ordersApi.updateStatus(numericId, nextStatus, "Xác nhận thu tiền COD", "COLLECTED");
-        } catch (err) {
+          await ordersApi.updateStatus(numericId, {
+            status: nextStatus,
+            note: "Xác nhận thu tiền COD",
+            paymentStatus: "COLLECTED",
+            version: targetOrder?.version,
+          });
+        } catch (err: any) {
+          if (
+            err?.response?.status === 409 ||
+            err?.response?.data?.code === "RESOURCE_CONFLICT" ||
+            err?.response?.data?.code === "CONCURRENCY_CONFLICT"
+          ) {
+            message.warning("Đơn hàng vừa được cập nhật từ thiết bị khác. Đang làm mới dữ liệu...");
+            await fetchOrders(false);
+            return false;
+          }
           console.warn("Lỗi xác nhận thu COD backend:", err);
         }
       }
@@ -346,34 +340,55 @@ export function StaffOrdersPage() {
       return true;
     }
 
-    setOrders((prev) =>
-      prev.map((order) => {
-        if (order.id !== orderId) return order;
-        return {
-          ...order,
-          status: nextStatus,
-          updatedAt: new Date().toISOString(),
-        };
-      }),
-    );
-
-    const statusLabels: Record<string, string> = {
-      PREPARING: "Bếp đã nhận nấu",
-      READY: "Món đã sẵn sàng bàn giao",
-      COMPLETED: "Đã hoàn tất bàn giao cho khách",
-    };
-
-    message.success(statusLabels[nextStatus] || "Đã cập nhật trạng thái");
-
-    const numericId = Number(orderId);
     if (!Number.isNaN(numericId) && numericId > 0) {
       try {
-        await ordersApi.updateStatus(numericId, nextStatus);
-      } catch (err) {
+        const updatedBackend = await ordersApi.updateStatus(numericId, {
+          status: nextStatus,
+          note: reason,
+          version: targetOrder?.version,
+        });
+
+        setOrders((prev) =>
+          prev.map((order) => {
+            if (order.id !== orderId) return order;
+            return {
+              ...order,
+              status: nextStatus,
+              version: updatedBackend.version ?? ((order.version ?? 0) + 1),
+              updatedAt: new Date().toISOString(),
+            };
+          }),
+        );
+
+        const statusLabels: Record<string, string> = {
+          PREPARING: "Bếp đã nhận nấu",
+          READY: "Món đã sẵn sàng bàn giao",
+          COMPLETED: targetOrder
+            ? `Đơn hàng #${String(targetOrder.queueNumber).padStart(3, "0")} đã hoàn tất bàn giao!`
+            : "Đã hoàn tất bàn giao cho khách",
+        };
+
+        message.success(statusLabels[nextStatus] || "Đã cập nhật trạng thái");
+        return true;
+      } catch (err: any) {
+        if (
+          err?.response?.status === 409 ||
+          err?.response?.data?.code === "RESOURCE_CONFLICT" ||
+          err?.response?.data?.code === "CONCURRENCY_CONFLICT"
+        ) {
+          message.warning("Đơn hàng vừa được cập nhật từ thiết bị khác. Đang làm mới dữ liệu...");
+          await fetchOrders(false);
+          return false;
+        }
         console.warn("Lỗi đồng bộ trạng thái đơn lên backend:", err);
+        message.error(
+          "Lỗi cập nhật trạng thái: " +
+            (err?.response?.data?.message || getErrorMessage(err)),
+        );
+        return false;
       }
     }
-    return true;
+    return false;
   };
 
   // Thu tiền quầy: mở CounterPaymentModal
@@ -381,8 +396,8 @@ export function StaffOrdersPage() {
     setPaymentModalOrder(order);
   };
 
-  // Xác nhận thu tiền trong CounterPaymentModal
-  const handleConfirmPayment = (data: {
+  // Xác nhận thu tiền trong CounterPaymentModal (Cơ chế 2 Pha an toàn)
+  const handleConfirmPayment = async (data: {
     orderId: string;
     method: PaymentMethod;
     cashTendered: number;
@@ -391,65 +406,131 @@ export function StaffOrdersPage() {
     manualReason?: string;
     refCode?: string;
   }) => {
-    let targetOrder: StaffOrder | null = null;
+    const order =
+      paymentModalOrder?.id === data.orderId
+        ? paymentModalOrder
+        : orders.find((o) => o.id === data.orderId);
+    if (!order) return;
 
-    setOrders((prev) =>
-      prev.map((ord) => {
-        if (ord.id !== data.orderId) return ord;
-        const nextPaymentStatus = "COLLECTED" as const;
-        const nextStatus =
-          ord.status === "READY"
-            ? ("COMPLETED" as const)
-            : ord.status === "PENDING_PAYMENT"
-            ? ("CONFIRMED" as const)
-            : ord.status;
+    const numericId = Number(order.id);
+    const totalDue = order.total;
 
-        targetOrder = {
-          ...ord,
-          paymentMethod: data.method,
-          paymentStatus: nextPaymentStatus,
-          status: nextStatus,
-          cashTendered: data.cashTendered,
-          cashChange: data.cashChange,
-          bankDeclaredAmount: data.bankDeclaredAmount,
-          manualAcceptanceReason: data.manualReason,
-          bankRefCode: data.refCode,
-          cashierName: user?.fullName || "Trần Đức Anh (Staff)",
-          receiptCode: `RCP-${Date.now().toString().slice(-8)}`,
-          updatedAt: new Date().toISOString(),
-        };
-        return targetOrder;
-      }),
-    );
+    let cashAmount = 0;
+    let cashTendered = data.cashTendered;
+    let bankAmount = 0;
+    let manualAcceptance = false;
+    let exceptionReason = data.manualReason;
 
-    const numericId = Number(data.orderId);
-    if (!Number.isNaN(numericId) && numericId > 0) {
-      const nextStatus =
-        paymentModalOrder?.status === "READY"
-          ? "COMPLETED"
-          : paymentModalOrder?.status === "PENDING_PAYMENT"
-          ? "CONFIRMED"
-          : paymentModalOrder?.status || "CONFIRMED";
-
-      ordersApi
-        .updateStatus(
-          numericId,
-          nextStatus,
-          data.manualReason || "Đã thu tiền tại quầy",
-          "COLLECTED",
-        )
-        .catch((err) =>
-          console.warn("Lỗi cập nhật trạng thái thu tiền lên backend:", err),
-        );
+    if (data.method === "CASH") {
+      cashAmount = totalDue;
+    } else if (data.method === "BANK_TRANSFER") {
+      bankAmount = totalDue;
+      if (data.manualReason) {
+        manualAcceptance = true;
+      }
+    } else if (data.method === "SPLIT") {
+      cashAmount = data.cashTendered;
+      bankAmount = data.bankDeclaredAmount;
+      if (data.manualReason) {
+        manualAcceptance = true;
+      }
     }
 
-    setPaymentModalOrder(null);
-    message.success("Đã xác nhận thu tiền thành công!");
+    const collectionPayload: CounterCollectionPayload = {
+      orderId: numericId,
+      orderCode: order.orderCode,
+      queueNumber: order.queueNumber,
+      storeId: Number(order.storeId || user?.storeId || 1),
+      totalDue,
+      method: data.method,
+      cashAmount,
+      cashTendered,
+      bankAmount,
+      bankRefCode: data.refCode,
+      manualAcceptance,
+      exceptionReason,
+      staffNotes: data.manualReason,
+    };
 
-    // TỰ ĐỘNG MỞ NGAY MODAL BILL K80
-    if (targetOrder) {
-      setReceiptModalOrder(targetOrder);
-      setReceiptInitialMode("RECEIPT");
+    // Pha 1: Ghi nhận thu tiền tại quầy qua payment-service
+    let receipt: any;
+    try {
+      receipt = await paymentsApi.collectCounter(collectionPayload);
+    } catch (err: any) {
+      console.error("Lỗi Pha 1 thu tiền tại quầy:", err);
+      message.error(
+        "Lỗi thu tiền tại quầy: " +
+          (err?.response?.data?.message || getErrorMessage(err)),
+      );
+      return;
+    }
+
+    // Pha 1 thành công (HTTP 201)
+    setPaymentModalOrder(null);
+    const collectedOrder: StaffOrder = {
+      ...order,
+      paymentStatus: "COLLECTED",
+      paymentMethod: data.method,
+      receiptId: receipt.id,
+      receiptCode: receipt.receiptCode,
+      cashTendered: data.cashTendered,
+      cashChange: receipt.cashChange ?? data.cashChange,
+      bankDeclaredAmount: data.bankDeclaredAmount,
+      bankRefCode: receipt.bankRefCode || data.refCode,
+      manualAcceptanceReason: data.manualReason,
+      cashierName: receipt.staffName || user?.fullName || "Thu ngân",
+      printCount: receipt.printCount ?? 0,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Cập nhật đơn trong danh sách cục bộ để hiển thị ngay Badge "ĐÃ THU TẠI QUẦY"
+    setOrders((prev) =>
+      prev.map((o) => (o.id === order.id ? collectedOrder : o)),
+    );
+
+    // Tự động bật Modal Bill K80 cho thu ngân in bill
+    setReceiptModalOrder(collectedOrder);
+    setReceiptInitialMode("RECEIPT");
+
+    // Pha 2: Cập nhật trạng thái đơn hàng sang COMPLETED
+    try {
+      const updatedBackend = await ordersApi.updateStatus(numericId, {
+        status: "COMPLETED",
+        note: data.manualReason || "Đã thu tiền tại quầy và bàn giao",
+        version: order.version,
+      });
+
+      const completedOrder: StaffOrder = {
+        ...collectedOrder,
+        status: "COMPLETED",
+        version: updatedBackend.version ?? ((order.version ?? 0) + 1),
+      };
+
+      setOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? completedOrder : o)),
+      );
+      setActiveTab("COMPLETED");
+      message.success(
+        `Đơn hàng #${String(order.queueNumber).padStart(3, "0")} đã hoàn tất bàn giao!`,
+      );
+    } catch (err: any) {
+      if (
+        err?.response?.status === 409 ||
+        err?.response?.data?.code === "RESOURCE_CONFLICT" ||
+        err?.response?.data?.code === "CONCURRENCY_CONFLICT"
+      ) {
+        message.warning(
+          "Đơn hàng vừa được cập nhật từ thiết bị khác. Đang làm mới dữ liệu...",
+        );
+        await fetchOrders(false);
+        return;
+      }
+
+      console.warn("Lỗi Pha 2 bàn giao đơn hàng:", err);
+      // Giữ nguyên đơn tại tab READY, cập nhật Badge tiền thành "ĐÃ THU TẠI QUẦY", đổi nút thành "Thử lại bàn giao"
+      message.error(
+        "Lỗi kết nối khi cập nhật bàn giao. Đơn đã được thu tiền tại quầy, vui lòng bấm 'Thử lại bàn giao'.",
+      );
     }
   };
 
@@ -816,7 +897,7 @@ export function StaffOrdersPage() {
       <CounterOrderModal
         open={isPosModalOpen}
         onClose={() => setIsPosModalOpen(false)}
-        onSubmitOrder={handleCreateCounterOrder}
+        onSuccess={handleCounterOrderSuccess}
         existingOrderCount={orders.length}
       />
 

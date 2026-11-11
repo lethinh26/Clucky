@@ -81,7 +81,8 @@ public class SecurityConfig {
                             "/api/auth/login", "/api/auth/refresh", "/api/auth/forgot-password",
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll();
                     auth.requestMatchers("/api/payments/internal/**").hasAnyRole("INTERNAL_SERVICE", "ADMIN");
-                    auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
+                    auth.requestMatchers(HttpMethod.POST, "/api/payments/webhook/**").permitAll();
+                    auth.requestMatchers("/internal/**").denyAll();
                     auth.anyRequest().authenticated();
                 })
                 .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.jwtAuthenticationConverter(converter))

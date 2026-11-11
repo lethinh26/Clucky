@@ -305,6 +305,15 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 >
                   <Wallet size={18} /> Đã thu tiền & bàn giao
                 </button>
+              ) : order.paymentStatus === "COLLECTED" ? (
+                <button
+                  type="button"
+                  className={`${styles.actionButton} ${styles.btnSuccess}`}
+                  onClick={() => onStatusChange?.(order.id, "COMPLETED")}
+                  aria-label={"Thử lại bàn giao đơn " + formattedQueue}
+                >
+                  <CheckCircle2 size={18} /> Thử lại bàn giao
+                </button>
               ) : (
                 <button
                   type="button"

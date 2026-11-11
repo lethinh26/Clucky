@@ -73,7 +73,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.PUT, "/api/cart/items/**").permitAll()
                         .pathMatchers(HttpMethod.DELETE, "/api/cart/items/**", "/api/cart").permitAll()
                         .pathMatchers(HttpMethod.POST, "/api/orders/preview").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/payments/webhook/sepay").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/payments/webhook/sepay", "/api/payments/webhook/mbbank").permitAll()
                         .pathMatchers("/internal/**", "/api/catalog/internal/**", "/api/*/internal/**", "/api/payments/webhook/**").denyAll()
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.jwtAuthenticationConverter(

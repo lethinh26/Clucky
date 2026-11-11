@@ -99,9 +99,15 @@ public class Order {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
-    @Version
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 
     private Double latitude;
     private Double longitude;

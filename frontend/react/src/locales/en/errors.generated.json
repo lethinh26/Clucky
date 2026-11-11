@@ -35,5 +35,7 @@
   "EVIDENCE_REQUIRED": "Valid refund evidence is required.",
   "EVIDENCE_DELIVERY_UNAVAILABLE": "Private evidence delivery is currently unavailable.",
   "INVALID_THRESHOLD": "Invalid stock threshold.",
-  "PRODUCT_OUT_OF_STOCK": "Product is out of stock and cannot be put on sale."
+  "PRODUCT_OUT_OF_STOCK": "Product is out of stock and cannot be put on sale.",
+  "PAYMENT_REQUIRED_BEFORE_HANDOVER": "Payment is required before completing handover.",
+  "INSUFFICIENT_INVENTORY": "One or more items have insufficient inventory."
 }

@@ -26,7 +26,7 @@ interface CounterPaymentModalProps {
     bankDeclaredAmount: number;
     manualReason?: string;
     refCode?: string;
-  }) => void;
+  }) => Promise<void> | void;
 }
 
 const formatVnd = (val: number) => {
@@ -60,6 +60,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
 
   // Tab 3: SPLIT state
   const [splitCash, setSplitCash] = useState<number>(0);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Reset when order changes or modal opens
   useEffect(() => {
@@ -112,7 +113,8 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
     setTimeout(() => setCopiedText(""), 2000);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (isSubmitting) return;
     let finalMethod: PaymentMethod = activeTab;
     let finalTendered = 0;
     let finalChange = 0;
@@ -133,15 +135,20 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
       finalBankDeclared = splitBank;
     }
 
-    onConfirmPayment({
-      orderId: order.id,
-      method: finalMethod,
-      cashTendered: finalTendered,
-      cashChange: finalChange,
-      bankDeclaredAmount: finalBankDeclared,
-      manualReason: manualReason || undefined,
-      refCode,
-    });
+    setIsSubmitting(true);
+    try {
+      await onConfirmPayment({
+        orderId: order.id,
+        method: finalMethod,
+        cashTendered: finalTendered,
+        cashChange: finalChange,
+        bankDeclaredAmount: finalBankDeclared,
+        manualReason: manualReason || undefined,
+        refCode,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formattedQueue = `#${String(order.queueNumber).padStart(3, "0")}`;
@@ -459,10 +466,10 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
           <button
             type="button"
             className={styles.confirmButton}
-            disabled={activeTab === "CASH" && !isCashSufficient}
+            disabled={(activeTab === "CASH" && !isCashSufficient) || isSubmitting}
             onClick={handleConfirm}
           >
-            <span>Xác nhận thu tiền</span>
+            <span>{isSubmitting ? "Đang xử lý..." : "Xác nhận thu tiền"}</span>
             <ArrowRight size={18} />
           </button>
         </div>

@@ -234,6 +234,25 @@ export interface BackendOrder {
   orderSource?: 'WEB' | 'COUNTER';
   diningOption?: 'DINE_IN' | 'TAKE_AWAY';
   queueNumber?: number;
+  version?: number;
+}
+
+export interface CounterOrderItemPayload {
+  productId?: number;
+  comboId?: number;
+  quantity: number;
+  optionIds?: number[];
+  toppingIds?: number[];
+  options?: any[];
+  note?: string;
+}
+
+export interface CreateCounterOrderPayload {
+  storeId?: number;
+  diningOption?: 'DINE_IN' | 'TAKE_AWAY' | string;
+  paymentMethod?: string;
+  note?: string;
+  items: CounterOrderItemPayload[];
 }
 
 export interface PageResponse<T> {
@@ -260,20 +279,50 @@ export const ordersApi = {
       }),
   getById: (id: string | number, signal?: AbortSignal) =>
     api.get<BackendOrder>(`/api/orders/${id}`, { signal }).then((r) => r.data),
+  createCounterOrder: (
+    payload: CreateCounterOrderPayload,
+    idempotencyKey?: string,
+    signal?: AbortSignal
+  ) => {
+    const key =
+      idempotencyKey ||
+      (typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `counter-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    return api
+      .post<BackendOrder>('/api/orders/counter', payload, {
+        headers: { 'Idempotency-Key': key },
+        signal,
+      })
+      .then((r) => r.data);
+  },
   updateStatus: (
     id: string | number,
-    status: string,
-    reason?: string,
+    statusOrPayload:
+      | string
+      | { status: string; note?: string; version?: number; paymentStatus?: string },
+    reason?: string | AbortSignal,
     paymentStatus?: string,
     signal?: AbortSignal
-  ) =>
-    api
-      .put<BackendOrder>(
-        `/api/orders/${id}/status`,
-        { status, note: reason, paymentStatus },
-        { signal }
-      )
-      .then((r) => r.data),
+  ) => {
+    let payload: { status: string; note?: string; version?: number; paymentStatus?: string };
+    let sig: AbortSignal | undefined = signal;
+    if (typeof statusOrPayload === 'object' && statusOrPayload !== null) {
+      payload = statusOrPayload;
+      if (reason && typeof reason === 'object' && 'aborted' in reason) {
+        sig = reason as AbortSignal;
+      }
+    } else {
+      payload = {
+        status: statusOrPayload,
+        note: typeof reason === 'string' ? reason : undefined,
+        paymentStatus,
+      };
+    }
+    return api
+      .put<BackendOrder>(`/api/orders/${id}/status`, payload, { signal: sig })
+      .then((r) => r.data);
+  },
   cancel: (id: string | number, reason: string, signal?: AbortSignal) =>
     api
       .put<BackendOrder>(`/api/orders/${id}/cancel`, { reason }, { signal })
@@ -605,13 +654,91 @@ export interface BackendCounterReceipt {
   createdAt: string;
 }
 
+export interface CounterCollectionPayload {
+  orderId: number;
+  orderCode: string;
+  queueNumber?: number;
+  storeId: number;
+  totalDue: number;
+  method: 'CASH' | 'BANK_TRANSFER' | 'SPLIT' | string;
+  cashAmount?: number;
+  cashTendered?: number;
+  bankAmount?: number;
+  bankRefCode?: string;
+  manualAcceptance?: boolean;
+  exceptionReason?: string;
+  staffNotes?: string;
+}
+
+export interface ShiftSummaryData {
+  storeId: number;
+  date: string;
+  totalCashCollected: number;
+  totalCashChangeGiven: number;
+  netCashInDrawer: number;
+  totalBankReconciled: number;
+  totalBankPending: number;
+  totalDiscrepancy: number;
+  transactionCount: number;
+}
+
 export const paymentsApi = {
-  listBankTransactions: (signal?: AbortSignal) =>
-    api.get<BackendBankTransaction[]>('/api/payments/bank-transactions', { signal }).then((r) => r.data),
+  collectCounter: (
+    payload: CounterCollectionPayload,
+    idempotencyKey?: string,
+    signal?: AbortSignal
+  ) => {
+    const key =
+      idempotencyKey ||
+      (typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `pay-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    return api
+      .post<BackendCounterReceipt>('/api/payments/counter-collection', payload, {
+        headers: { 'Idempotency-Key': key },
+        signal,
+      })
+      .then((r) => r.data);
+  },
+  voidReceipt: (id: string | number, reason?: string, signal?: AbortSignal) =>
+    api
+      .post<BackendCounterReceipt>(
+        `/api/payments/receipts/${id}/void`,
+        reason ? { reason } : {},
+        { signal }
+      )
+      .then((r) => r.data),
+  trackPrint: (id: string | number, signal?: AbortSignal) =>
+    api
+      .post<BackendCounterReceipt>(`/api/payments/receipts/${id}/print`, {}, { signal })
+      .then((r) => r.data),
+  getShiftSummary: (storeId?: number, date?: string, signal?: AbortSignal) =>
+    api
+      .get<ShiftSummaryData>('/api/payments/shift-summary', {
+        params: { storeId, date },
+        signal,
+      })
+      .then((r) => r.data),
+  listBankTransactions: (storeId?: number, signal?: AbortSignal) =>
+    api
+      .get<BackendBankTransaction[]>('/api/payments/bank-transactions', {
+        params: storeId ? { storeId } : undefined,
+        signal,
+      })
+      .then((r) => r.data),
   listReceipts: (storeId?: number, signal?: AbortSignal) =>
-    api.get<BackendCounterReceipt[]>('/api/payments/receipts', { params: { storeId }, signal }).then((r) => r.data),
+    api
+      .get<BackendCounterReceipt[]>('/api/payments/receipts', {
+        params: storeId ? { storeId } : undefined,
+        signal,
+      })
+      .then((r) => r.data),
   getReceiptByOrderCode: (orderCode: string, signal?: AbortSignal) =>
-    api.get<BackendCounterReceipt>(`/api/payments/receipts/order/${orderCode}`, { signal }).then((r) => r.data),
+    api
+      .get<BackendCounterReceipt>(`/api/payments/receipts/order/${orderCode}`, {
+        signal,
+      })
+      .then((r) => r.data),
 };
 
 /* ---------- Reviews ---------- */

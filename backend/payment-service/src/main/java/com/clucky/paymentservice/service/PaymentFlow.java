@@ -265,7 +265,7 @@ public class PaymentFlow {
 
     private void lockOrder(long orderId) { jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", Object.class, "payment-order:" + orderId); }
 
-    void enqueue(String topic, long orderId, com.fasterxml.jackson.databind.node.ObjectNode payload) {
+    public void enqueue(String topic, long orderId, com.fasterxml.jackson.databind.node.ObjectNode payload) {
         String eventId = UUID.randomUUID().toString();
         String correlation = MDC.get("correlationId");
         if (correlation == null || !correlation.matches("[A-Za-z0-9._-]{1,128}")) correlation = eventId;

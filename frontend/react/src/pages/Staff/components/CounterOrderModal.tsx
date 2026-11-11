@@ -21,14 +21,22 @@ import {
   type PosCartItemOption,
 } from "../../../mocks/mockPosCatalog";
 import type { DiningOption, PaymentMethod, StaffOrder } from "../../../mocks/mockStaffOrders";
-import { catalogApi } from "../../../lib/api";
+import { useAuth } from "../../../context/AuthContext";
+import { message } from "../../../components/feedback";
+import {
+  catalogApi,
+  ordersApi,
+  type CounterOrderItemPayload,
+  type CreateCounterOrderPayload,
+} from "../../../lib/api";
 import styles from "./counter-order.module.css";
 
 interface CounterOrderModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmitOrder: (order: Partial<StaffOrder>) => Promise<void> | void;
-  existingOrderCount: number;
+  onSubmitOrder?: (order: Partial<StaffOrder>) => Promise<void> | void;
+  onSuccess?: () => void;
+  existingOrderCount?: number;
 }
 
 const formatVnd = (val: number) => {
@@ -39,8 +47,10 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
   open,
   onClose,
   onSubmitOrder,
-  existingOrderCount,
+  onSuccess,
+  existingOrderCount = 0,
 }) => {
+  const { user } = useAuth();
   // 1. Filter states
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -319,51 +329,66 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2, "0")}:${String(
-        now.getMinutes(),
-      ).padStart(2, "0")}`;
-      const queueNumber = 15 + existingOrderCount;
+      const items: CounterOrderItemPayload[] = cartItems.map((ci) => {
+        const isCombo = ci.productId.startsWith("combo-");
+        const comboId = isCombo
+          ? Number(ci.productId.replace("combo-", ""))
+          : undefined;
+        const productId = !isCombo
+          ? Number.isNaN(Number(ci.productId))
+            ? 1
+            : Number(ci.productId)
+          : undefined;
 
-      const orderPayload: Partial<StaffOrder> = {
-        orderCode: `CLU-${now.getFullYear()}${String(now.getMonth() + 1).padStart(
-          2,
-          "0",
-        )}${String(now.getDate()).padStart(2, "0")}-00${queueNumber}`,
-        queueNumber,
-        orderSource: "COUNTER",
-        diningOption,
-        customerName: "Khách vãng lai #" + queueNumber,
-        customerPhone: "",
-        orderType: "PICKUP",
-        status: "CONFIRMED",
-        paymentMethod,
-        paymentStatus:
-          paymentMethod === "CASH"
-            ? isCashCollected
-              ? "COLLECTED"
-              : "PENDING"
-            : "PENDING",
-        subtotal,
-        discount,
-        shippingFee: 0,
-        total: totalAmount,
-        note: orderNote.trim() || undefined,
-        time: timeStr,
-        createdAt: now.toISOString(),
-        items: cartItems.map((ci) => ({
-          id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          itemName: ci.name,
+        const optionIds: number[] = [];
+        if (Array.isArray(ci.options)) {
+          for (const opt of ci.options) {
+            const num = Number(opt.choiceId);
+            if (!Number.isNaN(num) && num > 0) {
+              optionIds.push(num);
+            }
+          }
+        }
+
+        return {
+          productId: productId || undefined,
+          comboId: comboId || undefined,
           quantity: ci.quantity,
-          unitPrice: ci.unitPrice,
-          options: ci.optionsSummary || undefined,
-          lineTotal: ci.lineTotal,
-          image: ci.image,
-        })),
+          optionIds: optionIds.length > 0 ? optionIds : undefined,
+          note: ci.note || undefined,
+        };
+      });
+
+      const effectiveStoreId = user?.storeId ? Number(user.storeId) : 1;
+      const payload: CreateCounterOrderPayload = {
+        storeId: effectiveStoreId,
+        diningOption,
+        paymentMethod: paymentMethod === "CASH" ? "CASH" : "BANK_TRANSFER",
+        note: orderNote.trim() || undefined,
+        items,
       };
 
-      await onSubmitOrder(orderPayload);
+      const created = await ordersApi.createCounterOrder(payload);
+
+      const qNum = created.queueNumber ?? (created.id || 1);
+      const formattedQueue = `#${String(qNum).padStart(3, "0")}`;
+      message.success(`Tạo đơn quầy thành công! Số thứ tự: ${formattedQueue}`);
+
+      setCartItems([]);
+      setOrderNote("");
       onClose();
+
+      if (onSuccess) {
+        onSuccess();
+      } else if (onSubmitOrder) {
+        await onSubmitOrder(created as any);
+      }
+    } catch (err: any) {
+      console.error("Lỗi tạo đơn quầy:", err);
+      message.error(
+        "Lỗi tạo đơn quầy: " +
+          (err?.response?.data?.message || err?.message || "Không thể tạo đơn"),
+      );
     } finally {
       setIsSubmitting(false);
     }

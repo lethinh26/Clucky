@@ -433,3 +433,65 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.tableNav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 2px solid #e8e2d9;
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.tableNavBtn {
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: none;
+  background-color: #faf5ed;
+  color: #6b6259;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.tableNavBtn:hover {
+  background-color: #f0eae1;
+  color: #16100d;
+}
+
+.tableNavBtnActive {
+  background-color: #8f1216;
+  color: #ffffff;
+}
+
+.tagVoided {
+  background-color: #fee4e2;
+  color: #b42318;
+  border: 1px solid #fecdca;
+  text-decoration: line-through;
+}
+
+.voidBtn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #b42318;
+  background-color: #ffffff;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.voidBtn:hover {
+  background-color: #b42318;
+  color: #ffffff;
+}

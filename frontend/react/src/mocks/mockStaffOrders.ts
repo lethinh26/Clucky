@@ -41,6 +41,8 @@ export interface StaffOrder {
   createdAt: string;
   updatedAt?: string;
   // Phase 2 extension fields:
+  version?: number;
+  receiptId?: number;
   printCount?: number;
   cashTendered?: number;
   cashChange?: number;

@@ -18,22 +18,29 @@ import com.clucky.cartorderservice.repository.OrderRepository;
 import com.clucky.cartorderservice.repository.OrderStatusHistoryRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -53,6 +60,7 @@ public class OrderService {
     private final PromotionClient promotionClient;
     private final LoyaltyClient loyaltyClient;
     private final ShippingClient shippingClient;
+    private final StringRedisTemplate redisTemplate;
     private final Random random = new SecureRandom();
 
     public OrderService(
@@ -68,6 +76,26 @@ public class OrderService {
             ShippingClient shippingClient,
             LoyaltyClient loyaltyClient
     ) {
+        this(orderRepository, orderItemRepository, orderStatusHistoryRepository, cartService,
+                accessGuard, objectMapper, orderEventPublisher, catalogClient, promotionClient,
+                shippingClient, loyaltyClient, null);
+    }
+
+    @Autowired
+    public OrderService(
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            OrderStatusHistoryRepository orderStatusHistoryRepository,
+            CartService cartService,
+            AccessGuard accessGuard,
+            ObjectMapper objectMapper,
+            OrderEventPublisher orderEventPublisher,
+            CatalogClient catalogClient,
+            PromotionClient promotionClient,
+            ShippingClient shippingClient,
+            LoyaltyClient loyaltyClient,
+            StringRedisTemplate redisTemplate
+    ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
@@ -79,6 +107,7 @@ public class OrderService {
         this.promotionClient = promotionClient;
         this.shippingClient = shippingClient;
         this.loyaltyClient = loyaltyClient;
+        this.redisTemplate = redisTemplate;
     }
 
     public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
@@ -344,6 +373,194 @@ public class OrderService {
         return DomainMapper.toResponse(order, savedItems, List.of(history));
     }
 
+    @Transactional(timeout = 60)
+    public OrderResponse createCounterOrder(CreateCounterOrderRequest request, String idempotencyKey) {
+        accessGuard.requireCounterStaff();
+        CurrentActor actor = CurrentActor.require();
+
+        Long effectiveStoreId;
+        if (actor.role() == Role.ADMIN) {
+            if (request.storeId() == null) {
+                throw new ApiException(ErrorCode.VALIDATION_ERROR, "storeId is required for ADMIN");
+            }
+            effectiveStoreId = request.storeId();
+        } else {
+            if (actor.storeId() == null) {
+                throw new AccessDeniedException("Store ID missing in staff token");
+            }
+            effectiveStoreId = actor.storeId();
+        }
+
+        // Idempotency check with Redis
+        String idempotencyRedisKey = null;
+        String payloadHash = null;
+        if (idempotencyKey != null && !idempotencyKey.isBlank() && redisTemplate != null) {
+            idempotencyRedisKey = "idempotency:counter-order:" + effectiveStoreId + ":" + idempotencyKey.trim();
+            try {
+                payloadHash = DigestUtils.md5DigestAsHex(objectMapper.writeValueAsBytes(request));
+            } catch (Exception e) {
+                payloadHash = Integer.toHexString(request.hashCode());
+            }
+
+            String cachedJson = redisTemplate.opsForValue().get(idempotencyRedisKey);
+            if (cachedJson != null && !cachedJson.isBlank()) {
+                try {
+                    JsonNode node = objectMapper.readTree(cachedJson);
+                    String cachedHash = node.path("hash").asText();
+                    long cachedOrderId = node.path("orderId").asLong();
+                    if (Objects.equals(payloadHash, cachedHash)) {
+                        Order existing = orderRepository.findById(cachedOrderId)
+                                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+                        List<OrderItem> existingItems = orderItemRepository.findByOrderIdOrderByIdAsc(existing.getId());
+                        List<OrderStatusHistory> existingHistory = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(existing.getId());
+                        return DomainMapper.toResponse(existing, existingItems, existingHistory);
+                    } else {
+                        throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Idempotency-Key already used with different payload");
+                    }
+                } catch (ApiException e) {
+                    throw e;
+                } catch (Exception e) {
+                    LOG.warn("Error parsing idempotency record: {}", e.getMessage());
+                }
+            }
+        }
+
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Danh sách món không được để trống");
+        }
+
+        List<CartItemDto> items = new ArrayList<>();
+        for (CounterOrderItemRequest it : request.items()) {
+            CartItemDto itemDto = new CartItemDto();
+            itemDto.setProductId(it.productId());
+            itemDto.setComboId(it.comboId());
+            itemDto.setQuantity(it.quantity() != null && it.quantity() > 0 ? it.quantity() : 1);
+            itemDto.setOptionIds(it.resolveOptionIds());
+            itemDto.setToppingIds(it.toppingIds() != null ? it.toppingIds() : List.of());
+            itemDto.setNote(it.note());
+            itemDto.setStoreId(effectiveStoreId);
+            items.add(itemDto);
+        }
+
+        // Validate items with Catalog Service (server-side verification of item, options, store availability & inventory)
+        CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(effectiveStoreId, items);
+        if (!catalogValidation.valid()) {
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : "Sản phẩm không hợp lệ";
+            boolean isInventoryIssue = false;
+            if (catalogValidation.items() != null) {
+                for (CatalogClient.ValidatedCatalogItem vi : catalogValidation.items()) {
+                    if (!vi.available() && vi.reason() != null &&
+                            (vi.reason().toLowerCase().contains("tồn kho") || vi.reason().toLowerCase().contains("hết hàng"))) {
+                        isInventoryIssue = true;
+                        msg = vi.reason();
+                        break;
+                    }
+                }
+            }
+            if (isInventoryIssue || msg.toLowerCase().contains("tồn kho") || msg.toLowerCase().contains("hết hàng")) {
+                throw new ApiException(ErrorCode.INSUFFICIENT_INVENTORY, msg);
+            }
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, msg);
+        }
+
+        if (!catalogValidation.storeOpen()) {
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : "Chi nhánh hiện đang ngoài giờ phục vụ";
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, msg);
+        }
+
+        BigDecimal subtotal = catalogValidation.subtotal();
+
+        // Generate daily queueNumber (1-999) per store
+        int queueNumber = generateDailyQueueNumber(effectiveStoreId);
+
+        String diningOption = "DINE_IN".equalsIgnoreCase(request.diningOption()) ? "DINE_IN" : "TAKE_AWAY";
+        String paymentMethod = (request.paymentMethod() != null && !request.paymentMethod().isBlank())
+                ? request.paymentMethod().trim().toUpperCase() : "CASH";
+
+        Order order = new Order();
+        order.setOrderCode(generateOrderCode());
+        order.setCustomerId(null);
+        order.setStoreId(effectiveStoreId);
+        order.setOrderSource("COUNTER");
+        order.setDiningOption(diningOption);
+        order.setQueueNumber(queueNumber);
+        order.setType("PICKUP");
+        order.setStatus("CONFIRMED");
+        order.setPaymentStatus("PENDING");
+        order.setPaymentMethod(paymentMethod);
+        order.setSubtotal(subtotal);
+        order.setDiscountAmount(BigDecimal.ZERO);
+        order.setPointsUsed(0);
+        order.setPointsAmount(BigDecimal.ZERO);
+        order.setShippingFee(BigDecimal.ZERO);
+        order.setTotalAmount(subtotal);
+        order.setReceiverName("Khách tại quầy #" + String.format("%03d", queueNumber));
+        order.setReceiverPhone("Tại quầy");
+        order.setDeliveryAddress("Tại quầy");
+        order.setNote(request.note());
+        order.setVersion(0L);
+
+        order = orderRepository.save(order);
+
+        List<OrderItem> savedItems = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            CartItemDto it = items.get(i);
+            CatalogClient.ValidatedCatalogItem validated = catalogValidation.items().get(i);
+            BigDecimal unitPrice = validated.unitPrice();
+            BigDecimal extraPrice = validated.extraPrice() != null ? validated.extraPrice() : BigDecimal.ZERO;
+            BigDecimal effectiveUnitPrice = unitPrice.add(extraPrice);
+
+            OrderItem item = new OrderItem();
+            item.setOrderId(order.getId());
+            item.setItemType(it.getProductId() != null ? "PRODUCT" : "COMBO");
+            item.setProductId(it.getProductId());
+            item.setComboId(it.getComboId());
+            item.setItemName(validated.name());
+            item.setUnitPrice(effectiveUnitPrice);
+            item.setQuantity(it.getQuantity());
+            item.setNote(it.getNote());
+            item.setLineTotal(effectiveUnitPrice.multiply(BigDecimal.valueOf(it.getQuantity())));
+
+            if (validated.optionsSnapshot() != null && !validated.optionsSnapshot().isEmpty()) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(validated.optionsSnapshot()));
+            }
+            if (validated.toppingsSnapshot() != null && !validated.toppingsSnapshot().isEmpty()) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(validated.toppingsSnapshot()));
+            }
+            savedItems.add(orderItemRepository.save(item));
+        }
+
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrderId(order.getId());
+        history.setFromStatus(null);
+        history.setToStatus("CONFIRMED");
+        history.setChangedBy(actor.userId());
+        history.setChangedRole(actor.role() != null ? actor.role().name() : "STAFF");
+        history.setReason("Tạo đơn quầy #" + queueNumber);
+        history.setCreatedAt(Instant.now());
+        orderStatusHistoryRepository.save(history);
+
+        // Transactional Outbox
+        orderEventPublisher.publishOrderCreated(order, savedItems);
+
+        // Cache Idempotency key if present
+        if (idempotencyRedisKey != null && payloadHash != null && redisTemplate != null) {
+            try {
+                ObjectNode cacheNode = objectMapper.createObjectNode();
+                cacheNode.put("hash", payloadHash);
+                cacheNode.put("orderId", order.getId());
+                redisTemplate.opsForValue().set(idempotencyRedisKey, objectMapper.writeValueAsString(cacheNode), Duration.ofHours(24));
+            } catch (Exception e) {
+                LOG.warn("Failed to cache idempotency key: {}", e.getMessage());
+            }
+        }
+
+        LOG.info("event=counter_order_created orderId={} orderCode={} queueNumber={} storeId={} total={}",
+                order.getId(), order.getOrderCode(), queueNumber, effectiveStoreId, order.getTotalAmount());
+
+        return DomainMapper.toResponse(order, savedItems, List.of(history));
+    }
+
     @Transactional
     public OrderResponse cancelOrder(Long id, CancelOrderRequest request) {
         Order order = orderRepository.lockById(id)
@@ -430,9 +647,16 @@ public class OrderService {
 
         accessGuard.requireStore(order.getStoreId());
 
+        if (request.version() != null && !Objects.equals(request.version(), order.getVersion())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Dữ liệu đơn hàng đã bị thay đổi, vui lòng tải lại.");
+        }
+
         String current = order.getStatus().toUpperCase();
         String target = request.status().trim().toUpperCase();
         if ("CANCELLED".equals(target)) {
+            if (Set.of("PREPARING", "READY").contains(current)) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Không thể hủy đơn hàng đã chế biến");
+            }
             cancellationReason(order, request.note());
         }
 
@@ -443,9 +667,16 @@ public class OrderService {
             }
         }
 
-        if (("COMPLETED".equals(target) || ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)))
-                && (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()))) {
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        if ("COMPLETED".equals(target)) {
+            if (order.getPaymentStatus() == null || "PENDING".equalsIgnoreCase(order.getPaymentStatus())
+                    || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+                throw new ApiException(ErrorCode.PAYMENT_REQUIRED_BEFORE_HANDOVER, "Đơn hàng chưa được thanh toán đầy đủ trước khi bàn giao.");
+            }
+        }
+        if ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)) {
+            if (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            }
         }
 
         if (current.equals(target)) {
@@ -627,13 +858,41 @@ public class OrderService {
     }
 
     public PageResponse<OrderResponse> getOrders(Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+        return getOrders(requestedStoreId, status, null, null, null, orderCode, pageable);
+    }
+
+    public PageResponse<OrderResponse> getOrders(
+            Long requestedStoreId,
+            String status,
+            String paymentStatus,
+            String orderSource,
+            String date,
+            String orderCode,
+            Pageable pageable
+    ) {
         Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
+        String cleanPaymentStatus = (paymentStatus != null && !paymentStatus.isBlank()) ? paymentStatus.trim().toUpperCase() : null;
+        String cleanOrderSource = (orderSource != null && !orderSource.isBlank()) ? orderSource.trim().toUpperCase() : null;
         String orderCodePattern = (orderCode != null && !orderCode.isBlank())
                 ? "%" + orderCode.trim().toLowerCase() + "%"
                 : null;
 
-        Page<Order> orderPage = orderRepository.findOrders(effectiveStoreId, cleanStatus, orderCodePattern, pageable);
+        Instant createdFrom = null;
+        Instant createdTo = null;
+        if (date != null && !date.isBlank()) {
+            try {
+                LocalDate localDate = LocalDate.parse(date.trim());
+                createdFrom = localDate.atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+                createdTo = localDate.plusDays(1).atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+            } catch (Exception e) {
+                LOG.warn("Failed to parse date filter {}: {}", date, e.getMessage());
+            }
+        }
+
+        Page<Order> orderPage = orderRepository.findOrdersFiltered(
+                effectiveStoreId, cleanStatus, cleanPaymentStatus, cleanOrderSource,
+                createdFrom, createdTo, orderCodePattern, pageable);
         return mapToOrderResponsePage(orderPage);
     }
 
@@ -726,6 +985,9 @@ public class OrderService {
     }
 
     private String cancellationReason(Order order, String reason) {
+        if (Set.of("PREPARING", "READY").contains(order.getStatus())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Không thể hủy đơn hàng đã chế biến");
+        }
         if (!Set.of("PENDING_PAYMENT", "CONFIRMED").contains(order.getStatus())) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
@@ -749,5 +1011,27 @@ public class OrderService {
             }
         }
         return "CLU-" + dateStr + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 4).toUpperCase();
+    }
+
+    private int generateDailyQueueNumber(Long storeId) {
+        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDate.now());
+        String queueKey = "queue:store:" + storeId + ":" + dateStr;
+        if (redisTemplate != null) {
+            try {
+                Long seq = redisTemplate.opsForValue().increment(queueKey);
+                if (seq != null) {
+                    if (seq == 1L) {
+                        redisTemplate.expire(queueKey, Duration.ofDays(2));
+                    }
+                    return (int) (((seq - 1) % 999) + 1);
+                }
+            } catch (Exception e) {
+                LOG.warn("Failed to generate queue number with redis for store {}: {}", storeId, e.getMessage());
+            }
+        }
+        Instant startOfDay = LocalDate.now().atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+        Integer maxQueue = orderRepository.findMaxQueueNumberForStoreAndDate(storeId, startOfDay);
+        int next = (maxQueue != null ? maxQueue : 0) + 1;
+        return ((next - 1) % 999) + 1;
     }
 }

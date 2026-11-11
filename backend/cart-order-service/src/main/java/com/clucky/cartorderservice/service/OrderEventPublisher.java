@@ -117,6 +117,15 @@ public class OrderEventPublisher {
         payload.put("type", order.getType());
         payload.put("status", order.getStatus());
         payload.put("paymentStatus", order.getPaymentStatus());
+        if (order.getOrderSource() != null) {
+            payload.put("orderSource", order.getOrderSource());
+        }
+        if (order.getDiningOption() != null) {
+            payload.put("diningOption", order.getDiningOption());
+        }
+        if (order.getQueueNumber() != null) {
+            payload.put("queueNumber", order.getQueueNumber());
+        }
         if (order.getPaymentMethod() != null) {
             payload.put("paymentMethod", order.getPaymentMethod());
         }

@@ -18,4 +18,11 @@ public class OrderPaymentController {
     @GetMapping("/api/orders/{id}/payment-context")
     public OrderPaymentService.Context context(@PathVariable @Positive long id) { return service.context(id); }
 
+    @PutMapping("/api/orders/{id}/payment-status")
+    public org.springframework.http.ResponseEntity<Void> updatePaymentStatus(
+            @PathVariable @Positive long id,
+            @RequestBody java.util.Map<String, String> body) {
+        service.updatePaymentStatus(id, body != null ? body.get("paymentStatus") : null);
+        return org.springframework.http.ResponseEntity.ok().build();
+    }
 }

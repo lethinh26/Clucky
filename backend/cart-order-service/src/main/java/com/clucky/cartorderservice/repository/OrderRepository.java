@@ -59,6 +59,37 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         Pageable pageable
     );
 
+    @Query("""
+        SELECT o FROM Order o
+        WHERE (:storeId IS NULL OR o.storeId = :storeId)
+          AND (:status IS NULL OR o.status = :status)
+          AND (:paymentStatus IS NULL OR o.paymentStatus = :paymentStatus)
+          AND (:orderSource IS NULL OR o.orderSource = :orderSource)
+          AND (:createdFrom IS NULL OR o.createdAt >= :createdFrom)
+          AND (:createdTo IS NULL OR o.createdAt < :createdTo)
+          AND (:orderCodePattern IS NULL OR LOWER(o.orderCode) LIKE LOWER(:orderCodePattern))
+        ORDER BY o.createdAt DESC
+    """)
+    Page<Order> findOrdersFiltered(
+        @Param("storeId") Long storeId,
+        @Param("status") String status,
+        @Param("paymentStatus") String paymentStatus,
+        @Param("orderSource") String orderSource,
+        @Param("createdFrom") java.time.Instant createdFrom,
+        @Param("createdTo") java.time.Instant createdTo,
+        @Param("orderCodePattern") String orderCodePattern,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT COALESCE(MAX(o.queueNumber), 0) FROM Order o
+        WHERE o.storeId = :storeId AND o.createdAt >= :createdFrom
+    """)
+    Integer findMaxQueueNumberForStoreAndDate(
+        @Param("storeId") Long storeId,
+        @Param("createdFrom") java.time.Instant createdFrom
+    );
+
     default Page<Order> findOrders(Long storeId, String status, String orderCodePattern, Pageable pageable) {
         if (orderCodePattern != null && !orderCodePattern.isBlank()) {
             return findOrdersWithCode(storeId, status, orderCodePattern.trim(), pageable);

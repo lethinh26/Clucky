@@ -42,6 +42,15 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/counter")
+    public ResponseEntity<OrderResponse> createCounterOrder(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody CreateCounterOrderRequest request
+    ) {
+        OrderResponse response = orderService.createCounterOrder(request, idempotencyKey);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
     @GetMapping("/my")
     public ResponseEntity<PageResponse<OrderResponse>> getMyOrders(
             @RequestParam(value = "status", required = false) String status,
@@ -60,6 +69,9 @@ public class OrderController {
     public ResponseEntity<PageResponse<OrderResponse>> getOrders(
             @RequestParam(value = "storeId", required = false) Long storeId,
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "paymentStatus", required = false) String paymentStatus,
+            @RequestParam(value = "orderSource", required = false) String orderSource,
+            @RequestParam(value = "date", required = false) String date,
             @RequestParam(value = "orderCode", required = false) String orderCode,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size
@@ -68,7 +80,8 @@ public class OrderController {
         int pageSize = Math.min(Math.max(1, size), 200);
         Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        PageResponse<OrderResponse> response = orderService.getOrders(storeId, status, orderCode, pageable);
+        PageResponse<OrderResponse> response = orderService.getOrders(
+                storeId, status, paymentStatus, orderSource, date, orderCode, pageable);
         return ResponseEntity.ok(response);
     }
 

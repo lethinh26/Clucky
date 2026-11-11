@@ -193,4 +193,32 @@ public class OrderPaymentService {
             orderService.compensateFailedPayment(id, order.getOrderCode(), "PAYMENT_EXPIRED");
         }
     }
+
+    @Transactional
+    public void updatePaymentStatus(long id, String paymentStatus) {
+        Order order = orders.lockById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (com.clucky.cartorderservice.config.CurrentActor.require().role() != com.clucky.cartorderservice.dto.Role.ADMIN
+                && com.clucky.cartorderservice.config.CurrentActor.require().role() != com.clucky.cartorderservice.dto.Role.INTERNAL_SERVICE) {
+            access.requireStore(order.getStoreId());
+        }
+        if ("COLLECTED".equalsIgnoreCase(paymentStatus)) {
+            order.setPaymentStatus("COLLECTED");
+            if ("PENDING_PAYMENT".equals(order.getStatus())) {
+                String prev = order.getStatus();
+                order.setStatus("CONFIRMED");
+                OrderStatusHistory historyEntry = new OrderStatusHistory();
+                historyEntry.setOrderId(id);
+                historyEntry.setFromStatus(prev);
+                historyEntry.setToStatus("CONFIRMED");
+                historyEntry.setChangedRole("STAFF");
+                historyEntry.setReason("COUNTER_COLLECTED");
+                historyEntry.setCreatedAt(Instant.now());
+                history.save(historyEntry);
+                events.publishOrderStatusChanged(order, items.findByOrderIdOrderByIdAsc(id), prev);
+            }
+        } else if ("PENDING".equalsIgnoreCase(paymentStatus)) {
+            order.setPaymentStatus("PENDING");
+        }
+        orders.save(order);
+    }
 }

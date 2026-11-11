@@ -9,7 +9,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { message } from "../../../components/feedback";
+import { useAuth } from "../../../context/AuthContext";
 import type { StaffOrder } from "../../../mocks/mockStaffOrders";
+import { paymentsApi } from "../../../lib/api";
 import styles from "./receipt-bill.module.css";
 
 interface ReceiptBillModalProps {
@@ -31,6 +33,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
   onPrintSuccess,
   initialMode = "RECEIPT",
 }) => {
+  const { user } = useAuth();
   const [mode, setMode] = useState<"RECEIPT" | "KOT">(initialMode);
   const [isPaperFeeding, setIsPaperFeeding] = useState<boolean>(false);
   const [printCount, setPrintCount] = useState<number>(0);
@@ -56,18 +59,41 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
   const isReprint = printCount >= 1;
 
   // Print simulation action
-  const handlePrint = (printMode: "RECEIPT" | "KOT") => {
+  const handlePrint = async (printMode: "RECEIPT" | "KOT") => {
     setIsPaperFeeding(true);
 
+    let updatedCount = printCount + 1;
+
+    if (printMode === "RECEIPT") {
+      try {
+        let rId = order.receiptId;
+        if (!rId && order.orderCode) {
+          const fetched = await paymentsApi
+            .getReceiptByOrderCode(order.orderCode)
+            .catch(() => null);
+          if (fetched?.id) {
+            rId = fetched.id;
+          }
+        }
+        if (rId) {
+          const printRes = await paymentsApi.trackPrint(rId).catch(() => null);
+          if (printRes?.printCount) {
+            updatedCount = printRes.printCount;
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi gọi trackPrint:", err);
+      }
+    }
+
     setTimeout(() => {
-      const nextCount = printCount + 1;
-      setPrintCount(nextCount);
-      onPrintSuccess?.(order.id, nextCount);
+      setPrintCount(updatedCount);
+      onPrintSuccess?.(order.id, updatedCount);
 
       if (printMode === "RECEIPT") {
         message.success(
           isReprint
-            ? "Đã in lại bản sao hóa đơn #" + nextCount + " thành công! (Mô phỏng máy in nhiệt K80)"
+            ? "Đã in lại bản sao hóa đơn #" + updatedCount + " thành công! (Mô phỏng máy in nhiệt K80)"
             : "Đã in hóa đơn thành công! (Mô phỏng máy in nhiệt K80)",
         );
       } else {
@@ -223,7 +249,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                 </div>
                 <div className={styles.metaRow}>
                   <span>Thu ngân phục vụ:</span>
-                  <span>{order.cashierName || "Trần Đức Anh (Staff)"}</span>
+                  <span>{order.cashierName || (user?.fullName ? `${user.fullName} (${user.role === "STAFF" ? "Staff" : user.role})` : "Nhân viên")}</span>
                 </div>
                 {order.customerName && (
                   <div className={styles.metaRow}>
