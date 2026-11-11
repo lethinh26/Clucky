@@ -10,6 +10,7 @@ import { useOrder } from "@/components/order/order-provider";
 import { type Product } from "@/lib/products";
 import { catalogSelectionId } from "@/lib/cart";
 import { ArrowLeft, Minus, Plus, ShoppingBag, Check } from "lucide-react";
+import { ProductReviewsSection } from "@/components/reviews/product-reviews-section";
 
 interface ProductDetailClientProps {
   product: Product;
@@ -701,6 +702,9 @@ export function ProductDetailClient({ product, storeId, itemType }: ProductDetai
           </div>
         </div>
       </div>
+      {itemType === "PRODUCT" && (
+        <ProductReviewsSection productId={Number(product.id)} productName={product.name} />
+      )}
     </div>
   );
 }

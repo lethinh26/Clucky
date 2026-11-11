@@ -17,7 +17,7 @@ import static org.mockito.Mockito.*;
 
 class LoyaltySafetyTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final LoyaltyService service = new LoyaltyService(jdbc);
+    private final LoyaltyService service = new LoyaltyService(jdbc, mock(VoucherAuditOutbox.class));
 
     @AfterEach
     void clearActor() { SecurityContextHolder.clearContext(); }

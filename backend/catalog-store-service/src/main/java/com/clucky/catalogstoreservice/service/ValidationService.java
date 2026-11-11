@@ -89,13 +89,13 @@ public class ValidationService {
         }
 
         // Aggregate total demanded quantities per product across standalone items and combos
-        Map<Long, Integer> totalDemandedQuantity = new HashMap<>();
+        Map<Long, Long> totalDemandedQuantity = new HashMap<>();
         Map<Long, Combo> comboCache = new HashMap<>();
 
         for (ValidationDto.ValidateItemRequest itemReq : request.getItems()) {
             int qty = itemReq.getQuantity() != null && itemReq.getQuantity() > 0 ? itemReq.getQuantity() : 1;
             if (itemReq.getProductId() != null) {
-                totalDemandedQuantity.merge(itemReq.getProductId(), qty, Integer::sum);
+                totalDemandedQuantity.merge(itemReq.getProductId(), (long) qty, (current, added) -> current > Long.MAX_VALUE - added ? Long.MAX_VALUE : current + added);
             } else if (itemReq.getComboId() != null) {
                 Combo combo = comboCache.computeIfAbsent(itemReq.getComboId(), id ->
                         comboRepository.findByIdWithItems(id).orElse(null)
@@ -103,8 +103,8 @@ public class ValidationService {
                 if (combo != null && combo.getItems() != null) {
                     for (ComboItem ci : combo.getItems()) {
                         if (ci.getProduct() != null && ci.getProduct().getId() != null) {
-                            int compQty = (ci.getQuantity() != null && ci.getQuantity() > 0 ? ci.getQuantity() : 1) * qty;
-                            totalDemandedQuantity.merge(ci.getProduct().getId(), compQty, Integer::sum);
+                            long compQty = (long) (ci.getQuantity() != null && ci.getQuantity() > 0 ? ci.getQuantity() : 1) * qty;
+                            totalDemandedQuantity.merge(ci.getProduct().getId(), compQty, (current, added) -> current > Long.MAX_VALUE - added ? Long.MAX_VALUE : current + added);
                         }
                     }
                 }
@@ -150,7 +150,7 @@ public class ValidationService {
                         allValid = false;
                     } else {
                         int availableStock = siOpt.get().getQuantityAvailable() != null ? siOpt.get().getQuantityAvailable() : 0;
-                        int requiredStock = totalDemandedQuantity.getOrDefault(prod.getId(), qty);
+                        long requiredStock = totalDemandedQuantity.getOrDefault(prod.getId(), (long) qty);
                         if (availableStock < requiredStock) {
                             itemResult.setAvailable(false);
                             itemResult.setReason("Món ăn không đủ số lượng tồn kho tại chi nhánh.");
@@ -306,7 +306,7 @@ public class ValidationService {
                                 break;
                             }
                             int availableStock = siOpt.get().getQuantityAvailable() != null ? siOpt.get().getQuantityAvailable() : 0;
-                            int requiredStock = totalDemandedQuantity.getOrDefault(cp.getId(), 0);
+                            long requiredStock = totalDemandedQuantity.getOrDefault(cp.getId(), 0L);
                             if (availableStock < requiredStock) {
                                 itemResult.setAvailable(false);
                                 itemResult.setReason("Món '" + cp.getName() + "' trong combo không đủ tồn kho tại chi nhánh.");

@@ -73,6 +73,11 @@ class ReportProjectionTest {
             var invalid = valid();
             ((ObjectNode) invalid.payload()).put("totalAmount", amount);
             assertThrows(IllegalArgumentException.class, () -> service.processProjectionEvent(invalid));
+            for (String field : new String[] {"excessAmount", "cashAmount", "declaredTransfer"}) {
+                var invalidOptional = valid();
+                ((ObjectNode) invalidOptional.payload()).put(field, amount);
+                assertThrows(IllegalArgumentException.class, () -> service.processProjectionEvent(invalidOptional));
+            }
         }
         var badDate = valid();
         ((ObjectNode) badDate.payload()).put("completedAt", "not-a-date");
@@ -96,6 +101,37 @@ class ReportProjectionTest {
     }
 
     @Test
+    void mixedCollectionPreservesDeclarationsWithoutInflatingRevenue() {
+        var tracker=new OrderProjectionTracker(1L,null,0L,LocalDate.of(2026,11,5),null,
+                BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ZERO,false,false,false);
+        when(events.claim("event-1","order.completed",1L)).thenReturn(1);
+        when(trackers.findByOrderId(1L)).thenReturn(Optional.of(tracker));
+        var collected = event("collection-1", "payment.confirmed", 1L, 2L, "2026-11-04T17:01:00Z");
+        ((ObjectNode) collected.payload()).put("operationType", "COLLECTION").put("status", "COLLECTED");
+        when(events.claim("collection-1", "payment.confirmed", 1L)).thenReturn(1);
+        assertFalse(service.processProjectionEvent(collected));
+        var completed=valid();
+        ((ObjectNode)completed.payload()).put("paymentMethod","MIXED").put("cashAmount",80000).put("declaredTransfer",60000);
+        assertTrue(service.processProjectionEvent(completed));
+        verify(stats).upsertStatsDelta(2L,LocalDate.of(2026,11,5),1,new BigDecimal("120000"),new BigDecimal("80000"),new BigDecimal("60000"));
+        assertEquals(new BigDecimal("120000"),tracker.getRevenueAmount());
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                BigDecimal.ZERO, new BigDecimal("60000"), BigDecimal.ZERO, BigDecimal.ZERO);
+        assertFalse(service.processProjectionEvent(collected));
+        assertFalse(service.processProjectionEvent(completed));
+        assertEquals(new BigDecimal("60000"), tracker.getPendingReconciliationAmount());
+        assertEquals(BigDecimal.ZERO, tracker.getReconciledTransferAmount());
+
+        var bankConfirmed = event("bank-1", "payment.confirmed", 1L, 2L, "2026-11-04T17:10:00Z");
+        ((ObjectNode) bankConfirmed.payload()).put("method", "BANK_TRANSFER").put("amount", 60000);
+        when(events.claim("bank-1", "payment.confirmed", 1L)).thenReturn(1);
+        assertFalse(service.processProjectionEvent(bankConfirmed));
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                new BigDecimal("60000"), new BigDecimal("-60000"), BigDecimal.ZERO, BigDecimal.ZERO);
+        verifyNoMoreInteractions(stats);
+    }
+
+    @Test
     void sqlFailurePropagatesWithoutJpaFallback() {
         var tracker = new OrderProjectionTracker(1L, null, 0L, LocalDate.of(2026, 11, 5), null,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, false, false);
@@ -105,6 +141,56 @@ class ReportProjectionTest {
         assertThrows(IllegalStateException.class, () -> service.processProjectionEvent(valid()));
         assertFalse(tracker.isContributed());
         verify(stats, never()).save(any());
+    }
+
+    @Test
+    void separatesExcessAndPendingReconciliationFromRevenueAndSettlesUponBankConfirmation() {
+        var tracker = new OrderProjectionTracker(10L, null, 0L, LocalDate.of(2026, 11, 5), null,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, false, false);
+        var transferOrder = event("evt-xfer-1", "order.completed", 10L, 2L, "2026-11-04T17:01:00Z");
+        ((ObjectNode) transferOrder.payload())
+                .put("paymentMethod", "BANK_TRANSFER")
+                .put("orderTotal", 100000)
+                .put("totalAmount", 125000)
+                .put("manualAccepted", true);
+        when(events.claim("evt-xfer-1", "order.completed", 10L)).thenReturn(1);
+        when(trackers.findByOrderId(10L)).thenReturn(Optional.of(tracker));
+
+        assertTrue(service.processProjectionEvent(transferOrder));
+
+        verify(stats).upsertStatsDelta(2L, LocalDate.of(2026, 11, 5), 1,
+                new BigDecimal("100000"), BigDecimal.ZERO, new BigDecimal("100000"));
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                BigDecimal.ZERO, new BigDecimal("100000"), new BigDecimal("25000"), BigDecimal.ZERO);
+
+        var bankConfirmed = event("evt-bank-1", "payment.confirmed", 10L, 2L, "2026-11-04T17:10:00Z");
+        ((ObjectNode) bankConfirmed.payload()).put("method", "BANK_TRANSFER").put("amount", 100000);
+        when(events.claim("evt-bank-1", "payment.confirmed", 10L)).thenReturn(1);
+
+        assertFalse(service.processProjectionEvent(bankConfirmed));
+
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                new BigDecimal("100000"), new BigDecimal("-100000"), BigDecimal.ZERO, BigDecimal.ZERO);
+        verifyNoMoreInteractions(stats);
+    }
+
+    @Test
+    void expiredOrderReceiptsNeverIncrementOrderCountOrRevenue() {
+        var tracker = new OrderProjectionTracker(11L, null, 0L, LocalDate.of(2026, 11, 5), null,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, false, false);
+        var expiredOrder = event("evt-exp-1", "order.completed", 11L, 2L, "2026-11-04T17:01:00Z");
+        ((ObjectNode) expiredOrder.payload())
+                .put("paymentMethod", "BANK_TRANSFER")
+                .put("totalAmount", 85000)
+                .put("expired", true);
+        when(events.claim("evt-exp-1", "order.completed", 11L)).thenReturn(1);
+        when(trackers.findByOrderId(11L)).thenReturn(Optional.of(tracker));
+
+        assertFalse(service.processProjectionEvent(expiredOrder));
+
+        verify(stats, never()).upsertStatsDelta(anyLong(), any(), anyInt(), any(), any(), any());
+        verify(stats).upsertReconciliationDelta(2L, LocalDate.of(2026, 11, 5),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("85000"));
     }
 
     @Test

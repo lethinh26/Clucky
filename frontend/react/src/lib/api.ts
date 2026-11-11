@@ -18,6 +18,8 @@ export interface ProductTopping {
 }
 
 export interface Product {
+  version?: number;
+  imagePublicId?: string | null;
   id: number;
   slug: string;
   name: string;
@@ -39,6 +41,8 @@ export interface Product {
 }
 
 export interface Combo {
+  version?: number;
+  imagePublicId?: string | null;
   id: number;
   name: string;
   slug: string;
@@ -48,11 +52,13 @@ export interface Combo {
   startAt?: string | null;
   endAt?: string | null;
   isActive: boolean;
-  items: { productId: number; productName: string; quantity: number; optionId?: number }[];
+  items: { id?: number; productId: number; productName: string; quantity: number; optionId?: number | null }[];
 }
 
 export interface Store {
-  accountReadiness?: 'LEGACY' | 'PENDING' | 'PROVISIONED' | 'READY';
+  deliveryRadiusKm?: number | null;
+  version?: number;
+  accountReadiness?: 'UNPROVISIONED' | 'PENDING' | 'PROVISIONED' | 'READY';
   recoveryEmail?: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -69,9 +75,12 @@ export interface Store {
   managerId?: number;
   managerName?: string;
   isOpenNow?: boolean;
+  lowStockThreshold?: number;
 }
 
 export interface InventoryItem {
+  version: number;
+  availabilityVersion: number;
   storeId: number;
   productId: number;
   productName: string;
@@ -85,6 +94,7 @@ export interface InventoryItem {
 }
 
 export interface CatalogCategory {
+  version?: number;
   id: number;
   name: string;
   imageUrl?: string;
@@ -273,20 +283,61 @@ export const ordersApi = {
 };
 
 /* ---------- Refunds ---------- */
+export interface BackendRefundAttempt {
+  createdBy?: number;
+  id: number;
+  refundRequestId: number;
+  attemptNumber: number;
+  attemptId: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  accountNumber?: string;
+  bankAccountName?: string;
+  accountHolderName?: string;
+  amount: number;
+  status: string;
+  failureReason?: string;
+  evidencePublicId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BackendRefund {
+  paymentOperation?: 'RESERVE' | 'CONFIRM' | 'RELEASE' | null;
+  paymentError?: string | null;
   id: number;
   orderId: number;
-  orderCode: string;
+  orderCode?: string;
+  storeId?: number;
+  customerId?: number;
   amount: number;
   reason: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'REFUNDED';
+  status: 'PENDING' | 'APPROVED' | 'PROCESSING' | 'WAITING_BANK_DETAILS' | 'REFUNDED' | 'REJECTED';
   reviewedBy?: number;
   reviewedAt?: string;
   reviewNote?: string;
-  createdAt: string;
+  bankName?: string;
+  bankAccountNo?: string;
+  accountNumber?: string;
+  bankAccountName?: string;
+  accountHolderName?: string;
+  bankDetailsVersion?: number;
+  attemptCount?: number;
+  currentAttemptId?: string;
+  evidencePublicId?: string;
+  confirmedAt?: string;
+  confirmedBy?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  attempts?: BackendRefundAttempt[];
 }
 
 export const refundsApi = {
+  create: (
+    data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string },
+    signal?: AbortSignal
+  ) =>
+    api.post<BackendRefund>('/api/refund-requests', data, { signal }).then((r) => r.data),
   list: (
     params?: { storeId?: number; status?: string; page?: number; size?: number },
     signal?: AbortSignal
@@ -300,6 +351,10 @@ export const refundsApi = {
         if (Array.isArray(r.data)) return r.data as BackendRefund[];
         throw { code: 'UPSTREAM_ERROR' };
       }),
+  getById: (id: string | number, signal?: AbortSignal) =>
+    api.get<BackendRefund>(`/api/refund-requests/${id}`, { signal }).then((r) => r.data),
+  get: (id: string | number, signal?: AbortSignal) =>
+    api.get<BackendRefund>(`/api/refund-requests/${id}`, { signal }).then((r) => r.data),
   review: (
     id: string | number,
     action: 'APPROVE' | 'REJECT',
@@ -310,11 +365,40 @@ export const refundsApi = {
     return api
       .put<BackendRefund>(
         `/api/refund-requests/${id}/${endpoint}`,
-        { reason: note },
+        { reason: note, note: note },
         { signal }
       )
       .then((r) => r.data);
   },
+  claimProcessing: (id: string | number, signal?: AbortSignal) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/claim-processing`, {}, { signal }).then((r) => r.data),
+  requestBankDetails: (id: string | number, reason: string, transferNotCompleted = false, signal?: AbortSignal) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/request-bank-details`, { reason, transferNotCompleted }, { signal }).then((r) => r.data),
+  updateBankDetails: (
+    id: string | number,
+    data: { bankName: string; bankAccountNo?: string; accountNumber?: string; bankAccountName?: string; accountHolderName?: string; expectedBankDetailsVersion?: number },
+    signal?: AbortSignal
+  ) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/bank-details`, {
+      bankName: data.bankName,
+      bankAccountNo: data.accountNumber ?? data.bankAccountNo,
+      bankAccountName: data.accountHolderName ?? data.bankAccountName,
+      expectedBankDetailsVersion: data.expectedBankDetailsVersion,
+    }, { signal }).then((r) => r.data),
+  uploadEvidence: (id: string | number, file: File, signal?: AbortSignal) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api
+      .post<BackendRefund>(`/api/refund-requests/${id}/evidence`, formData, {
+        signal,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+  getEvidenceAccess: (id: string | number, signal?: AbortSignal) =>
+    api.get<{ accessUrl: string; expiresInSeconds: number }>(`/api/refund-requests/${id}/evidence`, { signal }).then((r) => r.data),
+  confirmRefund: (id: string | number, note?: string, signal?: AbortSignal) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/confirm-refund`, { note }, { signal }).then((r) => r.data),
 };
 
 /* ---------- Party Orders ---------- */
@@ -460,6 +544,8 @@ export const catalogApi = {
 
 /* ---------- Stores ---------- */
 export const storesApi = {
+  updateDeliverySettings: (id: number, radiusKm: number | null, version: number) =>
+    api.put<Store>(`/api/stores/${id}/delivery-settings`, { radiusKm, version }).then(response => response.data),
   updateLocation: (id: number, point: { latitude: number | null; longitude: number | null }) =>
     api.put<Store>('/api/stores/' + id + '/location', point).then(response => response.data),
   list: (activeOnly?: boolean, signal?: AbortSignal) =>
@@ -472,7 +558,7 @@ export const storesApi = {
     api.put<Store>(`/api/stores/${id}`, data).then((r) => r.data),
   delete: (id: number) =>
     api.delete(`/api/stores/${id}`).then((r) => r.data),
-  updateOperation: (id: number, data: { openTime?: string; closeTime?: string; status?: string }) =>
+  updateOperation: (id: number, data: { openTime?: string; closeTime?: string; status?: string; phone?: string; latitude?: number | null; longitude?: number | null; deliveryArea?: string; lowStockThreshold?: number }) =>
     api.put<Store>(`/api/stores/${id}/operation`, data).then((r) => r.data),
 };
 
@@ -480,10 +566,261 @@ export const storesApi = {
 export const inventoryApi = {
   getStoreInventory: (storeId: number) =>
     api.get<InventoryItem[]>(`/api/stores/${storeId}/inventory`).then((r) => r.data),
-  updateInventory: (storeId: number, productId: number, data: { quantityAvailable?: number; lowStockThreshold?: number; isSoldOut?: boolean }) =>
+  updateInventory: (storeId: number, productId: number, data: { quantityAvailable?: number; isSoldOut?: boolean; expectedVersion?: number }) =>
     api.put<InventoryItem>(`/api/stores/${storeId}/inventory/${productId}`, data).then((r) => r.data),
-  updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean }) =>
+  updateStoreThreshold: (storeId: number, threshold: number, expectedVersion?: number) =>
+    api.put<{ storeId: number; lowStockThreshold: number; threshold: number; version: number }>(`/api/stores/${storeId}/threshold`, { threshold, lowStockThreshold: threshold, expectedVersion }).then((r) => r.data),
+  updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean; expectedVersion?: number }) =>
     api.put(`/api/stores/${storeId}/products/${productId}/availability`, data).then((r) => r.data),
+};
+
+/* ---------- Reviews ---------- */
+export type ReviewStatus = 'VISIBLE' | 'HIDDEN' | 'DELETED';
+
+export interface ReviewReplyDto {
+  id: number;
+  responderId: number;
+  responderRole: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ReviewDto {
+  id: number;
+  customerId: number;
+  productId: number;
+  orderId: number;
+  storeId?: number | null;
+  rating: number;
+  comment: string;
+  status: ReviewStatus;
+  version: number;
+  createdAt: string;
+  updatedAt?: string | null;
+  deletedAt?: string | null;
+  replies: ReviewReplyDto[];
+}
+
+export interface ReviewModerationSummaryDto {
+  totalReviews: number;
+  visibleCount: number;
+  averageRating: number;
+  unrepliedVisibleCount: number;
+  hiddenCount: number;
+  deletedCount: number;
+}
+
+export interface ModerationReviewListParams {
+  storeId?: number;
+  status?: ReviewStatus;
+  rating?: number;
+  productId?: number;
+  hasReply?: boolean;
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+export const reviewsApi = {
+  listModeration: (params?: ModerationReviewListParams, signal?: AbortSignal) =>
+    api.get<PageResponse<ReviewDto>>('/api/reviews/moderation', { params, signal }).then((r) => r.data),
+  summaryModeration: (storeId?: number, signal?: AbortSignal) =>
+    api
+      .get<ReviewModerationSummaryDto>('/api/reviews/moderation/summary', {
+        params: storeId ? { storeId } : undefined,
+        signal,
+      })
+      .then((r) => r.data),
+  reply: (id: number, content: string, idempotencyKey?: string) =>
+    api
+      .post<ReviewReplyDto>(
+        `/api/reviews/${id}/replies`,
+        { content },
+        idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
+      )
+      .then((r) => r.data),
+  hide: (id: number, payload: { reason?: string; version?: number }, idempotencyKey?: string) =>
+    api
+      .put<ReviewDto>(
+        `/api/reviews/${id}/hide`,
+        payload,
+        idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
+      )
+      .then((r) => r.data),
+  softDelete: (id: number, payload: { reason?: string; version?: number }, idempotencyKey?: string) =>
+    api
+      .delete<ReviewDto>(`/api/reviews/${id}/moderation`, {
+        data: payload,
+        ...(idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : {}),
+      })
+      .then((r) => r.data),
+};
+
+/* ---------- Reports & Dashboard (review-report-service) ---------- */
+export interface DailyStoreStatsItem {
+  id: number;
+  storeId: number;
+  statDate: string;
+  orderCount: number;
+  revenue: number;
+  codAmount: number;
+  transferAmount: number;
+  reconciledTransferAmount?: number;
+  pendingReconciliationAmount?: number;
+  excessAmount?: number;
+  expiredReceiptAmount?: number;
+  updatedAt?: string | null;
+}
+
+export interface DashboardReportResponse {
+  scope: 'CHAIN' | 'STORE' | string;
+  storeId: number | null;
+  from: string;
+  to: string;
+  todayRevenue: number;
+  todayOrderCount: number;
+  todayCodAmount: number;
+  todayTransferAmount: number;
+  periodRevenue: number;
+  periodOrderCount: number;
+  todayReconciledTransferAmount?: number;
+  todayPendingReconciliationAmount?: number;
+  todayExcessAmount?: number;
+  todayExpiredReceiptAmount?: number;
+  periodCodAmount?: number;
+  periodTransferAmount?: number;
+  periodReconciledTransferAmount?: number;
+  periodPendingReconciliationAmount?: number;
+  periodExcessAmount?: number;
+  periodExpiredReceiptAmount?: number;
+  projectionActive?: boolean;
+  revenueEventPolicy?: string;
+  lastUpdatedAt?: string | null;
+  generatedAt: string;
+}
+
+export interface RevenueReportResponse {
+  storeId: number | null;
+  from: string;
+  to: string;
+  totalRevenue: number;
+  totalOrderCount: number;
+  totalCodAmount: number;
+  totalTransferAmount: number;
+  totalReconciledTransferAmount?: number;
+  totalPendingReconciliationAmount?: number;
+  totalExcessAmount?: number;
+  totalExpiredReceiptAmount?: number;
+  projectionActive?: boolean;
+  revenueEventPolicy?: string;
+  lastUpdatedAt?: string | null;
+  items: DailyStoreStatsItem[];
+}
+
+export interface ReportExportResult {
+  blob: Blob;
+  filename: string;
+  contentType: string;
+}
+
+function parseDownloadFilename(headerValue: unknown, fallback: string): string {
+  if (typeof headerValue !== 'string') return fallback;
+  const match = headerValue.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
+  if (!match?.[1]) return fallback;
+  const cleaned = match[1].replace(/"/g, '').replace(/[^A-Za-z0-9._-]/g, '_');
+  return cleaned || fallback;
+}
+
+async function decodeBlobError(error: unknown): Promise<never> {
+  const axiosError = error as AxiosError<Blob>;
+  const response = axiosError?.response;
+  const data = response?.data;
+  if (response && data && typeof (data as Blob).text === 'function') {
+    try {
+      const text = await (data as Blob).text();
+      const parsed = JSON.parse(text);
+      (response as { data: unknown }).data = parsed;
+    } catch {
+      // Keep original HTTP status error mapping if payload is not JSON
+    }
+  }
+  throw error;
+}
+
+export const reportsApi = {
+  getDashboard: (
+    params?: { storeId?: number; from?: string; to?: string },
+    signal?: AbortSignal
+  ) =>
+    api
+      .get<DashboardReportResponse>('/api/reports/dashboard', { params, signal })
+      .then((r) => r.data),
+  getRevenue: (
+    params?: { storeId?: number; from?: string; to?: string },
+    signal?: AbortSignal
+  ) =>
+    api
+      .get<RevenueReportResponse>('/api/reports/revenue', { params, signal })
+      .then((r) => r.data),
+  exportReport: async (
+    params: { format: 'xlsx' | 'pdf'; storeId?: number; from?: string; to?: string },
+    signal?: AbortSignal
+  ): Promise<ReportExportResult> => {
+    try {
+      const response = await api.get<Blob>('/api/reports/export', {
+        params,
+        signal,
+        responseType: 'blob',
+        timeout: 30000,
+      });
+      const blob = response.data;
+      const headers = response.headers as Record<string, unknown> | undefined;
+      const rawContentType = String(
+        headers?.['content-type'] ?? blob?.type ?? ''
+      ).toLowerCase();
+      const expectedPrefix =
+        params.format === 'xlsx'
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'application/pdf';
+
+      if (!blob || blob.size === 0) {
+        throw { code: 'UPSTREAM_ERROR' };
+      }
+
+      if (rawContentType.includes('application/json')) {
+        try {
+          const parsed = JSON.parse(await blob.text());
+          throw { response: { status: response.status, data: parsed } };
+        } catch (jsonErr) {
+          if ((jsonErr as { response?: unknown })?.response) throw jsonErr;
+          throw { code: 'UPSTREAM_ERROR' };
+        }
+      }
+
+      if (
+        rawContentType &&
+        !rawContentType.includes(expectedPrefix) &&
+        !rawContentType.includes('application/octet-stream')
+      ) {
+        throw { code: 'UPSTREAM_ERROR' };
+      }
+
+      const storePart = params.storeId ? `store${params.storeId}` : 'all-stores';
+      const fallbackFilename = `revenue-report-${storePart}-${params.from ?? 'start'}-${params.to ?? 'end'}.${params.format}`;
+      const filename = parseDownloadFilename(
+        headers?.['content-disposition'],
+        fallbackFilename
+      );
+
+      return {
+        blob,
+        filename,
+        contentType: rawContentType || expectedPrefix,
+      };
+    } catch (error) {
+      return decodeBlobError(error);
+    }
+  },
 };
 
 export default api;

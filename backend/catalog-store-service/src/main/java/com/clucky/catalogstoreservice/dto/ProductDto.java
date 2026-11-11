@@ -18,9 +18,11 @@ public class ProductDto {
     public static class OptionChoiceDto {
         private String id;
         @NotBlank(message = "Tên lựa chọn không được để trống")
+        @jakarta.validation.constraints.Size(max = 100)
         private String name;
         @NotNull(message = "Giá điều chỉnh không được để trống")
         @DecimalMin(value = "0.0", message = "Giá điều chỉnh không được âm")
+        @jakarta.validation.constraints.Digits(integer = 12, fraction = 0)
         private BigDecimal priceAdjustment = BigDecimal.ZERO;
 
         public OptionChoiceDto() {}
@@ -44,10 +46,12 @@ public class ProductDto {
     public static class OptionGroupDto {
         private String id;
         @NotBlank(message = "Tên nhóm tùy chọn không được để trống")
+        @jakarta.validation.constraints.Size(max = 80)
         private String name;
         private boolean required = true;
         @Valid
-        private List<OptionChoiceDto> choices = new ArrayList<>();
+        @jakarta.validation.constraints.NotEmpty
+        private List<@NotNull OptionChoiceDto> choices = new ArrayList<>();
 
         public OptionGroupDto() {}
 
@@ -74,9 +78,11 @@ public class ProductDto {
     public static class ToppingDto {
         private String id;
         @NotBlank(message = "Tên topping không được để trống")
+        @jakarta.validation.constraints.Size(max = 120)
         private String name;
         @NotNull(message = "Giá topping không được để trống")
         @DecimalMin(value = "0.0", message = "Giá topping không được âm")
+        @jakarta.validation.constraints.Digits(integer = 12, fraction = 0)
         private BigDecimal price = BigDecimal.ZERO;
 
         public ToppingDto() {}
@@ -98,6 +104,9 @@ public class ProductDto {
     }
 
     public static class Response {
+        private long version;
+        public long getVersion() { return version; }
+        public void setVersion(long version) { this.version = version; }
         private Long id;
         private String slug;
         private String name;
@@ -204,10 +213,16 @@ public class ProductDto {
     }
 
     public static class Request {
+        @jakarta.validation.constraints.PositiveOrZero
+        private Long expectedVersion;
+        public Long getExpectedVersion() { return expectedVersion; }
+        public void setExpectedVersion(Long expectedVersion) { this.expectedVersion = expectedVersion; }
         @NotBlank(message = "Tên món không được để trống")
+        @jakarta.validation.constraints.Size(max = 180)
         private String name;
 
         @NotNull(message = "Danh mục không được để trống")
+        @jakarta.validation.constraints.Positive
         private Long categoryId;
 
         @NotBlank(message = "Mô tả không được để trống")
@@ -215,6 +230,7 @@ public class ProductDto {
 
         @NotNull(message = "Giá gốc không được để trống")
         @DecimalMin(value = "0.0")
+        @jakarta.validation.constraints.Digits(integer = 12, fraction = 0)
         private BigDecimal basePrice;
 
         private String imageUrl;
@@ -227,9 +243,9 @@ public class ProductDto {
         private Boolean isActive;
 
         @Valid
-        private List<OptionGroupDto> options;
+        private List<@NotNull OptionGroupDto> options;
         @Valid
-        private List<ToppingDto> toppings;
+        private List<@NotNull ToppingDto> toppings;
 
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }

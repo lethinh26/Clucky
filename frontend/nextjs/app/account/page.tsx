@@ -18,11 +18,13 @@ import {
 
   Mail,
   Check,
+  MessageSquareQuote,
 } from "lucide-react";
 import Link from "@/components/ui-loader/navigation-link";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import styles from "./account.module.css";
+import { MyReviewsPanel } from "@/components/reviews/my-reviews-panel";
 import { useSession } from "@/components/auth/use-session";
 
 const initialProfile: Profile = {
@@ -169,6 +171,7 @@ export default function AccountPage() {
                 ["profile", t("business.account.personalDetails"), UserRound],
                 ["addresses", t("business.account.addressBook"), MapPin],
                 ["password", t("business.account.changePassword"), ShieldCheck],
+                ["reviews", t("business.account.myReviews"), MessageSquareQuote],
               ].map(([key, label, Icon]) => (
                 <button
                   key={key as string}
@@ -398,6 +401,7 @@ export default function AccountPage() {
                 </form>
               </>
             )}
+            {tab === "reviews" && <MyReviewsPanel />}
           </section>
         </div>
       </main>

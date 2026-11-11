@@ -215,5 +215,61 @@
                                            "vi":  "Phiên đăng nhập đã hết hạn hoặc bị thu hồi.",
                                            "en":  "The session has expired or been revoked."
                                        }
-                      }
+                      },
+    "REFUND_NOT_ELIGIBLE":  {
+                                "httpStatus":  400,
+                                "messages":  {
+                                                 "vi":  "Đơn hàng không đủ điều kiện hoàn tiền.",
+                                                 "en":  "This order is not eligible for a refund."
+                                             }
+                            },
+    "REFUND_AMOUNT_EXCEEDED":  {
+                                   "httpStatus":  409,
+                                   "messages":  {
+                                                    "vi":  "Số tiền hoàn vượt quá số tiền thực nhận hợp lệ.",
+                                                    "en":  "Refund amount exceeds eligible received amount."
+                                                }
+                               },
+    "REFUND_ALREADY_EXISTS":  {
+                                  "httpStatus":  409,
+                                  "messages":  {
+                                                   "vi":  "Đã có yêu cầu hoàn tiền đang được xử lý.",
+                                                   "en":  "An active refund request already exists."
+                                               }
+                              },
+    "INVALID_REFUND_STATE":  {
+                                 "httpStatus":  409,
+                                 "messages":  {
+                                                  "vi":  "Trạng thái yêu cầu hoàn tiền không hợp lệ cho thao tác này.",
+                                                  "en":  "Invalid refund request state for this action."
+                                              }
+                             },
+    "EVIDENCE_REQUIRED":  {
+                              "httpStatus":  400,
+                              "messages":  {
+                                               "vi":  "Bắt buộc phải có bằng chứng hoàn tiền hợp lệ.",
+                                               "en":  "Valid refund evidence is required."
+                                           }
+                          },
+    "EVIDENCE_DELIVERY_UNAVAILABLE":  {
+                                          "httpStatus":  503,
+                                          "messages":  {
+                                                           "vi":  "Hệ thống lưu trữ bằng chứng riêng tư tạm thời không khả dụng.",
+                                                           "en":  "Private evidence delivery is currently unavailable."
+                                                       }
+                                      },
+    "INVALID_THRESHOLD":  {
+                              "httpStatus":  400,
+                              "messages":  {
+                                               "vi":  "Ngưỡng cảnh báo tồn kho không hợp lệ.",
+                                               "en":  "Invalid stock threshold."
+                                           }
+                          },
+    "PRODUCT_OUT_OF_STOCK":  {
+                                 "httpStatus":  409,
+                                 "messages":  {
+                                                  "vi":  "Sản phẩm đã hết hàng, không thể bật bán.",
+                                                  "en":  "Product is out of stock and cannot be put on sale."
+                                              }
+                             }
 }

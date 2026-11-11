@@ -1,644 +1,290 @@
-import { message } from "../../components/feedback";
-import { useLocaleTools } from "../../i18n/hooks";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Button, Card, ConfigProvider, Form, Input, Modal, Select, Space, Switch, Table, Tabs, Tag, Typography } from "antd";
 import { useTranslation } from "react-i18next";
-import React, { useMemo, useState } from "react";
-import { Button, Alert, Card, Drawer, Form, Input, Modal, Select, Space, Switch, Table, Tabs, Tag, Typography } from "antd";
-import { TableColumnsType } from "antd";
-import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  CodeOutlined,
-  EyeOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  SafetyCertificateOutlined,
-} from "@ant-design/icons";
-import { PageIntro } from "../Dashboard";
+import { api, getErrorMessage, storesApi, type Store } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
+import { UnavailableFeature } from "../../components/UnavailableFeature";
+import { notify } from "../../components/feedback";
+import { usePageLoading } from "../../components/ui-loader/page-loading";
+import { TransactionsPanel } from "./TransactionsPanel";
+import { FinanceLookup } from "./FinanceDrawer";
+import { RefundsPanel } from "../Orders/RefundsPanel";
 import "./payments.css";
-import {
-  MOCK_BANK_CONFIG,
-  MOCK_BANK_TRANSACTIONS,
-  MOCK_PAYMENTS,
-  MOCK_WEBHOOK_LOGS,
-} from "../../mocks/paymentData";
-import {
-  BankAccountConfig,
-  BankTransaction,
-  Payment,
-  PaymentStatus,
-  WebhookLog,
-} from "../../types/payment";
 
-const { Text } = Typography;
+interface Account {
+  id: number;
+  bankName: string;
+  bankCode: string | null;
+  accountNo: string;
+  accountName: string;
+  active: boolean;
+  version: number;
+}
+interface Assignment { storeId: number; bankAccountId: number | null; version: number }
+interface Overview { accounts: Account[]; assignments: Assignment[]; sepayKeyConfigured: boolean; reconciliationAvailable: boolean }
+interface Bank { name: string; shortName: string; code: string; bin: string }
+type AccountFields = Omit<Account, "id" | "version">;
 
+function bankSearch(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+}
 
+export function PaymentsPage() {
+  const { user, isAdmin, isStoreManager, isStaff } = useAuth();
+  const { t } = useTranslation("payments");
+  const [branchNames, setBranchNames] = useState<Store[]>([]);
+  const [branchError, setBranchError] = useState("");
+  useEffect(() => {
+    if (isAdmin || !(isStaff || isStoreManager) || !user.storeId) return;
+    const controller = new AbortController();
+    setBranchNames([]); setBranchError("");
+    void storesApi.list(false, controller.signal).then(result => { if (!controller.signal.aborted) setBranchNames(result); })
+      .catch(failure => { if (!controller.signal.aborted) setBranchError(getErrorMessage(failure)); });
+    return () => controller.abort();
+  }, [isAdmin, isStaff, isStoreManager, user.storeId]);
+  if (!isAdmin && (!(isStoreManager || isStaff) || !user.storeId || user.storeId <= 0)) return <UnavailableFeature />;
+  return <ConfigProvider theme={{ token: { colorTextDescription: "#6B6259", colorTextPlaceholder: "#6B6259" } }}>
+    {isAdmin ? <BankAccounts key={`${user.id}-${user.role}`} /> : <Space direction="vertical" size="middle" className="payments-page" style={{ width: "100%" }}>
+      <Typography.Title level={2}>{t("transactionsTab")}</Typography.Title>
+      {branchError && <Alert type="warning" showIcon message={t("log.storeNamesError")} description={branchError} />}
+      <TransactionsPanel key={`${user.id}-${user.role}-${user.storeId}`} stores={branchNames} revision={0} />
+    </Space>}
+  </ConfigProvider>;
+}
 
+function BankAccounts() {
+  const { t } = useTranslation("payments");
+  const [data, setData] = useState<Overview | null>(null);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [revision, setRevision] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<Account | "new" | null>(null);
+  const [formError, setFormError] = useState("");
+  const [assignmentError, setAssignmentError] = useState("");
+  const [assignmentStore, setAssignmentStore] = useState<Store | null>(null);
+  const [storeSearch, setStoreSearch] = useState("");
+  const [assignmentStatus, setAssignmentStatus] = useState<string>();
+  const [assignmentBank, setAssignmentBank] = useState<number>();
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankError, setBankError] = useState("");
+  const [bankRevision, setBankRevision] = useState(0);
+  const [accountForm] = Form.useForm<AccountFields>();
+  const bankName = Form.useWatch("bankName", accountForm);
+  const bankCode = Form.useWatch("bankCode", accountForm);
+  const [assignmentForm] = Form.useForm<{ storeId: number; bankAccountId?: number | null }>();
+  const pendingOperation = useRef<{ signature: string; key: string } | null>(null);
+  const alive = useRef(true);
+  usePageLoading(loading && !data);
+  const accountOpen = editing !== null;
 
+  useEffect(() => {
+    if (busy || accountOpen || assignmentStore) return;
+    const timer = window.setTimeout(() => setRevision(value => value + 1), 15000);
+    return () => window.clearTimeout(timer);
+  }, [busy, accountOpen, assignmentStore, revision]);
 
-export const PaymentsPage: React.FC = () => {
-  const { user } = useAuth();
-  return <PaymentsContent key={`${user.id}-${user.role}-${user.storeId ?? "all"}`} />;
-};
+  useEffect(() => {
+    if (!bankError || !accountOpen) return;
+    const timer = window.setTimeout(() => setBankRevision(value => value + 1), 15000);
+    return () => window.clearTimeout(timer);
+  }, [bankError, accountOpen, bankRevision]);
 
-const PaymentsContent: React.FC = () => {
-  const { t } = useTranslation();
-  const { money: formatVnd, date } = useLocaleTools();
-  const STATUS_TAG: Record<PaymentStatus, { color: string; label: string }> = {
-    UNPAID: {color: "default", label: t("business:paymentstatusbadge.unpaid")},
-    PENDING: {color: "orange", label: t("business:checkout.awaitingPayment")},
-    PAID: {color: "green", label: t("business:demoordercontrols.paid")},
-    EXPIRED: {color: "default", label: t("business:paymentstatusbadge.expired")},
-    MISMATCH: {color: "red", label: t("business:paymentspage.mismatch")},
-    COLLECTED: {color: "cyan", label: t("business:paymentstatusbadge.codCollected")},
-    REFUND_PENDING: {color: "blue", label: t("business:paymentstatusbadge.refundPending")},
-    REFUNDED: {color: "purple", label: t("business:paymentstatusbadge.refunded")},
-  };
-  const { user, isAdmin } = useAuth();
-  const managerStoreId =
-    user.role === "STORE_MANAGER" ? user.storeId : undefined;
+  useEffect(() => {
+    if (!accountOpen) return;
+    const controller = new AbortController();
+    setBankLoading(true);
+    setBankError("");
+    void api.get<Bank[]>("/api/payments/bank-config/banks", { signal: controller.signal })
+      .then(response => { if (!controller.signal.aborted) setBanks(response.data); })
+      .catch(failure => { if (!controller.signal.aborted) setBankError(getErrorMessage(failure)); })
+      .finally(() => { if (!controller.signal.aborted) setBankLoading(false); });
+    return () => controller.abort();
+  }, [accountOpen, bankRevision]);
 
-  const [payments, setPayments] = useState<Payment[]>(MOCK_PAYMENTS);
-  const [transactions] = useState<BankTransaction[]>(MOCK_BANK_TRANSACTIONS);
-  const [webhookLogs] = useState<WebhookLog[]>(MOCK_WEBHOOK_LOGS);
-  const [bankConfigs, setBankConfigs] =
-    useState<BankAccountConfig[]>(MOCK_BANK_CONFIG);
-
-  const [statusFilter, setStatusFilter] = useState<"ALL" | PaymentStatus>(
-    "ALL",
-  );
-  const [storeFilter, setStoreFilter] = useState<number | "ALL">(
-    managerStoreId ?? "ALL",
-  );
-  const [logDrawer, setLogDrawer] = useState<WebhookLog | null>(null);
-  const [txDrawer, setTxDrawer] = useState<BankTransaction | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<Payment | null>(null);
-  const [confirmReason, setConfirmReason] = useState("");
-  const [editingAcc, setEditingAcc] = useState<BankAccountConfig | null>(null);
-  const [accForm] = Form.useForm<BankAccountConfig>();
-  const [audit, setAudit] = useState<
-    { orderCode: string; reason: string; actor: string; time: string }[]
-  >([]);
-  const canViewStore = (storeId?: number) =>
-    isAdmin || (managerStoreId != null && storeId === managerStoreId);
-
-  const scopedPayments = useMemo(
-    () =>
-      payments.filter(
-        (p) =>
-          (isAdmin ||
-            (managerStoreId != null && p.storeId === managerStoreId)) &&
-          (storeFilter === "ALL" || p.storeId === storeFilter) &&
-          (statusFilter === "ALL" || p.status === statusFilter),
-      ),
-    [payments, isAdmin, managerStoreId, storeFilter, statusFilter],
-  );
-
-  const scopedTx = useMemo(
-    () =>
-      transactions.filter(
-        (t) =>
-          (isAdmin ||
-            (managerStoreId != null && t.storeId === managerStoreId)) &&
-          (storeFilter === "ALL" || t.storeId === storeFilter),
-      ),
-    [transactions, isAdmin, managerStoreId, storeFilter],
-  );
-
-  const handleManualConfirm = () => {
-    if (
-      !confirmTarget ||
-      !confirmReason.trim() ||
-      !canViewStore(confirmTarget.storeId)
-    )
-      return;
-    setPayments((prev) =>
-      prev.map((p) =>
-        p.id === confirmTarget.id ? { ...p, status: "PAID" } : p,
-      ),
-    );
-    setAudit((prev) => [
-      {
-        orderCode: confirmTarget.orderCode,
-        reason: confirmReason.trim(),
-        actor: t("business:paymentspage.store", { value1: user.fullName, value2: user.role, value3: confirmTarget.storeId }),
-        time: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-    message.success(t("business:paymentspage.confirmedInTheDemoSession", { value1: confirmTarget.orderCode }));
-    setConfirmTarget(null);
-    setConfirmReason("");
-  };
-
-  const paymentCols: TableColumnsType<Payment> = [
-    {
-      title: t("business:dashboard.orderCode"),
-      dataIndex: "orderCode",
-      key: "orderCode",
-      render: (v: string) => <Text strong>{v}</Text>,
-    },
-    { title: t("business:party.store"), dataIndex: "storeName", key: "storeName" },
-    {
-      title: t("business:orderdetaildrawer.method"),
-      dataIndex: "method",
-      key: "method",
-      render: (m: Payment["method"]) =>
-        m === "BANK_TRANSFER" ? (
-          <Tag color="blue">{t("business:id.bankTransfer")}</Tag>
-        ) : (
-          <Tag color="orange">COD</Tag>
-        ),
-    },
-    {
-      title: t("business:paymentspage.amount"),
-      dataIndex: "amount",
-      key: "amount",
-      align: "right",
-      render: (v: number) => (
-        <Text strong style={{ color: "#8F1216" }}>
-          {formatVnd(v)}
-        </Text>
-      ),
-    },
-    {
-      title: t("business:catalog.status"),
-      dataIndex: "status",
-      key: "status",
-      render: (s: PaymentStatus) => (
-        <Tag color={STATUS_TAG[s].color}>{STATUS_TAG[s].label}</Tag>
-      ),
-    },
-    { title: t("business:paymentspage.createdAt"), dataIndex: "createdAt", key: "createdAt" },
-    {
-      title: t("business:catalog.actions"),
-      key: "actions",
-      render: (_, p) =>
-        (p.status === "PENDING" || p.status === "MISMATCH") &&
-        p.method === "BANK_TRANSFER" ? (
-          <Button
-            size="small"
-            type="link"
-            icon={<SafetyCertificateOutlined />}
-            onClick={() => {
-              setConfirmReason("");
-              setConfirmTarget(p);
-            }}
-          > {t("business:paymentspage.manualConfirmation")} </Button>
-        ) : null,
-    },
-  ];
-
-  const txCols: TableColumnsType<BankTransaction> = [
-    { title: t("business:paymentspage.bankTransactionCode"), dataIndex: "bankTxId", key: "bankTxId" },
-    {
-      title: t("business:paymentspage.amount"),
-      dataIndex: "amount",
-      key: "amount",
-      align: "right",
-      render: (v: number) => formatVnd(v),
-    },
-    { title: t("business:paymentwidget.description"), dataIndex: "content", key: "content", ellipsis: true },
-    {
-      title: t("business:paymentspage.matchedOrder"),
-      dataIndex: "matchedOrderCode",
-      key: "matchedOrderCode",
-      render: (v?: string) =>
-        v ? <Tag color="green">{v}</Tag> : <Tag>{t("business:paymentspage.unmatched")}</Tag>,
-    },
-    { title: t("business:paymentspage.receivedAt"), dataIndex: "receivedAt", key: "receivedAt" },
-    {
-      title: "",
-      key: "view",
-      render: (_, t) => (
-        <Button
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => setTxDrawer(t)}
-        >
-          Payload
-        </Button>
-      ),
-    },
-  ];
-
-  const logCols: TableColumnsType<WebhookLog> = [
-    {
-      title: t("business:paymentspage.source"),
-      dataIndex: "provider",
-      key: "provider",
-      render: (p: WebhookLog["provider"]) => (
-        <Tag color={p === "SEPAY" ? "geekblue" : "volcano"}>{p}</Tag>
-      ),
-    },
-    {
-      title: t("business:paymentspage.signature"),
-      dataIndex: "signatureValid",
-      key: "signatureValid",
-      render: (ok: boolean) =>
-        ok ? (
-          <Tag icon={<CheckCircleOutlined />} color="success"> {t("business:paymentspage.valid")} </Tag>
-        ) : (
-          <Tag icon={<CloseCircleOutlined />} color="error">
-            Sai
-          </Tag>
-        ),
-    },
-    {
-      title: t("business:paymentspage.processed"),
-      dataIndex: "processed",
-      key: "processed",
-      render: (ok: boolean) =>
-        ok ? (
-          <Tag color="green">{t("business:paymentspage.processed")}</Tag>
-        ) : (
-          <Tag color="red">{t("business:paymentspage.unprocessed")}</Tag>
-        ),
-    },
-    { title: t("business:party.time"), dataIndex: "createdAt", key: "createdAt" },
-    {
-      title: "",
-      key: "view",
-      render: (_, l) => (
-        <Button
-          size="small"
-          icon={<CodeOutlined />}
-          onClick={() => setLogDrawer(l)}
-        >
-          Payload
-        </Button>
-      ),
-    },
-  ];
-
-  const bankCols: TableColumnsType<BankAccountConfig> = [
-    { title: t("business:paymentwidget.bank"), dataIndex: "bankName", key: "bankName" },
-    { title: t("business:paymentwidget.accountNumber"), dataIndex: "accountNo", key: "accountNo" },
-    { title: t("business:paymentwidget.accountHolder"), dataIndex: "accountName", key: "accountName" },
-    {
-      title: t("business:paymentspage.inUse"),
-      dataIndex: "isActive",
-      key: "isActive",
-      render: (v: boolean, row) => (
-        <Switch
-          aria-label={t("business:paymentspage.activateAccount", { value1: row.bankName, value2: row.accountNo })}
-          checked={v}
-          disabled={!isAdmin}
-          onChange={(checked) => {
-            setBankConfigs((prev) =>
-              prev.map((a) => ({
-                ...a,
-                isActive: a.id === row.id ? checked : false,
-              })),
-            );
-            message.success(
-              checked ? t("business:paymentspage.activated", { value1: row.bankName }) : t("business:paymentspage.accountDeactivated"),
-            );
-          }}
-        />
-      ),
-    },
-    {
-      title: "",
-      key: "edit",
-      render: (_, row) =>
-        isAdmin ? (
-          <Button
-            size="small"
-            onClick={() => {
-              setEditingAcc(row);
-              accForm.setFieldsValue(row);
-            }}
-          > {t("business:account.edit")} </Button>
-        ) : null,
-    },
-  ];
-
-  return (
-    <div className="payments-page">
-      <PageIntro
-        eyebrow="Payment & Shipping"
-        title={t("business:paymentspage.paymentsReconciliation")}
-        description={t("business:paymentspage.paymentTransactionsBankTransactionsReceivedThroughSepayCassoWebhooksReceivingAccountConfiguration")}
-      />
-
-      <Alert
-        type="info"
-        showIcon
-        title={t("business:paymentspage.sprintSampleData")}
-        description={t("business:paymentspage.actionsAndLogsOnlyLastForThisUiSessionAndResetOn")}
-        style={{ marginBottom: 16 }}
-      />
-
-      <Card
-        style={{
-          borderRadius: 20,
-          background: "#FFFAF3",
-          border: "1px solid #E8E2D9",
-        }}
-      >
-        <Tabs
-          defaultActiveKey="payments"
-          items={[
-            {
-              key: "payments",
-              label: t("business:paymentspage.paymentTransactions"),
-              children: (
-                <>
-                  <Space wrap style={{ marginBottom: 16 }}>
-                    <Select
-                      aria-label={t("business:paymentspage.filterPaymentStatus")}
-                      value={statusFilter}
-                      onChange={setStatusFilter}
-                      style={{ width: 200 }}
-                      options={[
-                        { value: "ALL", label: t("business:paymentspage.allStatuses") },
-                        ...Object.entries(STATUS_TAG).map(([v, c]) => ({
-                          value: v,
-                          label: c.label,
-                        })),
-                      ]}
-                    />
-                    <Select
-                      aria-label={t("business:orderspage.filterStores")}
-                      value={storeFilter}
-                      onChange={setStoreFilter}
-                      disabled={managerStoreId != null}
-                      style={{ width: 220 }}
-                      options={[
-                        { value: "ALL", label: t("business:stores.allStores") },
-                        { value: 1, label: "Nguyễn Trãi (Q.5)" },
-                        { value: 2, label: "Phan Văn Trị (Gò Vấp)" },
-                        { value: 3, label: "Lê Văn Việt (TP. Thủ Đức)" },
-                      ]}
-                    />
-                    <Button
-                      icon={<ReloadOutlined />}
-                      onClick={() => {
-                        setStatusFilter("ALL");
-                        setStoreFilter(managerStoreId ?? "ALL");
-                      }}
-                    > {t("business:paymentspage.resetFilters")} </Button>
-                  </Space>
-                  <Table
-                    locale={{ emptyText: t("business:paymentspage.noMatchingPayments") }}
-                    rowKey="id"
-                    columns={paymentCols}
-                    dataSource={scopedPayments}
-                    pagination={{ pageSize: 8 }}
-                    scroll={{ x: 900 }}
-                  />
-                  {audit.length > 0 && (
-                    <section
-                      aria-label={t("business:paymentspage.confirmationLogForThisDemoSession")}
-                      aria-live="polite"
-                    >
-                      <h3>{t("business:paymentspage.confirmationLogDemo")}</h3>
-                      {audit.map((entry, index) => (
-                        <p key={index}>
-                          <strong>{entry.orderCode}</strong> — {entry.reason}
-                          <br />
-                          {entry.actor} · {date(entry.time, { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      ))}
-                    </section>
-                  )}
-                </>
-              ),
-            },
-            {
-              key: "transactions",
-              label: t("business:paymentspage.bankTransactions"),
-              children: (
-                <Table
-                  locale={{
-                    emptyText: t("business:paymentspage.noTransactionsInTheSelectedScope"),
-                  }}
-                  rowKey="id"
-                  columns={txCols}
-                  dataSource={scopedTx}
-                  pagination={{ pageSize: 8 }}
-                  scroll={{ x: 900 }}
-                />
-              ),
-            },
-            {
-              key: "webhooks",
-              label: "Webhook log",
-              children: (
-                <Table
-                  rowKey="id"
-                  columns={logCols}
-                  dataSource={webhookLogs}
-                  pagination={{ pageSize: 8 }}
-                  scroll={{ x: 700 }}
-                />
-              ),
-            },
-            {
-              key: "bank-config",
-              label: t("business:paymentspage.receivingAccounts"),
-              children: (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 12,
-                    }}
-                  >
-                    {!isAdmin ? (
-                      <Text type="secondary"> {t("business:paymentspage.onlyAdminCanEditAccountConfiguration")} </Text>
-                    ) : (
-                      <span />
-                    )}
-                    {isAdmin && (
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => {
-                          setEditingAcc({
-                            id: "",
-                            bankName: "",
-                            accountNo: "",
-                            accountName: "",
-                            isActive: false,
-                          });
-                          accForm.resetFields();
-                        }}
-                      > {t("business:paymentspage.addAccount")} </Button>
-                    )}
-                  </div>
-                  <Table
-                    rowKey="id"
-                    columns={bankCols}
-                    dataSource={bankConfigs}
-                    pagination={false}
-                    scroll={{ x: 650 }}
-                  />
-                </>
-              ),
-            },
-          ].filter(
-            (tab) => isAdmin || !["webhooks", "bank-config"].includes(tab.key),
-          )}
-        />
-      </Card>
-
-      {/* Manual confirm modal — bắt buộc lý do, ghi audit */}
-      <Modal
-        title={t("business:paymentspage.manualPaymentConfirmation", { value1: confirmTarget?.orderCode ?? "" })}
-        open={!!confirmTarget}
-        onCancel={() => {
-          setConfirmTarget(null);
-          setConfirmReason("");
-        }}
-        onOk={handleManualConfirm}
-        okText={t("business:paymentspage.confirmPaymentReceived")}
-        okButtonProps={{ disabled: !confirmReason.trim(), danger: false }}
-      >
-        <Space direction="vertical" style={{ width: "100%" }} size={12}>
-          <Text> {t("business:paymentspage.amountToReconcile")}{" "}
-            <Text strong style={{ color: "#8F1216" }}>
-              {confirmTarget ? formatVnd(confirmTarget.amount) : ""}
-            </Text>
-          </Text>
-          <label htmlFor="manual-confirm-reason">{t("business:paymentspage.reasonForManualConfirmation")}</label>
-          <Input.TextArea
-            id="manual-confirm-reason"
-            maxLength={500}
-            rows={3}
-            required
-            placeholder={t("business:paymentspage.reasonForManualConfirmationRequiredRecordedInTheAuditLogEG")}
-            value={confirmReason}
-            onChange={(e) => setConfirmReason(e.target.value)}
-          />
-        </Space>
-      </Modal>
-
-      {/* Raw payload drawers */}
-      <Drawer
-        title={`Webhook ${logDrawer?.provider ?? ""} — ${logDrawer?.createdAt ?? ""}`}
-        open={!!logDrawer}
-        onClose={() => setLogDrawer(null)}
-        size="min(480px, 100vw)"
-      >
-        <pre
-          style={{
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            fontSize: 12,
-          }}
-        >
-          {logDrawer ? formatPayload(logDrawer.payload) : ""}
-        </pre>
-      </Drawer>
-      <Drawer
-        title={t("business:paymentspage.transaction", { value1: txDrawer?.bankTxId ?? "" })}
-        open={!!txDrawer}
-        onClose={() => setTxDrawer(null)}
-        size="min(480px, 100vw)"
-      >
-        <pre
-          style={{
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            fontSize: 12,
-          }}
-        >
-          {txDrawer ? formatPayload(txDrawer.rawPayload) : ""}
-        </pre>
-      </Drawer>
-
-      {/* Edit bank account */}
-      <Modal
-        title={
-          editingAcc?.id
-            ? t("business:paymentspage.editReceivingAccount")
-            : t("business:paymentspage.addReceivingAccount")
-        }
-        open={!!editingAcc}
-        onCancel={() => setEditingAcc(null)}
-        onOk={() => {
-          if (!isAdmin) return;
-          accForm
-            .validateFields()
-            .then((values) => {
-              if (editingAcc?.id) {
-                setBankConfigs((prev) =>
-                  prev.map((a) =>
-                    a.id === editingAcc.id ? { ...a, ...values } : a,
-                  ),
-                );
-              } else {
-                setBankConfigs((prev) => [
-                  ...prev,
-                  {
-                    ...(values as Omit<BankAccountConfig, "id" | "isActive">),
-                    id: `ACC-${Date.now()}`,
-                    isActive: prev.length === 0,
-                  },
-                ]);
-              }
-              setEditingAcc(null);
-              message.success(
-                editingAcc?.id ? t("business:paymentspage.accountUpdated") : t("business:paymentspage.accountAdded"),
-              );
-            })
-            .catch(() => undefined);
-        }}
-      >
-        <Form form={accForm} layout="vertical">
-          <Form.Item
-            name="bankName"
-            label={t("business:paymentwidget.bank")}
-            rules={[
-              {
-                required: true,
-                whitespace: true,
-                message: t("business:paymentspage.enterBankName"),
-              },
-            ]}
-            normalize={(value: string) => value.trimStart()}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="accountNo"
-            label={t("business:paymentwidget.accountNumber")}
-            rules={[
-              { required: true, message: t("business:paymentspage.enterAccountNumber") },
-              { pattern: /^\d+$/, message: t("business:paymentspage.theAccountNumberMustContainDigitsOnly") },
-            ]}
-          >
-            <Input inputMode="numeric" />
-          </Form.Item>
-          <Form.Item
-            name="accountName"
-            label={t("business:paymentwidget.accountHolder")}
-            rules={[
-              {
-                required: true,
-                whitespace: true,
-                message: t("business:paymentspage.enterAccountHolder"),
-              },
-            ]}
-            normalize={(value: string) => value.trimStart()}
-          >
-            <Input />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </div>
-  );
-};
-export default PaymentsPage;
-
-function formatPayload(payload: string) {
-  try {
-    return JSON.stringify(JSON.parse(payload), null, 2);
-  } catch {
-    return payload;
+  const bankOptions = banks.map(bank => ({ ...bank, search: bankSearch(`${bank.shortName} ${bank.name} ${bank.code} ${bank.bin}`) }));
+  const nameOptions = bankOptions.map(bank => ({ value: bank.code, label: `${bank.shortName} — ${bank.name}`, search: bank.search }));
+  const codeOptions = bankOptions.map(bank => ({ value: bank.code, label: `${bank.code} / ${bank.bin} — ${bank.shortName}`, search: bank.search }));
+  if (bankName && !banks.some(bank => bank.code === bankCode && bank.shortName === bankName)) {
+    nameOptions.push({ value: "__saved__", label: t("savedBankValue", { value: bankName }), search: bankSearch(bankName) });
   }
+  if (bankCode && !codeOptions.some(option => option.value === bankCode)) {
+    codeOptions.push({ value: bankCode, label: t("savedBankValue", { value: bankCode }), search: bankSearch(bankCode) });
+  }
+
+  function selectBank(bank: Bank | undefined) {
+    if (bank) accountForm.setFieldsValue({ bankName: bank.shortName, bankCode: bank.code });
+  }
+
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    void Promise.all([
+      api.get<Overview>("/api/payments/bank-config", { signal: controller.signal }),
+      storesApi.list(false, controller.signal),
+    ]).then(([response, availableStores]) => {
+      if (controller.signal.aborted) return;
+      setData(response.data);
+      setStores(availableStores);
+    }).catch(failure => {
+      if (!controller.signal.aborted) setError(getErrorMessage(failure));
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [revision]);
+
+  function headers(path: string, payload: unknown) {
+    const signature = JSON.stringify([path, payload]);
+    if (pendingOperation.current?.signature !== signature) {
+      pendingOperation.current = { signature, key: crypto.randomUUID() };
+    }
+    return { "Idempotency-Key": pendingOperation.current.key };
+  }
+
+  function edit(account: Account | "new") {
+    setFormError("");
+    setEditing(account);
+    accountForm.resetFields();
+    accountForm.setFieldsValue(account === "new" ? { active: true } : account);
+  }
+
+  async function saveAccount(values: AccountFields) {
+    if (!editing || busy) return;
+    const path = `/api/payments/bank-config${editing === "new" ? "" : `/${editing.id}`}`;
+    const payload = { ...values, bankName: values.bankName.trim(), bankCode: values.bankCode?.trim().toUpperCase(),
+      accountNo: values.accountNo.trim(), accountName: values.accountName.trim(), version: editing === "new" ? 0 : editing.version };
+    setBusy(true);
+    setFormError("");
+    try {
+      const config = { headers: headers(path, payload) };
+      const response = editing === "new" ? await api.post<Account>(path, payload, config) : await api.put<Account>(path, payload, config);
+      if (!alive.current) return;
+      setData(current => current && ({ ...current,
+        accounts: [...current.accounts.filter(account => account.id !== response.data.id), response.data].sort((first, second) => first.id - second.id) }));
+      setEditing(null);
+      pendingOperation.current = null;
+      setRevision(value => value + 1);
+      notify.success(t("saved"));
+    } catch (failure) { if (alive.current) setFormError(getErrorMessage(failure)); }
+    finally { if (alive.current) setBusy(false); }
+  }
+
+  async function assign(values: { storeId: number; bankAccountId?: number | null }) {
+    if (!data || busy) return;
+    const current = data.assignments.find(assignment => assignment.storeId === values.storeId);
+    const payload = { bankAccountId: values.bankAccountId ?? null, version: current?.version ?? 0 };
+    const path = `/api/payments/bank-config/stores/${values.storeId}`;
+    setBusy(true);
+    setAssignmentError("");
+    try {
+      const response = await api.put<Assignment>(path, payload, { headers: headers(path, payload) });
+      if (!alive.current) return;
+      setData(previous => previous && ({ ...previous,
+        assignments: [...previous.assignments.filter(assignment => assignment.storeId !== response.data.storeId), response.data] }));
+      setAssignmentStore(null);
+      pendingOperation.current = null;
+      setRevision(value => value + 1);
+      notify.success(t("saved"));
+    } catch (failure) { if (alive.current) setAssignmentError(getErrorMessage(failure)); }
+    finally { if (alive.current) setBusy(false); }
+  }
+
+  return <Space direction="vertical" size="middle" className="payments-page" style={{ width: "100%" }}>
+    <div className="payments-header">
+      <div><Typography.Title level={2}>{t("title")}</Typography.Title><Typography.Paragraph type="secondary">{t("intro")}</Typography.Paragraph></div>
+      <Space wrap>{data && !data.sepayKeyConfigured && <Tag color="warning">{t("keyMissing")}</Tag>}
+      </Space>
+    </div>
+    {error && <Alert type="error" showIcon message={error} />}
+    <>
+      <Tabs defaultActiveKey="transactions" items={[
+        { key: "transactions", label: t("transactionsTab"), children: <TransactionsPanel stores={stores} revision={revision} /> },
+        { key: "finance", label: t("admin:ui.collectionReconciliationLegacy"), children: <FinanceLookup onChanged={() => setRevision(value => value + 1)} /> },
+        { key: "refunds", label: t("business:orderspage.refund"), children: <RefundsPanel stores={stores} revision={revision} onChanged={() => setRevision(value => value + 1)} /> },
+        { key: "accounts", label: t("accounts"), children: data && !error && <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+      <Card title={t("accounts")} extra={<Button type="primary" disabled={busy || loading} onClick={() => edit("new")}>{t("add")}</Button>}>
+        <div className="payments-table-scroll" role="region" aria-label={t("accounts")} tabIndex={0}>
+        <Table<Account> rowKey="id" dataSource={data.accounts} loading={loading} style={{ minWidth: 950 }} pagination={{ pageSize: 10 }}
+          locale={{ emptyText: t("noAccounts") }} columns={[
+            { title: t("bankName"), dataIndex: "bankName" },
+            { title: t("bankCode"), render: (_, account) => account.bankCode || <Tag color="warning">{t("missingCode")}</Tag> },
+            { title: t("accountNo"), dataIndex: "accountNo" },
+            { title: t("accountName"), dataIndex: "accountName" },
+            { title: t("status"), render: (_, account) => <Tag color={account.active ? "green" : "default"}>{t(account.active ? "active" : "inactive")}</Tag> },
+            { title: t("stores"), render: (_, account) => data.assignments.filter(assignment => assignment.bankAccountId === account.id)
+              .map(assignment => stores.find(store => store.id === assignment.storeId)?.name ?? `#${assignment.storeId}`).join(", ") || t("none") },
+            { title: t("actions"), render: (_, account) => <Button disabled={busy || loading} onClick={() => edit(account)}>{t("edit")}</Button> },
+          ]} />
+        </div>
+      </Card>
+      <Card title={t("assignment")}>
+        <div className="payment-assignment-filters">
+          <Input.Search aria-label={t("assignments.search")} placeholder={t("assignments.search")} allowClear value={storeSearch} onChange={event => setStoreSearch(event.target.value)} />
+          <Select aria-label={t("assignments.filterStatus")} placeholder={t("assignments.filterStatus")} allowClear value={assignmentStatus} onChange={setAssignmentStatus}
+            options={[{ value: "assigned", label: t("assignments.assigned") }, { value: "missing", label: t("assignments.missing") }]} />
+          <Select aria-label={t("receivingAccount")} placeholder={t("assignments.allAccounts")} showSearch allowClear optionFilterProp="label" value={assignmentBank} onChange={setAssignmentBank}
+            options={data.accounts.map(account => ({ value: account.id, label: `${account.bankName} · ${account.accountNo}` }))} />
+        </div>
+        <div className="payments-table-scroll" role="region" aria-label={t("assignment")} tabIndex={0}>
+        <Table<Store> rowKey="id" size="middle" style={{ minWidth: 680 }} pagination={{ pageSize: 8, hideOnSinglePage: true }}
+          dataSource={stores.filter(store => {
+            const accountId = data.assignments.find(assignment => assignment.storeId === store.id)?.bankAccountId;
+            return bankSearch(`${store.name} ${store.address ?? ""} ${store.id}`).includes(bankSearch(storeSearch))
+              && (!assignmentStatus || (assignmentStatus === "assigned" ? !!accountId : !accountId)) && (!assignmentBank || accountId === assignmentBank);
+          })} columns={[
+            { title: t("store"), render: (_, store) => <><strong>{store.name}</strong><small className="payment-log-muted">{store.address}</small></> },
+            { title: t("receivingAccount"), render: (_, store) => {
+              const accountId = data.assignments.find(assignment => assignment.storeId === store.id)?.bankAccountId;
+              const account = data.accounts.find(item => item.id === accountId);
+              return account ? <><span>{account.bankName} · {account.accountNo}</span><small className="payment-log-muted">{account.accountName}</small>{!account.active && <Tag color="warning">{t("inactive")}</Tag>}</> : <Tag color="warning">{t("assignments.missing")}</Tag>;
+            } },
+            { title: t("actions"), width: 160, render: (_, store) => <Button disabled={busy || loading} onClick={() => {
+              setAssignmentStore(store); setAssignmentError(""); assignmentForm.setFieldsValue({ storeId: store.id, bankAccountId: data.assignments.find(assignment => assignment.storeId === store.id)?.bankAccountId ?? null });
+            }}>{t(data.assignments.some(assignment => assignment.storeId === store.id && assignment.bankAccountId) ? "assignments.change" : "assignments.assign")}</Button> },
+          ]} />
+        </div>
+      </Card>
+        </Space> },
+      ]} />
+    </>
+    <Modal open={assignmentStore !== null} title={t("assignments.modalTitle")} onCancel={() => setAssignmentStore(null)}
+      onOk={() => assignmentForm.submit()} confirmLoading={busy} okText={t("saveAssignment")} cancelText={t("cancel")}
+      cancelButtonProps={{ disabled: busy }} closable={!busy} maskClosable={!busy} keyboard={!busy}>
+      <Typography.Title level={5}>{assignmentStore?.name}</Typography.Title><Typography.Paragraph type="secondary">{assignmentStore?.address}</Typography.Paragraph>
+      {assignmentError && <Alert type="error" showIcon message={assignmentError} style={{ marginBottom: 16 }} />}
+      <Form form={assignmentForm} layout="vertical" disabled={busy} onFinish={assign}>
+        <Form.Item name="storeId" hidden><Input /></Form.Item>
+        <Form.Item name="bankAccountId" label={t("receivingAccount")} extra={t("assignments.onlyFuture")}>
+          <Select showSearch allowClear optionFilterProp="label" placeholder={t("assignments.chooseAccount")} options={data?.accounts.map(account => ({ value: account.id,
+            disabled: !account.active || !account.bankCode, label: `${account.bankName} · ${account.accountNo} · ${account.accountName}${account.active ? "" : ` (${t("inactive")})`}` }))} />
+        </Form.Item>
+      </Form>
+    </Modal>
+    <Modal open={editing !== null} title={t(editing === "new" ? "add" : "edit")} onCancel={() => setEditing(null)}
+      onOk={() => accountForm.submit()} confirmLoading={busy} okText={t("save")} cancelText={t("cancel")}
+      cancelButtonProps={{ disabled: busy }} closable={!busy} maskClosable={!busy} keyboard={!busy}>
+      {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} />}
+      {bankError && <Alert type="warning" showIcon message={t("bankListUnavailable")} description={bankError} style={{ marginBottom: 16 }} />}
+      <Form form={accountForm} layout="vertical" onFinish={saveAccount} disabled={busy}>
+        <Form.Item name="bankName" label={t("bankName")} rules={[{ required: true, whitespace: true, max: 100, message: t("required") }]}
+          getValueProps={value => ({ value: banks.find(bank => bank.code === bankCode && bank.shortName === value)?.code ?? (value ? "__saved__" : undefined) })}
+          getValueFromEvent={value => banks.find(bank => bank.code === value)?.shortName ?? bankName}>
+          <Select showSearch placeholder={t("chooseBank")} options={nameOptions} loading={bankLoading} disabled={busy || bankLoading || !!bankError}
+            filterOption={(input, option) => (option?.search ?? "").includes(bankSearch(input))}
+            onSelect={value => selectBank(banks.find(bank => bank.code === value))} />
+        </Form.Item>
+        <Form.Item name="bankCode" label={t("bankCode")} extra={t("bankCodeHelp")} rules={[{ required: true, pattern: /^[A-Za-z0-9]{2,20}$/, message: t("invalidCode") }]}>
+          <Select showSearch placeholder={t("chooseBankCode")} options={codeOptions} loading={bankLoading} disabled={busy || bankLoading || !!bankError}
+            filterOption={(input, option) => (option?.search ?? "").includes(bankSearch(input))}
+            onSelect={value => selectBank(banks.find(bank => bank.code === value))} />
+        </Form.Item>
+        <Form.Item name="accountNo" label={t("accountNo")} rules={[{ required: true, pattern: /^[0-9]{1,80}$/, message: t("invalidAccount") }]}><Input inputMode="numeric" maxLength={80} autoComplete="off" /></Form.Item>
+        <Form.Item name="accountName" label={t("accountName")} rules={[{ required: true, whitespace: true, max: 160, message: t("required") }]}><Input maxLength={160} autoComplete="off" /></Form.Item>
+        <Form.Item name="active" label={t("active")} valuePropName="checked" extra={t("inactiveHelp")}><Switch /></Form.Item>
+      </Form>
+    </Modal>
+  </Space>;
 }

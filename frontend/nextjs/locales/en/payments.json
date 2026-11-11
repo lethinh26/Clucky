@@ -1,0 +1,28 @@
+{
+  "title": "Bank transfer payment",
+  "loading": "Loading payment details…",
+  "waitingOrder": "Verifying the order. Do not transfer until the details are ready.",
+  "noSession": "This order has no online payment session. Do not pay using an old QR or sample bank account.",
+  "noTransferOnError": "The latest balance could not be verified. Wait for a refresh before transferring more.",
+  "retry": "Reload payment",
+  "total": "Order total",
+  "received": "Bank funds recorded",
+  "missing": "Remaining",
+  "excess": "Overpayment",
+  "manualTransfer": "Transfer manually",
+  "paymentDetails": "Payment details",
+  "paidAmount": "Paid",
+  "partialReceived": "Received {received} / {total}",
+  "scanHint": "Scan with your banking app. Payment updates automatically.",
+  "confirming": "Full payment received; waiting for order confirmation. Do not transfer more.",
+  "deadline": "Keep the reference unchanged. The 15-minute deadline does not reset on reload; do not transfer after expiry.",
+  "refundUnavailable": "These funds need store review and have not been automatically refunded. Please contact the store.",
+  "statuses": {
+    "COLLECTED": "The store accepted collection. Declared transfers may still await bank reconciliation. Do not transfer more.",
+    "LEGACY_REVIEW": "This older payment needs snapshot review. Do not transfer more or reuse an old QR; contact the store.",
+    "PENDING": "Waiting for the full transfer amount.",
+    "PAID": "Your order is confirmed.",
+    "EXPIRED": "Payment expired. Do not transfer more or reuse this QR.",
+    "CANCELLED": "Order cancelled. Do not transfer more; received funds are retained for review."
+  }
+}

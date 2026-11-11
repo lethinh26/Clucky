@@ -43,11 +43,16 @@ public class OrderVerificationController {
                 .filter(item -> "PRODUCT".equals(item.getItemType()))
                 .map(OrderItem::getProductId).filter(Objects::nonNull).distinct().toList();
         return new OrderVerificationResponse(order.getId(), order.getOrderCode(), order.getCustomerId(),
-                order.getStatus(), productIds);
+                order.getStatus(), productIds, order.getStoreId());
     }
 
     public record OrderVerificationResponse(Long id, String orderCode, Long customerId,
-            String status, List<Long> productIds) {}
+            String status, List<Long> productIds, Long storeId) {
+        public OrderVerificationResponse(Long id, String orderCode, Long customerId,
+                String status, List<Long> productIds) {
+            this(id, orderCode, customerId, status, productIds, null);
+        }
+    }
 
     @GetMapping("/api/internal/orders/{orderId}/store")
     @PreAuthorize("hasAnyRole('STAFF', 'STORE_MANAGER', 'ADMIN')")
@@ -55,6 +60,9 @@ public class OrderVerificationController {
     public OrderStoreResponse getStore(@PathVariable @Positive Long orderId) {
         CurrentActor actor = CurrentActor.require();
         if (actor.role() != Role.ADMIN && actor.role() != Role.STAFF && actor.role() != Role.STORE_MANAGER) {
+            throw new ApiException(ErrorCode.FORBIDDEN);
+        }
+        if (actor.role() != Role.ADMIN && (actor.storeId() == null || actor.storeId() <= 0)) {
             throw new ApiException(ErrorCode.FORBIDDEN);
         }
         var order = (actor.role() == Role.ADMIN ? orders.findById(orderId)

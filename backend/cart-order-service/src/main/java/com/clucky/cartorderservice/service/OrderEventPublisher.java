@@ -32,15 +32,18 @@ public class OrderEventPublisher {
     private final OutboxEventRepository outboxEventRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final ObjectMapper objectMapper;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public OrderEventPublisher(
             OutboxEventRepository outboxEventRepository,
             ApplicationEventPublisher applicationEventPublisher,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            org.springframework.jdbc.core.JdbcTemplate jdbc
     ) {
         this.outboxEventRepository = outboxEventRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.objectMapper = objectMapper;
+        this.jdbc = jdbc;
     }
 
     public void publishOrderCreated(Order order, List<OrderItem> items) {
@@ -60,9 +63,56 @@ public class OrderEventPublisher {
     }
 
     public void publishOrderCancelled(Order order, List<OrderItem> items, String reason) {
+        publishOrderCancelled(order, items, reason, false);
+    }
+
+    public void publishOrderCancelled(Order order, List<OrderItem> items, String reason, boolean paymentExpired) {
         ObjectNode payload = buildOrderPayload(order, items, null, reason);
+        payload.put("paymentExpired", paymentExpired);
         publish(TOPIC_ORDER_CANCELLED, order, payload);
+        if (!paymentExpired && "BANK_TRANSFER".equals(order.getPaymentMethod()))
+            jdbc.update("INSERT INTO order_service.cancellation_refund_work(order_id) VALUES (?) ON CONFLICT DO NOTHING", order.getId());
         auditOperation(order, "ORDER_CANCELLED");
+    }
+
+    public void publishRefundEvent(String topic, com.clucky.cartorderservice.entity.RefundRequest refund, Order order, String reason) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("refundId", refund.getId());
+        payload.put("orderId", refund.getOrderId());
+        payload.put("orderCode", order.getOrderCode());
+        if (order.getCustomerEmail() != null && order.isCustomerEmailVerified()) {
+            payload.put("customerEmail", order.getCustomerEmail());
+            payload.putObject("recipient").put("userId", order.getCustomerId()).put("role", "CUSTOMER")
+                    .put("email", order.getCustomerEmail()).put("emailVerified", true);
+        }
+        if (refund.getCustomerId() != null) {
+            payload.put("customerId", refund.getCustomerId());
+        }
+        payload.put("storeId", order.getStoreId());
+        if (refund.getAmount() != null) {
+            payload.put("amount", refund.getAmount());
+        }
+        payload.put("status", refund.getStatus());
+        if (reason != null && !reason.isBlank()) {
+            payload.put("reason", reason);
+        }
+        if (refund.getAttemptCount() != null) {
+            payload.put("attemptCount", refund.getAttemptCount());
+        }
+        if (refund.getBankDetailsVersion() != null) {
+            payload.put("bankDetailsVersion", refund.getBankDetailsVersion());
+        }
+        publish(topic, order, payload);
+    }
+
+    public void auditRefund(Order order, com.clucky.cartorderservice.entity.RefundRequest refund,
+            String action, Long actorId, String actorRole) {
+        ObjectNode payload = objectMapper.createObjectNode().put("actorId", actorId).put("actorRole", actorRole)
+                .put("storeId", order.getStoreId()).put("action", action).put("targetType", "RefundRequest").put("targetId", refund.getId());
+        payload.putObject("detail").put("result", "SUCCESS").put("orderId", order.getId())
+                .put("amount", refund.getAmount()).put("status", refund.getStatus())
+                .put("attemptCount", refund.getAttemptCount()).put("bankDetailsVersion", refund.getBankDetailsVersion());
+        publish("audit.recorded", order, payload);
     }
 
     private void auditOperation(Order order, String action) {
@@ -86,8 +136,14 @@ public class OrderEventPublisher {
         payload.put("storeId", order.getStoreId());
         payload.put("type", order.getType());
         payload.put("status", order.getStatus());
+        payload.put("paymentStatus", order.getPaymentStatus());
         if (order.getPaymentMethod() != null) {
             payload.put("paymentMethod", order.getPaymentMethod());
+        }
+        if (order.getCollectionMethod() != null) {
+            payload.put("paymentMethod", order.getCollectionMethod());
+            payload.put("cashAmount", order.getCollectedCash());
+            payload.put("declaredTransfer", order.getDeclaredTransfer());
         }
 
         if (previousStatus != null) {
@@ -126,6 +182,12 @@ public class OrderEventPublisher {
         }
         if (order.getDeliveryAddress() != null) {
             payload.put("deliveryAddress", order.getDeliveryAddress());
+        }
+        if (order.getLatitude() != null) {
+            payload.put("latitude", order.getLatitude());
+        }
+        if (order.getLongitude() != null) {
+            payload.put("longitude", order.getLongitude());
         }
         if (order.getNote() != null) {
             payload.put("note", order.getNote());
@@ -194,6 +256,12 @@ public class OrderEventPublisher {
             );
 
             OutboxEvent saved = outboxEventRepository.save(outboxEvent);
+            if (topic.startsWith("refund.") && order.getCustomerId() != null && !payload.hasNonNull("recipient")) {
+                saved.setStatus("WAITING_RECIPIENT");
+                saved.setLastError("Verified customer email required");
+                outboxEventRepository.save(saved);
+                return;
+            }
             LOG.info("event=outbox_event_saved eventId={} topic={} orderCode={}",
                     eventId, topic, order.getOrderCode());
 

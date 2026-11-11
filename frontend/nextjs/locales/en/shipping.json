@@ -1,0 +1,25 @@
+{
+  "title": "Delivery details",
+  "coverage": "Delivery coverage",
+  "distance": "Distance",
+  "radius": "Branch radius",
+  "fixedFee": "Fixed delivery fee",
+  "straightLine": "Straight-line distance from the branch to your delivery pin, not driving distance.",
+  "fixedHint": "One fixed fee within coverage, with no per-km surcharge.",
+  "changeAddress": "Change address",
+  "changeStore": "Choose another branch",
+  "pickup": "Collect at the store",
+  "retry": "Check again",
+  "pickupHint": "Store pickup · No delivery fee",
+  "statuses": {
+    "OK": "Your address is within delivery coverage",
+    "CHECKING": "Checking your address and delivery fee…",
+    "STORE_REQUIRED": "Choose a branch to prepare your order",
+    "LOCATION_REQUIRED": "Choose an address and confirm the delivery pin on the map to check coverage.",
+    "STORE_LOCATION_MISSING": "This branch has no delivery location yet. Choose another branch or collect at the store.",
+    "RADIUS_NOT_CONFIGURED": "This branch has no delivery coverage configured yet. Pickup is still available.",
+    "FEE_NOT_CONFIGURED": "The delivery fee is not configured yet. Pickup is currently available.",
+    "OUT_OF_RANGE": "Your address is outside this branch's delivery coverage.",
+    "UNAVAILABLE": "We could not check delivery. Retry or choose store pickup."
+  }
+}

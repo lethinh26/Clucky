@@ -2,6 +2,7 @@ package com.clucky.shippingservice.mapper;
 
 import com.clucky.shippingservice.dto.DomainEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
@@ -18,7 +19,8 @@ public class EventMapper {
 
     public EventMapper(ObjectMapper mapper, Validator validator) {
         this.mapper = mapper;
-        this.reader = mapper.readerFor(DomainEvent.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        this.reader = mapper.readerFor(DomainEvent.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
         this.validator = validator;
     }
 

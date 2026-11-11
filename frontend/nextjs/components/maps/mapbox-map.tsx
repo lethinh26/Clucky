@@ -3,6 +3,7 @@ import { useFeedback } from "@/components/feedback";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import mapboxgl from "mapbox-gl";
+import { deliveryCircle } from "@/lib/geo";
 import type { BranchMapProps, MapPoint } from "./branch-map";
 import styles from "./maps.module.css";
 
@@ -46,6 +47,22 @@ export default function MapboxMap(props: BranchMapProps) {
   const originLongitude = props.origin?.longitude;
   const editable = Boolean(props.onPick);
   const selectedId = props.selectedId;
+  const coverageKey = JSON.stringify(props.coverage ?? null);
+  useEffect(() => {
+    const coverage: BranchMapProps["coverage"] = JSON.parse(coverageKey);
+    if (!map || !loaded || !coverage) return;
+    const ring = deliveryCircle(coverage, coverage.radiusKm);
+    if (!ring.length) return;
+    map.addSource("delivery-coverage", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [ring] } } });
+    map.addLayer({ id: "delivery-coverage-fill", type: "fill", source: "delivery-coverage", paint: { "fill-color": "#8f1216", "fill-opacity": 0.08 } });
+    map.addLayer({ id: "delivery-coverage-line", type: "line", source: "delivery-coverage", paint: { "line-color": "#8f1216", "line-width": 2, "line-dasharray": [3, 2] } });
+    return () => {
+      if (!map.getStyle()) return;
+      if (map.getLayer("delivery-coverage-line")) map.removeLayer("delivery-coverage-line");
+      if (map.getLayer("delivery-coverage-fill")) map.removeLayer("delivery-coverage-fill");
+      if (map.getSource("delivery-coverage")) map.removeSource("delivery-coverage");
+    };
+  }, [map, loaded, coverageKey]);
   useEffect(() => {
     if (!map) return;
     const markers: mapboxgl.Marker[] = [];
@@ -88,6 +105,14 @@ export default function MapboxMap(props: BranchMapProps) {
     const latitude = pinLatitude ?? selected?.latitude;
     const longitude = pinLongitude ?? selected?.longitude;
     map.stop();
+    const coverage: BranchMapProps["coverage"] = JSON.parse(coverageKey);
+    if (coverage) {
+      const ring = deliveryCircle(coverage, coverage.radiusKm);
+      const coverageBounds = new mapboxgl.LngLatBounds();
+      ring.forEach(point => coverageBounds.extend([point[0], Math.max(-85, Math.min(85, point[1]))]));
+      if (pinLatitude !== undefined && pinLongitude !== undefined) coverageBounds.extend([pinLongitude, pinLatitude]);
+      if (!coverageBounds.isEmpty()) { map.fitBounds(coverageBounds, { padding: 36, maxZoom: 15, duration: 0 }); return; }
+    }
     if (latitude !== undefined && longitude !== undefined) {
       map.flyTo({ center: [longitude, latitude], zoom: 16, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 650 });
       return;
@@ -96,7 +121,7 @@ export default function MapboxMap(props: BranchMapProps) {
     points.forEach(point => bounds.extend([point.longitude, point.latitude]));
     if (originLatitude !== undefined && originLongitude !== undefined) bounds.extend([originLongitude, originLatitude]);
     if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 54, maxZoom: 14, duration: 0 });
-  }, [map, pointsKey, selectedId, props.focusRequest, pinLatitude, pinLongitude, originLatitude, originLongitude]);
+  }, [map, pointsKey, selectedId, props.focusRequest, pinLatitude, pinLongitude, originLatitude, originLongitude, coverageKey]);
   return <>
     <div ref={container} style={{ height: "100%", width: "100%" }} aria-label={t("mapLabel")} />
     {!loaded && !error && <span className={styles.mapLoading} role="status">{t("mapLoading")}</span>}

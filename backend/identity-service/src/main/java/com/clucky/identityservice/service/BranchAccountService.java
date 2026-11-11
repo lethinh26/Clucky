@@ -6,9 +6,6 @@ import com.clucky.identityservice.dto.BranchAccountData.*;
 import com.clucky.identityservice.dto.Role;
 import com.clucky.identityservice.exception.ApiException;
 import com.clucky.identityservice.exception.ErrorCode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,17 +26,13 @@ public class BranchAccountService {
     private final AuthProperties auth;
     private final PasswordEncoder passwords;
     private final RefreshTokenService sessions;
-    private final ObjectMapper mapper;
-    private final String approvedBackup;
-    private final org.springframework.cloud.client.discovery.DiscoveryClient discovery;
+    private final IdentityAuditService audit;
 
     public BranchAccountService(JdbcTemplate jdbc, OtpService otp, AuthProperties auth,
-            PasswordEncoder passwords, RefreshTokenService sessions, ObjectMapper mapper,
-            @Value("${clucky.branch.approved-backup:}") String approvedBackup,
-            org.springframework.cloud.client.discovery.DiscoveryClient discovery) {
+            PasswordEncoder passwords, RefreshTokenService sessions, IdentityAuditService audit) {
         this.jdbc = jdbc; this.otp = otp; this.auth = auth; this.passwords = passwords;
-        this.sessions = sessions; this.mapper = mapper; this.approvedBackup = approvedBackup;
-        this.discovery = discovery;
+        this.sessions = sessions;
+        this.audit = audit;
     }
 
     private void lock() { jdbc.execute("SELECT pg_advisory_xact_lock(192615)"); }
@@ -89,7 +82,7 @@ public class BranchAccountService {
         if (accounts.size() != 2 || accounts.stream().map(Account::role).distinct().count() != 2)
             throw failure(ErrorCode.RESOURCE_CONFLICT);
         boolean ready = accounts.stream().allMatch(account -> account.activated() && account.status().equals("ACTIVE"));
-        return new Pair(storeId, ready ? "READY" : "PROVISIONED", settings.get("recovery_email").toString(),
+        return new Pair(storeId, ready ? "READY" : "PROVISIONED", (String) settings.get("recovery_email"),
                 Boolean.TRUE.equals(settings.get("email_verified")), number(settings, "version"), accounts);
     }
 
@@ -140,8 +133,8 @@ public class BranchAccountService {
         if (request.purpose().equals("ACTIVATE") ? (!current || activated) : !activated) return new Challenge(opaque);
         Long storeId = current ? number(target, "store_id") : null;
         var settings = current ? branch(storeId) : null;
-        String recipient = current ? settings.get("recovery_email").toString() : (String) target.get("email");
-        if (recipient == null) return new Challenge(opaque);
+        String recipient = current ? (String) settings.get("recovery_email") : (String) target.get("email");
+        if (recipient == null || recipient.isBlank()) return new Challenge(opaque);
         return createChallenge(number(target, "id"), storeId, request.purpose(), null, null, recipient, null,
                 current ? number(settings, "version") : null);
     }
@@ -175,7 +168,7 @@ public class BranchAccountService {
         if (actor.role() == Role.STORE_MANAGER && (!Boolean.TRUE.equals(user(actor.userId()).get("current_branch_account"))
                 || !Boolean.TRUE.equals(settings.get("email_verified")))) throw failure(ErrorCode.FORBIDDEN);
         var actorRow = user(actor.userId());
-        String recipient = actor.role() == Role.ADMIN ? (String) actorRow.get("email") : settings.get("recovery_email").toString();
+        String recipient = actor.role() == Role.ADMIN ? (String) actorRow.get("email") : (String) settings.get("recovery_email");
         if (recipient == null || !Boolean.TRUE.equals(actorRow.get("email_verified"))) throw failure(ErrorCode.FORBIDDEN);
         otp.limitIssuance("branch-management:" + actor.userId(), "BRANCH");
         String purpose = actor.role() == Role.ADMIN ? "ADMIN_" + request.purpose() : "RECOVERY";
@@ -241,79 +234,6 @@ public class BranchAccountService {
         audit(actor.userId(), actor.role().name(), storeId, management ? sessionId() : null, "ACCOUNT_" + purpose, targetId, "Account", "SUCCESS", null);
     }
 
-    @Transactional
-    public Inventory inventory(long storeId) {
-        admin();
-        var rows = accounts(storeId, false);
-        return new Inventory(storeId, otp.verifier(json(rows)), !approvedBackup.isBlank(), rows);
-    }
-
-    @Transactional(readOnly = true)
-    public Object migrationReport(long storeId) {
-        admin();
-        var rows = jdbc.queryForList("SELECT report::text FROM identity_service.branch_migrations WHERE store_id=?", storeId);
-        if (rows.isEmpty()) throw failure(ErrorCode.RESOURCE_NOT_FOUND);
-        try { return mapper.readTree(rows.getFirst().get("report").toString()); }
-        catch (Exception failure) { throw failure(ErrorCode.INTERNAL_ERROR); }
-    }
-
-    private void prepareStore(long storeId) {
-        try {
-            var instances = discovery.getInstances("catalog-store-service");
-            if (instances.isEmpty()) throw failure(ErrorCode.DEPENDENCY_UNAVAILABLE);
-            var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(3000); factory.setReadTimeout(5000);
-            long time = Instant.now().getEpochSecond();
-            org.springframework.web.client.RestClient.builder().requestFactory(factory).build().post()
-                    .uri(instances.getFirst().getUri() + "/api/stores/internal/" + storeId + "/prepare-migration")
-                    .header("X-Branch-Time", "" + time)
-                    .header("X-Branch-Signature", otp.verifier("branch-migration-v1:" + storeId + ":" + time))
-                    .retrieve().toBodilessEntity();
-        } catch (Exception failure) { throw failure(ErrorCode.DEPENDENCY_UNAVAILABLE); }
-    }
-
-    @Transactional
-    public Pair migrate(long storeId, Mapping mapping) {
-        lock(); admin(); reauthenticate(mapping.currentPassword());
-        if (approvedBackup.isBlank()) throw failure(ErrorCode.NOT_IMPLEMENTED);
-        if (!approvedBackup.equals(mapping.backupReference())) throw failure(ErrorCode.RESOURCE_CONFLICT);
-        String mappingHash = otp.verifier(storeId + ":" + CurrentActor.require().userId() + ":" + mapping.managerId() + ":" + mapping.staffId()
-                + ":" + normalized(mapping.recoveryEmail()) + ":" + mapping.inventoryVersion() + ":" + mapping.backupReference());
-        var previous = jdbc.queryForList("SELECT request_hash FROM identity_service.branch_migrations WHERE store_id=?", storeId);
-        if (!previous.isEmpty()) {
-            if (!mappingHash.equals(previous.getFirst().get("request_hash"))) throw failure(ErrorCode.RESOURCE_CONFLICT);
-            return pair(storeId);
-        }
-        var before = inventory(storeId);
-        if (!before.inventoryVersion().equals(mapping.inventoryVersion())) throw failure(ErrorCode.RESOURCE_CONFLICT);
-        if (!jdbc.queryForList("SELECT store_id FROM identity_service.branch_accounts WHERE store_id=?", storeId).isEmpty()) throw failure(ErrorCode.RESOURCE_CONFLICT);
-        Account manager = before.accounts().stream().filter(account -> account.id() == mapping.managerId() && account.role().equals("STORE_MANAGER")).findFirst().orElseThrow(() -> failure(ErrorCode.VALIDATION_ERROR));
-        Account staff = before.accounts().stream().filter(account -> account.id() == mapping.staffId() && account.role().equals("STAFF")).findFirst().orElseThrow(() -> failure(ErrorCode.VALIDATION_ERROR));
-        prepareStore(storeId);
-        jdbc.update("INSERT INTO identity_service.branch_accounts(store_id,request_key,request_hash,recovery_email) VALUES (?,?,?,?)",
-                storeId, UUID.randomUUID(), before.inventoryVersion(), normalized(mapping.recoveryEmail()));
-        for (Account account : before.accounts()) {
-            user(account.id());
-            jdbc.update("UPDATE identity_service.branch_challenges SET used=TRUE WHERE target_id=?", account.id());
-            boolean retained = account.id() == manager.id() || account.id() == staff.id();
-            if (retained) {
-                String login = (account.role().equals("STAFF") ? "staff." : "manager.") + storeId;
-                jdbc.update("UPDATE identity_service.users SET current_branch_account=TRUE,login_name=?,password_hash=NULL,email_verified=FALSE,updated_at=now() WHERE id=?", login, account.id());
-                createChallenge(account.id(), storeId, "ACTIVATE", null, null, normalized(mapping.recoveryEmail()), null, 0L);
-            } else {
-                jdbc.update("UPDATE identity_service.users SET current_branch_account=FALSE,status='LOCKED',updated_at=now() WHERE id=?", account.id());
-            }
-            sessions.revokeAllForUser(account.id());
-            audit(CurrentActor.require().userId(), "ADMIN", storeId, sessionId(), retained ? "MIGRATION_RETAINED" : "MIGRATION_RETIRED", account.id(), "Account", "SUCCESS", null);
-        }
-        var after = pair(storeId);
-        jdbc.update("INSERT INTO identity_service.branch_migrations(store_id,request_hash,actor_id,backup_reference,report) VALUES (?,?,?,?,?::jsonb)",
-                storeId, mappingHash, CurrentActor.require().userId(), mapping.backupReference(),
-                json(Map.of("storeId", storeId, "before", before.accounts(), "after", accounts(storeId, false),
-                        "revokedAccountIds", before.accounts().stream().map(Account::id).toList(), "currentSlotConstraint", true,
-                        "readiness", after.readiness(), "sessionId", Objects.toString(sessionId(), ""))));
-        return after;
-    }
 
     @Transactional
     public void lockAccount(long targetId, boolean locked) {
@@ -324,15 +244,8 @@ public class BranchAccountService {
         audit(CurrentActor.require().userId(), "ADMIN", number(target, "store_id"), sessionId(), locked ? "ACCOUNT_LOCKED" : "ACCOUNT_UNLOCKED", targetId, "Account", "SUCCESS", null);
     }
 
-    private String json(Object value) {
-        try { return mapper.writeValueAsString(value); } catch (Exception failure) { throw failure(ErrorCode.INTERNAL_ERROR); }
-    }
     private void audit(long actorId, String role, Long storeId, String sid, String action, long targetId, String targetType, String result, String correlation) {
-        String correlationId = correlation != null ? correlation : MDC.get("correlationId");
-        if (correlationId == null || !correlationId.matches("[A-Za-z0-9._-]{1,128}")) correlationId = UUID.randomUUID().toString();
-        var payload = mapper.createObjectNode().put("actorId", actorId).put("actorRole", role).put("action", action).put("targetId", targetId).put("targetType", targetType);
-        if (storeId != null) payload.put("storeId", storeId);
-        payload.putObject("detail").put("sessionId", sid).put("result", result).put("identity", "SHARED_ACCOUNT_NOT_PERSON");
-        jdbc.update("INSERT INTO identity_service.branch_outbox(event_id,correlation_id,payload) VALUES (?,?,?::jsonb)", UUID.randomUUID(), correlationId, json(payload));
+        audit.record(actorId, role, storeId, sid, action, targetId, targetType,
+                Map.of("result", result, "identity", "SHARED_ACCOUNT_NOT_PERSON"), correlation);
     }
 }

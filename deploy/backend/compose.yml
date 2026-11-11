@@ -141,7 +141,6 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:?AUTH_COOKIE_SECURE is required}
       AUTH_ALLOWED_ORIGINS: ${FRONTEND_CUSTOMER_URL},${FRONTEND_ADMIN_URL}
-      BRANCH_MIGRATION_BACKUP_REFERENCE: ${BRANCH_MIGRATION_BACKUP_REFERENCE:-}
     volumes:
       - ${VPS_WORKDIR:?VPS_WORKDIR is required}/secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
 
@@ -164,23 +163,21 @@ services:
       CATALOG_SERVICE_URL: http://catalog-store-service
       SHIPPING_SERVICE_URL: http://shipping-service
       PROMOTION_SERVICE_URL: http://promotion-loyalty-service
-      LOYALTY_INTERNAL_TOKEN: ${LOYALTY_INTERNAL_TOKEN:-}
-      CATALOG_SERVICE_TOKEN: ${CATALOG_SERVICE_TOKEN:-}
-      PROMOTION_SERVICE_TOKEN: ${PROMOTION_SERVICE_TOKEN:-}
+      CLOUDINARY_ENABLED: ${CLOUDINARY_ENABLED:-false}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
 
   payment-service:
     <<: *java
     image: clucky-payment-service:${IMAGE_TAG:?IMAGE_TAG is required}
     environment:
       <<: *environment
-      SEPAY_WEBHOOK_SECRET: ${SEPAY_WEBHOOK_SECRET:-}
+      SEPAY_API_KEY: ${SEPAY_API_KEY:-}
 
   promotion-loyalty-service:
     <<: *java
     image: clucky-promotion-loyalty-service:${IMAGE_TAG:?IMAGE_TAG is required}
-    environment:
-      <<: *environment
-      LOYALTY_INTERNAL_TOKEN: ${LOYALTY_INTERNAL_TOKEN:-}
 
   shipping-service:
     <<: *java
@@ -192,6 +189,7 @@ services:
     environment:
       <<: *environment
       MAIL_SENDER_ENABLED: ${MAIL_SENDER_ENABLED:-false}
+      FRONTEND_CUSTOMER_URL: ${FRONTEND_CUSTOMER_URL:-http://localhost:3000}
       MAIL_SENDER_USERNAME: ${MAIL_SENDER_USERNAME:-}
       MAIL_SENDER_APP_PASSWORD: ${MAIL_SENDER_APP_PASSWORD:-}
 

@@ -13,11 +13,18 @@ import java.util.List;
 public class ComboDto {
 
     public static class ItemDto {
+        @jakarta.validation.constraints.Positive
+        private Long id;
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
         @NotNull
+        @jakarta.validation.constraints.Positive
         private Long productId;
         private String productName;
+        @NotNull
         @Min(1)
         private Integer quantity = 1;
+        @jakarta.validation.constraints.Positive
         private Long optionId;
 
         public ItemDto() {}
@@ -43,6 +50,9 @@ public class ComboDto {
     }
 
     public static class Response {
+        private long version;
+        public long getVersion() { return version; }
+        public void setVersion(long version) { this.version = version; }
         private Long id;
         private String name;
         private String slug;
@@ -100,7 +110,12 @@ public class ComboDto {
     }
 
     public static class Request {
+        @jakarta.validation.constraints.PositiveOrZero
+        private Long expectedVersion;
+        public Long getExpectedVersion() { return expectedVersion; }
+        public void setExpectedVersion(Long expectedVersion) { this.expectedVersion = expectedVersion; }
         @NotBlank(message = "Tên combo không được để trống")
+        @jakarta.validation.constraints.Size(max = 180)
         private String name;
 
         @NotBlank(message = "Mô tả không được để trống")
@@ -108,15 +123,22 @@ public class ComboDto {
 
         @NotNull(message = "Giá combo không được để trống")
         @DecimalMin(value = "0.0", message = "Giá combo không được âm")
+        @jakarta.validation.constraints.Digits(integer = 12, fraction = 0)
         private BigDecimal comboPrice;
 
         private String imageUrl;
         private String imagePublicId;
         private OffsetDateTime startAt;
         private OffsetDateTime endAt;
+        private boolean startAtSpecified;
+        private boolean endAtSpecified;
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        public boolean isStartAtSpecified() { return startAtSpecified; }
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        public boolean isEndAtSpecified() { return endAtSpecified; }
         private Boolean isActive;
         @Valid
-        private List<ItemDto> items;
+        private List<@NotNull ItemDto> items;
 
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }
@@ -134,10 +156,10 @@ public class ComboDto {
         public void setImagePublicId(String imagePublicId) { this.imagePublicId = imagePublicId; }
 
         public OffsetDateTime getStartAt() { return startAt; }
-        public void setStartAt(OffsetDateTime startAt) { this.startAt = startAt; }
+        public void setStartAt(OffsetDateTime startAt) { this.startAt = startAt; this.startAtSpecified = true; }
 
         public OffsetDateTime getEndAt() { return endAt; }
-        public void setEndAt(OffsetDateTime endAt) { this.endAt = endAt; }
+        public void setEndAt(OffsetDateTime endAt) { this.endAt = endAt; this.endAtSpecified = true; }
 
         public Boolean getIsActive() { return isActive; }
         public void setIsActive(Boolean isActive) { this.isActive = isActive; }

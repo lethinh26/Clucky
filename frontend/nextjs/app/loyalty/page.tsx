@@ -84,7 +84,6 @@ export default function LoyaltyPage() {
         <div><dt>{t("total")}</dt><dd>{number(points.totalPoints)}</dd></div>
       </dl>
       <div className={styles.statusBarFooter}>
-        <p className={styles.balanceHint}>{t("heldHint")}</p>
         <div className={styles.statusActions}><a href="#loyalty-history" className={styles.historyJumpBtn}><History size={15} aria-hidden="true" />{t("history")}</a><Link href="/menu" className={styles.orderNowBtn}>{t("order")}<ArrowRight size={15} aria-hidden="true" /></Link></div>
       </div>
     </section>}
@@ -120,8 +119,26 @@ export default function LoyaltyPage() {
           <div className={styles.calcInputWrap}><label htmlFor="loyalty-spend">{t("eligibleAmount")}</label><input id="loyalty-spend" className={styles.spendInput} type="number" min={0} max={1000000000} step={1000} value={spend} onChange={event => setSpend(Math.min(1000000000, Math.max(0, Number(event.target.value) || 0)))} /><div className={styles.spendPresets}>{[100000, 200000, 350000, 500000].map(amount => <button key={amount} type="button" aria-pressed={spend === amount} onClick={() => setSpend(amount)}>{money(amount)}</button>)}</div></div>
           <div className={styles.calcOutputBox} aria-live="polite"><div className={styles.calcStatItem}><span className={styles.calcStatLabel}>{t("estimatedEarn")}</span><strong className={styles.calcStatVal}>+{number(estimatedPoints)} <small>{t("points")}</small></strong></div><div className={styles.calcStatItem}><span className={styles.calcStatLabel}>{t("rewardValue")}</span><strong className={styles.calcStatVal}>{money(estimatedPoints * currentPolicy.pointValue)}</strong></div></div>
         </div>
-        <p className={styles.calculatorHint}>{t("estimateHint")}</p>
-        <details className={styles.policyDetails}><summary>{t("rulesTitle")}</summary><p>{t("rules", { amount: money(currentPolicy.pointValue) })}</p></details>
+        <section className={styles.policySection} aria-labelledby="loyalty-rules">
+          <h3 id="loyalty-rules" className={styles.sectionTitle}>{t("rulesTitle")}</h3>
+          <p className={styles.policyIntro}>{t("rulesIntro")}</p>
+          <ol className={styles.policySteps} aria-label={t("rulesSequence")}>
+            {[
+              { key: "voucher", Icon: Gift, title: t("rulesVoucherTitle"), description: t("rulesVoucherText") },
+              { key: "tier", Icon: Crown, title: t("rulesTierTitle"), description: t("rulesTierText", { silver: number(currentPolicy.silverDiscount), gold: number(currentPolicy.goldDiscount) }) },
+              { key: "points", Icon: Sparkles, title: t("rulesPointsTitle"), description: t("rulesPointsText", { amount: money(currentPolicy.pointValue) }) },
+            ].map(({ key, Icon, title, description }, index) => (
+              <li key={key}>
+                <div className={styles.policyStepHeading}><span className={styles.policyNumber} aria-hidden="true">{index + 1}</span><Icon size={18} aria-hidden="true" /><h4>{title}</h4></div>
+                <p>{description}</p>
+              </li>
+            ))}
+          </ol>
+          <div className={styles.earnRule}>
+            <div><span className={styles.earnRuleLabel}>{t("rulesEarnTitle")}</span><strong>{t("rulesEarnRate", { amount: money(currentPolicy.spendPerPoint) })}</strong><p>{t("rulesEarnText")}</p></div>
+            <ul>{["rulesCompleted", "rulesRounding", "rulesShipping"].map(key => <li key={key}><CheckCircle2 size={16} aria-hidden="true" />{t(key)}</li>)}</ul>
+          </div>
+        </section>
       </section>
     </>}
 

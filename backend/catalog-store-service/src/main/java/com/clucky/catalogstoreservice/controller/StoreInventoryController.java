@@ -4,6 +4,7 @@ import com.clucky.catalogstoreservice.config.AccessGuard;
 import com.clucky.catalogstoreservice.config.CurrentActor;
 import com.clucky.catalogstoreservice.dto.InventoryDto;
 import com.clucky.catalogstoreservice.dto.Role;
+import com.clucky.catalogstoreservice.dto.StoreDto;
 import com.clucky.catalogstoreservice.service.InventoryService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -42,6 +43,16 @@ public class StoreInventoryController {
         accessGuard.requireStore(storeId);
         var actor = CurrentActor.require();
         return ResponseEntity.ok(inventoryService.updateInventory(storeId, productId, body, actor.userId()));
+    }
+
+    @PutMapping("/threshold")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
+    public ResponseEntity<java.util.Map<String, Object>> updateStoreThreshold(
+            @PathVariable Long storeId,
+            @Valid @RequestBody StoreDto.StoreThresholdRequest body) {
+        accessGuard.requireStore(storeId);
+        long version = inventoryService.updateStoreThreshold(storeId, body.threshold(), body.getExpectedVersion());
+        return ResponseEntity.ok(java.util.Map.of("storeId", storeId, "lowStockThreshold", body.threshold(), "threshold", body.threshold(), "version", version));
     }
 
     @PutMapping("/products/{productId}/availability")

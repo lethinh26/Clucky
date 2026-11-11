@@ -13,7 +13,8 @@ import org.springframework.transaction.annotation.Isolation;
 @Service
 public class LoyaltyService {
     private final JdbcTemplate jdbc;
-    public LoyaltyService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    private final VoucherAuditOutbox audit;
+    public LoyaltyService(JdbcTemplate jdbc, VoucherAuditOutbox audit) { this.jdbc = jdbc; this.audit = audit; }
 
     public Policy policy() {
         return jdbc.query("SELECT * FROM promotion_service.loyalty_policy ORDER BY version DESC LIMIT 1", this::policyRow).getFirst();
@@ -27,10 +28,13 @@ public class LoyaltyService {
         if (input.goldThreshold() <= input.silverThreshold() || input.goldDiscount() < input.silverDiscount())
             throw new BadRequestException("Invalid tier thresholds");
         jdbc.execute("LOCK TABLE promotion_service.loyalty_policy IN EXCLUSIVE MODE");
-        if (policy().version() != input.version()) throw new ConflictException("Policy changed; reload before saving");
+        Policy before = policy();
+        if (before.version() != input.version()) throw new ConflictException("Policy changed; reload before saving");
         jdbc.update("INSERT INTO promotion_service.loyalty_policy(spend_per_point,point_value,silver_threshold,gold_threshold,silver_discount,gold_discount,updated_by) VALUES (?,?,?,?,?,?,?)",
                 input.spendPerPoint(), input.pointValue(), input.silverThreshold(), input.goldThreshold(), input.silverDiscount(), input.goldDiscount(), actor);
-        return policy();
+        Policy after = policy();
+        audit.record(actor, "ADMIN", null, "LOYALTY_POLICY_UPDATED", "LOYALTY_POLICY", after.version(), before, after);
+        return after;
     }
     private Balance balance(long customerId, Policy policy, boolean lock) {
         if (lock) jdbc.update("INSERT INTO promotion_service.member_points(customer_id) VALUES (?) ON CONFLICT (customer_id) DO NOTHING", customerId);
@@ -122,7 +126,14 @@ public class LoyaltyService {
     }
     public record PendingOrder(long orderId, long customerId) {}
     public List<PendingOrder> pending() {
-        return jdbc.query("SELECT order_id,customer_id FROM promotion_service.loyalty_orders WHERE state IN ('RESERVED','CONFIRMED') AND updated_at < now()-interval '5 minutes' ORDER BY updated_at LIMIT 100",
+        return jdbc.query("""
+                SELECT order_id,customer_id FROM (
+                  SELECT order_id,customer_id,updated_at FROM promotion_service.loyalty_orders WHERE state IN ('RESERVED','CONFIRMED')
+                  UNION ALL
+                  SELECT order_id,customer_id,updated_at FROM promotion_service.voucher_reservations WHERE state='RESERVED'
+                ) pending WHERE updated_at < now()-interval '5 minutes'
+                GROUP BY order_id,customer_id ORDER BY min(updated_at),order_id LIMIT 100
+                """,
                 (row, index) -> new PendingOrder(row.getLong("order_id"), row.getLong("customer_id")));
     }
     private void entry(long customerId, long orderId, int change, long balance, String type, String action, long version, String eventId, String correlationId) {

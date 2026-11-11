@@ -106,12 +106,9 @@ public class KafkaConfig {
     KafkaAdmin.NewTopics domainTopics(@Value("${clucky.kafka.partitions:3}") int partitions,
             @Value("${clucky.kafka.replicas:1}") int replicas) {
         if (partitions < 1 || replicas < 1) { throw new IllegalArgumentException("Invalid topic settings"); }
-        NewTopic[] topics = List.of(
-                "order.created", "order.status-changed", "order.completed", "order.cancelled",
-                "payment.confirmed", "payment.failed", "promotion.approved", "audit.recorded",
-                "order.created.DLT", "order.status-changed.DLT", "order.completed.DLT", "order.cancelled.DLT",
-                "payment.confirmed.DLT", "payment.failed.DLT", "promotion.approved.DLT", "audit.recorded.DLT"
-        ).stream()
+        NewTopic[] topics = List.of("order.created", "order.status-changed", "order.completed", "order.cancelled",
+                "payment.confirmed", "payment.failed", "promotion.approved", "audit.recorded").stream()
+                .flatMap(name -> java.util.stream.Stream.of(name, name + ".DLT"))
                 .map(name -> TopicBuilder.name(name).partitions(partitions).replicas(replicas).build())
                 .toArray(NewTopic[]::new);
         return new KafkaAdmin.NewTopics(topics);

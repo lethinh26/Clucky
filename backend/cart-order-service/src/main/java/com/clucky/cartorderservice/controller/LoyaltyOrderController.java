@@ -1,19 +1,28 @@
 package com.clucky.cartorderservice.controller;
 
 import com.clucky.cartorderservice.repository.OrderRepository;
+import com.clucky.cartorderservice.exception.ApiException;
+import com.clucky.cartorderservice.exception.ErrorCode;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/internal/loyalty/orders")
 public class LoyaltyOrderController {
     private final OrderRepository orders;
-    public LoyaltyOrderController(OrderRepository orders) { this.orders = orders; }
-    public record State(long customerId, String status) {}
+    private final com.clucky.cartorderservice.service.VoucherCheckoutRecovery recovery;
+
+    public LoyaltyOrderController(OrderRepository orders, com.clucky.cartorderservice.service.VoucherCheckoutRecovery recovery) {
+        this.orders = orders; this.recovery = recovery;
+    }
+
+    public record OrderState(Long orderId, Long customerId, String status) {}
+
     @GetMapping("/{id}")
-    public State state(@PathVariable Long id) {
-        return orders.findById(id).map(order -> new State(order.getCustomerId(), order.getStatus()))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    @org.springframework.transaction.annotation.Transactional
+    public OrderState get(@PathVariable Long id) {
+        if (id == null || id <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        recovery.lock(id);
+        var order = orders.findById(id).orElse(null);
+        return order == null ? new OrderState(id, null, "MISSING") : new OrderState(id, order.getCustomerId(), order.getStatus());
     }
 }

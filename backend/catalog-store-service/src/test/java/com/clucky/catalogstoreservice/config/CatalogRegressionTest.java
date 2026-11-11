@@ -19,6 +19,21 @@ import static org.mockito.Mockito.*;
 
 class CatalogRegressionTest {
     @Test
+    void storesWithoutCurrentReadyAccountsCannotAcceptOrders() {
+        var service = new com.clucky.catalogstoreservice.service.StoreService(null, null, null, null, null, null);
+        var store = new Store();
+        store.setStatus(com.clucky.catalogstoreservice.entity.StoreStatus.OPEN);
+        store.setOpenTime(null);
+        store.setCloseTime(null);
+        for (String readiness : List.of("UNPROVISIONED", "LEGACY", "PENDING", "PROVISIONED")) {
+            store.setAccountReadiness(readiness);
+            assertFalse(service.isStoreServingNow(store));
+        }
+        store.setAccountReadiness("READY");
+        assertTrue(service.isStoreServingNow(store));
+    }
+
+    @Test
     void missingInventoryCannotBeOrderedFromTheMenu() {
         var products = mock(ProductRepository.class);
         var options = mock(ProductOptionRepository.class);
@@ -35,7 +50,7 @@ class CatalogRegressionTest {
         when(storeProducts.findByStoreId(2L)).thenReturn(List.of(
                 new StoreProduct(null, store, product, null, true, false)));
         var service = new ProductService(products, null, options, toppings, null,
-                stores, storeProducts, inventory, null, new CatalogCacheService(null));
+                stores, storeProducts, inventory, null, new CatalogCacheService(null), mock(com.clucky.catalogstoreservice.service.CatalogEvents.class));
         var result = service.getProducts(2L, null, null, null, false).getFirst();
         assertFalse(result.getIsAvailable());
         assertTrue(result.getIsSoldOut());
@@ -51,8 +66,10 @@ class CatalogRegressionTest {
     @Test
     void largePageDoesNotOverflow() {
         var cache = mock(CatalogCacheService.class);
-        when(cache.getCachedMenu(null)).thenReturn(List.of(new ProductDto.Response()));
-        var service = new ProductService(null, null, null, null, null, null, null, null, null, cache);
+        var products = mock(ProductRepository.class);
+        when(products.findAllWithCategory()).thenReturn(List.of());
+        var service = new ProductService(products, null, null, null, null, null, null, null, null, cache,
+                mock(com.clucky.catalogstoreservice.service.CatalogEvents.class));
         var result = service.getProductsPaged(null, null, null, null, false,
                 PageRequest.of(Integer.MAX_VALUE, 20));
         assertTrue(result.content().isEmpty());

@@ -7,6 +7,19 @@ const customer = "http://127.0.0.1:4174";
 const fixture = "http://127.0.0.1:4175";
 const customerSession = { userId: 1, role: "CUSTOMER", fullName: "Customer", email: "customer@example.com" };
 const adminSession = { userId: 2, role: "ADMIN", fullName: "Admin", email: "admin@example.com" };
+const bankInfo = { bankName: "MBBank", bankCode: "MB", accountNo: "0001234567", accountName: "CLUCKY TEST" };
+
+async function seedPayments(page: Page) {
+  await page.route("**/api/payments/bank-config", route => route.fulfill({ json: {
+    accounts: [{ id: 1, ...bankInfo, active: true, version: 0 }],
+    assignments: [{ storeId: 1, bankAccountId: 1, version: 0 }],
+    sepayKeyConfigured: true, reconciliationAvailable: true,
+  } }));
+  await page.route("**/api/payments/transactions?*", route => route.fulfill({ json: {
+    page: { content: [], page: 0, size: 20, totalElements: 0 }, lastReceivedAt: null,
+  } }));
+  await page.route("**/api/stores?*", route => route.fulfill({ json: [{ id: 1, name: "Clucky Test", status: "OPEN" }] }));
+}
 
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/auth/session", route => route.fulfill({
@@ -30,6 +43,7 @@ async function a11y(page: Page, selector: string) {
     result.violations.map((v) => ({
       id: v.id,
       nodes: v.nodes.map((n) => n.target),
+      details: v.nodes.map((n) => n.failureSummary),
     })),
   ).toEqual([]);
 }
@@ -184,20 +198,34 @@ test("Google registration failure restarts safely and never stores pending token
 });
 
 for (const role of ["ADMIN", "STORE_MANAGER", "STAFF"]) {
-  test(`payment integration stays unavailable and enforces role scope: ${role}`, async ({ page }) => {
+  test(`payment screens enforce role scope: ${role}`, async ({ page }) => {
     await page.route("**/api/auth/session", route => route.fulfill({ json: { ...adminSession, role, storeId: role === "ADMIN" ? null : 1 } }));
+    await seedPayments(page);
     const mutations: string[] = [];
+    const paymentReads: string[] = [];
     page.on("request", request => {
       if (new URL(request.url()).pathname.startsWith("/api/") && !["GET", "HEAD"].includes(request.method())) mutations.push(request.url());
+      if (new URL(request.url()).pathname.startsWith("/api/payments/") && request.method() === "GET") paymentReads.push(new URL(request.url()).pathname);
     });
     await page.goto(admin + "/admin/payments");
-    if (role === "STAFF") {
-      await expect(page.getByText("403 — Không có quyền truy cập")).toBeVisible();
-    } else {
-      await expect(page.getByText(/Chưa tích hợp dữ liệu và thao tác thực/)).toBeVisible();
+    if (role === "ADMIN") {
+      await expect(page.getByRole("tab", { name: "Giao dịch", exact: true })).toHaveAttribute("aria-selected", "true");
+      await expect(page.getByRole("table")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Thêm tài khoản", exact: true })).toBeHidden();
+      await page.getByRole("tab", { name: "Tài khoản nhận tiền", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Thêm tài khoản", exact: true })).toBeEnabled();
+      await expect(page.getByRole("region", { name: "Tài khoản nhận tiền", exact: true }).getByRole("row").filter({ hasText: bankInfo.accountNo })).toContainText(bankInfo.accountName);
+      expect(paymentReads).toEqual(expect.arrayContaining(["/api/payments/bank-config", "/api/payments/transactions"]));
     }
-    await expect(page.getByRole("table")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /Xác nhận thủ công|Thêm tài khoản/ })).toHaveCount(0);
+    if (role !== "ADMIN") {
+      await expect(page.getByRole("table")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Nhật ký thanh toán", exact: true })).toBeVisible();
+      await expect(page.getByRole("spinbutton", { name: "ID đơn hàng", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("tab", { name: "Tài khoản nhận tiền", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Thêm tài khoản", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("combobox", { name: "Chi nhánh", exact: true })).toHaveCount(0);
+      expect(paymentReads).toEqual(["/api/payments/transactions"]);
+    }
     await expect(page.locator("body")).not.toContainText(/CLUCKY-241026|MB-20261026/);
     expect(mutations).toEqual([]);
   });
@@ -208,6 +236,7 @@ for (const width of [320, 375, 768, 1440]) {
     page,
   }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
+    await seedPayments(page);
     await page.route("**/qr.svg", (route) =>
       route.fulfill({
         contentType: "image/svg+xml",
@@ -225,15 +254,37 @@ for (const width of [320, 375, 768, 1440]) {
       fullPage: true,
     });
     await page.goto(admin + "/admin/payments");
-    await expect(
-      page.getByText(/Chưa tích hợp dữ liệu và thao tác thực/),
-    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Giao dịch", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("table")).toBeVisible();
     await expectNoOverflow(page);
+    const transactions = page.getByRole("region", { name: "Giao dịch", exact: true });
+    await transactions.focus();
+    await expect(transactions).toBeFocused();
+    if (width < 900) {
+      await transactions.press("ArrowRight");
+      await expect.poll(() => transactions.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+    }
     await page.screenshot({
       path: testInfo.outputPath("admin-payments.png"),
       fullPage: true,
     });
     await a11y(page, "main");
+    const transactionsTab = page.getByRole("tab", { name: "Giao dịch", exact: true });
+    await transactionsTab.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("tab", { name: /Thu tiền \/ đối soát \/ legacy$/ })).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("tab", { name: /Hoàn tiền$/ })).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    const accountsTab = page.getByRole("tab", { name: /Tài khoản nhận tiền$/ });
+    await expect(accountsTab).toBeFocused();
+    await expect(accountsTab).toBeInViewport();
+    await page.keyboard.press("Enter");
+    await expect(accountsTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("region", { name: "Tài khoản nhận tiền", exact: true }).getByRole("row").filter({ hasText: bankInfo.accountNo })).toBeVisible();
+    await expectNoOverflow(page);
+    await a11y(page, "main");
+    await page.screenshot({ path: testInfo.outputPath("admin-bank-accounts.png"), fullPage: true });
   });
 }
 
@@ -254,6 +305,17 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   page,
 }, testInfo) => {
   const order = await seedOrder(page);
+  const paymentReference = "CLUCKY001XA1B2C3";
+  const expiresAt = new Date(Date.now() + 600000).toISOString();
+  await page.route("**/api/payments/901", route => route.fulfill({ json: {
+    orderId: 901, status: order.status === "CANCELLED" ? "CANCELLED" : order.paymentStatus === "PAID" ? "PAID" : "PENDING",
+    reference: paymentReference, expiresAt, bankInfo, amount: "262000",
+    receivedAmount: order.paymentStatus === "PAID" ? "262000" : "0",
+    missingAmount: order.paymentStatus === "PAID" ? "0" : "262000",
+    excessAmount: "0", confirmationPending: false, closedReason: null,
+    canTransfer: order.status === "PENDING_PAYMENT" && order.paymentStatus === "PENDING",
+  } }));
+  const qr = page.getByRole("img", { name: `VietQR thanh toán đơn ${paymentReference}` });
   await page.setViewportSize({ width: 375, height: 900 });
   await page.route("https://vietqr.app/img?*", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
   await page.goto(customer + "/orders/901");
@@ -261,22 +323,20 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await expect(
     page.getByRole("heading", { name: "Thông tin giao hàng" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }),
-  ).toHaveCount(0);
+  await expect(qr).toHaveCount(0);
   order.status = "PENDING_PAYMENT";
   order.paymentStatus = "PENDING";
   order.createdAt = new Date().toISOString();
   delete order.shipmentStatus;
   await page.reload();
   await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toHaveCount(0);
-  await expect(
-    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }),
-  ).toBeVisible();
-  const qrUrl = new URL((await page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }).getAttribute("src"))!);
+  await expect(qr).toBeVisible();
+  const qrUrl = new URL((await qr.getAttribute("src"))!);
   expect(qrUrl.origin + qrUrl.pathname).toBe("https://vietqr.app/img");
   expect(qrUrl.searchParams.get("amount")).toBe("262000");
-  expect(qrUrl.searchParams.get("des")).toBe("CLU20261028TEST");
+  expect(qrUrl.searchParams.get("des")).toBe(paymentReference);
+  expect(qrUrl.searchParams.get("acc")).toBe(bankInfo.accountNo);
+  expect(qrUrl.searchParams.get("bank")).toBe(bankInfo.bankCode);
   await expect(page.getByText("Phí giao hàng", { exact: true })).toHaveCount(1);
   await expect(page.getByRole("region", { name: "Điều khiển tiến trình đơn hàng" })).not.toBeVisible();
   await expectNoOverflow(page);
@@ -288,9 +348,7 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await page.getByLabel("Lý do hủy *").fill("Kiểm tra UI");
   await page.getByRole("button", { name: "Xác nhận hủy", exact: true }).click();
   await expect(page.getByText("Đơn đã được hủy thành công.")).toBeVisible();
-  await expect(
-    page.getByRole("img", { name: "VietQR thanh toán đơn CLU-20261028-TEST" }),
-  ).toHaveCount(0);
+  await expect(qr).toHaveCount(0);
 });
 
 test("Google request loading and error can be retried without storing a pending token", async ({

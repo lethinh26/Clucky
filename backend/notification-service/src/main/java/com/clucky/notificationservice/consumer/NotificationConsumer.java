@@ -28,15 +28,26 @@ public class NotificationConsumer {
     private final EventMapper eventMapper;
     private final NotificationRepository notificationRepository;
     private final EmailSenderService emailSenderService;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+    private final String customerUrl;
 
     public NotificationConsumer(
             EventMapper eventMapper,
             NotificationRepository notificationRepository,
-            EmailSenderService emailSenderService
+            EmailSenderService emailSenderService,
+            org.springframework.jdbc.core.JdbcTemplate jdbc,
+            @org.springframework.beans.factory.annotation.Value("${clucky.frontend.customer-url}") String customerUrl
     ) {
         this.eventMapper = eventMapper;
         this.notificationRepository = notificationRepository;
         this.emailSenderService = emailSenderService;
+        this.jdbc = jdbc;
+        var origin = java.net.URI.create(customerUrl);
+        if (!java.util.Set.of("http", "https").contains(origin.getScheme()) || origin.getHost() == null
+                || origin.getUserInfo() != null || origin.getQuery() != null || origin.getFragment() != null) {
+            throw new IllegalArgumentException("Configure the customer application URL for notifications");
+        }
+        this.customerUrl = customerUrl.replaceAll("/+$", "");
     }
 
     @KafkaListener(
@@ -47,7 +58,13 @@ public class NotificationConsumer {
                     "order.cancelled",
                     "payment.confirmed",
                     "payment.failed",
-                    "promotion.approved"
+                    "promotion.approved",
+                    "refund.approved",
+                    "refund.rejected",
+                    "refund.waiting-bank-details",
+                    "refund.confirmed",
+                    "refund.processed",
+                    "inventory.low-stock"
             },
             groupId = "${spring.kafka.consumer.group-id:notification-group}"
     )
@@ -69,14 +86,14 @@ public class NotificationConsumer {
         try {
             event = eventMapper.fromJson(record.value(), topic);
         } catch (Exception ex) {
-            LOG.error("event=kafka_event_malformed topic={} partition={} offset={} error={}",
-                    SafeLog.token(topic), record.partition(), record.offset(), ex.getMessage());
+            LOG.warn("event=kafka_event_malformed topic={} partition={} offset={}",
+                    SafeLog.token(topic), record.partition(), record.offset());
             throw new IllegalArgumentException("Invalid notification event");
         }
 
         String eventId = event.eventId();
         String correlationId = event.correlationId();
-        MDC.put("eventId", eventId);
+        MDC.put("eventId", SafeLog.token(eventId));
         MDC.put("correlationId", correlationId);
 
         try {
@@ -103,10 +120,58 @@ public class NotificationConsumer {
             return;
         }
 
-        Long customerId = extractCustomerId(payload);
+        boolean refundEvent = event.eventType().startsWith("refund.");
+        if (event.eventType().startsWith("order.") && !"cart-order-service".equals(event.sourceService())) {
+            throw new IllegalArgumentException("Invalid order notification source");
+        }
+        if (refundEvent && !"cart-order-service".equals(event.sourceService())
+                && !"payment-service".equals(event.sourceService())) {
+            throw new IllegalArgumentException("Invalid refund notification source");
+        }
+        if ("order.created".equals(event.eventType())) {
+            recordAdminOrder(event);
+        }
+        if ("inventory.low-stock".equals(event.eventType())) {
+            if (!"catalog-store-service".equals(event.sourceService())) {
+                throw new IllegalArgumentException("Invalid inventory notification source");
+            }
+            recordAdminAlert(event, "INVENTORY", positiveId(payload, "productId"), "Tồn kho thấp",
+                    "Chi nhánh có món sắp hết. Kiểm tra tồn kho để điều chỉnh khả năng bán.");
+        }
+        Long customerId = refundEvent ? refundCustomerId(payload)
+                : "inventory.low-stock".equals(event.eventType()) ? extractCustomerId(payload) : positiveId(payload, "customerId");
         Long orderId = extractOrderId(payload);
+        if ("refund.processed".equals(event.eventType())
+                && (positiveId(payload, "refundId") == null || orderId == null || orderId <= 0
+                || positiveId(payload, "storeId") == null || !"REFUNDED".equals(payload.path("status").asText())
+                || !payload.path("amount").isNumber() || payload.path("amount").decimalValue().signum() <= 0)) {
+            throw new IllegalArgumentException("Invalid processed refund notification");
+        }
+        if ("refund.processed".equals(event.eventType())) {
+            recordAdminAlert(event, "ORDER", orderId, "Đã ghi nhận hoàn tiền", "Đơn hàng #" + orderId + " đã được ghi nhận hoàn tiền.");
+        }
+        if (event.eventType().startsWith("payment.")) {
+            if (!"payment-service".equals(event.sourceService()) || orderId == null || orderId <= 0 || customerId == null || customerId <= 0) {
+                throw new IllegalArgumentException("Invalid payment notification identity");
+            }
+            jdbc.update("INSERT INTO notification_service.payment_outcomes(order_id,outcome) VALUES (?,'PENDING') ON CONFLICT DO NOTHING",orderId);
+            var outcome=jdbc.queryForMap("SELECT * FROM notification_service.payment_outcomes WHERE order_id=? FOR UPDATE",orderId);
+            boolean confirmed="payment.confirmed".equals(event.eventType());
+            if (Boolean.TRUE.equals(outcome.get("confirmed")) || !confirmed && Boolean.TRUE.equals(outcome.get("failed"))) return;
+            jdbc.update(confirmed ? "UPDATE notification_service.payment_outcomes SET confirmed=true,outcome='CONFIRMED',updated_at=now() WHERE order_id=?"
+                    : "UPDATE notification_service.payment_outcomes SET failed=true,outcome='FAILED',updated_at=now() WHERE order_id=?",orderId);
+        }
         String orderCode = extractOrderCode(payload, orderId);
-        String recipientEmail = extractRecipientEmail(payload);
+        String recipientEmail = refundEvent ? refundEmail(payload, customerId) : extractRecipientEmail(payload);
+        if (refundEvent && (customerId == null || recipientEmail == null)) {
+            jdbc.update("""
+                    INSERT INTO notification_service.notification_delivery_gaps(event_id,event_type,correlation_id,reason)
+                    VALUES (?,?,?,?) ON CONFLICT DO NOTHING
+                    """, event.eventId(), event.eventType(), event.correlationId(),
+                    customerId == null ? "NO_VERIFIED_CUSTOMER_RECIPIENT" : "NO_VERIFIED_CUSTOMER_EMAIL");
+        }
+        String deliveryKey = "refund.processed".equals(event.eventType())
+                ? "refund.processed:" + positiveId(payload, "refundId") : event.eventType() + ":" + event.eventId();
 
         NotificationSpec spec = resolveNotificationSpec(event.eventType(), payload, orderCode);
         if (spec == null) {
@@ -116,21 +181,16 @@ public class NotificationConsumer {
 
         // 1. In-App Notification (Idempotent by event + channel + recipient)
         if (customerId != null && spec.inAppTitle() != null) {
-            String inAppKey = java.util.UUID.nameUUIDFromBytes(("IN_APP:" + event.eventType() + ":" + event.eventId() + ":" + customerId)
+            String inAppKey = java.util.UUID.nameUUIDFromBytes(("IN_APP:" + deliveryKey + ":" + customerId)
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
             Optional<Notification> existing = notificationRepository.findByOperationKey(inAppKey);
             if (existing.isPresent()) {
                 LOG.info("event=notification_in_app_replay_skipped operationKey={}", inAppKey);
             } else {
-                Notification notification = new Notification();
-                notification.setUserId(customerId);
-                notification.setTitle(spec.inAppTitle());
-                notification.setContent(spec.inAppContent());
-                notification.setType(spec.inAppType());
-                notification.setRefId(orderId);
-                notification.setIsRead(false);
-                notification.setOperationKey(inAppKey);
-                notificationRepository.save(notification);
+                jdbc.update("""
+                        INSERT INTO notification_service.notifications(user_id,title,content,type,ref_id,operation_key)
+                        VALUES (?,?,?,?,?,?) ON CONFLICT (operation_key) WHERE operation_key IS NOT NULL DO NOTHING
+                        """, customerId, spec.inAppTitle(), spec.inAppContent(), spec.inAppType(), orderId, inAppKey);
 
                 LOG.info("event=notification_in_app_created userId={} type={} refId={} operationKey={}",
                         customerId, spec.inAppType(), orderId, inAppKey);
@@ -139,7 +199,7 @@ public class NotificationConsumer {
 
         // 2. Email Delivery (Idempotent by messageId = event + channel + recipient)
         if (recipientEmail != null && !recipientEmail.isBlank() && spec.emailTemplate() != null) {
-            String emailMessageId = java.util.UUID.nameUUIDFromBytes(("EMAIL:" + event.eventType() + ":" + event.eventId() + ":" + recipientEmail.toLowerCase(java.util.Locale.ROOT).trim())
+            String emailMessageId = java.util.UUID.nameUUIDFromBytes(("EMAIL:" + deliveryKey + ":" + ("refund.processed".equals(event.eventType()) ? customerId : recipientEmail.toLowerCase(java.util.Locale.ROOT).trim()))
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
             emailSenderService.processEmailIntent(
                     emailMessageId,
@@ -157,6 +217,8 @@ public class NotificationConsumer {
         vars.put("orderCode", orderCode);
         vars.put("customerName", extractCustomerName(payload));
         vars.put("amount", extractAmount(payload));
+        Long orderId = positiveId(payload, "orderId");
+        if (orderId != null) vars.put("orderUrl", customerUrl + "/orders/" + orderId);
 
         return switch (eventType) {
             case "order.created" -> {
@@ -186,6 +248,10 @@ public class NotificationConsumer {
                 yield new NotificationSpec(title, content, "ORDER", "ORDER_CANCELLED", vars);
             }
             case "payment.confirmed" -> {
+                if ("COLLECTION".equals(payload.path("operationType").asText())) {
+                    yield new NotificationSpec("Đã ghi nhận thu tại quầy", "Đơn hàng #" + orderCode
+                            + " đã được chấp nhận thu tại quầy. Khoản chuyển khai báo có thể còn chờ đối soát ngân hàng.", "PAYMENT", null, vars);
+                }
                 String title = "Thanh toán thành công";
                 String amount = vars.get("amount");
                 String content = "Thanh toán cho đơn hàng #" + orderCode + " thành công" + (!amount.isBlank() ? " (" + amount + "đ)" : "") + ".";
@@ -200,11 +266,47 @@ public class NotificationConsumer {
                 String content = "Thanh toán cho đơn hàng #" + orderCode + " thất bại." + (!reason.isBlank() ? " Lý do: " + reason : "");
                 yield new NotificationSpec(title, content, "PAYMENT", "PAYMENT_FAILED", vars);
             }
+            case "refund.approved" -> {
+                String title = "Yêu cầu hoàn tiền đã được tiếp nhận";
+                String content = "Yêu cầu hoàn tiền cho đơn hàng #" + orderCode + " đã được tiếp nhận xử lý.";
+                yield new NotificationSpec(title, content, "REFUND", null, vars);
+            }
+            case "refund.rejected" -> {
+                String reason = payload.hasNonNull("reason") ? payload.get("reason").asText() : "";
+                vars.put("reason", reason.isBlank() ? "Vui lòng xem chi tiết trong ứng dụng" : reason);
+                String title = "Yêu cầu hoàn tiền bị từ chối";
+                String content = "Yêu cầu hoàn tiền cho đơn hàng #" + orderCode + " bị từ chối." + (!reason.isBlank() ? " Lý do: " + reason : "");
+                yield new NotificationSpec(title, content, "REFUND", "REFUND_REJECTED", vars);
+            }
+            case "refund.waiting-bank-details" -> {
+                String reason = payload.hasNonNull("reason") ? payload.get("reason").asText() : "";
+                vars.put("reason", reason.isBlank() ? "Vui lòng kiểm tra thông tin nhận tiền" : reason);
+                String title = "Cần cập nhật thông tin nhận hoàn tiền";
+                String content = "Chuyển tiền hoàn cho đơn hàng #" + orderCode + " chưa thành công." + (!reason.isBlank() ? " Lý do: " + reason : "") + ". Vui lòng cập nhật lại thông tin tài khoản ngân hàng.";
+                yield new NotificationSpec(title, content, "REFUND", "REFUND_WAITING_BANK_DETAILS", vars);
+            }
+            case "refund.confirmed", "refund.processed" -> {
+                String title = "Hoàn tiền thành công";
+                String amount = vars.get("amount");
+                String content = "Số tiền " + (!amount.isBlank() ? amount + "đ " : "") + "cho đơn hàng #" + orderCode + " đã được hoàn tất.";
+                yield new NotificationSpec(title, content, "REFUND", "REFUND_PROCESSED", vars);
+            }
+            case "inventory.low-stock" -> {
+                String productName = payload.hasNonNull("productName") ? payload.get("productName").asText() : "Món ăn";
+                int qty = payload.hasNonNull("quantity") ? payload.get("quantity").asInt() : 0;
+                int threshold = payload.hasNonNull("threshold") ? payload.get("threshold").asInt() : 20;
+                String title = "Cảnh báo tồn kho thấp";
+                String content = "Sản phẩm " + productName + " hiện chỉ còn " + qty + " phần (ngưỡng cảnh báo: " + threshold + ").";
+                yield new NotificationSpec(title, content, "INVENTORY", null, vars);
+            }
             default -> null;
         };
     }
 
     private Long extractCustomerId(JsonNode payload) {
+        if (payload.hasNonNull("managerUserId")) {
+            return payload.get("managerUserId").asLong();
+        }
         if (payload.hasNonNull("customerId")) {
             return payload.get("customerId").asLong();
         }
@@ -212,6 +314,57 @@ public class NotificationConsumer {
             return payload.get("userId").asLong();
         }
         return null;
+    }
+
+    private void recordAdminOrder(DomainEvent event) {
+        JsonNode payload = event.payload();
+        Long orderId = positiveId(payload, "orderId");
+        Long storeId = positiveId(payload, "storeId");
+        if (!"cart-order-service".equals(event.sourceService()) || orderId == null || storeId == null) {
+            throw new IllegalArgumentException("Invalid admin order notification");
+        }
+        jdbc.update("""
+                INSERT INTO notification_service.admin_notifications
+                    (operation_key,event_id,correlation_id,title,content,type,ref_id,store_id)
+                VALUES (?,?,?,'Đơn hàng mới',?,'ORDER',?,?) ON CONFLICT (operation_key) DO NOTHING
+                """, "order.created:" + orderId, event.eventId(), event.correlationId(),
+                "Đơn hàng #" + orderId + " vừa được tạo tại chi nhánh #" + storeId + ".", orderId, storeId);
+    }
+
+    private Long positiveId(JsonNode payload, String field) {
+        JsonNode value = payload.path(field);
+        return value.isIntegralNumber() && value.canConvertToLong() && value.longValue() > 0 ? value.longValue() : null;
+    }
+
+    private void recordAdminAlert(DomainEvent event, String type, Long reference, String title, String content) {
+        Long storeId = positiveId(event.payload(), "storeId");
+        if (reference == null || storeId == null) throw new IllegalArgumentException("Invalid admin notification reference");
+        jdbc.update("INSERT INTO notification_service.admin_notifications "
+                + "(operation_key,event_id,correlation_id,title,content,type,ref_id,store_id) VALUES (?,?,?,?,?,?,?,?) "
+                + "ON CONFLICT(operation_key) DO NOTHING", "admin:" + event.eventId(), event.eventId(), event.correlationId(),
+                title, content, type, reference, storeId);
+    }
+
+    private Long refundCustomerId(JsonNode payload) {
+        Long customerId = positiveId(payload, "customerId");
+        JsonNode recipient = payload.path("recipient");
+        return customerId != null && customerId.equals(positiveId(recipient, "userId"))
+                && "CUSTOMER".equals(recipient.path("role").asText()) ? customerId : null;
+    }
+
+    private String refundEmail(JsonNode payload, Long customerId) {
+        JsonNode recipient = payload.path("recipient");
+        if (customerId == null || !recipient.path("emailVerified").isBoolean()
+                || !recipient.path("emailVerified").booleanValue() || !recipient.path("email").isTextual()) return null;
+        String email = recipient.path("email").textValue().trim();
+        if (email.isBlank() || email.length() > 255 || email.contains("\r") || email.contains("\n")) return null;
+        try {
+            var address = new jakarta.mail.internet.InternetAddress(email, true);
+            address.validate();
+            return email.equals(address.getAddress()) && address.getPersonal() == null ? email : null;
+        } catch (jakarta.mail.internet.AddressException failure) {
+            return null;
+        }
     }
 
     private Long extractOrderId(JsonNode payload) {

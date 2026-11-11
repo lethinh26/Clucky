@@ -31,17 +31,19 @@ public class StoreService {
     private final StoreProductRepository storeProductRepository;
     private final StoreInventoryRepository storeInventoryRepository;
     private final CatalogCacheService cacheService;
+    private final CatalogEvents events;
 
     public StoreService(StoreRepository storeRepository,
                         ProductRepository productRepository,
                         StoreProductRepository storeProductRepository,
                         StoreInventoryRepository storeInventoryRepository,
-                        CatalogCacheService cacheService) {
+                        CatalogCacheService cacheService, CatalogEvents events) {
         this.storeRepository = storeRepository;
         this.productRepository = productRepository;
         this.storeProductRepository = storeProductRepository;
         this.storeInventoryRepository = storeInventoryRepository;
         this.cacheService = cacheService;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
@@ -73,9 +75,10 @@ public class StoreService {
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
         store.setDeliveryArea(request.getDeliveryArea());
 
-        Store saved = storeRepository.save(store);
+        Store saved = storeRepository.saveAndFlush(store);
 
         // Auto initialize store_products and store_inventory for existing active products
+        events.audit("STORE_CREATED", "Store", saved.getId(), saved.getId());
         List<Product> products = productRepository.findAll();
         for (Product p : products) {
             StoreProduct sp = new StoreProduct(null, saved, p, null, true, false);
@@ -89,10 +92,11 @@ public class StoreService {
     }
 
     public StoreDto.Response updateStore(Long id, StoreDto.Request request) {
+        events.expect("stores", id, request.getExpectedVersion());
         Store store = storeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + id));
 
-        ensureReady(store, request.getStatus());
+        ensureReady(store, request.getStatus() == null ? store.getStatus().name() : request.getStatus());
         store.setName(request.getName());
         store.setAddress(request.getAddress());
         store.setLatitude(request.getLatitude());
@@ -105,42 +109,58 @@ public class StoreService {
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
         if (request.getDeliveryArea() != null) store.setDeliveryArea(request.getDeliveryArea());
 
-        Store saved = storeRepository.save(store);
+        Store saved = storeRepository.saveAndFlush(store);
+        events.audit("STORE_UPDATED", "Store", id, id);
         cacheService.evictStoreMenuCache(id);
         return toResponse(saved);
     }
 
     public StoreDto.Response updateOperation(Long id, StoreDto.OperationRequest request) {
+        if (com.clucky.catalogstoreservice.config.CurrentActor.require().role() == com.clucky.catalogstoreservice.dto.Role.ADMIN || request.getExpectedVersion() != null)
+            events.expect("stores", id, request.getExpectedVersion());
         Store store = storeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + id));
 
-        ensureReady(store, request.getStatus());
+        ensureReady(store, request.getStatus() == null ? store.getStatus().name() : request.getStatus());
         if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime()));
         if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime()));
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
+        if (request.getPhone() != null && !request.getPhone().isBlank()) store.setPhone(request.getPhone().trim());
+        if (request.getLatitude() != null) store.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) store.setLongitude(request.getLongitude());
+        if (request.getDeliveryArea() != null) store.setDeliveryArea(request.getDeliveryArea());
+        if (request.getLowStockThreshold() != null) {
+            if (request.getLowStockThreshold() < 0) {
+                throw new com.clucky.catalogstoreservice.exception.ApiException(com.clucky.catalogstoreservice.exception.ErrorCode.INVALID_THRESHOLD);
+            }
+            store.setLowStockThreshold(request.getLowStockThreshold());
+        }
 
-        Store saved = storeRepository.save(store);
+        Store saved = storeRepository.saveAndFlush(store);
+        events.audit("STORE_OPERATION_UPDATED", "Store", id, id);
         cacheService.evictStoreMenuCache(id);
         return toResponse(saved);
     }
 
     private void ensureReady(Store store, String status) {
         if (status != null && StoreStatus.fromString(status) == StoreStatus.OPEN
-                && !List.of("READY", "LEGACY").contains(store.getAccountReadiness()))
+                && !"READY".equals(store.getAccountReadiness()))
             throw new com.clucky.catalogstoreservice.exception.ApiException(com.clucky.catalogstoreservice.exception.ErrorCode.RESOURCE_CONFLICT);
     }
 
-    public void deleteStore(Long id) {
+    public StoreDto.Response deleteStore(Long id, Long expectedVersion) {
+        events.expect("stores", id, expectedVersion);
         Store store = storeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chi nhánh với mã: " + id));
-        storeInventoryRepository.deleteByStoreId(id);
-        storeProductRepository.deleteByStoreId(id);
-        storeRepository.delete(store);
+        store.setStatus(StoreStatus.INACTIVE);
+        Store saved = storeRepository.saveAndFlush(store);
+        events.audit("STORE_DEACTIVATED", "Store", id, id);
         cacheService.evictStoreMenuCache(id);
+        return toResponse(saved);
     }
 
     public boolean isStoreServingNow(Store store) {
-        if (store == null || store.getStatus() != StoreStatus.OPEN) {
+        if (store == null || store.getStatus() != StoreStatus.OPEN || !"READY".equals(store.getAccountReadiness())) {
             return false;
         }
         LocalTime openTime = store.getOpenTime();
@@ -173,14 +193,31 @@ public class StoreService {
         response.setIsOpenNow(isStoreServingNow(store));
         response.setLatitude(store.getLatitude());
         response.setLongitude(store.getLongitude());
+        response.setDeliveryRadiusKm(store.getDeliveryRadiusKm());
+        response.setVersion(store.getVersion());
+        response.setLowStockThreshold(store.getLowStockThreshold());
         return response;
     }
 
     public StoreDto.Response updateLocation(Long id, StoreDto.LocationRequest request) {
+        if (com.clucky.catalogstoreservice.config.CurrentActor.require().role() == com.clucky.catalogstoreservice.dto.Role.ADMIN || request.expectedVersion() != null)
+            events.expect("stores", id, request.expectedVersion());
         Store store = storeRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Store not found"));
         store.setLatitude(request.latitude());
         store.setLongitude(request.longitude());
-        return toResponse(storeRepository.save(store));
+        events.audit("STORE_LOCATION_UPDATED", "Store", id, id);
+        cacheService.evictStoreMenuCache(id);
+        return toResponse(storeRepository.saveAndFlush(store));
+    }
+
+    public StoreDto.Response updateDeliverySettings(Long id, StoreDto.DeliverySettingsRequest request) {
+        Store store = storeRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Store not found"));
+        if (store.getVersion() != request.version()) throw new com.clucky.catalogstoreservice.exception.ApiException(
+                com.clucky.catalogstoreservice.exception.ErrorCode.RESOURCE_CONFLICT);
+        store.setDeliveryRadiusKm(request.radiusKm());
+        events.audit("STORE_DELIVERY_SETTINGS_UPDATED", "Store", id, id);
+        cacheService.evictStoreMenuCache(id);
+        return toResponse(storeRepository.saveAndFlush(store));
     }
 
     private LocalTime parseTime(String timeStr) {

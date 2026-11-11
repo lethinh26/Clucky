@@ -23,9 +23,12 @@ public final class AccessTokenValidator implements OAuth2TokenValidator<Jwt> {
             if ("refresh".equalsIgnoreCase(token.getClaimAsString("typ"))) {
                 return invalid();
             }
-            Role role = Role.valueOf(token.getClaimAsString("role"));
+            String role = token.getClaimAsString("role");
+            if (!"INTERNAL_SERVICE".equals(role)) {
+                Role.valueOf(role);
+            }
             Object store = token.getClaim("storeId");
-            boolean needsStore = role == Role.STAFF || role == Role.STORE_MANAGER;
+            boolean needsStore = "STAFF".equals(role) || "STORE_MANAGER".equals(role);
             if (Long.parseLong(token.getSubject()) <= 0 || token.getExpiresAt() == null
                     || token.getAudience() == null || !token.getAudience().contains(audience)
                     || (needsStore && store == null)

@@ -16,12 +16,12 @@ import org.springframework.web.client.RestClientResponseException;
 public class LoyaltyClient {
     private final RestClient client;
     private final String url;
-    private final String token;
+    private final InternalServiceCredential credential;
     public LoyaltyClient(RestClient client, @Value("${clucky.promotion.service-url:http://promotion-loyalty-service}") String url,
-            @Value("${clucky.loyalty.internal-token:}") String token) {
+            InternalServiceCredential credential) {
         var factory = new org.springframework.http.client.JdkClientHttpRequestFactory(java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(5)).build());
         factory.setReadTimeout(java.time.Duration.ofSeconds(10));
-        this.client = client.mutate().requestFactory(factory).build(); this.url = url; this.token = token;
+        this.client = client.mutate().requestFactory(factory).build(); this.url = url; this.credential = credential;
     }
     public record Quote(long policyVersion, int availablePoints, int pointsUsed, BigDecimal pointsAmount,
             int pointsToEarn, String tier, BigDecimal tierDiscount) {}
@@ -38,9 +38,32 @@ public class LoyaltyClient {
         call("reserve", Map.of("orderId", orderId, "customerId", customerId, "pointsToRedeem", quote.pointsUsed(), "orderAmount", amount,
                 "policyVersion", quote.policyVersion(), "pointsAmount", quote.pointsAmount(), "tierDiscount", quote.tierDiscount()));
     }
+    public record VoucherQuote(String code, BigDecimal discountAmount) {}
+    public void reserveVoucher(long orderId, long customerId, long storeId, String code, BigDecimal amount, BigDecimal discount) {
+        try {
+            VoucherQuote result = client.post().uri(url + "/internal/loyalty/voucher-reservations")
+                    .headers(headers -> headers.setBearerAuth(credential.token()))
+                    .body(Map.of("orderId", orderId, "customerId", customerId, "storeId", storeId,
+                            "code", code, "orderAmount", amount, "discountAmount", discount))
+                    .retrieve().body(VoucherQuote.class);
+            if (result == null || !code.equalsIgnoreCase(result.code()) || result.discountAmount() == null
+                    || discount.compareTo(result.discountAmount()) != 0) throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+        } catch (RestClientResponseException failure) {
+            if (failure.getStatusCode().value() == 409) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            if (failure.getStatusCode().value() == 400) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        } catch (ApiException failure) { throw failure;
+        } catch (Exception failure) { throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE); }
+    }
+    public void releaseVoucher(long orderId) {
+        try {
+            client.post().uri(url + "/internal/loyalty/voucher-reservations/" + orderId + "/release")
+                    .headers(headers -> headers.setBearerAuth(credential.token())).retrieve().toBodilessEntity();
+        } catch (Exception failure) { throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE); }
+    }
     private Quote call(String action, Object input) {
         try {
-            Quote result = client.post().uri(url + "/internal/loyalty/" + action).header("X-Loyalty-Service-Token", token)
+            Quote result = client.post().uri(url + "/internal/loyalty/" + action).headers(headers -> headers.setBearerAuth(credential.token()))
                     .body(input).retrieve().body(Quote.class);
             if (result == null || result.policyVersion() <= 0 || result.pointsUsed() < 0 || result.pointsAmount() == null || result.tierDiscount() == null
                     || result.pointsAmount().signum() < 0 || result.tierDiscount().signum() < 0) throw new IllegalStateException("Invalid loyalty response");

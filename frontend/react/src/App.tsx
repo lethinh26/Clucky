@@ -8,23 +8,36 @@ import enUS from "antd/locale/en_US";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AdminLayout } from "./layouts/AdminLayout";
-import { UnavailableFeature } from "./components/UnavailableFeature";
 import { roleHome } from "./lib/role-home";
 import { CatalogPage } from "./pages/Catalog";
+import Dashboard from "./pages/Dashboard";
+import { ReportsPage } from "./pages/Reports";
 import { StoresPage } from "./pages/Stores";
 import { StaffInventoryPage } from "./pages/Staff/Inventory";
 import { OrdersPage } from "./pages/Orders";
+import { AdminOrdersPage } from "./pages/Orders/AdminOrdersPage";
 import { StaffOrdersPage } from "./pages/Staff/StaffOrdersPage";
 import { PromotionsPage } from "./pages/Promotions";
+import { ReviewsPage } from "./pages/Reviews";
 import { LoginPage } from "./pages/Auth/LoginPage";
 import { BranchAccessPage } from "./pages/Auth/BranchAccessPage";
 import { BranchAccountsPage } from "./pages/Users/BranchAccountsPage";
+import { PaymentsPage } from "./pages/Payments";
+import { AdminPaymentsPage } from "./pages/Payments/AdminPaymentsPage";
+import { CustomersPage } from "./pages/Customers";
+import { EmailLogsPage } from "./pages/EmailLogs";
+import AuditLogPage from "./pages/AuditLog";
 
 import { OrderProvider } from "./context/OrderContext";
 import { PageLoadingProvider } from "./components/ui-loader/page-loading";
 function OrdersRoute() {
-  const { isStaff } = useAuth();
-  return isStaff ? <StaffOrdersPage /> : <OrdersPage />;
+  const { isAdmin, isStaff } = useAuth();
+  return isAdmin ? <AdminOrdersPage /> : isStaff ? <StaffOrdersPage /> : <OrdersPage />;
+}
+
+function PaymentsRoute() {
+  const { isAdmin } = useAuth();
+  return isAdmin ? <AdminPaymentsPage /> : <PaymentsPage />;
 }
 
 function RoleHome() {
@@ -67,6 +80,10 @@ export const App: React.FC = () => {
           Card: {
             borderRadiusLG: 20,
           },
+          Tag: {
+            colorSuccessBg: "#ECFDF3",
+            colorSuccessBorder: "#B7E4C7",
+          },
         },
       }}
     >
@@ -107,7 +124,14 @@ export const App: React.FC = () => {
                       index
                       element={<RoleHome />}
                     />
-                    <Route path="dashboard" element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}><UnavailableFeature /></ProtectedRoute>} />
+                    <Route
+                      path="dashboard"
+                      element={
+                        <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      }
+                    />
                     <Route
                       path="catalog"
                       element={
@@ -142,7 +166,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
                         >
-                          <UnavailableFeature />
+                          <ReviewsPage />
                         </ProtectedRoute>
                       }
                     />
@@ -152,7 +176,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
-                          <UnavailableFeature />
+                          <ReportsPage />
                         </ProtectedRoute>
                       }
                     />
@@ -180,11 +204,23 @@ export const App: React.FC = () => {
                       path="payments"
                       element={
                         <ProtectedRoute
-                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                          allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
                         >
-                          <UnavailableFeature />
+                          <PaymentsRoute />
                         </ProtectedRoute>
                       }
+                    />
+                    <Route
+                      path="customers"
+                      element={<ProtectedRoute allowedRoles={["ADMIN"]}><CustomersPage /></ProtectedRoute>}
+                    />
+                    <Route
+                      path="email-logs"
+                      element={<ProtectedRoute allowedRoles={["ADMIN"]}><EmailLogsPage /></ProtectedRoute>}
+                    />
+                    <Route
+                      path="audit"
+                      element={<ProtectedRoute allowedRoles={["ADMIN"]}><AuditLogPage /></ProtectedRoute>}
                     />
                     <Route
                       path="promotions"

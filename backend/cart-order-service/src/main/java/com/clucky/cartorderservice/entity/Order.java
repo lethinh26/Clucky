@@ -18,6 +18,16 @@ public class Order {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
+    @Column(name = "customer_email", length = 255)
+    private String customerEmail;
+    @Column(name = "customer_email_verified", nullable = false)
+    private boolean customerEmailVerified;
+
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+    public boolean isCustomerEmailVerified() { return customerEmailVerified; }
+    public void setCustomerEmailVerified(boolean verified) { customerEmailVerified = verified; }
+
     @Column(name = "store_id", nullable = false)
     private Long storeId;
 
@@ -66,7 +76,23 @@ public class Order {
     @Column(name = "payment_status", nullable = false, length = 20)
     private String paymentStatus = "PENDING";
 
+    private String collectionMethod;
+    private BigDecimal collectedCash;
+    private BigDecimal declaredTransfer;
+    public String getCollectionMethod() { return collectionMethod; }
+    public void setCollectionMethod(String method) { this.collectionMethod = method; }
+    public BigDecimal getCollectedCash() { return collectedCash; }
+    public void setCollectedCash(BigDecimal amount) { this.collectedCash = amount; }
+    public BigDecimal getDeclaredTransfer() { return declaredTransfer; }
+    public void setDeclaredTransfer(BigDecimal amount) { this.declaredTransfer = amount; }
+
     public String getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+
+    @Column(name = "payment_expires_at")
+    private Instant paymentExpiresAt;
+    public Instant getPaymentExpiresAt() { return paymentExpiresAt; }
+    public void setPaymentExpiresAt(Instant paymentExpiresAt) { this.paymentExpiresAt = paymentExpiresAt; }
 
     @Column(name = "scheduled_at", nullable = true)
     private Instant scheduledAt;

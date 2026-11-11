@@ -20,6 +20,8 @@ public class VoucherResponse {
     private BigDecimal maxDiscount;
     private Integer totalLimit;
     private Integer usedCount;
+    private int reservedCount;
+    private long version;
     private Instant startAt;
     private Instant endAt;
     private VoucherScope scope;
@@ -34,6 +36,10 @@ public class VoucherResponse {
 
     public VoucherResponse() {
     }
+
+    public int getReservedCount() { return reservedCount; }
+
+    public long getVersion() { return version; }
 
     public static VoucherResponse fromEntity(Voucher v) {
         return fromEntity(v, Instant.now());
@@ -54,6 +60,8 @@ public class VoucherResponse {
         dto.setMaxDiscount(v.getMaxDiscount());
         dto.setTotalLimit(v.getTotalLimit());
         dto.setUsedCount(v.getUsedCount());
+        dto.reservedCount = v.getReservedCount();
+        dto.version = v.getVersion();
         dto.setStartAt(v.getStartAt());
         dto.setEndAt(v.getEndAt());
         dto.setScope(v.getScope());

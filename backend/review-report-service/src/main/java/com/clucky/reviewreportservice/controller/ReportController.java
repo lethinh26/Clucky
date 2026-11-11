@@ -4,8 +4,10 @@ import com.clucky.reviewreportservice.config.CurrentActor;
 import com.clucky.reviewreportservice.dto.DashboardResponse;
 import com.clucky.reviewreportservice.dto.RevenueReportResponse;
 import com.clucky.reviewreportservice.dto.Role;
+import com.clucky.reviewreportservice.service.ReportProjectionService;
 import com.clucky.reviewreportservice.service.ReportService;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -74,13 +76,14 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) throws IOException {
         CurrentActor actor = CurrentActor.require();
-        LocalDate effectiveTo = to != null ? to : LocalDate.now();
+        LocalDate effectiveTo = to != null ? to : LocalDate.now(ReportProjectionService.VIETNAM_ZONE);
         LocalDate effectiveFrom = from != null ? from : effectiveTo.withDayOfMonth(1);
 
         byte[] fileBytes = reportService.exportReport(actor.userId(), actor.role().name(), actor.storeId(),
                 storeId, effectiveFrom, effectiveTo, format);
 
-        String normalizedFormat = format.equalsIgnoreCase("xlsx") ? "xlsx" : "pdf";
+        String trimmedFormat = format != null ? format.trim() : "";
+        String normalizedFormat = "xlsx".equalsIgnoreCase(trimmedFormat) ? "xlsx" : "pdf";
         String contentType = normalizedFormat.equals("xlsx")
                 ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 : MediaType.APPLICATION_PDF_VALUE;
@@ -94,10 +97,11 @@ public class ReportController {
                 normalizedFormat);
 
         return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.PRAGMA, "no-cache")
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .header(HttpHeaders.CONTENT_TYPE, contentType)
                 .contentLength(fileBytes.length)
                 .body(fileBytes);
     }
-
 }

@@ -143,8 +143,6 @@ export function PaymentWidget({
         <strong>
           {validAmount ? formatPrice(amount) : t("business.paymentwidget.noValidAmountAvailable")}
         </strong>
-        <span> {t("business.paymentwidget.order")} <b>{orderCode || t("business.paymentwidget.noOrderCodeAvailable")}</b>
-        </span>
       </div>
 
       {demo && (
@@ -217,6 +215,9 @@ export function PaymentWidget({
 
       {canTransfer && bankInfo && (
         <>
+          <p className={styles.paymentNote}>{t("payments.scanHint")}</p>
+          <details className={styles.paymentDisclosure}>
+            <summary>{t("payments.manualTransfer")}</summary>
           <dl className={styles.bankDetails}>
             <div className={styles.bankRow}>
               <dt>{t("business.paymentwidget.bank")}</dt>
@@ -257,7 +258,8 @@ export function PaymentWidget({
               </dd>
             </div>
           </dl>
-          <p className={styles.paymentNote}> {t("business.paymentwidget.scanWithAVietqrCompatibleBankingAppKeepTheAmountAndTransfer")} </p>
+          <p className={styles.paymentNote}>{t("payments.deadline")}</p>
+          </details>
         </>
       )}
     </div>

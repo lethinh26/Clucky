@@ -79,7 +79,7 @@
 
 .completeTitle {
   margin: 0 0 8px;
-  font-family: "Fredoka", sans-serif;
+  font-family: var(--font-heading);
   font-size: 26px;
   font-weight: 700;
   color: #16100d;
@@ -142,7 +142,7 @@
   color: #fff;
   border: none;
   border-radius: 999px;
-  font-family: "Fredoka", sans-serif;
+  font-family: var(--font-heading);
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;

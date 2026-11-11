@@ -107,15 +107,28 @@ Quy ước chung:
 # 4. PAYMENT SERVICE — /api/payments
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
-| POST /api/payments/{orderId}/bank-transfer | CUS/SYS nội bộ | Tạo giao dịch + QR VietQR (số tiền, nội dung = orderCode), trạng thái PENDING |
+| POST /api/payments/{orderId}/bank-transfer | CUS-owner | Tạo/đọc phiên mới: snapshot ngân hàng, reference riêng, hạn 15 phút không gia hạn; không nhận amount từ client |
 | GET /api/payments/{orderId} | CUS/STF/MGR/ADM | Trạng thái thanh toán của đơn |
-| POST /api/payments/webhook/sepay | SYS | Webhook SePay: kiểm tra chữ ký, đối chiếu, idempotent theo bankTxId |
-| POST /api/payments/webhook/casso | SYS | Webhook Casso (phương án thay thế SePay) |
+| POST /api/payments/webhook/sepay | SYS | API Key riêng, lưu receipt/dedup/conflict và tìm candidate contains; ACK sau commit, đối soát/xác nhận chạy bất đồng bộ |
 | PUT /api/payments/{id}/confirm-manual | MGR/ADM | Xác nhận thủ công sau đối chiếu sao kê (ghi audit log, bắt buộc ghi lý do) |
 | PUT /api/payments/{id}/confirm-cod | STF/MGR/ADM | Staff xác nhận đã thu COD tại quán |
 | PUT /api/payments/{id}/refund | ADM/MGR | Đánh dấu đã hoàn tiền sau khi duyệt yêu cầu hoàn |
-| GET /api/payments/transactions | ADM/MGR | Danh sách giao dịch ngân hàng đã đối chiếu (Manager chỉ quán mình) |
-| GET/PUT /api/payments/bank-config | ADM | Cấu hình tài khoản ngân hàng nhận tiền |
+| GET /api/payments/transactions | ADM/STF/MGR | Read-only, filters/phân trang; Staff/Manager chỉ tiền vào đã phân loại đúng store trong JWT, không xem conflict/unclassified; count/lastReceivedAt cùng scope |
+| GET /api/payments/transactions/{receiptId} | ADM/STF/MGR | Chi tiết DTO hạn chế theo ID ổn định từ list; cùng scope, foreign/missing trả 404; không raw payload, subAccount hoặc classification evidence |
+| GET /api/payments/bank-config | ADM | accounts[], assignments[], sepayKeyConfigured, reconciliationAvailable=true (khả năng đối soát phiên mới, không chứng minh feed sẵn sàng) |
+| GET /api/payments/bank-config/banks | ADM | Danh sách `{name,shortName,code,bin}` từ JSON công khai `https://qr.sepay.vn/banks.json`; không cần/gửi API key SePay |
+| POST /api/payments/bank-config | ADM | Tạo account; Details version=0 và header Idempotency-Key UUID |
+| PUT /api/payments/bank-config/{id} | ADM | Sửa/ngưng dùng account; Details version đã đọc và Idempotency-Key |
+| PUT /api/payments/bank-config/stores/{storeId} | ADM | Gán/ngưng gán: bankAccountId hoặc null, version; Idempotency-Key |
+
+Payment 09/11/2026: đã sửa mã bank-config, intake, QR Customer và đối soát tự động cho phiên mới; **chưa nghiệm thu chức năng**. Các PUT confirm-manual/confirm-cod/refund ở bảng trên vẫn là mục tiêu, chưa mở. Chỉ dùng SePay API Key. [Bàn giao hiện tại](../specs/rbac-branch-operations/P1-live-payment-handoff.md) chốt DTO/guard/events và phần còn khóa; bàn giao ngân hàng/intake là snapshot lịch sử.
+
+Tiền vào 10/11/2026: Entry thêm `classification=UNCLASSIFIED|STORE_ONLY|PAYMENT_CANDIDATE|ALLOCATED`, giữ status tài chính riêng. Staff/Manager chỉ đọc giao dịch vào đã phân loại đúng quán và không conflict; sửa filter storeId khác JWT trả 403, detail ngoài scope/missing trả 404. Admin giữ toàn bộ inbox. `lastReceivedAt` theo scope quyền và store filter, không phải toàn chuỗi cho Staff/Manager. Account chỉ trả maskedAccount; không trả raw webhook/conflict payload, subAccount hay evidence nội bộ. UI `/admin/payments` mở read-only cho Staff/Manager, không tải/mở bank-config. Recovery trước snapshot không thay quyền thu thủ công hoặc mở lại đơn đóng.
+
+- POST/GET payment trả `{id:string,orderId,orderCode,status,expiresAt,reference,bankInfo:{bankName,bankCode,accountNo,accountName},amount,receivedAmount,missingAmount,excessAmount,confirmationPending,canTransfer,closedReason}`. Bốn trường tiền là chuỗi số nguyên VND. GET cho owner, STAFF/MANAGER đúng quán, ADMIN; chưa có phiên live trả 404, legacy không bị tự nâng cấp.
+- GET `/api/orders/{id}/payment-session` kiểm tra Customer-owner/BANK_TRANSFER/PENDING_PAYMENT/amount>0, trả `{orderId,orderCode,customerId,storeId,amount,status,paymentMethod,expiresAt}` nhưng không khởi động đồng hồ. POST cùng path khóa Order, đặt deadline duy nhất. Payment chuyển tiếp JWT qua Eureka, kiểm tra bank assignment trước POST, không truy cập DB Order.
+- Không key/không ngân hàng active hoặc dependency lỗi trả 503; wrong owner 403, state không hợp lệ/tổng0/legacy/hết hạn khi tạo trả 409. Retry phiên live cũ giữ snapshot/deadline. Error body theo catalog hiện hành.
+- Transactions thêm filter `LATE_RECEIPT`; `MATCHED/ALLOCATED` nghĩa đã phân bổ, không đồng nghĩa Order đã xác nhận. Conflict được giữ để Admin kiểm tra, không tự phân bổ khi conflict_count>0. Refund create/approve cho đơn có phiên live trả 501 sau guard quyền/scope, chờ D1–D3.
 
 # 5. PROMOTION & LOYALTY SERVICE — /api/promotions, /api/loyalty
 
@@ -141,8 +154,8 @@ Contract triển khai, vòng đời reservation, error matrix, migration và ran
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
 | POST /api/shipping/calculate-fee | CUS/SYS | Tính phí ship dự kiến theo địa chỉ/khu vực và giá trị đơn |
-| POST /api/shipping/shipments | SYS nội bộ | Tạo bản ghi giao hàng khi order.created (MVP: status CREATED) |
-| GET /api/shipping/shipments/{orderId} | CUS/STF/MGR/ADM | Thông tin giao hàng của đơn |
+| Sự kiện order.created (không phải HTTP POST công khai) | Cart & Order → Shipping | DELIVERY tạo một shipment CREATED từ snapshot; PICKUP chỉ lưu receipt no-op |
+| GET /api/shipping/shipments/{orderId} | CUS/STF/MGR/ADM | Đọc theo orderId: Customer đúng owner, Staff/Manager đúng store, Admin; chưa có trả 404 RESOURCE_NOT_FOUND |
 | PUT /api/shipping/shipments/{id}/assign | MGR/ADM | **Phase 2:** gán shipper |
 | PUT /api/shipping/shipments/{id}/status | SHIPPER/MGR | **Phase 2:** shipper cập nhật trạng thái giao |
 | GET/PUT /api/shipping/fee-config | ADM | Cấu hình phí ship |
@@ -221,3 +234,12 @@ Các endpoint upload yêu cầu role theo tài nguyên và không trả API secr
 | DELETE `/api/media/{publicId}` | Nội bộ service | Xóa asset sau khi metadata đã được cập nhật |
 
 Backend validate MIME/size, upload qua Cloudinary, lưu URL/public ID; frontend không được nhận `CLOUDINARY_API_SECRET`.
+# Bổ sung S1: phí ship và bán kính (09/11/2026)
+
+- `GET /api/shipping/config`, `PUT /api/shipping/config`: Admin; body PUT `{fee,version}`, fee VND nguyên dương, version hiện tại. Trả `{fee,version}`, fee null khi chưa cấu hình; xung đột 409, không tự áp giá mẫu.
+- `PUT /api/stores/{id}/delivery-settings`: Admin hoặc Manager đúng storeId; body `{radiusKm,version}`. radiusKm null để chưa nhận DELIVERY, nếu có phải dương và tối đa hai số lẻ. Store DTO bổ sung deliveryRadiusKm/version. Mọi thay đổi Catalog Store dùng optimistic version.
+- `POST /api/shipping/calculate-fee`: `{storeId,latitude,longitude}`; trả `{available,fee,reason,distanceKm,radiusKm,policyVersion}`. Shipping lấy tọa độ/bán kính từ Catalog qua REST/Eureka. available chỉ true khi đủ cấu hình và Haversine distance <= radius. reason: OK, LOCATION_REQUIRED, STORE_LOCATION_MISSING, RADIUS_NOT_CONFIGURED, FEE_NOT_CONFIGURED, OUT_OF_RANGE.
+- Order preview bổ sung `shipping` cùng cấu trúc; khi không giao được thì `orderValid=false`, shippingFee/totalAmount=null (không dùng 0 làm giá giả). UNAVAILABLE chỉ lỗi phụ thuộc khi Order gọi Shipping.
+- Order create tính lại phí/phạm vi server-side, giữ kiểm tra expectedTotal hiện hữu. PICKUP không gọi Shipping và phí 0. Đơn đã tạo không đổi snapshot phí/QR. Không còn per-km/free-from-amount hoặc fallback cấu hình quán khác trong tính phí mới.
+- UI qua Gateway, i18n và các lý do rõ ràng. Không mở shipper/tracking/đối tác vận chuyển.
+

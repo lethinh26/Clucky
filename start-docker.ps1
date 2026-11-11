@@ -75,7 +75,7 @@ foreach ($name in @('NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN', 'VITE_MAPBOX_ACCESS_TOKEN
 }
 if ($Action -eq 'check') {
     $mount = $configuration.services.'identity-service'.volumes | Where-Object target -eq '/run/secrets/firebase-service-account.json'
-    if (@($configuration.services.PSObject.Properties).Count -ne 17 -or !$mount.read_only -or
+    if (@($configuration.services.PSObject.Properties).Count -ne 18 -or !$mount.read_only -or
         $configuration.networks.default.name -ne 'clucky-local' -or
         $configuration.volumes.'postgres-data'.name -ne 'clucky-local-postgres-data' -or
         $configuration.services.'identity-service'.environment.AUTH_COOKIE_SECURE -ne 'false') {
@@ -99,7 +99,7 @@ if ($Action -eq 'up') {
         if ($LASTEXITCODE -ne 0) { throw 'Startup failed; inspect clucky-local in Docker Desktop. Data was retained.' }
     }
     & docker compose @composeArgs ps @Services
-    Write-Host 'Customer: http://localhost:3000 | Admin: http://localhost:3001 | Gateway: http://localhost:8080'
+    Write-Host 'Customer: http://localhost:3000 | Admin: http://localhost:3001 | Gateway: http://localhost:8080 | Kafka UI: http://localhost:8088'
 } elseif ($Action -eq 'stop') {
     & docker compose @composeArgs stop @Services
     if ($LASTEXITCODE -ne 0) { throw 'Docker Compose stop failed.' }

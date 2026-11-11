@@ -17,10 +17,11 @@ def validate_environment(raw):
         raise BackendEnvironmentError("BACKEND_ENV_JSON must contain valid JSON") from None
     allowed = {
         "POSTGRES_USER", "POSTGRES_PASSWORD", "DB_NAME", "JWT_SECRET", "JWT_ISSUER", "JWT_AUDIENCE",
-        "FRONTEND_CUSTOMER_URL", "FRONTEND_ADMIN_URL", "AUTH_COOKIE_SECURE", "CATALOG_SERVICE_TOKEN", "PROMOTION_SERVICE_TOKEN",
-        "SEPAY_WEBHOOK_SECRET", "CLOUDINARY_ENABLED", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY",
+        "FRONTEND_CUSTOMER_URL", "FRONTEND_ADMIN_URL", "AUTH_COOKIE_SECURE",
+        "SEPAY_API_KEY", "CLOUDINARY_ENABLED", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY",
         "CLOUDINARY_API_SECRET", "MAIL_SENDER_ENABLED", "MAIL_SENDER_USERNAME", "MAIL_SENDER_APP_PASSWORD",
-        "REPORT_REVENUE_EVENT",
+        "REPORT_REVENUE_EVENT", "MAPBOX_GEOCODING_TOKEN",
+        "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN",
     }
     if not isinstance(values, dict):
         raise BackendEnvironmentError("BACKEND_ENV_JSON must be a JSON object")
@@ -35,7 +36,12 @@ def validate_environment(raw):
             raise BackendEnvironmentError(f"{key} is required and must contain at least {minimum} UTF-8 bytes")
         if any(marker in value.lower() for marker in ("change-me", "replace-", "example", "placeholder", "clucky-dev-secret")):
             raise BackendEnvironmentError(f"{key} must not contain placeholder text")
-    for key in ("FRONTEND_CUSTOMER_URL", "FRONTEND_ADMIN_URL"):
+    for key, port in (("FRONTEND_CUSTOMER_URL", ""), ("FRONTEND_ADMIN_URL", ":8081")):
+        if not values.get(key):
+            host = os.environ.get("VPS_HOST", "")
+            if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?", host):
+                raise BackendEnvironmentError("VPS_HOST must be a hostname or IPv4 address without scheme, port or path when frontend URLs are omitted")
+            values[key] = f"http://{host}{port}"
         try:
             origin = urlsplit(values.get(key, ""))
         except ValueError:
@@ -59,6 +65,13 @@ def validate_environment(raw):
                     raise BackendEnvironmentError(f"{key} is required when {flag} is true")
     if values.get("REPORT_REVENUE_EVENT", "false") not in ("false", "order.completed", "payment.confirmed"):
         raise BackendEnvironmentError("REPORT_REVENUE_EVENT must be false, order.completed or payment.confirmed")
+    mapbox_token = values.get("MAPBOX_GEOCODING_TOKEN", "")
+    if mapbox_token and (not mapbox_token.startswith(("pk.", "sk.")) or len(mapbox_token) <= 3 or any(char.isspace() for char in mapbox_token)):
+        raise BackendEnvironmentError("MAPBOX_GEOCODING_TOKEN must be a pk. or sk. Mapbox token without whitespace")
+    for name in ("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN"):
+        token = values.get(name, "")
+        if token and (not token.startswith("pk.") or len(token) <= 3 or any(char.isspace() for char in token)):
+            raise BackendEnvironmentError(f"{name} must be a public pk. Mapbox token without whitespace; never use a secret token in a frontend build")
     return values
 
 def prepare(root, release, raw):
@@ -68,6 +81,8 @@ def prepare(root, release, raw):
     if not re.fullmatch(r"[0-9a-f]{40}-[0-9]+-[0-9]+", release):
         raise ValueError("Invalid release")
     values = validate_environment(raw)
+    values.pop("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", None)
+    values.pop("VITE_MAPBOX_ACCESS_TOKEN", None)
     firebase = root / "secrets" / "firebase-service-account.json"
     project = json.loads(firebase.read_text(encoding="utf-8"))["project_id"]
     if not re.fullmatch(r"[a-z][a-z0-9-]{4,28}[a-z0-9]", project):

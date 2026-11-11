@@ -2,6 +2,7 @@ package com.clucky.reviewreportservice.entity;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -36,6 +37,21 @@ public class DailyStoreStats {
     @Column(name = "transfer_amount", nullable = false, precision = 12, scale = 0)
     private BigDecimal transferAmount = BigDecimal.ZERO;
 
+    @Column(name = "reconciled_transfer_amount", nullable = false, precision = 12, scale = 0)
+    private BigDecimal reconciledTransferAmount = BigDecimal.ZERO;
+
+    @Column(name = "pending_reconciliation_amount", nullable = false, precision = 12, scale = 0)
+    private BigDecimal pendingReconciliationAmount = BigDecimal.ZERO;
+
+    @Column(name = "excess_amount", nullable = false, precision = 12, scale = 0)
+    private BigDecimal excessAmount = BigDecimal.ZERO;
+
+    @Column(name = "expired_receipt_amount", nullable = false, precision = 12, scale = 0)
+    private BigDecimal expiredReceiptAmount = BigDecimal.ZERO;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
     public DailyStoreStats() {
     }
 
@@ -46,6 +62,11 @@ public class DailyStoreStats {
         this.revenue = BigDecimal.ZERO;
         this.codAmount = BigDecimal.ZERO;
         this.transferAmount = BigDecimal.ZERO;
+        this.reconciledTransferAmount = BigDecimal.ZERO;
+        this.pendingReconciliationAmount = BigDecimal.ZERO;
+        this.excessAmount = BigDecimal.ZERO;
+        this.expiredReceiptAmount = BigDecimal.ZERO;
+        this.updatedAt = Instant.now();
     }
 
     public Long getId() {
@@ -102,5 +123,45 @@ public class DailyStoreStats {
 
     public void setTransferAmount(BigDecimal transferAmount) {
         this.transferAmount = transferAmount;
+    }
+
+    public BigDecimal getReconciledTransferAmount() {
+        return reconciledTransferAmount;
+    }
+
+    public void setReconciledTransferAmount(BigDecimal reconciledTransferAmount) {
+        this.reconciledTransferAmount = reconciledTransferAmount;
+    }
+
+    public BigDecimal getPendingReconciliationAmount() {
+        return pendingReconciliationAmount;
+    }
+
+    public void setPendingReconciliationAmount(BigDecimal pendingReconciliationAmount) {
+        this.pendingReconciliationAmount = pendingReconciliationAmount;
+    }
+
+    public BigDecimal getExcessAmount() {
+        return excessAmount;
+    }
+
+    public void setExcessAmount(BigDecimal excessAmount) {
+        this.excessAmount = excessAmount;
+    }
+
+    public BigDecimal getExpiredReceiptAmount() {
+        return expiredReceiptAmount;
+    }
+
+    public void setExpiredReceiptAmount(BigDecimal expiredReceiptAmount) {
+        this.expiredReceiptAmount = expiredReceiptAmount;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

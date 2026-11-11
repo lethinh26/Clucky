@@ -53,6 +53,8 @@ public class OrderService {
     private final PromotionClient promotionClient;
     private final LoyaltyClient loyaltyClient;
     private final ShippingClient shippingClient;
+    private final VoucherCheckoutRecovery voucherRecovery;
+    private final CustomerProfileClient customerProfiles;
     private final Random random = new SecureRandom();
 
     public OrderService(
@@ -66,7 +68,9 @@ public class OrderService {
             CatalogClient catalogClient,
             PromotionClient promotionClient,
             ShippingClient shippingClient,
-            LoyaltyClient loyaltyClient
+            LoyaltyClient loyaltyClient,
+            VoucherCheckoutRecovery voucherRecovery,
+            CustomerProfileClient customerProfiles
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -79,6 +83,8 @@ public class OrderService {
         this.promotionClient = promotionClient;
         this.shippingClient = shippingClient;
         this.loyaltyClient = loyaltyClient;
+        this.voucherRecovery = voucherRecovery;
+        this.customerProfiles = customerProfiles;
     }
 
     public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
@@ -120,12 +126,11 @@ public class OrderService {
         String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
         // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
         ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
-                type, storeId, request.receiverAddress(), subtotal
+                type, storeId, request.latitude(), request.longitude()
         );
         if (!shippingResult.available() && !"PICKUP".equalsIgnoreCase(type)) {
-            LOG.warn("Shipping service calculate-fee unavailable during preview storeId={} address={}",
-                    storeId, request.receiverAddress());
-            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            return new OrderPreviewResponse(subtotal, BigDecimal.ZERO, 0, BigDecimal.ZERO, null, null,
+                    false, null, items, BigDecimal.ZERO, false, shippingResult);
         }
         BigDecimal shippingFee = shippingResult.fee() != null ? shippingResult.fee() : BigDecimal.ZERO;
 
@@ -167,7 +172,8 @@ public class OrderService {
                 voucherCalc.message(),
                 items,
                 loyaltyCalc.tierDiscount(),
-                true
+                true,
+                shippingResult
         );
     }
 
@@ -212,12 +218,11 @@ public class OrderService {
         String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
         // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
         ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
-                type, request.storeId(), request.deliveryAddress(), subtotal
+                type, request.storeId(), request.latitude(), request.longitude()
         );
         if (!shippingResult.available() && !"PICKUP".equalsIgnoreCase(type)) {
-            LOG.warn("Shipping service calculate-fee unavailable during createOrder storeId={} address={}",
-                    request.storeId(), request.deliveryAddress());
-            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            throw new ApiException(Set.of("OUT_OF_RANGE", "LOCATION_REQUIRED").contains(shippingResult.reason())
+                    ? ErrorCode.RESOURCE_CONFLICT : ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
         BigDecimal shippingFee = shippingResult.fee() != null ? shippingResult.fee() : BigDecimal.ZERO;
 
@@ -262,6 +267,8 @@ public class OrderService {
         Order order = new Order();
         order.setOrderCode(generateOrderCode());
         order.setCustomerId(customerId);
+        order.setCustomerEmail(customerProfiles.currentCustomerEmail(customerId));
+        order.setCustomerEmailVerified(true);
         order.setStoreId(request.storeId());
         order.setType(type);
         order.setStatus(initialStatus);
@@ -282,6 +289,11 @@ public class OrderService {
         order.setScheduledAt(request.scheduledAt());
         order = orderRepository.save(order);
 
+        voucherRecovery.lock(order.getId());
+        if (order.getVoucherCode() != null) {
+            voucherRecovery.track(order.getId());
+            loyaltyClient.reserveVoucher(order.getId(), customerId, order.getStoreId(), order.getVoucherCode(), subtotal, voucherCalc.discountAmount());
+        }
         loyaltyClient.reserve(order.getId(), customerId, subtotal.subtract(voucherCalc.discountAmount()).max(BigDecimal.ZERO), loyaltyCalc);
 
         List<OrderItem> savedItems = new ArrayList<>();
@@ -332,7 +344,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse cancelOrder(Long id, CancelOrderRequest request) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.lockById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         accessGuard.requireOwner(order.getCustomerId());
@@ -360,7 +372,7 @@ public class OrderService {
 
         // P1.1: Release voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled Kafka event via Transactional Outbox
@@ -371,7 +383,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse rejectOrder(Long id, CancelOrderRequest request) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.lockById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         accessGuard.requireStore(order.getStoreId());
@@ -400,7 +412,7 @@ public class OrderService {
 
         // P1.1: Release voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled Kafka event via Transactional Outbox
@@ -411,7 +423,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse updateStatus(Long id, UpdateOrderStatusRequest request) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.lockById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         accessGuard.requireStore(order.getStoreId());
@@ -422,7 +434,7 @@ public class OrderService {
             cancellationReason(order, request.note());
         }
         if (("COMPLETED".equals(target) || ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)))
-                && !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+                && (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()))) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
@@ -472,7 +484,7 @@ public class OrderService {
             orderEventPublisher.publishOrderCompleted(order, items);
         } else if (OrderStatus.CANCELLED.name().equals(target)) {
             if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-                promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+                voucherRecovery.cancelled(order.getId());
             }
             orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
         } else {
@@ -486,10 +498,10 @@ public class OrderService {
     public void compensateFailedPayment(Long orderId, String orderCode, String reason) {
         Optional<Order> orderOpt = Optional.empty();
         if (orderId != null) {
-            orderOpt = orderRepository.findById(orderId);
+            orderOpt = orderRepository.lockById(orderId);
         }
         if (orderOpt.isEmpty() && orderCode != null && !orderCode.isBlank()) {
-            orderOpt = orderRepository.findByOrderCode(orderCode);
+            orderOpt = orderRepository.lockByOrderCode(orderCode);
         }
 
         if (orderOpt.isEmpty()) {
@@ -505,6 +517,8 @@ public class OrderService {
             LOG.info("event=saga_order_already_cancelled orderId={} orderCode={}", order.getId(), order.getOrderCode());
             return;
         }
+
+        if (!"PENDING".equals(order.getPaymentStatus()) || order.getPaymentExpiresAt() != null && !OrderStatus.PENDING_PAYMENT.name().equals(currentStatus)) return;
 
         if (!OrderStatus.PENDING_PAYMENT.name().equalsIgnoreCase(currentStatus)
                 && !OrderStatus.CONFIRMED.name().equalsIgnoreCase(currentStatus)) {
@@ -534,11 +548,11 @@ public class OrderService {
 
         // P1.1: Compensate voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled compensation event via Transactional Outbox
-        orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
+        orderEventPublisher.publishOrderCancelled(order, items, history.getReason(), "PAYMENT_EXPIRED".equals(reason));
     }
 
     public CartDto reorder(Long id) {
@@ -593,12 +607,15 @@ public class OrderService {
         return mapToOrderResponsePage(orderPage);
     }
 
-    public PageResponse<OrderResponse> getOrders(Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+    public PageResponse<OrderResponse> getOrders(Long customerId, Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+        CurrentActor actor = CurrentActor.require();
+        if (customerId != null && actor.role() != Role.ADMIN) throw new com.clucky.cartorderservice.exception.ApiException(com.clucky.cartorderservice.exception.ErrorCode.FORBIDDEN);
+        if (customerId != null && customerId <= 0 || requestedStoreId != null && requestedStoreId <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
         Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
-        String cleanOrderCode = (orderCode != null && !orderCode.isBlank()) ? orderCode.trim() : null;
-
-        Page<Order> orderPage = orderRepository.findOrders(effectiveStoreId, cleanStatus, cleanOrderCode, pageable);
+        if (cleanStatus != null && Arrays.stream(OrderStatus.values()).noneMatch(value -> value.name().equals(cleanStatus))) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        String orderCodePattern = (orderCode != null && !orderCode.isBlank()) ? "%" + orderCode.trim().toLowerCase() + "%" : null;
+        Page<Order> orderPage = orderRepository.findOrders(customerId, effectiveStoreId, cleanStatus, orderCodePattern, pageable);
         return mapToOrderResponsePage(orderPage);
     }
 
@@ -716,3 +733,4 @@ public class OrderService {
         return "CLU-" + dateStr + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 4).toUpperCase();
     }
 }
+

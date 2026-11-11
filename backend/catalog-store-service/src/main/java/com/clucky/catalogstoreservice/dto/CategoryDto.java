@@ -5,6 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 public class CategoryDto {
 
     public static class Response {
+        private long version;
+        public long getVersion() { return version; }
+        public void setVersion(long version) { this.version = version; }
         private Long id;
         private String name;
         private String imageUrl;
@@ -38,9 +41,15 @@ public class CategoryDto {
     }
 
     public static class Request {
+        @jakarta.validation.constraints.PositiveOrZero
+        private Long expectedVersion;
+        public Long getExpectedVersion() { return expectedVersion; }
+        public void setExpectedVersion(Long expectedVersion) { this.expectedVersion = expectedVersion; }
         @NotBlank(message = "Tên danh mục không được để trống")
+        @jakarta.validation.constraints.Size(max = 120)
         private String name;
         private String imageUrl;
+        @jakarta.validation.constraints.PositiveOrZero
         private Integer sortOrder = 0;
         private Boolean isActive = true;
 
