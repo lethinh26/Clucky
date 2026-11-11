@@ -31,10 +31,11 @@ public class KafkaConfig {
             String originalTopic = record.topic();
             String targetTopic = originalTopic.endsWith(".DLT") ? originalTopic : originalTopic + ".DLT";
 
+            Long recordTimestamp = record.timestamp() >= 0 ? record.timestamp() : null;
             ProducerRecord<String, String> dltRecord = new ProducerRecord<>(
                     targetTopic,
                     null,
-                    record.timestamp(),
+                    recordTimestamp,
                     record.key() != null ? String.valueOf(record.key()) : null,
                     record.value() != null ? String.valueOf(record.value()) : null
             );

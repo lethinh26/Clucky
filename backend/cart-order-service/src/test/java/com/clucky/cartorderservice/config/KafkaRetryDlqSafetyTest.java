@@ -37,8 +37,11 @@ class KafkaRetryDlqSafetyTest {
 
         RuntimeException transientError = new RuntimeException("DB Connection timeout");
 
-        // Mô phỏng container gọi handler khi listener gặp transient error
+        // Mô phỏng container gọi handler qua các lần retry cho đến khi cạn lượt (max-attempts = 2, tổng 3 lượt gọi)
         handler.handleOne(transientError, record, mock(org.apache.kafka.clients.consumer.Consumer.class), mock(org.springframework.kafka.listener.MessageListenerContainer.class));
+        handler.handleOne(transientError, record, mock(org.apache.kafka.clients.consumer.Consumer.class), mock(org.springframework.kafka.listener.MessageListenerContainer.class));
+        boolean recovered = handler.handleOne(transientError, record, mock(org.apache.kafka.clients.consumer.Consumer.class), mock(org.springframework.kafka.listener.MessageListenerContainer.class));
+        assertTrue(recovered, "Record should be recovered after exhausting retries");
 
         // Xác nhận đã publish vào DLT
         @SuppressWarnings("unchecked")
@@ -97,13 +100,18 @@ class KafkaRetryDlqSafetyTest {
         when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(failedFuture);
 
         KafkaConfig kafkaConfig = new KafkaConfig();
-        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 1L, 2L);
+        var recoverer = kafkaConfig.createDltRecoverer(kafkaTemplate, 2L);
+        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 0L, 2L);
 
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>("order.created", 0, 50L, "ord-3", "value");
 
-        // Khi DLT publish lỗi, handler phải ném exception để container không commit offset
+        // Khi DLT publish lỗi, recoverer ném IllegalStateException để container không commit offset
         assertThrows(IllegalStateException.class, () ->
-                handler.handleOne(new RuntimeException("Crash"), record, mock(org.apache.kafka.clients.consumer.Consumer.class), mock(org.springframework.kafka.listener.MessageListenerContainer.class)));
+                recoverer.accept(record, new RuntimeException("Crash")));
+
+        // Và handler.handleOne trả về false (không commit recovered)
+        boolean recovered = handler.handleOne(new RuntimeException("Crash"), record, mock(org.apache.kafka.clients.consumer.Consumer.class), mock(org.springframework.kafka.listener.MessageListenerContainer.class));
+        assertFalse(recovered, "Handler must return false when recovery fails, aborting offset commit");
     }
 
     @Test
@@ -115,7 +123,7 @@ class KafkaRetryDlqSafetyTest {
         when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
 
         KafkaConfig kafkaConfig = new KafkaConfig();
-        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 1L, 2L);
+        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 0L, 2L);
 
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>("order.created", 0, 10L, "ord-4", "payload");
         RuntimeException leakException = new RuntimeException("Authentication failed for token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9 and password=SuperSecretPassword123");
