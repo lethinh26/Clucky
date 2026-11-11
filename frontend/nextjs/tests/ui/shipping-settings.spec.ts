@@ -39,7 +39,7 @@ async function openStores(page: Page, role: "ADMIN" | "STORE_MANAGER" = "ADMIN")
 
 test("shipping fee button keeps disabled, hover and enabled colors distinct", async ({ page }, testInfo) => {
   const { writes, errors } = await openStores(page);
-  await page.getByRole("button", { name: "Phí giao hàng", exact: true }).click();
+  await page.getByRole("button", { name: /Phí giao hàng$/ }).click();
   const save = page.getByRole("button", { name: "Lưu phí ship", exact: true });
   await expect(save).toBeDisabled();
   await expect(save).not.toHaveCSS("background-color", "rgb(143, 18, 22)");
@@ -72,7 +72,7 @@ for (const role of ["ADMIN", "STORE_MANAGER"] as const) {
     async function openRadius() {
       if (role === "ADMIN") {
         await row.getByRole("button", { name: "Thao tác khác cho Regression Branch 1", exact: true }).click();
-        await page.getByRole("menuitem", { name: "Phạm vi giao hàng", exact: true }).click();
+        await page.getByRole("menuitem", { name: /Phạm vi giao hàng$/ }).click();
       } else await row.getByRole("button", { name: "Chỉnh sửa chi nhánh", exact: true }).click();
     }
     await openRadius();

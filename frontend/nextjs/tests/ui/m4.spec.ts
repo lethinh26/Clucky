@@ -272,9 +272,9 @@ for (const width of [320, 375, 768, 1440]) {
     const transactionsTab = page.getByRole("tab", { name: "Giao dịch", exact: true });
     await transactionsTab.focus();
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByRole("tab", { name: "Thu tiền / đối soát / legacy", exact: true })).toBeFocused();
+    await expect(page.getByRole("tab", { name: /Thu tiền \/ đối soát \/ legacy$/ })).toBeFocused();
     await page.keyboard.press("ArrowRight");
-    await expect(page.getByRole("tab", { name: "Hoàn tiền", exact: true })).toBeFocused();
+    await expect(page.getByRole("tab", { name: /Hoàn tiền$/ })).toBeFocused();
     await page.keyboard.press("ArrowRight");
     const accountsTab = page.getByRole("tab", { name: /Tài khoản nhận tiền$/ });
     await expect(accountsTab).toBeFocused();
