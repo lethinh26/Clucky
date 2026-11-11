@@ -177,11 +177,12 @@ public class OrderService {
         Long customerId = CurrentActor.require().userId();
 
         String userCartKey = RedisConfig.key("cart", customerId.toString());
-        CartDto cart = cartService.getCart(userCartKey);
-
-        List<CartItemDto> items = (cart != null && cart.getItems() != null) ? cart.getItems() : List.of();
-        if (items.isEmpty() && request.items() != null && !request.items().isEmpty()) {
-            items = request.items();
+        List<CartItemDto> items = (request.items() != null && !request.items().isEmpty())
+                ? request.items()
+                : List.of();
+        if (items.isEmpty()) {
+            CartDto cart = cartService.getCart(userCartKey);
+            items = (cart != null && cart.getItems() != null) ? cart.getItems() : List.of();
         }
         if (items.isEmpty()) {
             LOG.warn("event=order_create_failed reason=cart_empty customerId={}", customerId);
@@ -192,19 +193,21 @@ public class OrderService {
             if (it.getStoreId() != null && !it.getStoreId().equals(request.storeId())) {
                 LOG.warn("event=order_create_failed reason=store_mismatch itemStoreId={} requestStoreId={}",
                         it.getStoreId(), request.storeId());
-                throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Món trong giỏ thuộc chi nhánh khác (" + it.getStoreId() + "). Vui lòng chọn đúng chi nhánh.");
             }
         }
 
         // Validate items with Catalog Service (P1-01: Client price is NEVER trusted)
         CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(request.storeId(), items);
         if (!catalogValidation.valid()) {
-            LOG.warn("event=order_create_failed reason=catalog_items_invalid message={}", catalogValidation.message());
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : ErrorCode.RESOURCE_CONFLICT.message();
+            LOG.warn("event=order_create_failed reason=catalog_items_invalid message={}", msg);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, msg);
         }
         if (!catalogValidation.storeOpen()) {
-            LOG.warn("event=order_create_failed reason=store_closed message={}", catalogValidation.message());
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : "Chi nhánh hiện đang ngoài giờ phục vụ";
+            LOG.warn("event=order_create_failed reason=store_closed message={}", msg);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, msg);
         }
 
         BigDecimal subtotal = catalogValidation.subtotal();
@@ -302,8 +305,20 @@ public class OrderService {
             item.setNote(it.getNote());
             item.setLineTotal(unitPrice.add(extraPrice).multiply(BigDecimal.valueOf(it.getQuantity())));
 
-            item.setOptionsSnapshot(objectMapper.valueToTree(validated.optionsSnapshot()));
-            item.setToppingsSnapshot(objectMapper.valueToTree(validated.toppingsSnapshot()));
+            if (validated.optionsSnapshot() != null && !validated.optionsSnapshot().isEmpty()) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(validated.optionsSnapshot()));
+            } else if (it.getOptionsSnapshot() != null) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(it.getOptionsSnapshot()));
+            } else if (it.getOptionIds() != null && !it.getOptionIds().isEmpty()) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(it.getOptionIds()));
+            }
+            if (validated.toppingsSnapshot() != null && !validated.toppingsSnapshot().isEmpty()) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(validated.toppingsSnapshot()));
+            } else if (it.getToppingsSnapshot() != null) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(it.getToppingsSnapshot()));
+            } else if (it.getToppingIds() != null && !it.getToppingIds().isEmpty()) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(it.getToppingIds()));
+            }
             savedItems.add(orderItemRepository.save(item));
         }
 
@@ -568,13 +583,19 @@ public class OrderService {
             List<Long> optionIds = new ArrayList<>();
             if (it.getOptionsSnapshot() != null && it.getOptionsSnapshot().isArray()) {
                 for (JsonNode n : it.getOptionsSnapshot()) {
-                    optionIds.add(n.isObject() ? n.path("id").asLong() : n.asLong());
+                    long optId = n.isObject() ? n.path("id").asLong() : n.asLong();
+                    if (optId > 0) {
+                        optionIds.add(optId);
+                    }
                 }
             }
             List<Long> toppingIds = new ArrayList<>();
             if (it.getToppingsSnapshot() != null && it.getToppingsSnapshot().isArray()) {
                 for (JsonNode n : it.getToppingsSnapshot()) {
-                    toppingIds.add(n.isObject() ? n.path("id").asLong() : n.asLong());
+                    long topId = n.isObject() ? n.path("id").asLong() : n.asLong();
+                    if (topId > 0) {
+                        toppingIds.add(topId);
+                    }
                 }
             }
             CartItemDto cartItem = new CartItemDto(
@@ -588,6 +609,8 @@ public class OrderService {
                     it.getNote(),
                     order.getStoreId()
             );
+            cartItem.setOptionsSnapshot(it.getOptionsSnapshot());
+            cartItem.setToppingsSnapshot(it.getToppingsSnapshot());
             cartService.addItem(cartKey, cartItem, CartService.CUSTOMER_CART_TTL);
         }
 

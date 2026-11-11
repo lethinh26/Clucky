@@ -49,6 +49,8 @@ export interface CartItem {
   unitPrice: number;
   quantity: number;
   image: string;
+  optionIds?: number[];
+  toppingIds?: number[];
   options?: CartItemOption[];
   toppings?: CartItemTopping[];
   note?: string;

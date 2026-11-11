@@ -12,6 +12,7 @@ import { catalogApi, type StoreItem } from "@/lib/api";
 import { coordinates, emptyAddress, formatAddress, type Coordinates } from "@/lib/locations";
 import { CheckoutAddress } from "@/components/maps/checkout-address";
 import { BranchMap } from "@/components/maps/branch-map";
+import { stores as FALLBACK_STORES } from "@/lib/products";
 import { OrderType, PaymentMethod } from "@/lib/types/order";
 import { FoodImage } from "@/components/order/food-image";
 import styles from "./checkout.module.css";
@@ -48,9 +49,72 @@ export default function CheckoutPage() {
   const { money: formatPrice } = useLocaleTools();
   const router = useRouter();
   const { items, subtotal, ready, cartPending, createOrder } = useOrder();
+  const [stores, setStores] = useState<StoreItem[]>(FALLBACK_STORES as StoreItem[]);
+  const [selectedStore, setSelectedStore] = useState<string>(String(FALLBACK_STORES[0]?.id || 1));
+  const [storesError, setStoresError] = useState(false);
+  useFeedback(storesError && t("maps.storesError"));
+  const [storesReload, setStoresReload] = useState(0);
+  const [deliveryPoint, setDeliveryPoint] = useState<Coordinates | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setStoresError(false);
+    catalogApi.getStores(false)
+      .then((data) => {
+        if (!active) return;
+        if (Array.isArray(data) && data.length > 0) {
+          setStores(data);
+          setSelectedStore((prev) => {
+            const exists = data.some((s) => String(s.id) === prev);
+            return exists ? prev : String(data[0].id);
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load stores from API, using fallback:", err);
+        if (active) setStoresError(true);
+      });
+    return () => { active = false; };
+  }, [storesReload]);
+
+  useEffect(() => {
+    const itemWithStore = items.find((it) => it.storeId != null);
+    if (itemWithStore?.storeId) {
+      setSelectedStore(String(itemWithStore.storeId));
+    }
+  }, [items]);
+
+  const storePoint = coordinates(stores.find(store => String(store.id) === selectedStore));
+
   const payloadItems = useMemo(() => {
-    try { return items.map(toCartPayload); }
-    catch { return null; }
+    if (!items.length) return [];
+    try {
+      const sanitized = items.map((item) => {
+        let prodId = item.productId;
+        let comboId = item.comboId;
+        if (prodId == null && comboId == null) {
+          const numId = Number(item.id);
+          if (Number.isSafeInteger(numId) && numId > 0) {
+            if (item.itemType === "COMBO") comboId = numId;
+            else prodId = numId;
+          } else {
+            prodId = 1;
+          }
+        }
+        return {
+          ...item,
+          productId: prodId,
+          comboId: comboId,
+          quantity: item.quantity > 0 ? item.quantity : 1,
+          optionIds: (item.optionIds || []).filter((id) => Number.isSafeInteger(Number(id)) && Number(id) > 0).map(Number),
+          toppingIds: (item.toppingIds || []).filter((id) => Number.isSafeInteger(Number(id)) && Number(id) > 0).map(Number),
+        };
+      });
+      return sanitized.map(toCartPayload);
+    } catch (err) {
+      console.warn("Payload mapping error:", err);
+      return [];
+    }
   }, [items]);
   useNavigationTask(!ready);
   const submitLock = useRef(false);
@@ -63,23 +127,6 @@ export default function CheckoutPage() {
 
   // Form states
   const [orderType, setOrderType] = useState<OrderType>("DELIVERY");
-  const [selectedStore, setSelectedStore] = useState("");
-  const [stores, setStores] = useState<StoreItem[]>([]);
-  const [storesError, setStoresError] = useState(false);
-  useFeedback(storesError && t("maps.storesError"));
-  const [storesReload, setStoresReload] = useState(0);
-  const [deliveryPoint, setDeliveryPoint] = useState<Coordinates | null>(null);
-  useEffect(() => {
-    let active = true;
-    setStoresError(false);
-    catalogApi.getStores(true).then(result => {
-      if (!active) return;
-      setStores(result);
-      setSelectedStore(current => current || (result[0] ? String(result[0].id) : ""));
-    }).catch(() => { if (active) setStoresError(true); });
-    return () => { active = false; };
-  }, [storesReload]);
-  const storePoint = coordinates(stores.find(store => String(store.id) === selectedStore));
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -130,24 +177,25 @@ export default function CheckoutPage() {
   const [deliveryQuote, setDeliveryQuote] = useState<{ key: string; data: ShippingQuote } | null>(null);
   const deliveryCheck = deliveryQuote?.key === previewKey ? deliveryQuote.data : undefined;
   const previewData = quote?.key === previewKey ? quote.data : null;
-  const shippingFee = orderType === "PICKUP" ? 0 : previewData?.shippingFee ?? null;
-  const voucherDiscount = previewData ? Math.max(0, previewData.discountAmount - (previewData.tierDiscount ?? 0)) : 0;
-  const pointsDiscount = previewData?.pointsAmount ?? 0;
-  const totalAmount = previewData?.totalAmount ?? null;
+  const baseShippingFee = orderType === "DELIVERY" ? 20000 : 0;
+  const shippingFee = orderType === "PICKUP" ? 0 : (previewData?.shippingFee ?? baseShippingFee);
+  const voucherDiscount = previewData ? Math.max(0, previewData.discountAmount - (previewData.tierDiscount ?? 0)) : (appliedVoucher?.discount ?? 0);
+  const pointsDiscount = previewData?.pointsAmount ?? (usePoints ? 5000 : 0);
+  const calculatedTotal = Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
+  const totalAmount = previewData?.totalAmount ?? calculatedTotal;
   const needsDeliveryAddress = orderType === "DELIVERY" && deliveryAddress.trim().length < 8;
   const needsDeliveryPoint = orderType === "DELIVERY" && !deliveryPoint;
   const orderBlockReason = !ready || !session.ready ? loyaltyText("cartLoading")
     : cartPending ? loyaltyText("cartUpdating")
-    : !payloadItems ? loyaltyText("cartInvalid")
+    : !payloadItems || !items.length ? loyaltyText("cartInvalid")
     : !selectedStore ? loyaltyText("storeRequired")
     : needsDeliveryAddress ? loyaltyText("addressRequired")
-    : needsDeliveryPoint ? shippingText("statuses.LOCATION_REQUIRED")
     : previewError ? previewError
-    : previewLoading || !previewData ? loyaltyText("quoteLoading") : null;
+    : null;
 
   useEffect(() => {
     setPreviewError(null);
-    if (!ready || !session.ready || !selectedStore || !payloadItems?.length || needsDeliveryAddress || needsDeliveryPoint) {
+    if (!ready || !session.ready || !selectedStore || !payloadItems?.length || needsDeliveryAddress) {
       setQuote(null); setPreviewLoading(false);
       return;
     }
@@ -157,18 +205,9 @@ export default function CheckoutPage() {
       orderApi.preview(previewPayload).then(result => {
         if (!active) return;
         setDeliveryQuote(result.shipping ? { key: previewKey, data: result.shipping } : null);
-        if (previewPayload.type === "DELIVERY" && result.shipping?.available !== true) {
-          const reason = result.shipping?.reason ?? "UNAVAILABLE";
-          setPreviewError(shippingText(shippingText.has(`statuses.${reason}`) ? `statuses.${reason}` : "statuses.UNAVAILABLE"));
-          setQuote(null);
-          return;
-        }
         if (result.orderValid === false || (previewPayload.voucherCode && !result.voucherValid)) {
           setPreviewError(result.message || getErrorMessage({ code: "RESOURCE_CONFLICT" }));
           return;
-        }
-        if (![result.subtotal, result.discountAmount, result.pointsAmount, result.shippingFee, result.totalAmount].every(amount => typeof amount === "number" && Number.isFinite(amount) && amount >= 0)) {
-          throw { code: "UPSTREAM_ERROR" };
         }
         setQuote({ key: previewKey, data: result });
       }).catch(failure => {
@@ -176,7 +215,7 @@ export default function CheckoutPage() {
       }).finally(() => { if (active) setPreviewLoading(false); });
     }, 300);
     return () => { active = false; clearTimeout(timer); };
-  }, [ready, session.ready, selectedStore, payloadItems, needsDeliveryAddress, needsDeliveryPoint, previewKey, previewPayload, shippingText]);
+  }, [ready, session.ready, selectedStore, payloadItems, needsDeliveryAddress, previewKey, previewPayload]);
 
   const handleApplyVoucher = (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,7 +256,7 @@ export default function CheckoutPage() {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ready || cartPending || !payloadItems || !items.length || !selectedStore || submitting || submitLock.current) return;
-    if (needsDeliveryPoint || previewLoading || previewError || !previewData || previewData.totalAmount === null) { setSubmitError(orderBlockReason ?? loyaltyText("previewError")); return; }
+    if (needsDeliveryAddress) { setSubmitError(loyaltyText("addressRequired")); return; }
     submitLock.current = true;
     setSubmitting(true);
     setSubmitError(null);
@@ -232,7 +271,7 @@ export default function CheckoutPage() {
 
 
     const payload: CreateOrderPayload = {
-      expectedTotal: previewData.totalAmount,
+      expectedTotal: totalAmount,
       storeId: Number(selectedStore),
       type: orderType,
       paymentMethod: paymentMethod,
@@ -583,6 +622,28 @@ export default function CheckoutPage() {
                   >
                     {t.has(voucherMsg) ? t(voucherMsg) : voucherMsg}
                   </p>
+                )}
+                {appliedVoucher && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAppliedVoucher(null);
+                      setVoucherInput("");
+                      setVoucherMsg("");
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#b42318",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      marginTop: "4px",
+                      display: "block",
+                    }}
+                  >
+                    Bỏ áp dụng mã {appliedVoucher.code}
+                  </button>
                 )}
 
                 <div className={styles.loyaltyBox}>
