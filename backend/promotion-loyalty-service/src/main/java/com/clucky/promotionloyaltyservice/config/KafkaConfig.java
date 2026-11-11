@@ -37,31 +37,40 @@ public class KafkaConfig {
                     null,
                     recordTimestamp,
                     record.key() != null ? String.valueOf(record.key()) : null,
-                    record.value() != null ? String.valueOf(record.value()) : null
-            );
+                    record.value() != null ? String.valueOf(record.value()) : null);
 
             if (record.headers() != null) {
                 record.headers().forEach(h -> dltRecord.headers().add(h.key(), h.value()));
             }
 
-            dltRecord.headers().add(new RecordHeader("X-DLT-Original-Topic", originalTopic.getBytes(StandardCharsets.UTF_8)));
-            dltRecord.headers().add(new RecordHeader("X-DLT-Original-Partition", String.valueOf(record.partition()).getBytes(StandardCharsets.UTF_8)));
-            dltRecord.headers().add(new RecordHeader("X-DLT-Original-Offset", String.valueOf(record.offset()).getBytes(StandardCharsets.UTF_8)));
-            dltRecord.headers().add(new RecordHeader("X-DLT-Original-Timestamp", String.valueOf(record.timestamp()).getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers()
+                    .add(new RecordHeader("X-DLT-Original-Topic", originalTopic.getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(new RecordHeader("X-DLT-Original-Partition",
+                    String.valueOf(record.partition()).getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(new RecordHeader("X-DLT-Original-Offset",
+                    String.valueOf(record.offset()).getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(new RecordHeader("X-DLT-Original-Timestamp",
+                    String.valueOf(record.timestamp()).getBytes(StandardCharsets.UTF_8)));
 
             Throwable root = failure;
             while (root != null && root.getCause() != null && root != root.getCause()) {
                 root = root.getCause();
             }
             String rootClass = root != null ? root.getClass().getName() : failure.getClass().getName();
-            dltRecord.headers().add(new RecordHeader("X-DLT-Exception-Class", SafeLog.token(rootClass).getBytes(StandardCharsets.UTF_8)));
-            dltRecord.headers().add(new RecordHeader("X-DLT-Exception-Message", sanitizeErrorMessage(failure != null ? failure.getMessage() : "Unknown failure").getBytes(StandardCharsets.UTF_8)));
-            dltRecord.headers().add(new RecordHeader("X-DLT-Failed-At", Instant.now().toString().getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(new RecordHeader("X-DLT-Exception-Class",
+                    SafeLog.token(rootClass).getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers()
+                    .add(new RecordHeader("X-DLT-Exception-Message",
+                            sanitizeErrorMessage(failure != null ? failure.getMessage() : "Unknown failure")
+                                    .getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(
+                    new RecordHeader("X-DLT-Failed-At", Instant.now().toString().getBytes(StandardCharsets.UTF_8)));
 
             try {
                 kafkaTemplate.send(dltRecord).get(timeoutSec, TimeUnit.SECONDS);
             } catch (Exception sendFailure) {
-                throw new IllegalStateException("DLQ publish failed for topic " + targetTopic + ", aborting ack", sendFailure);
+                throw new IllegalStateException("DLQ publish failed for topic " + targetTopic + ", aborting ack",
+                        sendFailure);
             }
         };
     }
@@ -97,21 +106,21 @@ public class KafkaConfig {
                 com.fasterxml.jackson.core.JsonProcessingException.class,
                 org.springframework.messaging.converter.MessageConversionException.class,
                 org.springframework.kafka.support.serializer.DeserializationException.class,
-                ClassCastException.class
-        );
+                ClassCastException.class);
         return handler;
     }
 
     @Bean
     KafkaAdmin.NewTopics domainTopics(@Value("${clucky.kafka.partitions:3}") int partitions,
             @Value("${clucky.kafka.replicas:1}") int replicas) {
-        if (partitions < 1 || replicas < 1) { throw new IllegalArgumentException("Invalid topic settings"); }
+        if (partitions < 1 || replicas < 1) {
+            throw new IllegalArgumentException("Invalid topic settings");
+        }
         NewTopic[] topics = List.of(
                 "order.created", "order.status-changed", "order.completed", "order.cancelled",
                 "payment.confirmed", "payment.failed", "promotion.approved", "audit.recorded",
                 "order.created.DLT", "order.status-changed.DLT", "order.completed.DLT", "order.cancelled.DLT",
-                "payment.confirmed.DLT", "payment.failed.DLT", "promotion.approved.DLT", "audit.recorded.DLT"
-        ).stream()
+                "payment.confirmed.DLT", "payment.failed.DLT", "promotion.approved.DLT", "audit.recorded.DLT").stream()
                 .map(name -> TopicBuilder.name(name).partitions(partitions).replicas(replicas).build())
                 .toArray(NewTopic[]::new);
         return new KafkaAdmin.NewTopics(topics);
