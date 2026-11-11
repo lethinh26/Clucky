@@ -16,4 +16,4 @@ spring:
     default-schema: payment_service
     schemas: payment_service
     create-schemas: true
-    baseline-on-migrate: false
+    baseline-on-migrate: true

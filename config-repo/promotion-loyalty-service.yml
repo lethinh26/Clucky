@@ -16,7 +16,7 @@ spring:
     default-schema: promotion_service
     schemas: promotion_service
     create-schemas: true
-    baseline-on-migrate: false
+    baseline-on-migrate: true
 
 cloudinary:
   enabled: ${CLOUDINARY_ENABLED:false}

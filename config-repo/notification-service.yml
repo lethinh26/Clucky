@@ -16,7 +16,7 @@ spring:
     default-schema: notification_service
     schemas: notification_service
     create-schemas: true
-    baseline-on-migrate: false
+    baseline-on-migrate: true
 
 mail-sender:
   enabled: ${MAIL_SENDER_ENABLED:false}
