@@ -15,7 +15,7 @@ public class Review {
 
     @Version
     @Column(name = "version", nullable = false)
-    private Long version;
+    private Long version = 0L;
 
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
@@ -25,6 +25,9 @@ public class Review {
 
     @Column(name = "order_id", nullable = false)
     private Long orderId;
+
+    @Column(name = "store_id")
+    private Long storeId;
 
     @Column(name = "rating", nullable = false)
     private Integer rating;
@@ -38,6 +41,15 @@ public class Review {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Column(name = "updated_at")
+    private OffsetDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    @Column(name = "deleted_by")
+    private Long deletedBy;
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("createdAt ASC")
@@ -54,6 +66,12 @@ public class Review {
         this.comment = comment;
         this.status = ReviewStatus.VISIBLE;
         this.createdAt = OffsetDateTime.now();
+        this.version = 0L;
+    }
+
+    public Review(Long customerId, Long productId, Long orderId, Long storeId, Integer rating, String comment) {
+        this(customerId, productId, orderId, rating, comment);
+        this.storeId = storeId;
     }
 
     public Long getId() {
@@ -62,6 +80,14 @@ public class Review {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 
     public Long getCustomerId() {
@@ -86,6 +112,14 @@ public class Review {
 
     public void setOrderId(Long orderId) {
         this.orderId = orderId;
+    }
+
+    public Long getStoreId() {
+        return storeId;
+    }
+
+    public void setStoreId(Long storeId) {
+        this.storeId = storeId;
     }
 
     public Integer getRating() {
@@ -118,6 +152,30 @@ public class Review {
 
     public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public OffsetDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(OffsetDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public OffsetDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(OffsetDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public Long getDeletedBy() {
+        return deletedBy;
+    }
+
+    public void setDeletedBy(Long deletedBy) {
+        this.deletedBy = deletedBy;
     }
 
     public List<ReviewReply> getReplies() {

@@ -88,3 +88,6 @@ docs/sprint3-phases/
 
 docs/REPORT-*.md
 **/REPORT-*.md
+
+# Local state agent
+.agent-state

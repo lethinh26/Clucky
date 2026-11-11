@@ -85,6 +85,13 @@ public class StoreController {
         return storeService.updateLocation(id, request);
     }
 
+    @PutMapping("/{id}/delivery-settings")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
+    public StoreDto.Response updateDeliverySettings(@PathVariable Long id, @Valid @RequestBody StoreDto.DeliverySettingsRequest request) {
+        accessGuard.requireStore(id);
+        return storeService.updateDeliverySettings(id, request);
+    }
+
     @PutMapping("/{id}/operation")
     @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
     public ResponseEntity<StoreDto.Response> updateOperation(@PathVariable Long id,

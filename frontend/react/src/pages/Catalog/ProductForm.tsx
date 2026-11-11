@@ -101,7 +101,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       setOptionGroups([]);
       setToppings([]);
     }
-  }, [initialProduct, open, form]);
+  }, [initialProduct, open, form, comboForm]);
 
   // Image Upload Validator according to SRS / task guidelines (< 5MB, MIME png/jpeg/webp)
   const beforeUpload = (file: File) => {

@@ -21,11 +21,13 @@ import { loyaltyApi } from "@/lib/loyalty";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
 import { ShippingFeeCard } from "@/components/shipping";
+import { DeliveryPanel } from "@/components/shipping/delivery-panel";
 import {
   orderApi,
   getErrorMessage,
   type CreateOrderPayload,
   type OrderPreviewResult,
+  type ShippingQuote,
 } from "@/lib/api";
 import {
   ShoppingBag,
@@ -41,6 +43,7 @@ import {
 export default function CheckoutPage() {
   const t = useTranslations();
   const loyaltyText = useTranslations("loyalty");
+  const shippingText = useTranslations("shipping");
 
   const { money: formatPrice } = useLocaleTools();
   const router = useRouter();
@@ -72,7 +75,7 @@ export default function CheckoutPage() {
     catalogApi.getStores(true).then(result => {
       if (!active) return;
       setStores(result);
-      setSelectedStore(current => result.some(store => String(store.id) === current) ? current : result[0] ? String(result[0].id) : "");
+      setSelectedStore(current => current || (result[0] ? String(result[0].id) : ""));
     }).catch(() => { if (active) setStoresError(true); });
     return () => { active = false; };
   }, [storesReload]);
@@ -124,23 +127,27 @@ export default function CheckoutPage() {
   }), [selectedStore, orderType, payloadItems, appliedVoucher?.code, usePoints, requestedPoints, availablePoints, deliveryAddress, deliveryPoint]);
   const previewKey = JSON.stringify([userId, previewPayload, previewReload]);
   const [quote, setQuote] = useState<{ key: string; data: OrderPreviewResult } | null>(null);
+  const [deliveryQuote, setDeliveryQuote] = useState<{ key: string; data: ShippingQuote } | null>(null);
+  const deliveryCheck = deliveryQuote?.key === previewKey ? deliveryQuote.data : undefined;
   const previewData = quote?.key === previewKey ? quote.data : null;
   const shippingFee = orderType === "PICKUP" ? 0 : previewData?.shippingFee ?? null;
   const voucherDiscount = previewData ? Math.max(0, previewData.discountAmount - (previewData.tierDiscount ?? 0)) : 0;
   const pointsDiscount = previewData?.pointsAmount ?? 0;
   const totalAmount = previewData?.totalAmount ?? null;
   const needsDeliveryAddress = orderType === "DELIVERY" && deliveryAddress.trim().length < 8;
+  const needsDeliveryPoint = orderType === "DELIVERY" && !deliveryPoint;
   const orderBlockReason = !ready || !session.ready ? loyaltyText("cartLoading")
     : cartPending ? loyaltyText("cartUpdating")
     : !payloadItems ? loyaltyText("cartInvalid")
     : !selectedStore ? loyaltyText("storeRequired")
     : needsDeliveryAddress ? loyaltyText("addressRequired")
+    : needsDeliveryPoint ? shippingText("statuses.LOCATION_REQUIRED")
     : previewError ? previewError
     : previewLoading || !previewData ? loyaltyText("quoteLoading") : null;
 
   useEffect(() => {
     setPreviewError(null);
-    if (!ready || !session.ready || !selectedStore || !payloadItems?.length || needsDeliveryAddress) {
+    if (!ready || !session.ready || !selectedStore || !payloadItems?.length || needsDeliveryAddress || needsDeliveryPoint) {
       setQuote(null); setPreviewLoading(false);
       return;
     }
@@ -149,6 +156,13 @@ export default function CheckoutPage() {
     const timer = setTimeout(() => {
       orderApi.preview(previewPayload).then(result => {
         if (!active) return;
+        setDeliveryQuote(result.shipping ? { key: previewKey, data: result.shipping } : null);
+        if (previewPayload.type === "DELIVERY" && result.shipping?.available !== true) {
+          const reason = result.shipping?.reason ?? "UNAVAILABLE";
+          setPreviewError(shippingText(shippingText.has(`statuses.${reason}`) ? `statuses.${reason}` : "statuses.UNAVAILABLE"));
+          setQuote(null);
+          return;
+        }
         if (result.orderValid === false || (previewPayload.voucherCode && !result.voucherValid)) {
           setPreviewError(result.message || getErrorMessage({ code: "RESOURCE_CONFLICT" }));
           return;
@@ -162,7 +176,7 @@ export default function CheckoutPage() {
       }).finally(() => { if (active) setPreviewLoading(false); });
     }, 300);
     return () => { active = false; clearTimeout(timer); };
-  }, [ready, session.ready, selectedStore, payloadItems, needsDeliveryAddress, previewKey, previewPayload]);
+  }, [ready, session.ready, selectedStore, payloadItems, needsDeliveryAddress, needsDeliveryPoint, previewKey, previewPayload, shippingText]);
 
   const handleApplyVoucher = (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,7 +217,7 @@ export default function CheckoutPage() {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ready || cartPending || !payloadItems || !items.length || !selectedStore || submitting || submitLock.current) return;
-    if (previewLoading || previewError || !previewData) { setSubmitError(loyaltyText("previewError")); return; }
+    if (needsDeliveryPoint || previewLoading || previewError || !previewData || previewData.totalAmount === null) { setSubmitError(orderBlockReason ?? loyaltyText("previewError")); return; }
     submitLock.current = true;
     setSubmitting(true);
     setSubmitError(null);
@@ -505,7 +519,11 @@ export default function CheckoutPage() {
                     />
                   </div>
                 ) : null}
-                {(deliveryPoint || storePoint) && <div style={{ height: 280, marginBottom: 20 }}><BranchMap pin={orderType === "DELIVERY" ? deliveryPoint : null} points={storePoint ? [{ ...storePoint, id: selectedStore, label: stores.find(store => String(store.id) === selectedStore)?.name ?? "Clucky" }] : []} selectedId={orderType === "PICKUP" ? selectedStore : undefined} /></div>}
+                {orderType === "DELIVERY" ? <DeliveryPanel store={stores.find(store => String(store.id) === selectedStore)} pin={deliveryPoint}
+                  quote={deliveryCheck} loading={previewLoading} error={Boolean(previewError)} onPickup={() => setOrderType("PICKUP")}
+                  onRetry={() => { setPreviewReload(value => value + 1); setStoresReload(value => value + 1); }} />
+                  : <><p className={styles.pickupHint}><Store size={17} aria-hidden="true" />{shippingText("pickupHint")}</p>
+                    {storePoint && <div style={{ height: 240, marginBottom: 20 }}><BranchMap points={[{ ...storePoint, id: selectedStore, label: stores.find(store => String(store.id) === selectedStore)?.name ?? "Clucky" }]} selectedId={selectedStore} /></div>}</>}
                 {storesError && <p role="alert">{t("maps.storesError")} <button type="button" onClick={() => setStoresReload(value => value + 1)}>{t("maps.retry")}</button></p>}
                 {!selectedStore && <p role="status">{t("maps.pickStore")}</p>}
 

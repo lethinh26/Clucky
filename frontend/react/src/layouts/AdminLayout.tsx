@@ -97,7 +97,7 @@ export const AdminLayout: React.FC = () => {
       "payments",
       "transfers",
     ],
-    STAFF: ["orders", "transfers", "inventory", "reviews"],
+    STAFF: ["inventory", "orders", "transfers", "reviews", "payments"],
   };
 
   const navItems: MenuProps["items"] = [

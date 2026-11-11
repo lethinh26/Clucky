@@ -83,15 +83,55 @@ public final class DomainMapper {
     }
 
     public static RefundRequestResponse toResponse(RefundRequest entity) {
+        return toResponse(entity, null, java.util.List.of());
+    }
+
+    public static RefundRequestResponse toResponse(RefundRequest entity, Order order, java.util.List<com.clucky.cartorderservice.entity.RefundAttempt> attempts) {
+        java.util.List<com.clucky.cartorderservice.dto.RefundAttemptResponse> attemptResponses = attempts != null
+                ? attempts.stream().map(DomainMapper::toAttemptResponse).toList()
+                : java.util.List.of();
         return new RefundRequestResponse(
                 entity.getId(),
                 entity.getOrderId(),
+                order != null ? order.getOrderCode() : null,
+                order != null ? order.getStoreId() : null,
                 entity.getCustomerId(),
                 entity.getAmount(),
                 entity.getReason(),
                 entity.getStatus(),
                 entity.getReviewedBy(),
-                entity.getReviewedAt()
+                entity.getReviewedAt(),
+                entity.getReviewNote(),
+                entity.getBankName(),
+                entity.getBankAccountNo(),
+                entity.getBankAccountName(),
+                entity.getBankDetailsVersion(),
+                entity.getAttemptCount(),
+                entity.getCurrentAttemptId(),
+                entity.getEvidencePublicId(),
+                entity.getConfirmedAt(),
+                entity.getConfirmedBy(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt(),
+                attemptResponses
+        );
+    }
+
+    public static com.clucky.cartorderservice.dto.RefundAttemptResponse toAttemptResponse(com.clucky.cartorderservice.entity.RefundAttempt attempt) {
+        return new com.clucky.cartorderservice.dto.RefundAttemptResponse(
+                attempt.getId(),
+                attempt.getRefundRequestId(),
+                attempt.getAttemptNumber(),
+                attempt.getAttemptId(),
+                attempt.getBankName(),
+                attempt.getBankAccountNo(),
+                attempt.getBankAccountName(),
+                attempt.getAmount(),
+                attempt.getStatus(),
+                attempt.getFailureReason(),
+                attempt.getEvidencePublicId(),
+                attempt.getCreatedAt(),
+                attempt.getUpdatedAt()
         );
     }
 

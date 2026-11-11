@@ -11,15 +11,19 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { UnavailableFeature } from "./components/UnavailableFeature";
 import { roleHome } from "./lib/role-home";
 import { CatalogPage } from "./pages/Catalog";
+import Dashboard from "./pages/Dashboard";
+import { ReportsPage } from "./pages/Reports";
 import { StoresPage } from "./pages/Stores";
 import { StaffInventoryPage } from "./pages/Staff/Inventory";
 import { OrdersPage } from "./pages/Orders";
 import { StaffOrdersPage } from "./pages/Staff/StaffOrdersPage";
 import { IncomingTransfersPage } from "./pages/Staff/IncomingTransfersPage";
 import { PromotionsPage } from "./pages/Promotions";
+import { ReviewsPage } from "./pages/Reviews";
 import { LoginPage } from "./pages/Auth/LoginPage";
 import { BranchAccessPage } from "./pages/Auth/BranchAccessPage";
 import { BranchAccountsPage } from "./pages/Users/BranchAccountsPage";
+import { PaymentsPage } from "./pages/Payments";
 
 import { OrderProvider } from "./context/OrderContext";
 import { PageLoadingProvider } from "./components/ui-loader/page-loading";
@@ -112,7 +116,14 @@ export const App: React.FC = () => {
                       index
                       element={<RoleHome />}
                     />
-                    <Route path="dashboard" element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}><UnavailableFeature /></ProtectedRoute>} />
+                    <Route
+                      path="dashboard"
+                      element={
+                        <ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      }
+                    />
                     <Route
                       path="catalog"
                       element={
@@ -147,7 +158,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
                         >
-                          <UnavailableFeature />
+                          <ReviewsPage />
                         </ProtectedRoute>
                       }
                     />
@@ -157,7 +168,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
-                          <UnavailableFeature />
+                          <ReportsPage />
                         </ProtectedRoute>
                       }
                     />
@@ -185,9 +196,9 @@ export const App: React.FC = () => {
                       path="payments"
                       element={
                         <ProtectedRoute
-                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                          allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}
                         >
-                          <UnavailableFeature />
+                          <PaymentsPage />
                         </ProtectedRoute>
                       }
                     />

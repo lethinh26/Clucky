@@ -34,7 +34,7 @@ export default function OrdersHistoryPage() {
     refreshOrders().catch((err) => {
       notify.error(errorMessage(err));
     });
-  }, [refreshOrders]);
+  }, [refreshOrders, errorMessage]);
 
   const activeOrder = orders.find(
     (order) => !["COMPLETED", "CANCELLED"].includes(order.status),
@@ -198,7 +198,7 @@ export default function OrdersHistoryPage() {
                       · {displayOrderTime(order.createdAt, locale)}
                     </span>
                   </div>
-                  <OrderStatusChip status={order.status} />
+                  <OrderStatusChip status={order.status} type={order.type} />
                 </div>
 
                 <div className={styles.cardBody}>

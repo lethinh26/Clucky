@@ -2,7 +2,7 @@ import { message } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useTranslation } from "react-i18next";
 import React, { useState } from "react";
-import { Table, Tabs, Input, Select, Button, Tag, Space, Typography, Badge, Alert } from "antd";
+import { Table, Tabs, Input, Select, Button, Tag, Space, Typography, Badge, Alert, Radio } from "antd";
 import { TableColumnsType } from "antd";
 
 import { AdminOrder, AdminOrderStatus } from "../../types/order";
@@ -47,6 +47,7 @@ export const OrdersPage: React.FC = () => {
   usePageLoading(loading);
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<string>("ALL");
+  const [refundSubFilter, setRefundSubFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedStore, setSelectedStore] = useState<string>("ALL");
 
@@ -109,7 +110,12 @@ export const OrdersPage: React.FC = () => {
       if (!matchCode && !matchCustomer && !matchPhone) return false;
     }
 
-    if (activeTab === "REFUND") return o.hasRefundRequest === true;
+    if (activeTab === "REFUND") {
+      if (refundSubFilter === "ALL") {
+        return o.hasRefundRequest === true || Boolean(o.refundStatus);
+      }
+      return o.refundStatus === refundSubFilter;
+    }
     if (activeTab === "PROCESSING") {
       return (
         o.status === "CONFIRMED" ||
@@ -183,11 +189,23 @@ export const OrdersPage: React.FC = () => {
       dataIndex: "status",
       key: "status",
       render: (status: AdminOrderStatus, record) => (
-        <Space orientation="vertical" size={2}>
+        <Space direction="vertical" size={2}>
           <OrderStatusBadge status={status} />
-          {record.hasRefundRequest && (
+          {record.refundStatus === "REFUNDED" ? (
+            <Tag color="success">
+              {t("business:orderspage.refundedBadge", {
+                value1: new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN").format(record.refundAmount ?? record.total),
+              })}
+            </Tag>
+          ) : record.refundStatus === "PROCESSING" ? (
+            <Tag color="processing">{t("business:orderspage.transferringTag")}</Tag>
+          ) : record.refundStatus === "WAITING_BANK_DETAILS" ? (
+            <Tag color="warning">{t("business:orderspage.waitingBankTag")}</Tag>
+          ) : record.refundStatus === "APPROVED" ? (
+            <Tag color="cyan">{t("business:orderspage.approvedReservedTag")}</Tag>
+          ) : record.hasRefundRequest ? (
             <Badge status="error" text={t("business:orderspage.refundRequest")} />
-          )}
+          ) : null}
         </Space>
       ),
     },
@@ -375,6 +393,47 @@ export const OrdersPage: React.FC = () => {
         />
       )}
       <Tabs items={tabItems} activeKey={activeTab} onChange={setActiveTab} />
+
+      {activeTab === "REFUND" && (
+        <div style={{ marginBottom: 16, overflowX: "auto" }}>
+          <Radio.Group
+            value={refundSubFilter}
+            onChange={(e) => setRefundSubFilter(e.target.value)}
+            buttonStyle="solid"
+          >
+            <Radio.Button value="ALL">
+              {t("business:orderspage.filterAllRefunds", {
+                value1: orders.filter((o) => o.hasRefundRequest || o.refundStatus).length,
+              })}
+            </Radio.Button>
+            <Radio.Button value="PENDING">
+              {t("business:orderspage.filterPending", {
+                value1: orders.filter((o) => o.refundStatus === "PENDING").length,
+              })}
+            </Radio.Button>
+            <Radio.Button value="PROCESSING">
+              {t("business:orderspage.filterProcessing", {
+                value1: orders.filter((o) => o.refundStatus === "PROCESSING").length,
+              })}
+            </Radio.Button>
+            <Radio.Button value="WAITING_BANK_DETAILS">
+              {t("business:orderspage.filterWaitingBank", {
+                value1: orders.filter((o) => o.refundStatus === "WAITING_BANK_DETAILS").length,
+              })}
+            </Radio.Button>
+            <Radio.Button value="REFUNDED">
+              {t("business:orderspage.filterRefunded", {
+                value1: orders.filter((o) => o.refundStatus === "REFUNDED").length,
+              })}
+            </Radio.Button>
+            <Radio.Button value="REJECTED">
+              {t("business:orderspage.filterRejected", {
+                value1: orders.filter((o) => o.refundStatus === "REJECTED").length,
+              })}
+            </Radio.Button>
+          </Radio.Group>
+        </div>
+      )}
 
       <div className={styles.mobileCards}>
         {filteredOrders.length === 0 ? (

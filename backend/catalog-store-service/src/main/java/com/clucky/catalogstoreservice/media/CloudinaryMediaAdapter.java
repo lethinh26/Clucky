@@ -2,7 +2,10 @@ package com.clucky.catalogstoreservice.media;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.clucky.catalogstoreservice.config.CloudinaryProperties;
 import com.clucky.catalogstoreservice.dto.MediaDto;
+import com.clucky.catalogstoreservice.exception.ApiException;
+import com.clucky.catalogstoreservice.exception.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -11,6 +14,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.URI;
 import java.util.*;
 
 @Component
@@ -29,42 +34,42 @@ public class CloudinaryMediaAdapter {
 
     public CloudinaryMediaAdapter(CloudinaryProperties properties) {
         this.properties = properties;
-        if (properties.isEnabled() && properties.getCloudName() != null && !properties.getCloudName().isBlank()) {
+        if (properties.enabled()) {
             this.cloudinary = new Cloudinary(ObjectUtils.asMap(
-                    "cloud_name", properties.getCloudName(),
-                    "api_key", properties.getApiKey(),
-                    "api_secret", properties.getApiSecret(),
+                    "cloud_name", properties.cloudName(),
+                    "api_key", properties.apiKey(),
+                    "api_secret", properties.apiSecret(),
                     "secure", true
             ));
-            log.info("CloudinaryMediaAdapter initialized with cloud_name: {}", properties.getCloudName());
+            log.info("event=media_provider_enabled");
         } else {
             this.cloudinary = null;
-            log.info("CloudinaryMediaAdapter running in fallback mode (CLOUDINARY_ENABLED=false or credentials missing)");
+            log.info("event=media_provider_disabled");
         }
     }
 
     public void validateImageFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("File ảnh không được để trống!");
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Dung lượng ảnh tối đa là 5MB! Dung lượng file tải lên: " + (file.getSize() / 1024 / 1024) + "MB");
+            throw new ApiException(ErrorCode.REQUEST_TOO_LARGE);
         }
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
-            throw new IllegalArgumentException("Định dạng file không hợp lệ! Chỉ chấp nhận PNG, JPEG, JPG, WEBP.");
+        if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
+            throw new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
         }
     }
 
     public MediaDto.UploadResponse uploadImage(MultipartFile file, String subfolder) {
         validateImageFile(file);
 
-        if (cloudinary == null || !properties.isEnabled()) {
-            throw new IllegalStateException("Cloudinary is disabled; configure CLOUDINARY_ENABLED and credentials before uploading images");
+        if (cloudinary == null) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
 
         try {
-            String targetFolder = (properties.getFolder() != null ? properties.getFolder() : "clucky") + "/" + subfolder;
+            String targetFolder = properties.folder() + "/" + subfolder;
             Map<String, Object> params = ObjectUtils.asMap(
                     "folder", targetFolder,
                     "resource_type", "image",
@@ -72,26 +77,41 @@ public class CloudinaryMediaAdapter {
             );
 
             Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(), params);
-            String secureUrl = (String) uploadResult.get("secure_url");
-            String publicId = (String) uploadResult.get("public_id");
-            String format = (String) uploadResult.get("format");
-            Number bytes = (Number) uploadResult.get("bytes");
-            Number width = (Number) uploadResult.get("width");
-            Number height = (Number) uploadResult.get("height");
-
-            log.info("Cloudinary upload successful for publicId: {}", publicId);
-            return new MediaDto.UploadResponse(
-                    secureUrl,
-                    publicId,
-                    format,
-                    bytes != null ? bytes.longValue() : file.getSize(),
-                    width != null ? width.intValue() : 0,
-                    height != null ? height.intValue() : 0
-            );
-        } catch (IOException ex) {
-            log.error("Cloudinary upload failed: {}", ex.getMessage());
-            throw new RuntimeException("Tải ảnh lên dịch vụ lưu trữ thất bại. Vui lòng thử lại sau.", ex);
+            String secureUrl = metadataText(uploadResult.get("secure_url"), 2048);
+            URI location = URI.create(secureUrl);
+            if (!"https".equalsIgnoreCase(location.getScheme()) || location.getHost() == null
+                    || location.getRawUserInfo() != null || location.getRawQuery() != null
+                    || location.getRawFragment() != null || location.getRawPath().isEmpty()) {
+                throw new IllegalArgumentException("Invalid media URL");
+            }
+            MediaDto.UploadResponse response = new MediaDto.UploadResponse(secureUrl,
+                    metadataText(uploadResult.get("public_id"), 255),
+                    uploadResult.get("format") == null ? null : metadataText(uploadResult.get("format"), 20),
+                    metadataNumber(uploadResult.get("bytes"), file.getSize(), Long.MAX_VALUE),
+                    (int) metadataNumber(uploadResult.get("width"), 0, Integer.MAX_VALUE),
+                    (int) metadataNumber(uploadResult.get("height"), 0, Integer.MAX_VALUE));
+            log.info("event=media_upload_succeeded");
+            return response;
+        } catch (IOException | RuntimeException failure) {
+            log.warn("event=media_upload_failed");
+            throw new ApiException(ErrorCode.UPSTREAM_ERROR);
         }
+    }
+
+    private static String metadataText(Object value, int limit) {
+        if (!(value instanceof String text) || text.isBlank() || text.length() > limit
+                || !text.equals(text.strip()) || text.codePoints().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("Invalid media metadata");
+        }
+        return text;
+    }
+
+    private static long metadataNumber(Object value, long fallback, long maximum) {
+        if (value == null) return fallback;
+        if (!(value instanceof Number number)) throw new IllegalArgumentException("Invalid media metadata");
+        long result = new BigDecimal(number.toString()).longValueExact();
+        if (result <= 0 || result > maximum) throw new IllegalArgumentException("Invalid media metadata");
+        return result;
     }
 
     /**
@@ -101,17 +121,18 @@ public class CloudinaryMediaAdapter {
         if (publicId == null || publicId.isBlank() || publicId.contains("mock-") || publicId.startsWith("http")) {
             return true;
         }
-        if (cloudinary == null || !properties.isEnabled()) {
-            log.info("Cloudinary disabled; skipped deleting asset: {}", publicId);
+        if (cloudinary == null) {
+            log.info("event=media_delete_skipped reason=PROVIDER_DISABLED");
             return true;
         }
 
         try {
             Map<?, ?> result = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-            log.info("Cloudinary asset deleted: {} (result: {})", publicId, result.get("result"));
-            return true;
-        } catch (Exception ex) {
-            log.warn("Failed to delete Cloudinary asset {}: {}", publicId, ex.getMessage());
+            boolean deleted = result != null && ("ok".equals(result.get("result")) || "not found".equals(result.get("result")));
+            log.info("event=media_delete_completed success={}", deleted);
+            return deleted;
+        } catch (Exception failure) {
+            log.warn("event=media_delete_failed");
             return false;
         }
     }
@@ -128,7 +149,7 @@ public class CloudinaryMediaAdapter {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    log.info("Transaction committed successfully, executing deletion of old asset: {}", oldPublicId);
+                    log.info("event=media_cleanup_after_commit");
                     deleteAsset(oldPublicId);
                 }
             });

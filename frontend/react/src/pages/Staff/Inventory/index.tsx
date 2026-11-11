@@ -29,12 +29,16 @@ export const StaffInventoryPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'LOW_STOCK' | 'SOLD_OUT'>('ALL');
   const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId ?? 0);
   const [modalOpen, setModalOpen] = useState(false);
+  const [thresholdModalOpen, setThresholdModalOpen] = useState(false);
+  const [thresholdInput, setThresholdInput] = useState<number>(20);
+  const [savingThreshold, setSavingThreshold] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [form] = Form.useForm();
 
   const activeStoreId = isAdmin ? adminSelectedStoreId || stores[0]?.id : user.storeId;
   const currentStore = stores.find((s) => s.id === activeStoreId);
   const currentStoreName = currentStore?.name || user.storeName;
+  const storeThreshold = currentStore?.lowStockThreshold ?? 20;
 
   const fetchInventory = useCallback(async () => {
     try {
@@ -59,7 +63,7 @@ export const StaffInventoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeStoreId, adminSelectedStoreId, isAdmin, user.storeId]);
+  }, [adminSelectedStoreId, isAdmin, user.storeId]);
 
   useEffect(() => {
     fetchInventory();
@@ -77,7 +81,7 @@ export const StaffInventoryPage: React.FC = () => {
         item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.categoryName.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const isLowStock = item.quantityAvailable <= item.lowStockThreshold && !item.isSoldOut;
+      const isLowStock = item.quantityAvailable <= storeThreshold && !item.isSoldOut;
       const isSoldOut = item.isSoldOut || item.quantityAvailable === 0;
       const isAvailable = !isSoldOut && !isLowStock;
 
@@ -88,12 +92,12 @@ export const StaffInventoryPage: React.FC = () => {
 
       return matchSearch && matchStatus;
     });
-  }, [storeInventory, searchTerm, statusFilter]);
+  }, [storeInventory, searchTerm, statusFilter, storeThreshold]);
 
   // Statistics for current store
   const totalItems = storeInventory.length;
   const lowStockCount = storeInventory.filter(
-    (i) => i.quantityAvailable <= i.lowStockThreshold && !i.isSoldOut
+    (i) => i.quantityAvailable <= storeThreshold && !i.isSoldOut
   ).length;
   const soldOutCount = storeInventory.filter((i) => i.isSoldOut || i.quantityAvailable === 0).length;
   const availableCount = totalItems - soldOutCount;
@@ -102,6 +106,10 @@ export const StaffInventoryPage: React.FC = () => {
   const handleToggleSoldOut = async (item: InventoryItem, checked: boolean) => {
     try {
       if (!activeStoreId) return;
+      if (!checked && item.quantityAvailable <= 0) {
+        message.error(t("business:inventory.outOfStockCannotEnable"));
+        return;
+      }
       await inventoryApi.updateAvailability(activeStoreId, item.productId, { isSoldOut: checked });
       await fetchInventory();
       if (checked) {
@@ -122,7 +130,6 @@ export const StaffInventoryPage: React.FC = () => {
     setEditingItem(item);
     form.setFieldsValue({
       quantityAvailable: item.quantityAvailable,
-      lowStockThreshold: item.lowStockThreshold,
     });
     setModalOpen(true);
   };
@@ -131,12 +138,9 @@ export const StaffInventoryPage: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (editingItem && activeStoreId) {
-        const payload: { quantityAvailable?: number; lowStockThreshold?: number } = {
+        const payload: { quantityAvailable?: number } = {
           quantityAvailable: values.quantityAvailable,
         };
-        if (!isStaff && values.lowStockThreshold != null) {
-          payload.lowStockThreshold = values.lowStockThreshold;
-        }
 
         const updated = await inventoryApi.updateInventory(activeStoreId, editingItem.productId, payload);
         setInventory((prev) =>
@@ -200,7 +204,7 @@ export const StaffInventoryPage: React.FC = () => {
       key: 'quantityAvailable',
       width: 170,
       render: (qty: number, record) => {
-        const isLow = qty <= record.lowStockThreshold && !record.isSoldOut;
+        const isLow = qty <= storeThreshold && !record.isSoldOut;
         return (
           <div>
             <span
@@ -234,12 +238,11 @@ export const StaffInventoryPage: React.FC = () => {
     },
     {
       title: t("business:inventory.alertThreshold"),
-      dataIndex: 'lowStockThreshold',
-      key: 'lowStockThreshold',
+      key: 'storeThreshold',
       width: 150,
-      render: (threshold: number) => (
+      render: () => (
         <span style={{ fontFamily: 'Quicksand, sans-serif', fontWeight: 600, color: '#6B6259' }}>
-          ≤ {threshold} {t("business:cart.servings")} </span>
+          ≤ {storeThreshold} {t("business:cart.servings")} </span>
       ),
     },
     {
@@ -343,6 +346,30 @@ export const StaffInventoryPage: React.FC = () => {
               >
                 <ShopOutlined /> {currentStoreName}
               </Tag>
+            )}
+            <Tag
+              color="orange"
+              style={{
+                borderRadius: 999,
+                fontWeight: 600,
+                fontSize: 13,
+                padding: '3px 12px',
+              }}
+            >
+              {t("business:inventory.storeLowStockThreshold")}: ≤ {storeThreshold} {t("business:cart.servings")}
+            </Tag>
+            {!isStaff && activeStoreId && (
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setThresholdInput(storeThreshold);
+                  setThresholdModalOpen(true);
+                }}
+                style={{ borderRadius: 999, fontWeight: 600 }}
+              >
+                {t("business:inventory.editStoreThreshold")}
+              </Button>
             )}
           </div>
           <p
@@ -476,13 +503,11 @@ export const StaffInventoryPage: React.FC = () => {
             <InputNumber disabled={isStaff} min={0} max={9999} style={{ width: '100%', height: 40 }} />
           </Form.Item>
 
-          <Form.Item
-            name="lowStockThreshold"
-            label={t("business:inventory.lowStockAlertThresholdServings")}
-            rules={isStaff ? [] : [{ required: true, message: t("business:inventory.pleaseEnterAnAlertThreshold") }]}
-          >
-            <InputNumber min={1} max={500} disabled={isStaff} style={{ width: '100%', height: 40 }} />
-          </Form.Item>
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ color: '#6B6259', fontSize: 13 }}>
+              {t("business:inventory.storeLowStockThreshold")}: <strong>≤ {storeThreshold} {t("business:cart.servings")}</strong>
+            </span>
+          </div>
 
           <div
             style={{
@@ -495,6 +520,43 @@ export const StaffInventoryPage: React.FC = () => {
             }}
           > {t("business:inventory.stocktakeStaff")} <strong>{user.fullName}</strong> ({user.role})<br /> {t("business:inventory.recordedAtTheCurrentTime")} </div>
         </Form>
+      </AdminModal>
+
+      {/* Store Threshold Modal */}
+      <AdminModal
+        open={thresholdModalOpen}
+        onCancel={() => setThresholdModalOpen(false)}
+        onOk={async () => {
+          if (!activeStoreId) return;
+          try {
+            setSavingThreshold(true);
+            await inventoryApi.updateStoreThreshold(activeStoreId, thresholdInput);
+            message.success(t("business:inventory.storeThresholdUpdated", { value1: thresholdInput }));
+            await fetchInventory();
+            setThresholdModalOpen(false);
+          } catch (err) {
+            message.error(getErrorMessage(err));
+          } finally {
+            setSavingThreshold(false);
+          }
+        }}
+        confirmLoading={savingThreshold}
+        title={t("business:inventory.editStoreThreshold")}
+        subtitle={t("business:inventory.storeThresholdSubtitle")}
+        width={420}
+      >
+        <div style={{ padding: '12px 0' }}>
+          <label style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>
+            {t("business:inventory.storeLowStockThreshold")}
+          </label>
+          <InputNumber
+            min={0}
+            max={9999}
+            value={thresholdInput}
+            onChange={(val) => setThresholdInput(val ?? 0)}
+            style={{ width: '100%', height: 40 }}
+          />
+        </div>
       </AdminModal>
     </div>
   );

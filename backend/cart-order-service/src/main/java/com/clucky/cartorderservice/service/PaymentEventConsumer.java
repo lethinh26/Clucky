@@ -25,11 +25,16 @@ public class PaymentEventConsumer {
     @KafkaListener(topics = "payment.failed", groupId = "cart-order-service-group")
     public void onPaymentFailed(ConsumerRecord<String, String> record, Acknowledgment ack) {
         try {
-            LOG.info("event=kafka_payment_failed_received partition={} offset={} key={}",
-                    record.partition(), record.offset(), record.key());
+            LOG.info("event=kafka_payment_failed_received partition={} offset={}",
+                    record.partition(), record.offset());
 
             DomainEvent event = eventMapper.fromJson(record.value(), "payment.failed");
             JsonNode payload = event.payload();
+            if (!"payment-service".equals(event.sourceService())) throw new IllegalArgumentException("Invalid payment failure source");
+            if (payload.path("orderDecisionFinal").asBoolean(false)) {
+                if (ack != null) ack.acknowledge();
+                return;
+            }
 
             Long orderId = payload.hasNonNull("orderId") ? payload.get("orderId").asLong() : null;
             String orderCode = payload.hasNonNull("orderCode") ? payload.get("orderCode").asText() : null;
@@ -42,12 +47,10 @@ public class PaymentEventConsumer {
                 ack.acknowledge();
             }
         } catch (IllegalArgumentException e) {
-            LOG.error("event=kafka_payment_failed_invalid_payload error={} payload={}", e.getMessage(), record.value());
-            if (ack != null) {
-                ack.acknowledge();
-            }
+            LOG.warn("event=kafka_payment_failed_invalid_payload");
+            throw new IllegalArgumentException("Invalid payment failure event");
         } catch (Exception e) {
-            LOG.error("event=kafka_payment_failed_error error={}", e.getMessage(), e);
+            LOG.warn("event=kafka_payment_failed_retry");
             throw e;
         }
     }

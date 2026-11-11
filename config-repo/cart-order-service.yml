@@ -1,5 +1,7 @@
 server:
   port: ${SERVER_PORT:8083}
+payment:
+  session-ttl: 15m
 spring:
   application:
     name: cart-order-service
@@ -21,6 +23,14 @@ spring:
     timeout: 24h
     redis:
       namespace: clucky:cart:sessions
+
+cloudinary:
+  enabled: ${CLOUDINARY_ENABLED:false}
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  folder: ${CLOUDINARY_FOLDER:clucky}
+
 clucky:
   loyalty:
     internal-token: ${LOYALTY_INTERNAL_TOKEN:}

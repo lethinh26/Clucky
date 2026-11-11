@@ -10,9 +10,15 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT entry FROM Order entry WHERE entry.id = :id")
+    Optional<Order> lockById(@Param("id") Long id);
     Optional<Order> findByIdAndCustomerId(Long id, Long customerId);
     Optional<Order> findByIdAndStoreId(Long id, Long storeId);
     Optional<Order> findByOrderCode(String orderCode);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT entry FROM Order entry WHERE entry.orderCode = :code")
+    Optional<Order> lockByOrderCode(@Param("code") String code);
     boolean existsByOrderCode(String orderCode);
 
     @Query("""
@@ -43,19 +49,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         SELECT o FROM Order o
         WHERE (:storeId IS NULL OR o.storeId = :storeId)
           AND (:status IS NULL OR o.status = :status)
-          AND (LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :orderCode, '%')))
+          AND (LOWER(o.orderCode) LIKE LOWER(:orderCodePattern))
         ORDER BY o.createdAt DESC
     """)
     Page<Order> findOrdersWithCode(
         @Param("storeId") Long storeId,
         @Param("status") String status,
-        @Param("orderCode") String orderCode,
+        @Param("orderCodePattern") String orderCodePattern,
         Pageable pageable
     );
 
-    default Page<Order> findOrders(Long storeId, String status, String orderCode, Pageable pageable) {
-        if (orderCode != null && !orderCode.isBlank()) {
-            return findOrdersWithCode(storeId, status, orderCode.trim(), pageable);
+    default Page<Order> findOrders(Long storeId, String status, String orderCodePattern, Pageable pageable) {
+        if (orderCodePattern != null && !orderCodePattern.isBlank()) {
+            return findOrdersWithCode(storeId, status, orderCodePattern.trim(), pageable);
         }
         return findOrdersWithoutCode(storeId, status, pageable);
     }

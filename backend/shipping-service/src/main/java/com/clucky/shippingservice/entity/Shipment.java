@@ -15,6 +15,9 @@ public class Shipment {
     @Column(name = "order_id", nullable = false, unique = true)
     private Long orderId;
 
+    @Column(name = "customer_id")
+    private Long customerId;
+
     @Column(name = "store_id", nullable = false)
     private Long storeId;
 
@@ -53,6 +56,9 @@ public class Shipment {
 
     public Long getOrderId() { return orderId; }
     public void setOrderId(Long orderId) { this.orderId = orderId; }
+
+    public Long getCustomerId() { return customerId; }
+    public void setCustomerId(Long customerId) { this.customerId = customerId; }
 
     public Long getStoreId() { return storeId; }
     public void setStoreId(Long storeId) { this.storeId = storeId; }

@@ -38,7 +38,7 @@ public class BrowserSessionConfig {
         cors.setAllowCredentials(true);
         cors.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Content-Type", "Authorization", "Accept-Language",
-                "X-Clucky-Client", "X-Guest-Session-Id", "X-Session-Id", "X-Correlation-ID"));
+                "X-Clucky-Client", "X-Guest-Session-Id", "X-Session-Id", "X-Correlation-ID", "Idempotency-Key"));
         cors.setExposedHeaders(List.of("X-Correlation-ID", "X-Guest-Session-Id"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", cors);
@@ -53,6 +53,13 @@ public class BrowserSessionConfig {
             String path = request.getPath().value();
             if (!path.startsWith("/api/")) return chain.filter(exchange);
             exchange.getResponse().getHeaders().setCacheControl("no-store");
+            if ("POST".equals(request.getMethod().name()) && "/api/payments/webhook/sepay".equals(path)) {
+                var forwarded = request.mutate().headers(headers -> {
+                    headers.remove(HttpHeaders.COOKIE);
+                    headers.remove("X-Clucky-Client");
+                }).build();
+                return chain.filter(exchange.mutate().request(forwarded).build());
+            }
             String client = request.getHeaders().getFirst("X-Clucky-Client");
             boolean admin = "admin".equals(client);
             String cookieName = admin ? "clucky_admin_access" : "clucky_customer_access";

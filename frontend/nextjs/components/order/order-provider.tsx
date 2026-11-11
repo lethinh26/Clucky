@@ -99,6 +99,8 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
     totalAmount: Number(be.totalAmount),
     paymentMethod: (be.paymentMethod as Order["paymentMethod"]) || (be.status === "PENDING_PAYMENT" ? "BANK_TRANSFER" : "COD"),
     paymentStatus: be.paymentStatus ?? "UNKNOWN",
+    refundStatus: (be as any).refundStatus,
+    refundData: (be as any).refundData,
     receiverName: be.receiverName,
     receiverPhone: be.receiverPhone,
     deliveryAddress: be.deliveryAddress,
@@ -209,7 +211,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       cartBusy.current = false;
       setCartPending(false);
     }
-  }, [setWorkspace, loadedRevision, ready, session.error]);
+  }, [setWorkspace, loadedRevision, ready, session.error, errorMessage]);
 
   const refreshOrders = useCallback(async () => {
     if (!getSessionState().user) return;

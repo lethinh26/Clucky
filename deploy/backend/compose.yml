@@ -167,13 +167,17 @@ services:
       LOYALTY_INTERNAL_TOKEN: ${LOYALTY_INTERNAL_TOKEN:-}
       CATALOG_SERVICE_TOKEN: ${CATALOG_SERVICE_TOKEN:-}
       PROMOTION_SERVICE_TOKEN: ${PROMOTION_SERVICE_TOKEN:-}
+      CLOUDINARY_ENABLED: ${CLOUDINARY_ENABLED:-false}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
 
   payment-service:
     <<: *java
     image: clucky-payment-service:${IMAGE_TAG:?IMAGE_TAG is required}
     environment:
       <<: *environment
-      SEPAY_WEBHOOK_SECRET: ${SEPAY_WEBHOOK_SECRET:-}
+      SEPAY_API_KEY: ${SEPAY_API_KEY:-}
 
   promotion-loyalty-service:
     <<: *java

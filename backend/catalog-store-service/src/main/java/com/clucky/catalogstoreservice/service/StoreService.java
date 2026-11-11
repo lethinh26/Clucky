@@ -73,7 +73,7 @@ public class StoreService {
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
         store.setDeliveryArea(request.getDeliveryArea());
 
-        Store saved = storeRepository.save(store);
+        Store saved = storeRepository.saveAndFlush(store);
 
         // Auto initialize store_products and store_inventory for existing active products
         List<Product> products = productRepository.findAll();
@@ -105,7 +105,7 @@ public class StoreService {
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
         if (request.getDeliveryArea() != null) store.setDeliveryArea(request.getDeliveryArea());
 
-        Store saved = storeRepository.save(store);
+        Store saved = storeRepository.saveAndFlush(store);
         cacheService.evictStoreMenuCache(id);
         return toResponse(saved);
     }
@@ -118,8 +118,18 @@ public class StoreService {
         if (request.getOpenTime() != null) store.setOpenTime(parseTime(request.getOpenTime()));
         if (request.getCloseTime() != null) store.setCloseTime(parseTime(request.getCloseTime()));
         if (request.getStatus() != null) store.setStatus(StoreStatus.fromString(request.getStatus()));
+        if (request.getPhone() != null && !request.getPhone().isBlank()) store.setPhone(request.getPhone().trim());
+        if (request.getLatitude() != null) store.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) store.setLongitude(request.getLongitude());
+        if (request.getDeliveryArea() != null) store.setDeliveryArea(request.getDeliveryArea());
+        if (request.getLowStockThreshold() != null) {
+            if (request.getLowStockThreshold() < 0) {
+                throw new com.clucky.catalogstoreservice.exception.ApiException(com.clucky.catalogstoreservice.exception.ErrorCode.INVALID_THRESHOLD);
+            }
+            store.setLowStockThreshold(request.getLowStockThreshold());
+        }
 
-        Store saved = storeRepository.save(store);
+        Store saved = storeRepository.saveAndFlush(store);
         cacheService.evictStoreMenuCache(id);
         return toResponse(saved);
     }
@@ -173,6 +183,9 @@ public class StoreService {
         response.setIsOpenNow(isStoreServingNow(store));
         response.setLatitude(store.getLatitude());
         response.setLongitude(store.getLongitude());
+        response.setDeliveryRadiusKm(store.getDeliveryRadiusKm());
+        response.setVersion(store.getVersion());
+        response.setLowStockThreshold(store.getLowStockThreshold());
         return response;
     }
 
@@ -180,7 +193,15 @@ public class StoreService {
         Store store = storeRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Store not found"));
         store.setLatitude(request.latitude());
         store.setLongitude(request.longitude());
-        return toResponse(storeRepository.save(store));
+        return toResponse(storeRepository.saveAndFlush(store));
+    }
+
+    public StoreDto.Response updateDeliverySettings(Long id, StoreDto.DeliverySettingsRequest request) {
+        Store store = storeRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Store not found"));
+        if (store.getVersion() != request.version()) throw new com.clucky.catalogstoreservice.exception.ApiException(
+                com.clucky.catalogstoreservice.exception.ErrorCode.RESOURCE_CONFLICT);
+        store.setDeliveryRadiusKm(request.radiusKm());
+        return toResponse(storeRepository.saveAndFlush(store));
     }
 
     private LocalTime parseTime(String timeStr) {

@@ -19,6 +19,7 @@ dependencies {
     // Export Excel (.xlsx) & PDF (BE-42)
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
     implementation 'com.github.librepdf:openpdf:2.0.3'
+    implementation 'com.github.librepdf:openpdf-fonts-extra:2.0.3'
 }
 
 bootJar { archiveFileName = 'review-report-service-0.1.0-SNAPSHOT.jar' }

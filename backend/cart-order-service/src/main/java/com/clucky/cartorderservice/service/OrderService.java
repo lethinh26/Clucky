@@ -120,12 +120,11 @@ public class OrderService {
         String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
         // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
         ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
-                type, storeId, request.receiverAddress(), subtotal
+                type, storeId, request.latitude(), request.longitude()
         );
         if (!shippingResult.available() && !"PICKUP".equalsIgnoreCase(type)) {
-            LOG.warn("Shipping service calculate-fee unavailable during preview storeId={} address={}",
-                    storeId, request.receiverAddress());
-            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            return new OrderPreviewResponse(subtotal, BigDecimal.ZERO, 0, BigDecimal.ZERO, null, null,
+                    false, null, items, BigDecimal.ZERO, false, shippingResult);
         }
         BigDecimal shippingFee = shippingResult.fee() != null ? shippingResult.fee() : BigDecimal.ZERO;
 
@@ -167,7 +166,8 @@ public class OrderService {
                 voucherCalc.message(),
                 items,
                 loyaltyCalc.tierDiscount(),
-                true
+                true,
+                shippingResult
         );
     }
 
@@ -212,12 +212,11 @@ public class OrderService {
         String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
         // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
         ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
-                type, request.storeId(), request.deliveryAddress(), subtotal
+                type, request.storeId(), request.latitude(), request.longitude()
         );
         if (!shippingResult.available() && !"PICKUP".equalsIgnoreCase(type)) {
-            LOG.warn("Shipping service calculate-fee unavailable during createOrder storeId={} address={}",
-                    request.storeId(), request.deliveryAddress());
-            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            throw new ApiException(Set.of("OUT_OF_RANGE", "LOCATION_REQUIRED").contains(shippingResult.reason())
+                    ? ErrorCode.RESOURCE_CONFLICT : ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
         BigDecimal shippingFee = shippingResult.fee() != null ? shippingResult.fee() : BigDecimal.ZERO;
 
@@ -332,7 +331,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse cancelOrder(Long id, CancelOrderRequest request) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.lockById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         accessGuard.requireOwner(order.getCustomerId());
@@ -371,7 +370,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse rejectOrder(Long id, CancelOrderRequest request) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.lockById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         accessGuard.requireStore(order.getStoreId());
@@ -411,7 +410,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse updateStatus(Long id, UpdateOrderStatusRequest request) {
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.lockById(id)
                 .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
         accessGuard.requireStore(order.getStoreId());
@@ -430,7 +429,7 @@ public class OrderService {
         }
 
         if (("COMPLETED".equals(target) || ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)))
-                && !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+                && (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()))) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
 
@@ -495,10 +494,10 @@ public class OrderService {
     public void compensateFailedPayment(Long orderId, String orderCode, String reason) {
         Optional<Order> orderOpt = Optional.empty();
         if (orderId != null) {
-            orderOpt = orderRepository.findById(orderId);
+            orderOpt = orderRepository.lockById(orderId);
         }
         if (orderOpt.isEmpty() && orderCode != null && !orderCode.isBlank()) {
-            orderOpt = orderRepository.findByOrderCode(orderCode);
+            orderOpt = orderRepository.lockByOrderCode(orderCode);
         }
 
         if (orderOpt.isEmpty()) {
@@ -514,6 +513,8 @@ public class OrderService {
             LOG.info("event=saga_order_already_cancelled orderId={} orderCode={}", order.getId(), order.getOrderCode());
             return;
         }
+
+        if (!"PENDING".equals(order.getPaymentStatus()) || order.getPaymentExpiresAt() != null && !OrderStatus.PENDING_PAYMENT.name().equals(currentStatus)) return;
 
         if (!OrderStatus.PENDING_PAYMENT.name().equalsIgnoreCase(currentStatus)
                 && !OrderStatus.CONFIRMED.name().equalsIgnoreCase(currentStatus)) {
@@ -547,7 +548,7 @@ public class OrderService {
         }
 
         // Publish order.cancelled compensation event via Transactional Outbox
-        orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
+        orderEventPublisher.publishOrderCancelled(order, items, history.getReason(), "PAYMENT_EXPIRED".equals(reason));
     }
 
     public CartDto reorder(Long id) {
@@ -605,9 +606,11 @@ public class OrderService {
     public PageResponse<OrderResponse> getOrders(Long requestedStoreId, String status, String orderCode, Pageable pageable) {
         Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
-        String cleanOrderCode = (orderCode != null && !orderCode.isBlank()) ? orderCode.trim() : null;
+        String orderCodePattern = (orderCode != null && !orderCode.isBlank())
+                ? "%" + orderCode.trim().toLowerCase() + "%"
+                : null;
 
-        Page<Order> orderPage = orderRepository.findOrders(effectiveStoreId, cleanStatus, cleanOrderCode, pageable);
+        Page<Order> orderPage = orderRepository.findOrders(effectiveStoreId, cleanStatus, orderCodePattern, pageable);
         return mapToOrderResponsePage(orderPage);
     }
 

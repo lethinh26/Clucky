@@ -114,6 +114,7 @@ interface OrderWorkspace {
     action: "APPROVED" | "REJECTED",
     note: string,
   ) => Promise<boolean>;
+  createRefund: (data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string }) => Promise<boolean>;
   refreshOrders: () => Promise<void>;
 }
 
@@ -156,11 +157,12 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
             const adminOrder = mapBackendOrderToAdminOrder(bo);
             const ref = refundByOrderId.get(Number(bo.id));
             if (ref) {
-              adminOrder.hasRefundRequest = ref.status === "PENDING";
+              adminOrder.hasRefundRequest = ["PENDING", "APPROVED", "PROCESSING", "WAITING_BANK_DETAILS"].includes(ref.status);
               adminOrder.refundRequestId = ref.id;
               adminOrder.refundReason = ref.reason;
               adminOrder.refundAmount = Number(ref.amount);
-              adminOrder.refundStatus = ref.status;
+              adminOrder.refundStatus = ref.status as any;
+              adminOrder.refundData = ref;
             }
             return adminOrder;
           });
@@ -262,6 +264,20 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     [perform],
   );
 
+  const createRefund = useCallback(
+    async (data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string }) => {
+      try {
+        await refundsApi.create(data);
+        await refreshOrders();
+        return true;
+      } catch (error) {
+        setActionError(getErrorMessage(error));
+        return false;
+      }
+    },
+    [refreshOrders]
+  );
+
   const value = useMemo(
     () => ({
       orders,
@@ -271,6 +287,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       updateStatus,
       confirmCOD,
       reviewRefund,
+      createRefund,
       refreshOrders,
     }),
     [
@@ -281,6 +298,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       updateStatus,
       confirmCOD,
       reviewRefund,
+      createRefund,
       refreshOrders,
     ],
   );

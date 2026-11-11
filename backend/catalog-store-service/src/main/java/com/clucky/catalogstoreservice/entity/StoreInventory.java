@@ -33,6 +33,13 @@ public class StoreInventory {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt = OffsetDateTime.now();
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
+
     public StoreInventory() {}
 
     public StoreInventory(Long id, Store store, Product product, Integer quantityAvailable, Integer lowStockThreshold, Long updatedBy) {

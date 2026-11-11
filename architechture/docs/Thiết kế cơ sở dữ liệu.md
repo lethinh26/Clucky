@@ -46,12 +46,18 @@ Trạng thái đơn (orders.status): PENDING_PAYMENT, CONFIRMED, PREPARING, READ
 # 4. PAYMENT SERVICE — payment_db
 | Bảng | Cột chính | Mô tả |
 |---|---|---|
-| payments | id, order_id, order_code, method (BANK_TRANSFER/COD), amount, status (PENDING/PAID/EXPIRED/MISMATCH/COLLECTED/REFUND_PENDING/REFUNDED), qr_content, expires_at, paid_at | Giao dịch thanh toán theo đơn (1 đơn có thể có nhiều bản ghi nếu tạo lại QR) |
-| bank_transactions | id, bank_tx_id (unique — khóa idempotency), bank_account, amount, content, received_at, matched_order_code, raw_payload (JSONB) | Giao dịch ngân hàng nhận từ webhook SePay/Casso |
-| webhook_logs | id, provider (SEPAY/CASSO), signature_valid, payload (JSONB), processed, created_at | Nhật ký webhook phục vụ đối soát và debug (Admin xem) |
-| bank_accounts_config | id, bank_name, account_no, account_name, is_active | Tài khoản nhận tiền do Admin cấu hình (có thể chuyển thành biến môi trường) |
+| payments | id, order_id, order_code, method, amount, status, expires_at, paid_at, live_payment, received_amount, receipt_proposed, closed_reason | Phiên live mới duy nhất/đơn, snapshot ngân hàng/reference/deadline bất biến; legacy giữ nguyên |
+| bank_transactions | id, bank_tx_id (unique — khóa idempotency), bank_account, amount, content, received_at, matched_order_code, raw_payload (JSONB), payment_id | Receipt bất biến, nhiều khoản có thể cấp tiền cho một payment; DTO không trả raw payload |
+| webhook_logs | id, provider, signature_valid, payload (JSONB), processed, created_at | Schema nền; P1 chỉ dùng SEPAY/API Key, không trả raw payload qua UI |
+| bank_accounts_config | id, bank_name, bank_code, account_no, account_name, is_active, version | Admin quản lý trong DB, không biến môi trường ngân hàng |
 
-Quy tắc đối chiếu: một bank_transactions.bank_tx_id chỉ được xử lý 1 lần; khớp khi nội dung chứa order_code và amount bằng payments.amount của giao dịch PENDING tương ứng.
+Bổ sung 09/11/2026: khôi phục nguyên bản V4__payment_attempts_and_delivery đã áp trên database từ commit 6d5df8b; V5 mới thêm version cho bank_accounts_config, version/updated_at và account nullable cho store_bank_accounts. Giữ bank_code/unique identity của V4 và assignment hiện hữu. FK account chỉ nội bộ Payment, storeId không FK chéo Catalog. bank_operations lưu key/hash/response bền theo actor; bank_audit_outbox lưu event để phát lại audit sau commit. Không sửa payments/transactions legacy hoặc tự suy diễn snapshot/ngân hàng. Chi tiết: [bàn giao mốc ngân hàng](../specs/rbac-branch-operations/P1-bank-accounts-handoff.md).
+
+V6 bổ sung fingerprint, bank_occurred_at/last_seen_at, replay/conflict counts và candidate_payment_id/candidate_order_code vào bank_transactions; sepay_receipt_conflicts giữ từng fingerprint bất thường, không ghi đè receipt gốc. Matcher normalized contains chỉ lưu ứng viên chờ đối soát, chưa allocation/PAID. Xem [bàn giao intake](../specs/rbac-branch-operations/P1-sepay-intake-handoff.md).
+
+V7 Payment thêm live_payment (mặc định false), received_amount NUMERIC(20,0), receipt_proposed và closed_reason; nới transfer_content lên 128, unique một live payment/order, constraint snapshot, bỏ unique một bankTx/payment để cho phép cộng dồn. payment_outbox.live_dispatch mặc định false: dispatcher mới chỉ phát event do luồng live tạo, không vô tình phát outbox legacy. Không sửa V1–V6/không xóa dữ liệu.
+
+V7 Order thêm orders.payment_expires_at và payment_decisions (payment_id unique, event_id unique, order_id FK nội bộ, decision). Deadline 15 phút và quyết định xác nhận/hủy/hết hạn thuộc Order; khóa hàng chung với cancellation. Payment không join/FK sang schema Order. Outbox giữ event/correlation và ACK sau commit. Không suy từ ACK webhook hoặc allocation thành Order đã thanh toán; xem [bàn giao live payment](../specs/rbac-branch-operations/P1-live-payment-handoff.md).
 
 # 5. PROMOTION & LOYALTY SERVICE — promotion_db
 | Bảng | Cột chính | Mô tả |
@@ -103,3 +109,9 @@ Quy tắc đối chiếu: một bank_transactions.bank_tx_id chỉ được xử
 ## 11. CLOUDINARY METADATA
 
 Không lưu binary trong PostgreSQL. Các service chỉ lưu `secure_url` và `public_id` cùng metadata cần thiết. `public_id` là khóa dùng để thay/xóa asset trên Cloudinary; cleanup asset cũ chỉ chạy sau khi metadata mới đã commit.
+# Bổ sung S1: phí ship và bán kính (09/11/2026)
+
+- Catalog migration V9: `catalog_service.stores.delivery_radius_km NUMERIC(7,2) NULL CHECK (>0)`, `version BIGINT NOT NULL DEFAULT 0` cho optimistic locking. Không tự suy diễn bán kính từ mô tả delivery_area cũ.
+- Shipping migration V5: `shipping_service.shipping_policy` có một dòng id=1, fee NUMERIC(12,0) NULL CHECK (>0), version BIGINT và updated_at TIMESTAMPTZ. Khởi tạo fee NULL, không tự lấy phí seed 15.000 hay ví dụ 20.000. V4 shipment identity/location đã tồn tại trong database, khôi phục nguyên bản từ commit 6d5df8b; không repair checksum.
+- `shipping_fee_config` cũ giữ nguyên để bảo toàn lịch sử; luồng tính phí mới không đọc bảng này. Phí đơn/shipment đã tạo không bị cập nhật theo policy mới. Không thêm FK/SQL qua service.
+

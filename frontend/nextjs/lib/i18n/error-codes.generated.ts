@@ -86,6 +86,30 @@ export const errorCatalog = {
   },
   "TOKEN_REVOKED": {
     "httpStatus": 401
+  },
+  "REFUND_NOT_ELIGIBLE": {
+    "httpStatus": 400
+  },
+  "REFUND_AMOUNT_EXCEEDED": {
+    "httpStatus": 409
+  },
+  "REFUND_ALREADY_EXISTS": {
+    "httpStatus": 409
+  },
+  "INVALID_REFUND_STATE": {
+    "httpStatus": 409
+  },
+  "EVIDENCE_REQUIRED": {
+    "httpStatus": 400
+  },
+  "EVIDENCE_DELIVERY_UNAVAILABLE": {
+    "httpStatus": 503
+  },
+  "INVALID_THRESHOLD": {
+    "httpStatus": 400
+  },
+  "PRODUCT_OUT_OF_STOCK": {
+    "httpStatus": 409
   }
 } as const;
 export type ErrorCode = keyof typeof errorCatalog;
