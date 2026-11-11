@@ -58,3 +58,19 @@ export interface LoyaltyTierInfo {
   nextTierPoints: number | null;
 }
 
+export type BannerPosition = 'HERO_HOME' | 'POPUP' | 'PROMO_STRIP';
+
+export interface PromoBanner {
+  id: number;
+  title: string;
+  imageUrl: string;
+  linkUrl?: string | null;
+  position: BannerPosition;
+  displayOrder: number;
+  startAt?: string | null;
+  endAt?: string | null;
+  isActive: boolean;
+  version?: number;
+}
+
+

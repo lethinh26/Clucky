@@ -71,16 +71,37 @@ export interface VoucherProposal {
   proposedAt: string;
 }
 
+export type BannerPosition = 'HERO_HOME' | 'POPUP' | 'PROMO_STRIP';
+export type BannerEffectiveStatus = 'ACTIVE' | 'UPCOMING' | 'EXPIRED' | 'DISABLED';
+
 export interface PromoBanner {
-  id: string | number;
+  id: number;
   title: string;
   imageUrl: string;
-  targetUrl?: string;
-  position: 'HERO_HOME' | 'POPUP' | 'PROMO_STRIP';
-  startAt: string;
-  endAt: string;
+  imagePublicId?: string | null;
+  linkUrl?: string | null;
+  targetUrl?: string | null;
+  position: BannerPosition;
+  displayOrder: number;
+  order?: number;
+  startAt?: string | null;
+  endAt?: string | null;
   isActive: boolean;
-  order: number;
+  version: number;
+  effectiveStatus?: BannerEffectiveStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BannerPayload {
+  title: string;
+  linkUrl?: string | null;
+  position: BannerPosition;
+  displayOrder: number;
+  startAt?: string | null;
+  endAt?: string | null;
+  isActive: boolean;
+  expectedVersion?: number;
 }
 
 export type LoyaltyTier = 'MEMBER' | 'SILVER' | 'GOLD';

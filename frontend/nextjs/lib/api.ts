@@ -607,6 +607,11 @@ export const catalogApi = {
 
 /* ---------- Promotions & Loyalty ---------- */
 export const promotionApi = {
+  getActiveBanners: (position?: import("./types/promotion").BannerPosition) => {
+    const query = position ? `?position=${encodeURIComponent(position)}` : "";
+    return request<import("./types/promotion").PromoBanner[]>(`/api/promotions/banners${query}`);
+  },
+
   getAvailableVouchers: () =>
     request<import("./types/promotion").Voucher[]>("/api/promotions/vouchers/available"),
   validateVoucher: (body: {

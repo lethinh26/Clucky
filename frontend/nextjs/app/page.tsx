@@ -1,43 +1,46 @@
 import { getTranslations } from "next-intl/server";
 import Link from "@/components/ui-loader/navigation-link";
 import { Hero } from "@/components/hero";
+import { BannerShowcase } from "@/components/promotion/banner-showcase";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";
 import { catalogApi } from "@/lib/catalog-and-stores.api";
+import { promotionApi } from "@/lib/api";
+import type { PromoBanner } from "@/lib/types/promotion";
 import { Flame, Award, Truck } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
-type DisplayCategory = { id: number; name: string };
-
 export default async function Home() {
   const t = await getTranslations();
   let displayProducts: any[] = [];
-  let liveCategories: { id: number; name: string }[] = [];
+  let activeBanners: PromoBanner[] = [];
 
   try {
-    const [prods, cats] = await Promise.all([
+    const [prods, banners] = await Promise.all([
       catalogApi.getProducts({ activeOnly: true, page: 0, size: 9 }),
-      catalogApi.getCategories(true),
+      promotionApi.getActiveBanners().catch(() => [] as PromoBanner[]),
     ]);
     displayProducts = prods;
-    liveCategories = cats;
+    activeBanners = banners;
   } catch {
     displayProducts = [];
-    liveCategories = [];
+    activeBanners = [];
   }
-
-  const displayCategories: DisplayCategory[] = [
-    { id: 0, name: t("menu.categories.all") },
-    ...liveCategories.map((category) => ({
-      id: category.id,
-      name: category.name,
-    })),
-  ];
 
   const featuredProducts = displayProducts
     .filter((p) => p.isActive !== false)
     .slice(0, 9);
+
+  const heroSlides = activeBanners
+    .filter((item) => item.position === "HERO_HOME")
+    .map((item) => ({
+      id: item.id,
+      image: item.imageUrl,
+      title: item.title,
+      redirectUrl: item.linkUrl,
+      alt: item.title,
+    }));
 
   return (
     <>
@@ -54,23 +57,21 @@ export default async function Home() {
           ]}
           imageSrc="/images/hero-img.avif"
           imageAlt={t("home.hero.imageAlt")}
+          heroBanners={heroSlides}
         />
 
         {/* Floating Category Dock */}
         <section className="category-row-section" aria-label={t("menu.categories.label")}>
           <div className="category-dock">
-            {displayCategories.map((cat) => (
-              <Link
-                key={cat.id}
-                href={cat.id === 0 ? "/menu" : `/menu?cat=${cat.id}`}
-                className={`category-pill ${cat.id === 0 ? "active" : ""}`}
-              >
-                <CategoryIcon id={cat.id} size={18} active={cat.id === 0} />
-                <span>{cat.name}</span>
-              </Link>
-            ))}
+            <Link href="/menu" className="category-pill active">
+              <CategoryIcon id={0} size={18} active />
+              <span>{t("menu.categories.all")}</span>
+            </Link>
           </div>
         </section>
+
+        {/* Active Strip & Popup Promotional Banners */}
+        <BannerShowcase banners={activeBanners} showHero={false} />
 
         {/* Intro */}
         <section

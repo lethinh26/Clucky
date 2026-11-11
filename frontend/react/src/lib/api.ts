@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios';
 import { signIn, endSession, loadSession, refreshSession, expireSession, getSessionState, type SessionUser } from './session';
 import { getBrowserLocale, getErrorMessage as resolveError } from '../i18n/core';
 import type { StoreStatus } from '../types/store';
-import type { AdminVoucher, VoucherPayload } from '../types/promotion';
+import type { AdminVoucher, BannerPayload, PromoBanner, VoucherPayload } from '../types/promotion';
 
 export interface ProductOptionGroup {
   id: string;
@@ -486,6 +486,60 @@ export const promotionsApi = {
     api.put<AdminVoucher>(`/api/promotions/vouchers/${id}`, data, { signal }).then((r) => r.data),
   deleteVoucher: (id: number | string, signal?: AbortSignal) =>
     api.delete(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
+  listBanners: (
+    params?: { position?: string; isActive?: boolean; keyword?: string },
+    signal?: AbortSignal
+  ) => api.get<PromoBanner[]>('/api/promotions/banners/admin', { params, signal }).then((r) => r.data),
+  getBanner: (id: number | string, signal?: AbortSignal) =>
+    api.get<PromoBanner>(`/api/promotions/banners/${id}`, { signal }).then((r) => r.data),
+  createBanner: (
+    data: BannerPayload,
+    file: File,
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
+  ) => {
+    const body = new FormData();
+    body.append('file', file);
+    body.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    return api
+      .post<PromoBanner>('/api/promotions/banners', body, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        signal,
+        onUploadProgress: (event) => {
+          if (event.total) onProgress?.(Math.round((event.loaded / event.total) * 100));
+        },
+      })
+      .then((r) => r.data);
+  },
+  updateBanner: (id: number | string, data: BannerPayload, signal?: AbortSignal) =>
+    api.put<PromoBanner>(`/api/promotions/banners/${id}`, data, { signal }).then((r) => r.data),
+  uploadBannerImage: (
+    id: number | string,
+    expectedVersion: number,
+    file: File,
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
+  ) => {
+    const body = new FormData();
+    body.append('file', file);
+    return api
+      .post<PromoBanner>(`/api/promotions/banners/${id}/image`, body, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        params: { expectedVersion },
+        signal,
+        onUploadProgress: (event) => {
+          if (event.total) onProgress?.(Math.round((event.loaded / event.total) * 100));
+        },
+      })
+      .then((r) => r.data);
+  },
+  deleteBanner: (id: number | string, expectedVersion?: number, signal?: AbortSignal) =>
+    api
+      .delete(`/api/promotions/banners/${id}`, {
+        params: expectedVersion !== undefined ? { expectedVersion } : undefined,
+        signal,
+      })
+      .then((r) => r.data),
 };
 
 /* ---------- Catalog & Products ---------- */

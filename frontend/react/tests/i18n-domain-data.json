@@ -267,24 +267,6 @@
       "💡 Lý do:",
       "🔴 Đã từ chối",
       "🟢 Đã phê duyệt"
-    ],
-    "src/pages/Promotions/components/BannerBacklogSection.tsx": [
-      "Banner Trang Chủ (Hero)",
-      "Bật / Tắt hiển thị",
-      "Chưa tích hợp backend thật",
-      "Chức năng thuộc Kế hoạch Phase 2",
-      "Cửa sổ Popup (Modal)",
-      "Danh sách Banner hiện tại",
-      "Dải thông báo ưu đãi",
-      "Hiển thị trên Trang chủ & Ứng dụng khách hàng",
-      "Khu vực cấu hình hình ảnh banner, sự kiện truyền thông hiển thị trên ứng dụng khách hàng (Customer Next.js). Theo tài liệu kỹ thuật UI-28, tính năng này được xếp vào danh mục phát triển Phase 2 (chưa nối Cloudinary & API Gateway chính thức). Giao diện dưới đây hiển thị bố cục chuẩn bị sẵn để đội ngũ kiểm thử trải nghiệm xem trước.",
-      "Quản lý Banner Khuyến mại & Chiến dịch Quảng bá",
-      "Theo hợp đồng kỹ thuật UI-28, nghiệp vụ tải ảnh lên Cloudinary và lưu cấu hình Banner quảng cáo được lên kế hoạch trong Backlog Phase 2. Giao diện này phục vụ nghiệm thu hiển thị, hiện chưa kết nối dịch vụ lưu trữ media.",
-      "Thêm Banner mới",
-      "TẠM TẮT",
-      "ĐANG HIỂN THỊ",
-      "Đã hiểu",
-      "Đường dẫn:"
     ]
   }
 }

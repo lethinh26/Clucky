@@ -178,6 +178,12 @@ services:
   promotion-loyalty-service:
     <<: *java
     image: clucky-promotion-loyalty-service:${IMAGE_TAG:?IMAGE_TAG is required}
+    environment:
+      <<: *environment
+      CLOUDINARY_ENABLED: ${CLOUDINARY_ENABLED:-false}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
 
   shipping-service:
     <<: *java

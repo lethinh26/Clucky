@@ -3,6 +3,10 @@ server:
 spring:
   application:
     name: promotion-loyalty-service
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   datasource:
     hikari:
       schema: promotion_service

@@ -22,17 +22,7 @@ public final class DomainMapper {
     }
 
     public static BannerResponse toResponse(Banner entity) {
-        return new BannerResponse(
-                entity.getId(),
-                entity.getTitle(),
-                entity.getImageUrl(),
-                entity.getImagePublicId(),
-                entity.getLinkUrl(),
-                entity.getPosition(),
-                entity.getStartAt(),
-                entity.getEndAt(),
-                entity.getIsActive()
-        );
+        return BannerResponse.fromEntity(entity);
     }
 
     public static MemberPointsResponse toResponse(MemberPoints entity) {

@@ -19,5 +19,14 @@
     "recipeDescription": "A balanced blend of 12 natural herbs delivers an aromatic, satisfying flavour.",
     "deliveryTitle": "Delivered warm",
     "deliveryDescription": "Insulated bags keep your meal warm from the kitchen to your doorstep, delivered within 30 minutes from nearby stores."
+  },
+  "banners": {
+    "carouselLabel": "Promotional banner carousel",
+    "eyebrow": "Featured deals",
+    "cta": "Explore now",
+    "prev": "Previous banner",
+    "next": "Next banner",
+    "close": "Close promotion",
+    "slideIndicator": "Go to banner {index}"
   }
 }

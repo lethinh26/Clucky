@@ -101,6 +101,81 @@
     "backlogAlert": {
       "title": "Feature in Roadmap (Phase 2 / Backlog)",
       "description": "This interface layout is crafted according to architecture specifications for upcoming phases. Live backend API integration is currently pending."
+    },
+    "banner": {
+      "title": "Promotional Banner Management",
+      "subtitle": "Manage homepage hero, popup, and promo strip banners with scheduling and Cloudinary uploads.",
+      "create": "Create Banner",
+      "edit": "Edit Banner",
+      "empty": "No banners match the current filters.",
+      "loadError": "Failed to load banners. Please try again.",
+      "retry": "Retry",
+      "saveSuccessCreate": "Banner created and image uploaded successfully.",
+      "saveSuccessUpdate": "Banner updated successfully.",
+      "deleteSuccess": "Banner deleted.",
+      "deleteConfirmTitle": "Delete this banner?",
+      "deleteConfirmDesc": "Banner \"{title}\" and its Cloudinary asset will be retired.",
+      "searchPlaceholder": "Search by title or URL...",
+      "allPositions": "All positions",
+      "allStatuses": "All statuses",
+      "fields": {
+        "title": "Banner title",
+        "titlePlaceholder": "e.g. Weekend Crispy Chicken Deal",
+        "position": "Display position",
+        "displayOrder": "Display order",
+        "linkUrl": "Target URL (optional)",
+        "linkUrlPlaceholder": "/menu or https://...",
+        "startAt": "Start time",
+        "endAt": "End time",
+        "isActive": "Active",
+        "image": "Banner image",
+        "status": "Status",
+        "schedule": "Schedule",
+        "orderShort": "Order: #{order}",
+        "noSchedule": "Always active",
+        "fromDate": "From {date}",
+        "untilDate": "Until {date}",
+        "scheduleRange": "{start} -> {end}",
+        "noLink": "No target link"
+      },
+      "positions": {
+        "HERO_HOME": "Hero Banner (Hero Home)",
+        "POPUP": "Promotional Popup",
+        "PROMO_STRIP": "Promo Strip"
+      },
+      "statuses": {
+        "ACTIVE": "Active",
+        "UPCOMING": "Upcoming",
+        "EXPIRED": "Expired",
+        "DISABLED": "Disabled"
+      },
+      "upload": {
+        "dragHint": "Drag & drop or click to choose a banner image",
+        "formatHint": "Supports PNG, JPEG, WEBP up to 5 MB (16:9 recommended).",
+        "replaceHint": "Select a new file only if you want to replace the current image",
+        "uploading": "Uploading image to Cloudinary...",
+        "removeSelected": "Clear selected file",
+        "previewAlt": "Banner preview"
+      },
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "saveCreate": "Create Banner",
+        "saveUpdate": "Save Changes"
+      },
+      "validation": {
+        "titleRequired": "Please enter a banner title",
+        "titleMax": "Title cannot exceed 180 characters",
+        "positionRequired": "Please select a display position",
+        "orderRequired": "Please enter a display order",
+        "orderMin": "Display order must be 0 or greater",
+        "linkInvalid": "URL must start with / (not //) or http(s)://",
+        "endAfterStart": "End time must be after start time",
+        "imageRequired": "Please choose a banner image",
+        "imageTypeInvalid": "Only PNG, JPEG, or WEBP images are allowed",
+        "imageTooLarge": "Image file size must not exceed 5 MB"
+      }
     }
   },
   "ui": {
