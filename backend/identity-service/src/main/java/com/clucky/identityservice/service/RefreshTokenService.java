@@ -108,12 +108,16 @@ public class RefreshTokenService {
 
     @Transactional
     public void revokeAllForUser(Long userId) {
-        if (userId == null || userId <= 0) {
-            return;
-        }
+        revokeAllForUser(userId, Instant.now(), false);
+    }
+
+    /** Lock revocation preserves the cutoff after unlock so old credentials cannot revive. */
+    public void revokeAllForUser(Long userId, Instant revokedAt, boolean locked) {
+        if (userId == null || userId <= 0) return;
         refreshTokenRepository.revokeAllForUser(userId);
-        sessionRevocationService.revokeAllUserSessions(userId, Instant.now(),
-                authProperties.refreshTtl().plus(authProperties.accessTtl()).plusMinutes(1));
+        Duration ttl = authProperties.refreshTtl().plus(authProperties.accessTtl()).plusMinutes(1);
+        sessionRevocationService.revokeAllUserSessions(userId, revokedAt, ttl);
+        if (locked) sessionRevocationService.markUserLocked(userId, ttl);
     }
 
     public static String hash(String input) {
@@ -128,4 +132,3 @@ public class RefreshTokenService {
 
     public record RotateResult(String accessToken, String refreshToken, User user) {}
 }
-

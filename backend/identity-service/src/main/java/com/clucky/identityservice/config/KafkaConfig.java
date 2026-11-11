@@ -30,7 +30,7 @@ public class KafkaConfig {
             @Value("${clucky.kafka.replicas:1}") int replicas) {
         if (partitions < 1 || replicas < 1) { throw new IllegalArgumentException("Invalid topic settings"); }
         NewTopic[] topics = List.of("order.created", "order.status-changed", "order.completed", "order.cancelled",
-                "payment.confirmed", "payment.failed", "promotion.approved", "audit.recorded", "email.requested").stream()
+                "payment.confirmed", "payment.failed", "promotion.approved", "audit.recorded", "email.requested", "customer.account-events").stream()
                 .map(name -> TopicBuilder.name(name).partitions(partitions).replicas(replicas).build())
                 .toArray(NewTopic[]::new);
         return new KafkaAdmin.NewTopics(topics);

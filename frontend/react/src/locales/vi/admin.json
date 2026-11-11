@@ -10,7 +10,8 @@
     "users": "Quản lý Người dùng",
     "reports": "Báo cáo & Thống kê",
     "payments": "Thanh toán & Đối soát",
-    "promotions": "Quản lý Khuyến mãi & Voucher"
+    "promotions": "Quản lý Khuyến mãi & Voucher",
+    "customers": "Quản lý khách hàng"
   },
   "breadcrumb": {
     "catalog": "Thực đơn & Combo",
@@ -95,6 +96,47 @@
     "backlogAlert": {
       "title": "Chức năng thuộc Kế hoạch phát triển (Phase 2 / Backlog)",
       "description": "Khung giao diện này được thiết kế theo quy chuẩn kiến trúc để chuẩn bị cho giai đoạn tiếp theo. Hiện tại hệ thống chưa kích hoạt tích hợp API thực tế cho chức năng này."
+    }
+  },
+  "customers": {
+    "title": "Quản lý khách hàng",
+    "subtitle": "Tìm kiếm, xem xét và quản lý an toàn quyền truy cập tài khoản khách hàng.",
+    "customer": "Khách hàng",
+    "email": "Email",
+    "phone": "Số điện thoại",
+    "status": "Trạng thái",
+    "createdAt": "Ngày tạo",
+    "updatedAt": "Cập nhật lúc",
+    "actions": "Thao tác",
+    "view": "Xem",
+    "detail": "Chi tiết khách hàng",
+    "search": "Tìm theo tên, email hoặc số điện thoại",
+    "allStatuses": "Tất cả trạng thái",
+    "refresh": "Làm mới",
+    "retry": "Thử lại",
+    "loadError": "Không thể tải khách hàng. Bộ lọc hiện tại vẫn được giữ; vui lòng thử lại.",
+    "detailError": "Không thể tải chi tiết khách hàng.",
+    "actionError": "Không thể hoàn tất thao tác tài khoản. Bạn có thể thử lại an toàn.",
+    "actionChanged": "Đã cập nhật trạng thái tài khoản khách hàng.",
+    "actionNoChange": "Tài khoản khách hàng đã ở trạng thái yêu cầu.",
+    "lock": "Khóa",
+    "unlock": "Mở khóa",
+    "lockTitle": "Khóa tài khoản khách hàng",
+    "unlockTitle": "Mở khóa tài khoản khách hàng",
+    "lockConfirm": "Khóa quyền truy cập của {{name}}? Các phiên hiện có sẽ bị thu hồi.",
+    "unlockConfirm": "Mở khóa quyền truy cập của {{name}}? Khách hàng sẽ cần đăng nhập lại.",
+    "reasonOptional": "Lý do tùy chọn (tối đa 500 ký tự)",
+    "reasonTooLong": "Lý do không được quá 500 ký tự.",
+    "emailVerified": "Email đã xác thực",
+    "yes": "Có",
+    "no": "Không",
+    "emptyTitle": "Không tìm thấy khách hàng",
+    "emptyDescription": "Hãy điều chỉnh tìm kiếm hoặc bộ lọc trạng thái.",
+    "orderHistoryTitle": "Lịch sử đơn hàng",
+    "orderHistoryPending": "Lịch sử đơn hàng sẽ hiển thị tại đây khi endpoint và hợp đồng phản hồi BE-83 được xác nhận.",
+    "statuses": {
+      "ACTIVE": "Hoạt động",
+      "LOCKED": "Đã khóa"
     }
   }
 }

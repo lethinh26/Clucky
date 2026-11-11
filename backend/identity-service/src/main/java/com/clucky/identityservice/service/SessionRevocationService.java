@@ -62,6 +62,16 @@ public class SessionRevocationService {
         }
     }
 
+    public void markUserLocked(Long userId, Duration ttl) {
+        if (userId == null || userId <= 0 || redisTemplate == null) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        try {
+            redisTemplate.opsForValue().set(RedisConfig.key("auth:locked:user", String.valueOf(userId)), "locked", ttl);
+        } catch (Exception e) {
+            LOG.warn("Failed to write locked user marker to Redis: {}", SafeLog.trace(e));
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
+    }
+
     public boolean isUserRevoked(Long userId, Instant tokenIssuedAt) {
         if (userId == null || userId <= 0 || tokenIssuedAt == null || redisTemplate == null) {
             throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
@@ -80,4 +90,3 @@ public class SessionRevocationService {
         }
     }
 }
-

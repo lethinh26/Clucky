@@ -10,7 +10,8 @@
     "users": "User management",
     "reports": "Reports & statistics",
     "payments": "Payments & reconciliation",
-    "promotions": "Promotions & Vouchers"
+    "promotions": "Promotions & Vouchers",
+    "customers": "Customer management"
   },
   "breadcrumb": {
     "catalog": "Menu & combos",
@@ -95,6 +96,47 @@
     "backlogAlert": {
       "title": "Feature in Roadmap (Phase 2 / Backlog)",
       "description": "This interface layout is crafted according to architecture specifications for upcoming phases. Live backend API integration is currently pending."
+    }
+  },
+  "customers": {
+    "title": "Customer management",
+    "subtitle": "Search, review, and safely manage customer account access.",
+    "customer": "Customer",
+    "email": "Email",
+    "phone": "Phone",
+    "status": "Status",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "actions": "Actions",
+    "view": "View",
+    "detail": "Customer details",
+    "search": "Search name, email, or phone",
+    "allStatuses": "All statuses",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "loadError": "Could not load customers. Your filters are retained; please retry.",
+    "detailError": "Could not load customer details.",
+    "actionError": "The account action could not be completed. You can retry safely.",
+    "actionChanged": "Customer account status updated.",
+    "actionNoChange": "Customer account was already in the requested state.",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "lockTitle": "Lock customer account",
+    "unlockTitle": "Unlock customer account",
+    "lockConfirm": "Lock access for {{name}}? Existing sessions will be revoked.",
+    "unlockConfirm": "Unlock access for {{name}}? The customer will need to sign in again.",
+    "reasonOptional": "Optional reason (maximum 500 characters)",
+    "reasonTooLong": "The reason must be 500 characters or fewer.",
+    "emailVerified": "Email verified",
+    "yes": "Yes",
+    "no": "No",
+    "emptyTitle": "No customers found",
+    "emptyDescription": "Try adjusting your search or status filter.",
+    "orderHistoryTitle": "Order history",
+    "orderHistoryPending": "Order history will appear here when the BE-83 endpoint and response contract are confirmed.",
+    "statuses": {
+      "ACTIVE": "Active",
+      "LOCKED": "Locked"
     }
   }
 }

@@ -1,4 +1,18 @@
 {
+    "INVALID_REQUEST":  {
+                          "httpStatus":  400,
+                          "messages":  {
+                                           "vi":  "Y�u c?u kh�ng h?p l?.",
+                                           "en":  "The request is invalid."
+                                       }
+                      },
+    "INVALID_REQUEST":  {
+                          "httpStatus":  400,
+                          "messages":  {
+                                           "vi":  "Yêu cầu không hợp lệ.",
+                                           "en":  "The request is invalid."
+                                       }
+                      },
     "VALIDATION_ERROR":  {
                              "httpStatus":  400,
                              "messages":  {

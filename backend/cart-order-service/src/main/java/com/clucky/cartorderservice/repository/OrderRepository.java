@@ -14,6 +14,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByIdAndStoreId(Long id, Long storeId);
     Optional<Order> findByOrderCode(String orderCode);
     boolean existsByOrderCode(String orderCode);
+    java.util.List<Order> findByCustomerIdAndStatusIn(Long customerId, java.util.Collection<String> statuses);
 
     @Query("""
         SELECT o FROM Order o

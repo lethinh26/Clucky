@@ -207,6 +207,57 @@ export const usersApi = {
       .then((r) => r.data),
 };
 
+/* ---------- Customer administration (BE-82 / UI-53) ---------- */
+export type CustomerStatus = 'ACTIVE' | 'LOCKED';
+export type CustomerSortField = 'createdAt' | 'updatedAt' | 'fullName' | 'status';
+export type CustomerSortDirection = 'asc' | 'desc';
+
+/** Contract allowlist for the admin customer endpoints. */
+export interface AdminCustomer {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  avatarUrl: string | null;
+  status: CustomerStatus;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerPage {
+  content: AdminCustomer[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  sort: string;
+}
+
+export interface CustomerListParams {
+  search?: string;
+  status?: CustomerStatus;
+  page: number;
+  size: number;
+  sort: `${CustomerSortField},${CustomerSortDirection}`;
+}
+
+export interface CustomerStatusMutation {
+  customer: AdminCustomer;
+  changed: boolean;
+}
+
+export const customersApi = {
+  list: (params: CustomerListParams, signal?: AbortSignal) =>
+    api.get<CustomerPage>('/api/users/customers', { params, signal }).then((r) => r.data),
+  get: (id: number, signal?: AbortSignal) =>
+    api.get<AdminCustomer>(`/api/users/customers/${id}`, { signal }).then((r) => r.data),
+  lock: (id: number, reason?: string, signal?: AbortSignal) =>
+    api.post<CustomerStatusMutation>(`/api/users/customers/${id}/lock`, reason ? { reason } : {}, { signal }).then((r) => r.data),
+  unlock: (id: number, signal?: AbortSignal) =>
+    api.post<CustomerStatusMutation>(`/api/users/customers/${id}/unlock`, undefined, { signal }).then((r) => r.data),
+};
+
 /* ---------- Orders (cart-order-service) ---------- */
 export interface BackendOrderItem {
   id: number;

@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface RefundRequestRepository extends JpaRepository<RefundRequest, Long> {
     Optional<RefundRequest> findByIdAndCustomerId(Long id, Long customerId);
     List<RefundRequest> findAllByOrderId(Long orderId);
+    List<RefundRequest> findByCustomerIdAndStatus(Long customerId, String status);
     Page<RefundRequest> findByCustomerId(Long customerId, Pageable pageable);
 
     @Query("""

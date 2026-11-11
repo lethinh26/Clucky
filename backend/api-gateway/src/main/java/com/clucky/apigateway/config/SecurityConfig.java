@@ -1,9 +1,11 @@
 package com.clucky.apigateway.config;
 
 import com.clucky.apigateway.dto.ApiError;
+import com.clucky.apigateway.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -37,68 +39,48 @@ public class SecurityConfig {
         if (key.length < 32 || settings.secret().startsWith("change-") || settings.secret().contains("replace-")) {
             throw new IllegalStateException("Configure a strong JWT_SECRET with at least 32 bytes");
         }
-        NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder
-                .withSecretKey(new SecretKeySpec(key, "HmacSHA256")).macAlgorithm(MacAlgorithm.HS256).build();
+        NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder.withSecretKey(new SecretKeySpec(key, "HmacSHA256"))
+                .macAlgorithm(MacAlgorithm.HS256).build();
         AccessTokenValidator validator = new AccessTokenValidator(settings.audience());
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(settings.issuer()), validator));
-        return token -> decoder.decode(token).flatMap(jwt -> validator.validateSession(jwt, redis));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefaultWithIssuer(settings.issuer()), validator));
+        return token -> decoder.decode(token).flatMap(jwt -> validator.validateSession(jwt, redis, Duration.ofMillis(500)));
     }
-
     @Bean
     SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http, ObjectMapper mapper) {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(token -> List.of(
-                new SimpleGrantedAuthority("ROLE_" + token.getClaimAsString("role"))));
-        return http.csrf(csrf -> csrf.disable())
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
-                .logout(logout -> logout.disable())
-                .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
+        converter.setJwtGrantedAuthoritiesConverter(token -> List.of(new SimpleGrantedAuthority("ROLE_" + token.getClaimAsString("role"))));
+        return http.csrf(csrf -> csrf.disable()).formLogin(form -> form.disable()).httpBasic(basic -> basic.disable())
+                .logout(logout -> logout.disable()).securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
                 .requestCache(cache -> cache.requestCache(NoOpServerRequestCache.getInstance()))
-                .authorizeExchange(auth -> auth
-                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .authorizeExchange(auth -> auth.pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers("/actuator/health", "/actuator/health/**").permitAll()
-                        .pathMatchers(HttpMethod.GET, "/api/stores", "/api/stores/{id}",
-                                "/api/catalog/categories", "/api/catalog/products", "/api/catalog/products/{id}",
-                                "/api/catalog/combos", "/api/promotions/banners", "/api/reviews/products/{id}").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/resend-otp", "/api/auth/verify-otp",
-                                "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/auth/forgot-password",
-                                "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/cart/merge").authenticated()
-                        .pathMatchers(HttpMethod.GET, "/api/cart").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/cart/items").permitAll()
-                        .pathMatchers(HttpMethod.PUT, "/api/cart/items/**").permitAll()
-                        .pathMatchers(HttpMethod.DELETE, "/api/cart/items/**", "/api/cart").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/orders/preview").permitAll()
-                        .pathMatchers("/internal/**", "/api/catalog/internal/**", "/api/*/internal/**", "/api/payments/webhook/**").denyAll()
-                        .anyExchange().authenticated())
-                .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.jwtAuthenticationConverter(
-                                new ReactiveJwtAuthenticationConverterAdapter(converter)))
-                        .authenticationEntryPoint((exchange, failure) -> error(exchange, mapper,
-                                HttpStatus.UNAUTHORIZED))
-                        .accessDeniedHandler((exchange, failure) -> error(exchange, mapper,
-                                HttpStatus.FORBIDDEN)))
-                .exceptionHandling(errors -> errors
-                        .authenticationEntryPoint((exchange, failure) -> error(exchange, mapper,
-                                HttpStatus.UNAUTHORIZED))
-                        .accessDeniedHandler((exchange, failure) -> error(exchange, mapper,
-                                HttpStatus.FORBIDDEN)))
-                .build();
+                        .pathMatchers(HttpMethod.GET, "/api/stores", "/api/stores/{id}", "/api/catalog/categories", "/api/catalog/products", "/api/catalog/products/{id}", "/api/catalog/combos", "/api/promotions/banners", "/api/reviews/products/{id}").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/resend-otp", "/api/auth/verify-otp", "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/cart/merge").authenticated().pathMatchers(HttpMethod.GET, "/api/cart").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/api/cart/items").permitAll().pathMatchers(HttpMethod.PUT, "/api/cart/items/**").permitAll()
+                        .pathMatchers(HttpMethod.DELETE, "/api/cart/items/**", "/api/cart").permitAll().pathMatchers(HttpMethod.POST, "/api/orders/preview").permitAll()
+                        .pathMatchers("/internal/**", "/api/catalog/internal/**", "/api/*/internal/**", "/api/payments/webhook/**").denyAll().anyExchange().authenticated())
+                .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.jwtAuthenticationConverter(new ReactiveJwtAuthenticationConverterAdapter(converter)))
+                        .authenticationEntryPoint((exchange, failure) -> authenticationError(exchange, mapper, failure))
+                        .accessDeniedHandler((exchange, failure) -> error(exchange, mapper, HttpStatus.FORBIDDEN)))
+                .exceptionHandling(errors -> errors.authenticationEntryPoint((exchange, failure) -> authenticationError(exchange, mapper, failure))
+                        .accessDeniedHandler((exchange, failure) -> error(exchange, mapper, HttpStatus.FORBIDDEN))).build();
     }
-
-    private Mono<Void> error(ServerWebExchange exchange, ObjectMapper mapper, HttpStatus status) {
-        exchange.getAttributes().put(CorrelationIdFilter.ERROR_CODE, ApiError.of(status, "").code());
-        exchange.getResponse().setStatusCode(status);
-        if (status == HttpStatus.UNAUTHORIZED) {
-            exchange.getResponse().getHeaders().set("WWW-Authenticate", "Bearer");
-        }
+    private Mono<Void> authenticationError(ServerWebExchange exchange, ObjectMapper mapper, Throwable failure) {
+        return hasLockedCause(failure) ? error(exchange, mapper, ErrorCode.ACCOUNT_LOCKED) : error(exchange, mapper, HttpStatus.UNAUTHORIZED);
+    }
+    private boolean hasLockedCause(Throwable failure) { for (Throwable current = failure; current != null; current = current.getCause()) if ("ACCOUNT_LOCKED".equals(current.getMessage())) return true; return false; }
+    private Mono<Void> error(ServerWebExchange exchange, ObjectMapper mapper, ErrorCode code) {
+        exchange.getAttributes().put(CorrelationIdFilter.ERROR_CODE, code.name()); exchange.getResponse().setStatusCode(HttpStatus.valueOf(code.httpStatus()));
         exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
-        try {
-            byte[] body = mapper.writeValueAsBytes(ApiError.of(status, exchange.getRequest().getPath().value()));
-            return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(body)));
-        } catch (JsonProcessingException failure) {
-            return Mono.error(failure);
-        }
+        try { byte[] body = mapper.writeValueAsBytes(ApiError.of(code, exchange.getRequest().getPath().value())); return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(body))); }
+        catch (JsonProcessingException failure) { return Mono.error(failure); }
+    }
+    private Mono<Void> error(ServerWebExchange exchange, ObjectMapper mapper, HttpStatus status) {
+        exchange.getAttributes().put(CorrelationIdFilter.ERROR_CODE, ApiError.of(status, "").code()); exchange.getResponse().setStatusCode(status);
+        if (status == HttpStatus.UNAUTHORIZED) exchange.getResponse().getHeaders().set("WWW-Authenticate", "Bearer");
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        try { byte[] body = mapper.writeValueAsBytes(ApiError.of(status, exchange.getRequest().getPath().value())); return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(body))); }
+        catch (JsonProcessingException failure) { return Mono.error(failure); }
     }
 }

@@ -50,6 +50,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/staff/orders": "admin:nav.shiftOrders",
   "/admin/reviews": "admin:nav.reviews",
   "/admin/users": "admin:nav.users",
+  "/admin/customers": "admin:nav.customers",
   "/admin/reports": "admin:nav.reports",
   "/admin/payments": "admin:nav.payments",
   "/admin/promotions": "admin:nav.promotions",
@@ -74,6 +75,7 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/inventory")) selectedKey = "inventory";
   else if (pathname.includes("/staff/orders")) selectedKey = "staff-orders";
   else if (pathname.includes("/orders")) selectedKey = "orders";
+  else if (pathname.includes("/customers")) selectedKey = "customers";
   else if (pathname.includes("/users")) selectedKey = "users";
   else if (pathname.includes("/reviews")) selectedKey = "reviews";
   else if (pathname.includes("/reports")) selectedKey = "reports";
@@ -158,6 +160,12 @@ export const AdminLayout: React.FC = () => {
       icon: <UserOutlined />,
       label: t("admin:breadcrumb.users"),
       onClick: () => navigate("/admin/users"),
+    },
+    {
+      key: "customers",
+      icon: <UserOutlined />,
+      label: t("admin:nav.customers"),
+      onClick: () => navigate("/admin/customers"),
     },
     {
       key: "reports",

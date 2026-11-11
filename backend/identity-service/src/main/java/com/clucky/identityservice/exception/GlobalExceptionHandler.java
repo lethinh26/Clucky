@@ -36,7 +36,9 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException.class, HandlerMethodValidationException.class,
             MethodArgumentTypeMismatchException.class})
     ResponseEntity<ApiError> invalid(Exception failure, HttpServletRequest request) {
-        return respond(HttpStatus.BAD_REQUEST, request);
+        request.setAttribute(CorrelationIdFilter.ERROR_CODE, ErrorCode.INVALID_REQUEST.name());
+        return ResponseEntity.status(ErrorCode.INVALID_REQUEST.httpStatus())
+                .body(ApiError.of(ErrorCode.INVALID_REQUEST, request.getRequestURI()));
     }
 
     @ExceptionHandler(AuthenticationException.class)
