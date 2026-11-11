@@ -4,6 +4,7 @@ import { Alert, Button, Form, Input, InputNumber, Modal, Progress, Select, Switc
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { getErrorMessage, type CatalogCategory, type Product } from '../../lib/api';
 import { ImageField } from './ImageField';
+import { LanguageSwitcher } from '../../i18n/language-switcher';
 
 export function ProductForm({ open, onClose, initialProduct, categories, onSaveProduct }: {
   open: boolean; onClose: () => void; initialProduct?: Product | null; categories: CatalogCategory[];
@@ -34,6 +35,7 @@ export function ProductForm({ open, onClose, initialProduct, categories, onSaveP
     } finally { lock.current = false; setSaving(false); }
   };
   return <Modal className="catalog-modal" open={open} width={1040} centered
+    footer={buttons => <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><LanguageSwitcher /><div>{buttons}</div></div>}
     title={<div className="catalog-modal-heading"><span className="catalog-eyebrow">{t("admin:ui.menuDishes")}</span><h3>{initialProduct ? t("admin:ui.editDish") : t("business:catalog.addANewDish")}</h3><p>{t("admin:ui.informationImagesAndOptionsForCustomersOrderingThis")}</p></div>}
     okText={initialProduct ? t("business:account.saveChanges") : t("admin:ui.createDish")} cancelText={t("business:account.cancel")}
     confirmLoading={saving} cancelButtonProps={{ disabled: saving }} keyboard={!saving}

@@ -738,7 +738,7 @@
     "branchAccessAccounts": "Branch access accounts",
     "theOperationsAccountIsSharedAndDoesNot": "The operations account is shared and does not represent an individual employee.",
     "actionsForAccount": "Actions for account {{value1}}",
-    "manager": "Manager",
+    "manager": "Manage",
     "branchRecoveryEmail": "Branch recovery email",
     "notConfigured": "Not configured",
     "recoveryInformationIsSharedByTheCurrentAccount": "Recovery information is shared by the current account pair.",

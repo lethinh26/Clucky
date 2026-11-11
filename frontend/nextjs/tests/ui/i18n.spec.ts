@@ -142,26 +142,26 @@ for (const origin of [customer, admin]) {
 test("admin filters and an open form survive language changes", async ({ page }) => {
   await page.route("**/api/catalog/**", route => route.fulfill({ json: [] }));
   await page.goto(admin + "/admin/catalog");
-  await page.getByPlaceholder("Tìm kiếm tên món, slug, danh mục...").fill("Gà");
-  await page.getByRole("button", { name: "Thêm món ăn mới" }).click();
+  await page.getByRole("textbox", { name: "Tìm kiếm thực đơn" }).fill("Gà");
+  await page.getByRole("button", { name: "Thêm món ăn", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("Tên món ăn", { exact: true }).fill("Tên món tự nhập");
+  await dialog.getByLabel("Tên món", { exact: true }).fill("Tên món tự nhập");
   await switchLanguage(page, "en");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Dish name", { exact: true })).toHaveValue("Tên món tự nhập");
-  const selector = dialog.getByRole("combobox", { name: "Language" });
+  const selector = dialog.getByRole("combobox", { name: /^Language:/ });
   await selector.focus();
   await selector.press("ArrowDown");
   await expect(selector).toHaveAttribute("aria-expanded", "true");
   await page.keyboard.press("Escape");
   await expect(selector).toHaveAttribute("aria-expanded", "false");
   await expect(dialog).toBeVisible();
-  await expect(page.getByPlaceholder("Search dish names, slugs, categories...")).toHaveValue("Gà");
+  await expect(page.getByRole("textbox", { name: "Search menu" })).toHaveValue("Gà");
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("button", { name: "Add a new dish" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add dish", exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/i18n-admin-catalog-en.png", fullPage: true });
 });
 

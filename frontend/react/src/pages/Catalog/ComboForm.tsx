@@ -6,6 +6,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { getErrorMessage, type Product } from '../../lib/api';
 import type { AdminCombo, ComboPayload } from '../../lib/catalog-administration';
 import { CatalogImage, ImageField } from './ImageField';
+import { LanguageSwitcher } from '../../i18n/language-switcher';
 import { matchesCatalogSearch } from './presentation';
 
 type Values = Omit<ComboPayload, 'startAt' | 'endAt'> & { startAt?: Dayjs | null; endAt?: Dayjs | null };
@@ -41,6 +42,7 @@ export function ComboForm({ open, combo, products, onClose, onSave }: {
     } finally { lock.current = false; setSaving(false); }
   };
   return <Modal className="catalog-modal" open={open} width={1040} centered
+    footer={buttons => <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><LanguageSwitcher /><div>{buttons}</div></div>}
     title={<div className="catalog-modal-heading"><span className="catalog-eyebrow">{t("admin:ui.menuCombos")}</span><h3>{combo ? t("admin:ui.editCombo") : t("admin:ui.createANewCombo")}</h3><p>{t("admin:ui.combineDishesQuantitiesAndOptionsAtOnePrice")}</p></div>}
     okText={combo ? t("business:account.saveChanges") : t("admin:ui.createCombo")} cancelText={t("business:account.cancel")} confirmLoading={saving} cancelButtonProps={{ disabled: saving }} keyboard={!saving}
     onOk={() => form.submit()} onCancel={() => { if (!lock.current) onClose(); }} maskClosable={false} closable={!saving}>

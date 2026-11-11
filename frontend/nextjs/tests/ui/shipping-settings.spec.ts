@@ -39,6 +39,7 @@ async function openStores(page: Page, role: "ADMIN" | "STORE_MANAGER" = "ADMIN")
 
 test("shipping fee button keeps disabled, hover and enabled colors distinct", async ({ page }, testInfo) => {
   const { writes, errors } = await openStores(page);
+  await page.getByRole("button", { name: "Phí giao hàng", exact: true }).click();
   const save = page.getByRole("button", { name: "Lưu phí ship", exact: true });
   await expect(save).toBeDisabled();
   await expect(save).not.toHaveCSS("background-color", "rgb(143, 18, 22)");
@@ -68,10 +69,16 @@ for (const role of ["ADMIN", "STORE_MANAGER"] as const) {
       await expect(page.getByRole("row").filter({ hasText: "Regression Branch 2" })).toHaveCount(0);
     }
     const row = page.getByRole("row").filter({ hasText: "Regression Branch 1" });
-    await row.getByRole("button", { name: "edit", exact: true }).click();
+    async function openRadius() {
+      if (role === "ADMIN") {
+        await row.getByRole("button", { name: "Thao tác khác cho Regression Branch 1", exact: true }).click();
+        await page.getByRole("menuitem", { name: "Phạm vi giao hàng", exact: true }).click();
+      } else await row.getByRole("button", { name: "Chỉnh sửa chi nhánh", exact: true }).click();
+    }
+    await openRadius();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    for (const selector of [".ant-modal-container", ".ant-modal-header", ".ant-modal-body", ".ant-modal-footer"]) {
+    for (const selector of [".ant-modal-container", ".ant-modal-header", ".ant-modal-body", ...(role === "STORE_MANAGER" ? [".ant-modal-footer"] : [])]) {
       await expect(dialog.locator(selector)).toHaveCSS("background-color", "rgb(255, 255, 255)");
     }
     const radius = dialog.getByLabel("Bán kính (km)");
@@ -81,8 +88,9 @@ for (const role of ["ADMIN", "STORE_MANAGER"] as const) {
     await expect.poll(() => writes).toEqual([{ path: "/api/stores/1/delivery-settings", body: { radiusKm: 5.5, version: 0 } }]);
     await expect(dialog.getByText("Bán kính hiện tại: 5.5 km", { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("branch-radius.png"), fullPage: true });
-    await dialog.getByRole("button", { name: "Hủy", exact: true }).click();
-    await row.getByRole("button", { name: "edit", exact: true }).click();
+    await dialog.locator(".ant-modal-close").click();
+    await expect(dialog).toHaveCount(0);
+    await openRadius();
     await expect(dialog.getByLabel("Bán kính (km)")).toHaveValue("5.50");
     expect(errors).toEqual([]);
   });

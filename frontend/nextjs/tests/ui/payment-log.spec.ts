@@ -12,7 +12,7 @@ for (const role of ["ADMIN", "STAFF"]) {
     let unknownFilter = false;
     await page.route("**/api/**", async route => {
       const url = new URL(route.request().url());
-      if (url.pathname === "/api/payments/10/operations/assign") {
+      if (url.pathname === `/api/payments/10/operations/${role === "ADMIN" ? "reconcile" : "assign"}`) {
         expect(route.request().method()).toBe("POST");
         expect(route.request().headers()["idempotency-key"]).toBeTruthy();
         const body = route.request().postDataJSON(); assignments.push(body);
@@ -41,20 +41,38 @@ for (const role of ["ADMIN", "STAFF"]) {
     await expect(page.getByRole("radio", { name: "Chưa rõ chi nhánh", exact: true })).toBeChecked();
     await expect.poll(() => unknownFilter).toBe(true);
     await page.getByRole("button", { name: "Chi tiết", exact: true }).click();
-    const drawer = page.getByRole("dialog");
+    const drawer = page.getByRole("dialog").filter({ has: page.locator(".payment-receipt-amount") });
     await expect(drawer.getByText("Branch One", { exact: true })).toBeVisible();
     await expect(drawer.getByText("Branch Two", { exact: true })).toBeVisible();
     await expect(drawer.getByText(/chỉ để tham khảo/)).toBeVisible();
-    await drawer.getByLabel("Mã đơn hàng", { exact: true }).fill("ORD-10");
-    await drawer.getByRole("button", { name: "Tìm đơn", exact: true }).click();
-    await expect(drawer.getByText("ORD-10", { exact: true })).toBeVisible();
-    await expect(drawer.getByRole("button", { name: "Xác nhận gán giao dịch", exact: true })).toBeDisabled();
-    await drawer.getByLabel("Căn cứ xác nhận", { exact: true }).fill("Checked customer receipt");
-    await drawer.getByRole("button", { name: "Xác nhận gán giao dịch", exact: true }).click();
-    await page.locator(".ant-popconfirm").getByRole("button", { name: "Xác nhận gán giao dịch", exact: true }).click();
+    if (role === "ADMIN") {
+      await drawer.getByLabel("Mã đơn cần thu tiền / đối soát / tiếp nhận legacy", { exact: true }).fill("ORD-10");
+      await drawer.getByRole("button", { name: "Mở tài chính đơn", exact: true }).click();
+      const finance = page.getByRole("dialog", { name: /TÀI CHÍNH & HOÀN TIỀN/ });
+      await expect(finance).toBeVisible();
+      await finance.getByRole("button", { name: "Đối soát biên nhận", exact: true }).click();
+      await expect(finance.getByText("SEPAY:LOG-7", { exact: true })).toBeVisible();
+      await finance.getByLabel("3. Căn cứ xác nhận giao dịch", { exact: true }).fill("Checked customer receipt");
+      await finance.getByRole("button", { name: "Kiểm tra & xác nhận", exact: true }).click();
+      const confirmation = page.getByRole("dialog", { name: /^Xác nhận đối soát giao dịch/ });
+      await expect(confirmation.getByText("Checked customer receipt", { exact: true })).toBeVisible();
+      await confirmation.getByRole("button", { name: "Xác nhận đối soát", exact: true }).click();
+      await expect(finance.getByText("Đã ghi nhận đối soát. Xem trạng thái đơn và bằng chứng ngân hàng cập nhật bên dưới.", { exact: true })).toBeVisible();
+      await finance.locator(".ant-modal-close").click();
+      await expect(finance).toHaveCount(0);
+      await expect(drawer).toBeVisible();
+    } else {
+      await drawer.getByLabel("Mã đơn hàng", { exact: true }).fill("ORD-10");
+      await drawer.getByRole("button", { name: "Tìm đơn", exact: true }).click();
+      await expect(drawer.getByText("ORD-10", { exact: true })).toBeVisible();
+      await expect(drawer.getByRole("button", { name: "Xác nhận gán giao dịch", exact: true })).toBeDisabled();
+      await drawer.getByLabel("Căn cứ xác nhận", { exact: true }).fill("Checked customer receipt");
+      await drawer.getByRole("button", { name: "Xác nhận gán giao dịch", exact: true }).click();
+      await page.locator(".ant-popconfirm").getByRole("button", { name: "Xác nhận gán giao dịch", exact: true }).click();
+    }
     await expect(drawer.getByText(/Tài khoản #5 đã gán/)).toBeVisible();
     await expect(drawer.getByLabel("Mã đơn hàng", { exact: true })).toHaveCount(0);
-    expect(assignments).toEqual([{ receiptId: 7, receiptVersion: 4, paymentId: 20, targetVersion: 3, reason: "Checked customer receipt" }]);
+    expect(assignments).toEqual([{ receiptId: 7, receiptVersion: 4, paymentId: 20, targetVersion: 3, reason: "Checked customer receipt", ...(role === "ADMIN" ? { acceptOriginalConflict: false } : {}) }]);
   });
 }
 
