@@ -79,7 +79,7 @@ export function BannerSlider({
   intervalMs?: number;
   variant?: "default" | "hero";
 }) {
-  const t = useTranslations("home.banners");
+  const t = useTranslations();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [isTabHidden, setIsTabHidden] = useState(false);
@@ -236,7 +236,7 @@ export function BannerSlider({
       className={`banner-slider${variant === "hero" ? " banner-slider--hero" : ""}`}
       role="region"
       aria-roledescription="carousel"
-      aria-label={t("carouselLabel")}
+      aria-label={t("home.banners.carouselLabel")}
       tabIndex={0}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -270,7 +270,7 @@ export function BannerSlider({
               <div className="banner-slide-overlay" aria-hidden={!isCurrent}>
                 <span className="banner-slide-eyebrow">
                   <Sparkles size={14} />
-                  {t("eyebrow")}
+                  {t("home.banners.eyebrow")}
                 </span>
 
                 <h2 className="banner-slide-title">{slide.title}</h2>
@@ -279,7 +279,7 @@ export function BannerSlider({
                   <p className="banner-slide-description">{slide.description}</p>
                 )}
 
-                {href && <span className="banner-slide-cta">{t("cta")}</span>}
+                {href && <span className="banner-slide-cta">{t("home.banners.cta")}</span>}
               </div>
             </SlideWrapper>
           );
@@ -290,7 +290,7 @@ export function BannerSlider({
         <>
           <button
             type="button"
-            aria-label={t("prev")}
+            aria-label={t("home.banners.prev")}
             onClick={goToPrev}
             className="banner-slider-nav banner-slider-nav--prev"
           >
@@ -299,14 +299,14 @@ export function BannerSlider({
 
           <button
             type="button"
-            aria-label={t("next")}
+            aria-label={t("home.banners.next")}
             onClick={goToNext}
             className="banner-slider-nav banner-slider-nav--next"
           >
             <ChevronRight size={20} />
           </button>
 
-          <div className="banner-slider-dots" role="tablist" aria-label={t("carouselLabel")}>
+          <div className="banner-slider-dots" role="tablist" aria-label={t("home.banners.carouselLabel")}>
             {slides.map((slide, index) => {
               const active = index === safeIndex;
               return (
@@ -315,7 +315,7 @@ export function BannerSlider({
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  aria-label={t("slideIndicator", { index: index + 1 })}
+                  aria-label={t("home.banners.slideIndicator", { index: index + 1 })}
                   onClick={(event) => handleDotClick(event, index)}
                   className={`banner-slider-dot${active ? " active" : ""}`}
                 />

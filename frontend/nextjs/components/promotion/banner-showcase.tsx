@@ -40,7 +40,7 @@ export function BannerShowcase({
   banners: PromoBanner[];
   showHero?: boolean;
 }) {
-  const t = useTranslations("home.banners");
+  const t = useTranslations();
   const [popupDismissed, setPopupDismissed] = useState(false);
 
   if (banners.length === 0) {
@@ -66,7 +66,7 @@ export function BannerShowcase({
   return (
     <>
       {(heroSlides.length > 0 || stripBanners.length > 0) && (
-        <section className="banner-showcase-section" aria-label={t("eyebrow")}>
+        <section className="banner-showcase-section" aria-label={t("home.banners.eyebrow")}>
           {heroSlides.length > 0 && <BannerSlider slides={heroSlides} />}
 
           {stripBanners.length > 0 && (
@@ -120,7 +120,7 @@ export function BannerShowcase({
                       </p>
                       <BannerActionLink
                         href={stripHref}
-                        label={t("cta")}
+                        label={t("home.banners.cta")}
                         style={{
                           color: "#8F1216",
                           fontFamily: "Quicksand, sans-serif",
@@ -166,7 +166,7 @@ export function BannerShowcase({
           >
             <button
               type="button"
-              aria-label={t("close")}
+              aria-label={t("home.banners.close")}
               onClick={() => setPopupDismissed(true)}
               style={{
                 position: "absolute",
@@ -221,7 +221,7 @@ export function BannerShowcase({
 
               <BannerActionLink
                 href={popupHref}
-                label={t("cta")}
+                label={t("home.banners.cta")}
                 style={{
                   padding: "10px 20px",
                   borderRadius: 999,
