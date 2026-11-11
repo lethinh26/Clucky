@@ -81,7 +81,7 @@ function triggerFileDownload(blob: Blob, filename: string) {
 export const ReportsPage: React.FC = () => {
   const { t } = useTranslation();
   const { money, number, date } = useLocaleTools();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const isStaff = user.role === 'STAFF';
   const isManager = user.role === 'STORE_MANAGER';
@@ -101,7 +101,8 @@ export const ReportsPage: React.FC = () => {
   const [chartView, setChartView] = useState<'revenue' | 'orders'>('revenue');
   const [report, setReport] = useState<RevenueReportResponse | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [storeError, setStoreError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [exportingFormat, setExportingFormat] = useState<'xlsx' | 'pdf' | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -132,6 +133,12 @@ export const ReportsPage: React.FC = () => {
   const isRangeTooLarge = rangeDaysCount > MAX_REPORT_DAYS;
 
   useEffect(() => {
+    exportAbortRef.current?.abort();
+    setExportingFormat(null);
+    message.destroy('exportMsg');
+  }, [effectiveStoreId, fromIso, toIso, user.id, user.role]);
+
+  useEffect(() => {
     if (isStaff || managerMissingStore) {
       setReport(null);
       setLoading(false);
@@ -148,6 +155,7 @@ export const ReportsPage: React.FC = () => {
     const controller = new AbortController();
     setLoading(true);
     setLoadError('');
+    setReport(null);
 
     Promise.all([
       reportsApi.getRevenue(
@@ -158,7 +166,13 @@ export const ReportsPage: React.FC = () => {
         },
         controller.signal
       ),
-      storesApi.list(undefined, controller.signal).catch(() => [] as Store[]),
+      storesApi.list(isAdmin ? false : undefined, controller.signal).then(result => {
+        if (!controller.signal.aborted) setStoreError('');
+        return result;
+      }).catch(failure => {
+        if (!controller.signal.aborted) setStoreError(getErrorMessage(failure, getBrowserLocale()));
+        return [] as Store[];
+      }),
     ])
       .then(([revData, storeList]) => {
         if (controller.signal.aborted) return;
@@ -178,7 +192,7 @@ export const ReportsPage: React.FC = () => {
       });
 
     return () => controller.abort();
-  }, [effectiveStoreId, fromIso, isRangeTooLarge, isStaff, managerMissingStore, reloadNonce, t, toIso]);
+  }, [effectiveStoreId, fromIso, isRangeTooLarge, isStaff, managerMissingStore, reloadNonce, t, toIso, user.id, user.role]);
 
   const storeNameMap = useMemo(() => {
     const map = new Map<number, string>();
@@ -211,7 +225,7 @@ export const ReportsPage: React.FC = () => {
   }, [isManager, managerStoreId, resolveStoreName, stores, t]);
 
   const handleExport = async (format: 'xlsx' | 'pdf') => {
-    if (isStaff || managerMissingStore || isRangeTooLarge) {
+    if (isStaff || managerMissingStore || isRangeTooLarge || loading || !report || exportingFormat) {
       return;
     }
 
@@ -252,8 +266,8 @@ export const ReportsPage: React.FC = () => {
     } finally {
       if (exportAbortRef.current === controller) {
         exportAbortRef.current = null;
+        setExportingFormat(null);
       }
-      setExportingFormat(null);
     }
   };
 
@@ -534,13 +548,13 @@ export const ReportsPage: React.FC = () => {
                 />
               </Space>
 
-              <Button
+              {!isAdmin && <Button
                 icon={<ReloadOutlined />}
                 onClick={() => setReloadNonce((n) => n + 1)}
                 loading={loading}
               >
                 {t('business:dashboard.refresh')}
-              </Button>
+              </Button>}
             </Flex>
           </Col>
 
@@ -550,7 +564,7 @@ export const ReportsPage: React.FC = () => {
                 icon={<FileExcelOutlined style={{ color: '#1E7A46' }} />}
                 onClick={() => void handleExport('xlsx')}
                 loading={exportingFormat === 'xlsx'}
-                disabled={loading || isRangeTooLarge || exportingFormat !== null}
+                disabled={loading || !report || isRangeTooLarge || exportingFormat !== null}
                 style={{
                   height: 40,
                   borderRadius: 10,
@@ -565,7 +579,7 @@ export const ReportsPage: React.FC = () => {
                 icon={<FilePdfOutlined style={{ color: '#8F1216' }} />}
                 onClick={() => void handleExport('pdf')}
                 loading={exportingFormat === 'pdf'}
-                disabled={loading || isRangeTooLarge || exportingFormat !== null}
+                disabled={loading || !report || isRangeTooLarge || exportingFormat !== null}
                 style={{
                   height: 40,
                   borderRadius: 10,
@@ -615,10 +629,19 @@ export const ReportsPage: React.FC = () => {
         }
       />
 
-      {loading && !report ? (
+      {storeError && <Alert type="warning" showIcon message="Chưa tải được danh sách chi nhánh" description={storeError} style={{ marginBottom: 16 }} />}
+      {report && (
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }}
+          message={report.projectionActive ? 'Báo cáo cập nhật bất đồng bộ, có thể có độ trễ.' : 'Tạm dừng ghi nhận doanh thu mới; chỉ hiển thị số liệu lịch sử đã lưu.'}
+          description="Số liệu này chưa trừ các khoản hoàn tiền. Đối chiếu giao dịch thực nhận tại Thanh toán & Đối soát; không dùng báo cáo này thay sổ đối soát." />
+      )}
+
+      {loading ? (
         <Card style={{ marginBottom: 20 }}>
           <Skeleton active paragraph={{ rows: 5 }} />
         </Card>
+      ) : !report ? (
+        <Empty description="Chưa có dữ liệu báo cáo cho bộ lọc hiện tại." />
       ) : (
         <>
           <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
@@ -816,7 +839,7 @@ export const ReportsPage: React.FC = () => {
                     </div>
                     <Flex justify="space-between" align="center" style={{ marginTop: 16 }}>
                       <Text type="secondary" style={{ color: '#6B6259', fontSize: 13 }}>
-                        {t('business:reports.dataFromCompletedTransactionsInTheSelectedPeriod')}
+                        Số liệu projection đã lưu theo policy đang hiển thị, không phải ledger hoàn tiền.
                       </Text>
                       <Text
                         strong

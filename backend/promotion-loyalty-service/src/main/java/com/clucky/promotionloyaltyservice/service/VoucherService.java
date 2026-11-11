@@ -23,14 +23,21 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 public class VoucherService {
 
     private final VoucherRepository voucherRepository;
+    private final VoucherAuditOutbox audit;
+    private final VoucherStoreVerifier stores;
 
-    public VoucherService(VoucherRepository voucherRepository) {
+    public VoucherService(VoucherRepository voucherRepository, VoucherAuditOutbox audit, VoucherStoreVerifier stores) {
         this.voucherRepository = voucherRepository;
+        this.audit = audit;
+        this.stores = stores;
     }
 
     /**
@@ -42,7 +49,7 @@ public class VoucherService {
             return ValidateVoucherResponse.invalid(null, ErrorCode.VALIDATION_ERROR.name(), "Mã ưu đãi không được để trống.");
         }
 
-        String cleanCode = request.getCode().trim().toUpperCase();
+        String cleanCode = request.getCode().trim().toUpperCase(Locale.ROOT);
         Optional<Voucher> optVoucher = voucherRepository.findByCodeIgnoreCase(cleanCode);
 
         if (optVoucher.isEmpty()) {
@@ -76,7 +83,7 @@ public class VoucherService {
 
         // 3. Usage Limits
         if (voucher.getTotalLimit() != null && voucher.getTotalLimit() > 0) {
-            int used = voucher.getUsedCount() != null ? voucher.getUsedCount() : 0;
+            long used = (voucher.getUsedCount() != null ? voucher.getUsedCount() : 0L) + voucher.getReservedCount();
             if (used >= voucher.getTotalLimit()) {
                 return ValidateVoucherResponse.invalid(cleanCode, ErrorCode.VOUCHER_EXHAUSTED.name(), "Mã ưu đãi đã hết lượt sử dụng.");
             }
@@ -173,6 +180,7 @@ public class VoucherService {
     @Transactional
     public VoucherResponse createVoucher(VoucherRequest request, Long actorId, String actorRole, Long actorStoreId) {
         requireEditor(actorId, actorRole);
+        if ("ADMIN".equalsIgnoreCase(actorRole)) validateAdminStatus(request);
         // RBAC: Store Manager can only propose/create vouchers for their assigned store
         if ("STORE_MANAGER".equalsIgnoreCase(actorRole)) {
             if (actorStoreId == null) {
@@ -195,6 +203,7 @@ public class VoucherService {
         voucher.setCreatedBy(actorId);
 
         Voucher saved = voucherRepository.save(voucher);
+        audit.record(actorId, actorRole, saved.getStoreId(), "VOUCHER_CREATED", "VOUCHER", saved.getId(), Map.of(), snapshot(saved));
         return VoucherResponse.fromEntity(saved);
     }
 
@@ -308,6 +317,24 @@ public class VoucherService {
         requireEditor(actorId, actorRole);
         Voucher existing = voucherRepository.findByIdWithLock(id)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy voucher với id: " + id));
+        if (request.getVersion() == null || request.getVersion() < 0) throw new BadRequestException("Expected voucher version is required");
+        if (request.getVersion() != existing.getVersion())
+            throw new ConflictException("Voucher changed; reload before saving");
+        if (existing.getReservedCount() > 0 && (!existing.getCode().equalsIgnoreCase(request.getCode())
+                || existing.getType() != request.getType() || !sameAmount(existing.getValue(), request.getValue())
+                || !sameAmount(existing.getMinOrderAmount(), request.getMinOrderAmount()) || !sameAmount(existing.getMaxDiscount(), request.getMaxDiscount())
+                || existing.getScope() != request.getScope() || !java.util.Objects.equals(existing.getStoreId(), request.getStoreId())))
+            throw new ConflictException("Reserved voucher terms cannot change until orders settle");
+        if (request.getTotalLimit() != null && request.getTotalLimit() > 0
+                && request.getTotalLimit() < (long) existing.getUsedCount() + existing.getReservedCount())
+            throw new ConflictException("Quota is below committed voucher usage");
+        if ("ADMIN".equalsIgnoreCase(actorRole)) {
+            validateAdminStatus(request);
+            if ((existing.getStatus() == VoucherStatus.PENDING_APPROVAL || existing.getStatus() == VoucherStatus.REJECTED)
+                    && request.getStatus() != VoucherStatus.DISABLED)
+                throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
+        }
+        var before = snapshot(existing);
 
         // RBAC check for Store Manager
         if ("STORE_MANAGER".equalsIgnoreCase(actorRole)) {
@@ -327,6 +354,8 @@ public class VoucherService {
         mapDtoToEntity(request, existing);
 
         Voucher saved = voucherRepository.save(existing);
+        voucherRepository.flush();
+        audit.record(actorId, actorRole, saved.getStoreId(), "VOUCHER_UPDATED", "VOUCHER", saved.getId(), before, snapshot(saved));
         return VoucherResponse.fromEntity(saved);
     }
 
@@ -346,11 +375,15 @@ public class VoucherService {
         }
 
         // If voucher was already used in orders, soft delete by disabling
-        if (existing.getUsedCount() != null && existing.getUsedCount() > 0) {
+        var before = snapshot(existing);
+        if ((existing.getUsedCount() != null && existing.getUsedCount() > 0) || voucherRepository.hasReservations(id)) {
             existing.setStatus(VoucherStatus.DISABLED);
             voucherRepository.save(existing);
+            voucherRepository.flush();
+            audit.record(actorId, actorRole, existing.getStoreId(), "VOUCHER_DISABLED", "VOUCHER", id, before, snapshot(existing));
         } else {
             voucherRepository.delete(existing);
+            audit.record(actorId, actorRole, existing.getStoreId(), "VOUCHER_DELETED", "VOUCHER", id, before, Map.of());
         }
     }
 
@@ -362,7 +395,7 @@ public class VoucherService {
     }
 
     private void validateVoucherRequest(VoucherRequest request, Long existingId) {
-        String cleanCode = request.getCode().trim().toUpperCase();
+        String cleanCode = request.getCode().trim().toUpperCase(Locale.ROOT);
         request.setCode(cleanCode);
 
         if (existingId == null) {
@@ -390,6 +423,37 @@ public class VoucherService {
         if (request.getScope() == VoucherScope.STORE && request.getStoreId() == null) {
             throw new BadRequestException("Voucher phạm vi chi nhánh (STORE) bắt buộc phải có storeId");
         }
+        if (request.getScope() == VoucherScope.STORE) stores.requireExists(request.getStoreId());
+    }
+
+    private boolean sameAmount(BigDecimal first, BigDecimal second) {
+        return first == null ? second == null : second != null && first.compareTo(second) == 0;
+    }
+
+    private void validateAdminStatus(VoucherRequest request) {
+        if (request.getStatus() != null && request.getStatus() != VoucherStatus.ACTIVE && request.getStatus() != VoucherStatus.DISABLED)
+            throw new BadRequestException("Voucher status must be ACTIVE or DISABLED");
+    }
+
+    private Map<String, Object> snapshot(Voucher voucher) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("code", voucher.getCode());
+        values.put("title", voucher.getTitle());
+        values.put("description", voucher.getDescription());
+        values.put("type", voucher.getType());
+        values.put("value", voucher.getValue());
+        values.put("minOrderAmount", voucher.getMinOrderAmount());
+        values.put("maxDiscount", voucher.getMaxDiscount());
+        values.put("totalLimit", voucher.getTotalLimit());
+        values.put("usedCount", voucher.getUsedCount());
+        values.put("reservedCount", voucher.getReservedCount());
+        values.put("startAt", voucher.getStartAt());
+        values.put("endAt", voucher.getEndAt());
+        values.put("scope", voucher.getScope());
+        values.put("storeId", voucher.getStoreId());
+        values.put("status", voucher.getStatus());
+        values.put("version", voucher.getVersion());
+        return values;
     }
 
     private void mapDtoToEntity(VoucherRequest dto, Voucher entity) {

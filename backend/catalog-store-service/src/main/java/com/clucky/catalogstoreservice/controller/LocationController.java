@@ -75,7 +75,7 @@ public class LocationController {
         reserveRequest();
         try {
             URI uri = URI.create("https://api.mapbox.com/search/geocode/v6/" + query + "&language=" + language
-                    + "&permanent=true&access_token=" + URLEncoder.encode(token, StandardCharsets.UTF_8));
+                    + "&permanent=false&access_token=" + URLEncoder.encode(token, StandardCharsets.UTF_8));
             HttpRequest request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(8))
                     .header("Accept", "application/json").GET().build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());

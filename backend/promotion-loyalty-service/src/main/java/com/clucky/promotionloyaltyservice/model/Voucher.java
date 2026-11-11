@@ -40,6 +40,12 @@ public class Voucher {
     @Column(name = "used_count", nullable = false)
     private Integer usedCount = 0;
 
+    @Column(name = "reserved_count", nullable = false)
+    private int reservedCount;
+
+    @Version
+    private long version;
+
     @Column(name = "start_at", nullable = false)
     private Instant startAt;
 
@@ -113,7 +119,7 @@ public class Voucher {
         if (now.isAfter(endAt)) {
             return VoucherStatus.EXPIRED;
         }
-        if (totalLimit != null && totalLimit > 0 && usedCount != null && usedCount >= totalLimit) {
+        if (totalLimit != null && totalLimit > 0 && usedCount != null && (long) usedCount + reservedCount >= totalLimit) {
             return VoucherStatus.EXHAUSTED;
         }
         return VoucherStatus.ACTIVE;
@@ -199,6 +205,12 @@ public class Voucher {
     public void setUsedCount(Integer usedCount) {
         this.usedCount = usedCount;
     }
+
+    public int getReservedCount() { return reservedCount; }
+
+    public void setReservedCount(int reservedCount) { this.reservedCount = reservedCount; }
+
+    public long getVersion() { return version; }
 
     public Instant getStartAt() {
         return startAt;

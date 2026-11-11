@@ -51,8 +51,8 @@ public class StoreInventoryController {
             @PathVariable Long storeId,
             @Valid @RequestBody StoreDto.StoreThresholdRequest body) {
         accessGuard.requireStore(storeId);
-        inventoryService.updateStoreThreshold(storeId, body.threshold());
-        return ResponseEntity.ok(java.util.Map.of("storeId", storeId, "lowStockThreshold", body.threshold(), "threshold", body.threshold()));
+        long version = inventoryService.updateStoreThreshold(storeId, body.threshold(), body.getExpectedVersion());
+        return ResponseEntity.ok(java.util.Map.of("storeId", storeId, "lowStockThreshold", body.threshold(), "threshold", body.threshold(), "version", version));
     }
 
     @PutMapping("/products/{productId}/availability")

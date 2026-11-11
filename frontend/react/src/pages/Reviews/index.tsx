@@ -246,6 +246,12 @@ export const ReviewsPage: React.FC = () => {
     setReloadTick((tick) => tick + 1);
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin || replyTarget || hideTarget || deleteTarget) return;
+    window.addEventListener('focus', triggerReload);
+    return () => window.removeEventListener('focus', triggerReload);
+  }, [isAdmin, replyTarget, hideTarget, deleteTarget, triggerReload]);
+
   const hasActiveFilters = Boolean(
     searchInput.trim() ||
       ratingFilter !== 'ALL' ||
@@ -690,7 +696,7 @@ export const ReviewsPage: React.FC = () => {
                 <ShopOutlined /> {resolveStoreName(user.storeId)}
               </Tag>
             )}
-            <Button
+            {!isAdmin && <Button
               icon={<ReloadOutlined />}
               onClick={triggerReload}
               loading={loading}
@@ -698,7 +704,7 @@ export const ReviewsPage: React.FC = () => {
               style={{ borderRadius: 10 }}
             >
               {t('business:reviews.refresh')}
-            </Button>
+            </Button>}
           </Space>
         }
       />

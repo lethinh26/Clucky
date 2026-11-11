@@ -7,7 +7,7 @@ import { message } from '../../components/feedback';
 
 type Policy = { fee: number | null; version: number };
 
-export function ShippingSettings() {
+export function ShippingSettings({ onSavingChange }: { onSavingChange?: (saving: boolean) => void } = {}) {
   const { t } = useTranslation('shipping');
   const { isAdmin, user } = useAuth();
   const [policy, setPolicy] = useState<Policy | null>(null);
@@ -29,12 +29,12 @@ export function ShippingSettings() {
 
   async function saveFee() {
     if (lock.current || !policy || fee === null || !Number.isSafeInteger(fee) || fee <= 0) return;
-    lock.current = true; setSaving('fee'); setPolicyError('');
+    lock.current = true; setSaving('fee'); onSavingChange?.(true); setPolicyError('');
     try {
       const { data } = await api.put<Policy>('/api/shipping/config', { fee, version: policy.version });
       setPolicy(data); setFee(data.fee); message.success(t('saved'));
     } catch (error) { setPolicyError(getErrorMessage(error)); }
-    finally { lock.current = false; setSaving(null); }
+    finally { lock.current = false; setSaving(null); onSavingChange?.(false); }
   }
   if (!isAdmin) return null;
 
@@ -43,14 +43,14 @@ export function ShippingSettings() {
       <Space wrap align="end">
         <div><label htmlFor="chain-shipping-fee">{t('feeLabel')}</label><br /><InputNumber id="chain-shipping-fee" min={1} max={999999999999} precision={0} value={fee} onChange={setFee} disabled={!policy || saving !== null} placeholder={t('notConfigured')} style={{ width: 200 }} /></div>
         <Button type="primary" loading={saving === 'fee'} disabled={!policy || fee === null || fee <= 0 || saving !== null} onClick={saveFee}>{t('saveFee')}</Button>
-        <Button disabled={saving !== null} onClick={() => setReload(value => value + 1)}>{t('reload')}</Button>
+        {policyError && <Button disabled={saving !== null} onClick={() => setReload(value => value + 1)}>{t('common:retry')}</Button>}
       </Space>
       {policy?.fee === null && <p><Tag color="orange">{t('notConfigured')}</Tag></p>}
       {policyError && <Alert type="error" showIcon message={policyError} style={{ marginTop: 12 }} />}
     </Card>;
 }
 
-export function StoreDeliverySettings({ store, onSaved }: { store: Store; onSaved: (store: Store) => void }) {
+export function StoreDeliverySettings({ store, onSaved, onSavingChange }: { store: Store; onSaved: (store: Store) => void; onSavingChange?: (saving: boolean) => void }) {
   const { t } = useTranslation('shipping');
   const [radius, setRadius] = useState<number | null>(store.deliveryRadiusKm ?? null);
   const [saving, setSaving] = useState(false);
@@ -61,12 +61,12 @@ export function StoreDeliverySettings({ store, onSaved }: { store: Store; onSave
 
   async function saveRadius() {
     if (lock.current || store.version === undefined || radius !== null && (!Number.isFinite(radius) || radius <= 0)) return;
-    lock.current = true; setSaving(true); setRadiusError('');
+    lock.current = true; setSaving(true); onSavingChange?.(true); setRadiusError('');
     try {
       onSaved(await storesApi.updateDeliverySettings(store.id, radius, store.version));
       message.success(t('saved'));
     } catch (error) { setRadiusError(getErrorMessage(error)); }
-    finally { lock.current = false; setSaving(false); }
+    finally { lock.current = false; setSaving(false); onSavingChange?.(false); }
   }
 
   return <section aria-labelledby="delivery-settings-title" style={{ marginBottom: 24 }}>
@@ -77,7 +77,7 @@ export function StoreDeliverySettings({ store, onSaved }: { store: Store; onSave
           <Button loading={saving} disabled={store.version === undefined || saving} onClick={saveRadius}>{t('saveRadius')}</Button>
           {radiusError && <Button disabled={saving} onClick={async () => {
             try { onSaved(await storesApi.get(store.id)); } catch (error) { setRadiusError(getErrorMessage(error)); }
-          }}>{t('reload')}</Button>}
+          }}>{t('common:retry')}</Button>}
         </Space>
         <p id="delivery-radius-hint" style={{ margin: '4px 0', color: '#6B6259', fontSize: 13 }}>{t('radiusHint')}</p>
         <span style={{ color: '#6B6259', fontSize: 13 }}>{store.deliveryRadiusKm != null && store.latitude != null && store.longitude != null ? t('radiusConfigured', { km: store.deliveryRadiusKm }) : t('branchIncomplete')}</span>

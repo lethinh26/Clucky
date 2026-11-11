@@ -100,6 +100,10 @@ public class StoreDto {
     }
 
     public static class Request {
+        @jakarta.validation.constraints.PositiveOrZero
+        private Long expectedVersion;
+        public Long getExpectedVersion() { return expectedVersion; }
+        public void setExpectedVersion(Long expectedVersion) { this.expectedVersion = expectedVersion; }
         @jakarta.validation.constraints.Email @jakarta.validation.constraints.Size(max = 255)
         private String recoveryEmail;
         public String getRecoveryEmail() { return recoveryEmail; }
@@ -176,7 +180,9 @@ public class StoreDto {
 
     public record LocationRequest(
             @jakarta.validation.constraints.DecimalMin("-90") @jakarta.validation.constraints.DecimalMax("90") Double latitude,
-            @jakarta.validation.constraints.DecimalMin("-180") @jakarta.validation.constraints.DecimalMax("180") Double longitude) {
+            @jakarta.validation.constraints.DecimalMin("-180") @jakarta.validation.constraints.DecimalMax("180") Double longitude,
+            @jakarta.validation.constraints.PositiveOrZero Long expectedVersion) {
+        public LocationRequest(Double latitude, Double longitude) { this(latitude, longitude, null); }
         @jakarta.validation.constraints.AssertTrue
         public boolean isCoordinatePairValid() {
             return (latitude == null && longitude == null) || (latitude != null && longitude != null
@@ -190,6 +196,10 @@ public class StoreDto {
             @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.PositiveOrZero Long version) {}
 
     public static class OperationRequest {
+        @jakarta.validation.constraints.PositiveOrZero
+        private Long expectedVersion;
+        public Long getExpectedVersion() { return expectedVersion; }
+        public void setExpectedVersion(Long expectedVersion) { this.expectedVersion = expectedVersion; }
         @com.fasterxml.jackson.annotation.JsonAnySetter
         public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field: " + field); }
         @Pattern(regexp = "^(?:[01]\\d|2[0-3]):[0-5]\\d$", message = "Giờ mở cửa phải có định dạng HH:mm")
@@ -235,6 +245,10 @@ public class StoreDto {
     }
 
     public static class StoreThresholdRequest {
+        @jakarta.validation.constraints.PositiveOrZero
+        private Long expectedVersion;
+        public Long getExpectedVersion() { return expectedVersion; }
+        public void setExpectedVersion(Long expectedVersion) { this.expectedVersion = expectedVersion; }
         private Integer threshold;
         private Integer lowStockThreshold;
 

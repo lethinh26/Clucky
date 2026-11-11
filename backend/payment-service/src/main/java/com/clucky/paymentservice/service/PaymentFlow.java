@@ -209,7 +209,7 @@ public class PaymentFlow {
                     + "ON CONFLICT(order_id) DO UPDATE SET status='CANCELLED',updated_at=EXCLUDED.updated_at", orderId, Timestamp.from(event.occurredAt()));
             if (!matches.isEmpty()) {
                 String reason = payload.path("paymentExpired").asBoolean(false) ? "EXPIRED" : "CANCELLED";
-                jdbc.update("UPDATE payment_service.payments SET closed_reason=?,status=CASE WHEN status IN ('PAID','COLLECTED') THEN status ELSE ? END WHERE id=?",
+                jdbc.update("UPDATE payment_service.payments SET closed_reason=?,status=CASE WHEN status IN ('PAID','COLLECTED','REFUNDED') THEN status ELSE ? END WHERE id=?",
                         reason, reason, matches.getFirst().id());
                 if ("PENDING".equals(matches.getFirst().status()) && !Set.of("PAID","COLLECTED","REFUNDED").contains(payload.path("paymentStatus").asText())) failed(matches.getFirst(), reason);
             }
@@ -224,7 +224,7 @@ public class PaymentFlow {
             throw new IllegalArgumentException("Payment decision mismatch");
         }
         if ("ACCEPTED".equals(decision)) {
-            if (jdbc.update("UPDATE payment_service.payments SET status='PAID',paid_at=now() WHERE id=? AND paid_at IS NULL", payment.id()) > 0) {
+            if (jdbc.update("UPDATE payment_service.payments SET status='PAID',paid_at=now() WHERE id=? AND paid_at IS NULL AND status<>'REFUNDED'", payment.id()) > 0) {
                 var notification = mapper.createObjectNode().put("paymentId", payment.id()).put("orderId", orderId)
                         .put("orderCode", payment.orderCode()).put("customerId", payment.customerId()).put("storeId", payment.storeId())
                         .put("amount", payment.amount()).put("totalAmount", payment.amount()).put("status", "PAID");
@@ -232,8 +232,8 @@ public class PaymentFlow {
                 enqueue("payment.confirmed", orderId, notification);
             }
         } else {
-            if ("SUPERSEDED".equals(decision)) jdbc.update("UPDATE payment_service.payments SET status='COLLECTED' WHERE id=? AND paid_at IS NULL",payment.id());
-            else if (!"COLLECTED".equals(payment.status()) && jdbc.update("UPDATE payment_service.payments SET status=?,closed_reason=? WHERE id=? AND paid_at IS NULL",decision,decision,payment.id())>0) failed(payment,decision);
+            if ("SUPERSEDED".equals(decision)) jdbc.update("UPDATE payment_service.payments SET status='COLLECTED' WHERE id=? AND paid_at IS NULL AND status<>'REFUNDED'",payment.id());
+            else if (!"COLLECTED".equals(payment.status()) && jdbc.update("UPDATE payment_service.payments SET status=?,closed_reason=? WHERE id=? AND paid_at IS NULL AND status<>'REFUNDED'",decision,decision,payment.id())>0) failed(payment,decision);
         }
     }
 

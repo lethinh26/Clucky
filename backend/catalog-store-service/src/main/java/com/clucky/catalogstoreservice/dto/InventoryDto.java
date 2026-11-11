@@ -7,6 +7,10 @@ import java.math.BigDecimal;
 public class InventoryDto {
 
     public static class AvailabilityUpdateRequest {
+        @Min(0)
+        private Long expectedVersion;
+        public Long getExpectedVersion() { return expectedVersion; }
+        public void setExpectedVersion(Long expectedVersion) { this.expectedVersion = expectedVersion; }
         @com.fasterxml.jackson.annotation.JsonAnySetter
         public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }
         private Boolean isAvailable;
@@ -29,6 +33,12 @@ public class InventoryDto {
     }
 
     public static class InventoryResponse {
+        private Long version;
+        private Long availabilityVersion;
+        public Long getVersion() { return version; }
+        public void setVersion(Long version) { this.version = version; }
+        public Long getAvailabilityVersion() { return availabilityVersion; }
+        public void setAvailabilityVersion(Long availabilityVersion) { this.availabilityVersion = availabilityVersion; }
         private Long storeId;
         private Long productId;
         private String productName;
@@ -87,6 +97,10 @@ public class InventoryDto {
     }
 
     public static class InventoryUpdateRequest {
+        @Min(0)
+        private Long expectedVersion;
+        public Long getExpectedVersion() { return expectedVersion; }
+        public void setExpectedVersion(Long expectedVersion) { this.expectedVersion = expectedVersion; }
         @com.fasterxml.jackson.annotation.JsonAnySetter
         public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }
         @Min(0)

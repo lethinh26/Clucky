@@ -56,21 +56,24 @@ public class ComboController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ComboDto.Response> updateStatus(
             @PathVariable Long id,
+            @RequestParam Long expectedVersion,
             @RequestParam(name = "active", required = false) Boolean activeParam,
             @RequestBody(required = false) java.util.Map<String, Object> body) {
-        boolean active = true;
+        boolean active;
         if (activeParam != null) {
             active = activeParam;
-        } else if (body != null && body.containsKey("isActive")) {
-            active = Boolean.parseBoolean(String.valueOf(body.get("isActive")));
+        } else if (body != null && body.get("isActive") instanceof Boolean value) {
+            active = value;
+        } else {
+            throw new com.clucky.catalogstoreservice.exception.ApiException(com.clucky.catalogstoreservice.exception.ErrorCode.VALIDATION_ERROR);
         }
-        return ResponseEntity.ok(comboService.updateComboStatus(id, active));
+        return ResponseEntity.ok(comboService.updateComboStatus(id, active, expectedVersion));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteCombo(@PathVariable Long id) {
-        comboService.deleteCombo(id);
+    public ResponseEntity<Void> deleteCombo(@PathVariable Long id, @RequestParam Long expectedVersion) {
+        comboService.deleteCombo(id, expectedVersion);
         return ResponseEntity.noContent().build();
     }
 
@@ -78,7 +81,8 @@ public class ComboController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ComboDto.Response> uploadImage(
             @PathVariable Long id,
+            @RequestParam Long expectedVersion,
             @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(comboService.uploadComboImage(id, file));
+        return ResponseEntity.ok(comboService.uploadComboImage(id, file, expectedVersion));
     }
 }

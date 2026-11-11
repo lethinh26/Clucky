@@ -71,7 +71,6 @@ public class SecurityConfig {
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(auth -> {
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
-                    auth.requestMatchers(HttpMethod.POST, "/api/stores/internal/{id}/prepare-migration").permitAll();
                     auth.requestMatchers("/actuator/health", "/actuator/health/**").permitAll();
                     if (docsEnabled) {
                         auth.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();

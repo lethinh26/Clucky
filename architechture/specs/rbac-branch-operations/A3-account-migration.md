@@ -1,6 +1,16 @@
 # A3 — Chuyển dữ liệu tài khoản và audit shared account
 
-Mốc: D2A. Nguồn: plan §5.3. Phụ thuộc: Admin xác nhận mapping; phối hợp A1/A2. Áp dụng [quy tắc chung](README.md). Trạng thái: đặc tả, chưa triển khai/chạy migration.
+Mốc: D2A. Nguồn: plan §5.3. Áp dụng [quy tắc chung](README.md). Quyết định mới ngày 2026-11-11 thay thế luồng chuyển đổi thủ công mô tả trong phần lịch sử bên dưới.
+
+## Quyết định hiện hành — bỏ chuyển đổi thủ công
+
+- Không còn tab/modal, kiểm kê, báo cáo chuyển đổi hoặc API migration dành cho Admin. Trang tài khoản chỉ quản lý tài khoản hiện hành và nhật ký. Bảng báo cáo cũ vẫn được giữ để không xóa dữ liệu lịch sử.
+- Flyway Identity V10 đưa tài khoản đã có vào cặp hiện hành khi mỗi chi nhánh chưa có cặp có đúng một Manager và một Staff. Có trùng vai trò, thiếu tài khoản, store ID hoặc đăng nhập thì dừng toàn bộ migration, không tự chọn, khóa hay xóa tài khoản.
+- Giữ ID, mật khẩu, trạng thái khóa/kích hoạt và phiên đăng nhập. `login_name` giữ tên hiện có, hoặc nhận email đăng nhập cũ nếu chưa có tên; không buộc tài khoản đã có đổi thông tin đăng nhập. Tài khoản chi nhánh mới tiếp tục dùng quy tắc tên đăng nhập của A1.
+- Không tự suy ra email khôi phục chung từ email cá nhân/cũ. Cặp được đưa vào hiện hành có thể chưa thiết lập email khôi phục; Admin dùng luồng RECOVERY hiện có với mật khẩu và OTP để bổ sung. Đăng nhập cũ tiếp tục hoạt động; tự khôi phục chỉ có thể gửi mã sau khi có email thật.
+- Catalog V16 bỏ trạng thái LEGACY, dùng UNPROVISIONED cho chi nhánh chưa có tài khoản. Catalog đồng bộ cặp và trạng thái READY từ Identity qua REST/Eureka, không SQL join xuyên service. Chỉ chi nhánh READY mới nhận đơn; chi nhánh thiếu tài khoản được đóng tạm (giữ INACTIVE), không tự sinh tài khoản/mật khẩu giả.
+- Trước triển khai cần sao lưu riêng dữ liệu Identity/Catalog và giữ ngoài Git. Khi triển khai: cập nhật Identity trước, rồi Catalog và Admin; giữ volumes. Flyway có kiểm tra ràng buộc và dừng nếu dữ liệu không đủ điều kiện. Không ghi hash mật khẩu/token vào báo cáo.
+- Kiểm thử chức năng do người dùng thực hiện. Build/healthcheck và đối chiếu dữ liệu sau migration không thay thế kiểm thử chức năng.
 
 ## Problem Statement
 
@@ -31,6 +41,16 @@ Kiểm kê, Admin duyệt cặp giữ lại, bảo toàn account ID và lịch s
 ### Contract bàn giao dữ liệu
 
 Input là mapping được Admin xác nhận cùng kết quả kiểm kê; output là báo cáo before/after theo quán, account giữ/ngừng, session đã revoke, constraint và mục cần xử lý. Dữ liệu nhạy cảm không nằm trong báo cáo công khai/repo; không xuất hash password/token.
+
+### Lịch sử luồng Admin — đã bị thay thế
+
+- Chỉ hiện chuyển đổi cho chi nhánh legacy chưa có cặp hiện hành. Nếu mỗi vai trò có đúng một tài khoản hợp lệ, UI chọn sẵn để Admin kiểm tra; nhiều lựa chọn thì không tự quyết định. Email khôi phục luôn do Admin nhập.
+- Modal có hai bước: chọn cặp/email, sau đó xem toàn bộ tài khoản giữ/ngừng và tên đăng nhập mới trước khi nhập mật khẩu Admin, xác nhận tác động. Backend vẫn kiểm tra quyền Admin, mật khẩu, vai trò/phạm vi tài khoản, phiên bản kiểm kê, cặp hiện hành và tính idempotent. Không tự mở khóa tài khoản đang khóa.
+- API `POST /api/auth/branch/stores/{storeId}/migration` nhận `managerId`, `staffId`, `recoveryEmail`, `inventoryVersion`, `currentPassword`. Không còn yêu cầu `backupReference` hoặc biến môi trường mở khóa chuyển đổi. `migrationEnabled` từ API kiểm kê phản ánh điều kiện dữ liệu: chưa có cặp hiện hành, không có tài khoản current và có đủ hai vai trò.
+- Backup là bước vận hành: sao lưu database Identity và Catalog trước khi chuyển đổi, lưu bằng chứng ngoài UI và kiểm tra khả năng phục hồi. Nếu chưa có backup dùng được thì dừng; ứng dụng không tạo, xác minh hoặc tự restore backup. Khôi phục phải được người vận hành đánh giá để không ghi đè giao dịch mới.
+- Flyway V9 chỉ bỏ NOT NULL của cột tham chiếu backup cũ; giữ nguyên giá trị lịch sử và báo cáo đã có. Báo cáo trước/sau nằm trong tab Nhật ký tài khoản, kể cả sau khi tab chuyển đổi đã ẩn.
+- Khi dữ liệu đã đổi kể từ lúc xem trước, backend từ chối; Admin phải kiểm kê và xác nhận lại. Lỗi/timeout sau yêu cầu đóng chi nhánh có thể để chi nhánh ở trạng thái đóng dù giao dịch Identity chưa hoàn tất: kiểm tra trạng thái và báo cáo trước khi thao tác tiếp, không tự mở lại hay restore.
+- Thay đổi này không tự chạy chuyển đổi tài khoản thực tế. Kiểm thử chức năng do người dùng thực hiện; không coi build/healthcheck là nghiệm thu.
 
 ## Acceptance Criteria
 

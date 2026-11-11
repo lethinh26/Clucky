@@ -1,5 +1,5 @@
 import { message } from "../../components/feedback";
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Space, Tag, Select, Popconfirm, Tabs, Badge, Typography, Tooltip, Progress } from "antd";
 import { TableColumnsType } from "antd";
@@ -24,7 +24,6 @@ import { AdminTable } from '../../components/ui/AdminTable';
 import { VoucherBadge } from '../../components/ui/VoucherBadge';
 import { VoucherModal } from './components/VoucherModal';
 import { VoucherDetailDrawer } from './components/VoucherDetailDrawer';
-import { UnavailableFeature } from '../../components/UnavailableFeature';
 import { LoyaltySettings } from './components/LoyaltySettings';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -60,6 +59,7 @@ export const PromotionsPage: React.FC = () => {
   const [editingVoucher, setEditingVoucher] = useState<AdminVoucher | null>(null);
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [selectedVoucher, setSelectedVoucher] = useState<AdminVoucher | null>(null);
+  const voucherRequest = useRef(0);
 
   // Fetch stores list
   const fetchStores = useCallback(async () => {
@@ -72,6 +72,7 @@ export const PromotionsPage: React.FC = () => {
   }, []);
 
   const fetchVouchers = useCallback(async () => {
+    const request = ++voucherRequest.current;
     try {
       setLoading(true);
       setLoadError('');
@@ -83,18 +84,20 @@ export const PromotionsPage: React.FC = () => {
         keyword: searchTerm.trim() || undefined,
       });
 
-      setVouchers(data);
+      if (request === voucherRequest.current) setVouchers(data);
     } catch (error) {
+      if (request !== voucherRequest.current) return;
       setLoadError(getErrorMessage(error));
       setVouchers([]);
     } finally {
-      setLoading(false);
+      if (request === voucherRequest.current) setLoading(false);
     }
   }, [scopeFilter, storeFilter, statusFilter, searchTerm]);
 
   useEffect(() => {
     fetchStores();
     fetchVouchers();
+    return () => { voucherRequest.current += 1; };
   }, [fetchStores, fetchVouchers]);
 
   // Quick KPI Statistics
@@ -200,12 +203,13 @@ export const PromotionsPage: React.FC = () => {
     setActionLoading(true);
     try {
       const saved = editingVoucher
-        ? await promotionsApi.updateVoucher(editingVoucher.id, payload)
+        ? await promotionsApi.updateVoucher(editingVoucher.id, { ...payload, version: editingVoucher.version })
         : await promotionsApi.createVoucher(payload);
       setVouchers(previous => editingVoucher
         ? previous.map(voucher => voucher.id === saved.id ? saved : voucher)
         : [saved, ...previous]);
       if (selectedVoucher?.id === saved.id) setSelectedVoucher(saved);
+      await fetchVouchers();
       setModalOpen(false);
       message.success(t('loyalty:saved'));
     } catch (error) {
@@ -218,9 +222,12 @@ export const PromotionsPage: React.FC = () => {
 
   // Toggle active / disabled status
   const handleToggleStatus = async (voucher: AdminVoucher) => {
+    if (actionLoading) return;
+    setActionLoading(true);
     const newStatus: VoucherStatus = voucher.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
     try {
         const saved = await promotionsApi.updateVoucher(voucher.id, {
+          version: voucher.version,
           code: voucher.code,
           title: voucher.title,
           description: voucher.description,
@@ -258,11 +265,15 @@ export const PromotionsPage: React.FC = () => {
     } catch (err) {
       message.error(getErrorMessage(err));
       await fetchVouchers();
+    } finally {
+      setActionLoading(false);
     }
   };
 
   // Delete voucher
   const handleDeleteVoucher = async (voucher: AdminVoucher) => {
+    if (actionLoading) return;
+    setActionLoading(true);
     try {
       await promotionsApi.deleteVoucher(voucher.id);
 
@@ -271,6 +282,8 @@ export const PromotionsPage: React.FC = () => {
       message.success(t('loyalty:saved'));
     } catch (err) {
       message.error(getErrorMessage(err));
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -473,6 +486,7 @@ export const PromotionsPage: React.FC = () => {
                 / {record.totalLimit ? record.totalLimit : '∞'}
               </span>
             </div>
+            <Text type="secondary" style={{ fontSize: 11 }}>Đang giữ: {record.reservedCount ?? 0}</Text>
             {percent !== null ? (
               <Progress
                 percent={percent}
@@ -597,7 +611,7 @@ export const PromotionsPage: React.FC = () => {
           </Tooltip>
           <Popconfirm
             title="Xác nhận xóa voucher?"
-            description={'Bạn có chắc muốn xóa mã ưu đãi "' + record.code + '"?'}
+            description={'Xóa mã "' + record.code + '"? Mã đã dùng hoặc đang giữ lượt cho đơn hàng sẽ được vô hiệu hóa, giữ nguyên lịch sử.'}
             okText="Xóa"
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
@@ -611,6 +625,7 @@ export const PromotionsPage: React.FC = () => {
                 className="voucher-action-btn"
                 icon={<DeleteOutlined style={{ fontSize: 14 }} />}
                 aria-label="Xóa voucher"
+                disabled={actionLoading}
               />
             </Tooltip>
           </Popconfirm>
@@ -807,30 +822,6 @@ export const PromotionsPage: React.FC = () => {
                 </div>
               </div>
             ),
-          },
-          {
-            key: 'proposals',
-            label: (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>Duyệt đề xuất chi nhánh</span>
-                <Tag color="orange" style={{ fontWeight: 700, borderRadius: 999, margin: 0, fontSize: 11 }}>
-                  Phase 2 / Backlog
-                </Tag>
-              </span>
-            ),
-            children: <UnavailableFeature />,
-          },
-          {
-            key: 'banners',
-            label: (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>Banner khuyến mãi</span>
-                <Tag color="orange" style={{ fontWeight: 700, borderRadius: 999, margin: 0, fontSize: 11 }}>
-                  Phase 2 / Backlog
-                </Tag>
-              </span>
-            ),
-            children: <UnavailableFeature />,
           },
         ]}
       />

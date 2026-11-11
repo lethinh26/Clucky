@@ -33,7 +33,8 @@ class CloudinaryMediaAdapterTest {
     private final CloudinaryProperties properties = new CloudinaryProperties(true, "demo", KEY, CANARY, "clucky");
     private final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
     private final Uploader uploader = mock(Uploader.class);
-    private final MockMultipartFile image = new MockMultipartFile("file", "sample.png", "image/png", new byte[]{1, 2, 3});
+    private final MockMultipartFile image = image();
+    private final MediaAssets assets = mock(MediaAssets.class);
     private final Logger logger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
     private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
     private CloudinaryMediaAdapter adapter;
@@ -42,7 +43,7 @@ class CloudinaryMediaAdapterTest {
     void setup() {
         logs.start();
         logger.addAppender(logs);
-        adapter = new CloudinaryMediaAdapter(properties);
+        adapter = new CloudinaryMediaAdapter(properties, assets);
         Cloudinary client = mock(Cloudinary.class);
         when(client.uploader()).thenReturn(uploader);
         ReflectionTestUtils.setField(adapter, "cloudinary", client);
@@ -60,14 +61,21 @@ class CloudinaryMediaAdapterTest {
         response.put("api_secret", CANARY);
         response.put("signature", CANARY);
         response.put("provider_debug", Map.of("credential", CANARY));
-        doReturn(response).when(uploader).upload(any(byte[].class), anyMap());
+        doAnswer(call -> {
+            response.put("public_id", ((Map<?, ?>) call.getArgument(1)).get("public_id"));
+            response.put("secure_url", "https://res.cloudinary.com/demo/image/upload/" + response.get("public_id") + ".png");
+            return response;
+        }).when(uploader).upload(any(byte[].class), anyMap());
         var uploaded = adapter.uploadImage(image, "products");
         var json = mapper.valueToTree(uploaded);
         Set<String> fields = new java.util.HashSet<>();
         json.fieldNames().forEachRemaining(fields::add);
         assertEquals(Set.of("secureUrl", "publicId", "format", "sizeBytes", "width", "height"), fields);
-        assertEquals("https://res.cloudinary.com/demo/image/upload/sample.png", uploaded.getSecureUrl());
-        assertEquals("clucky/products/sample", uploaded.getPublicId());
+        assertEquals("https://res.cloudinary.com/demo/image/upload/" + uploaded.getPublicId() + ".png", uploaded.getSecureUrl());
+        assertTrue(uploaded.getPublicId().startsWith("clucky/products/"));
+        verify(assets).reserve(uploaded.getPublicId());
+        verify(assets).uploaded(uploaded.getPublicId(), uploaded.getSecureUrl());
+        verify(assets).attach(uploaded.getPublicId());
         assertEquals(640, uploaded.getWidth().intValue());
         assertFalse(json.toString().contains(CANARY));
         String configuration = mapper.writeValueAsString(properties);
@@ -96,8 +104,12 @@ class CloudinaryMediaAdapterTest {
         };
         for (Object[] fixture : invalid) {
             Map<String, Object> response = metadata();
-            response.put((String) fixture[0], fixture[1]);
-            doReturn(response).when(uploader).upload(any(byte[].class), anyMap());
+            doAnswer(call -> {
+                response.put("public_id", ((Map<?, ?>) call.getArgument(1)).get("public_id"));
+                response.put("secure_url", "https://res.cloudinary.com/demo/image/upload/" + response.get("public_id") + ".png");
+                response.put((String) fixture[0], fixture[1]);
+                return response;
+            }).when(uploader).upload(any(byte[].class), anyMap());
             ApiException failure = assertThrows(ApiException.class, () -> adapter.uploadImage(image, "products"));
             assertEquals(ErrorCode.UPSTREAM_ERROR, failure.getCode());
             assertNull(failure.getCause());
@@ -107,14 +119,13 @@ class CloudinaryMediaAdapterTest {
     }
 
     @Test
-    void preservesExistingFallbacksForAbsentOptionalMetadata() throws Exception {
-        doReturn(Map.of("secure_url", metadata().get("secure_url"), "public_id", "clucky/combos/sample"))
-                .when(uploader).upload(any(byte[].class), anyMap());
-        var uploaded = adapter.uploadImage(image, "combos");
-        assertNull(uploaded.getFormat());
-        assertEquals(image.getSize(), uploaded.getSizeBytes().longValue());
-        assertEquals(0, uploaded.getWidth().intValue());
-        assertEquals(0, uploaded.getHeight().intValue());
+    void rejectsIncompleteProviderMetadataInsteadOfInventingSuccess() throws Exception {
+        doAnswer(call -> {
+            Object publicId = ((Map<?, ?>) call.getArgument(1)).get("public_id");
+            return Map.of("secure_url", "https://res.cloudinary.com/demo/image/upload/" + publicId + ".png", "public_id", publicId);
+        }).when(uploader).upload(any(byte[].class), anyMap());
+        assertEquals(ErrorCode.UPSTREAM_ERROR,
+                assertThrows(ApiException.class, () -> adapter.uploadImage(image, "combos")).getCode());
     }
 
     @Test
@@ -127,9 +138,9 @@ class CloudinaryMediaAdapterTest {
             assertFalse(mapper.writeValueAsString(ApiError.of(failure.getCode(), "/api/catalog/products/1/image")).contains(CANARY));
         }
         doThrow(new IOException(CANARY)).when(uploader).destroy(anyString(), anyMap());
-        assertFalse(adapter.deleteAsset("clucky/products/sample"));
+        assertEquals(ErrorCode.UPSTREAM_ERROR, assertThrows(ApiException.class, () -> adapter.destroyOwned("clucky/products/sample")).getCode());
         doReturn(Map.of("result", CANARY)).when(uploader).destroy(anyString(), anyMap());
-        assertFalse(adapter.deleteAsset("clucky/products/sample"));
+        assertEquals(ErrorCode.UPSTREAM_ERROR, assertThrows(ApiException.class, () -> adapter.destroyOwned("clucky/products/sample")).getCode());
         for (ILoggingEvent entry : logs.list) {
             assertFalse(entry.getFormattedMessage().contains(CANARY));
             assertNull(entry.getThrowableProxy());
@@ -143,7 +154,7 @@ class CloudinaryMediaAdapterTest {
         var unsupported = new MockMultipartFile("file", "sample.txt", "text/plain", new byte[]{1});
         assertEquals(ErrorCode.UNSUPPORTED_MEDIA_TYPE,
                 assertThrows(ApiException.class, () -> adapter.uploadImage(unsupported, "products")).getCode());
-        var disabled = new CloudinaryMediaAdapter(new CloudinaryProperties(false, null, null, null, null));
+        var disabled = new CloudinaryMediaAdapter(new CloudinaryProperties(false, null, null, null, null), assets);
         assertEquals(ErrorCode.DEPENDENCY_UNAVAILABLE,
                 assertThrows(ApiException.class, () -> disabled.uploadImage(image, "products")).getCode());
         verifyNoInteractions(uploader);
@@ -152,5 +163,22 @@ class CloudinaryMediaAdapterTest {
     private Map<String, Object> metadata() {
         return new HashMap<>(Map.of("secure_url", "https://res.cloudinary.com/demo/image/upload/sample.png",
                 "public_id", "clucky/products/sample", "format", "png", "bytes", 3L, "width", 640, "height", 480));
+    }
+
+    private static MockMultipartFile image() {
+        try {
+            var bytes = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", bytes);
+            return new MockMultipartFile("file", "sample.png", "image/png", bytes.toByteArray());
+        } catch (IOException failure) { throw new AssertionError(failure); }
+    }
+
+    @Test
+    void rejectsSpoofedImageBytesAndForeignReferences() {
+        var spoofed = new MockMultipartFile("file", "sample.png", "image/png", new byte[]{1, 2, 3});
+        assertEquals(ErrorCode.UNSUPPORTED_MEDIA_TYPE, assertThrows(ApiException.class, () -> adapter.uploadImage(spoofed, "products")).getCode());
+        assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(ApiException.class,
+                () -> CloudinaryMediaAdapter.requireUnchangedImage("https://example.test/foreign.png", "foreign", null, null)).getCode());
+        verifyNoInteractions(uploader, assets);
     }
 }

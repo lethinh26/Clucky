@@ -41,13 +41,13 @@ public class ProductController {
             PageResponse<ProductDto.Response> pageResponse = productService.getProductsPaged(
                     storeId, categoryId, keyword, spicyLevel, activeOnly, PageRequest.of(pageNum, pageSize));
             return ResponseEntity.ok()
-                    .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
+                    .cacheControl(activeOnly ? CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic() : CacheControl.noStore())
                     .body(pageResponse);
         }
 
         List<ProductDto.Response> list = productService.getProducts(storeId, categoryId, keyword, spicyLevel, activeOnly);
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic())
+                .cacheControl(activeOnly ? CacheControl.maxAge(60, TimeUnit.SECONDS).cachePublic() : CacheControl.noStore())
                 .body(list);
     }
 
@@ -75,21 +75,24 @@ public class ProductController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDto.Response> updateStatus(
             @PathVariable Long id,
+            @RequestParam Long expectedVersion,
             @RequestParam(name = "active", required = false) Boolean activeParam,
             @RequestBody(required = false) java.util.Map<String, Object> body) {
-        boolean active = true;
+        boolean active;
         if (activeParam != null) {
             active = activeParam;
-        } else if (body != null && body.containsKey("isActive")) {
-            active = Boolean.parseBoolean(String.valueOf(body.get("isActive")));
+        } else if (body != null && body.get("isActive") instanceof Boolean value) {
+            active = value;
+        } else {
+            throw new com.clucky.catalogstoreservice.exception.ApiException(com.clucky.catalogstoreservice.exception.ErrorCode.VALIDATION_ERROR);
         }
-        return ResponseEntity.ok(productService.updateProductStatus(id, active));
+        return ResponseEntity.ok(productService.updateProductStatus(id, active, expectedVersion));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
-        productService.deleteProduct(id);
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id, @RequestParam Long expectedVersion) {
+        productService.deleteProduct(id, expectedVersion);
         return ResponseEntity.noContent().build();
     }
 
@@ -97,7 +100,8 @@ public class ProductController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductDto.Response> uploadImage(
             @PathVariable Long id,
+            @RequestParam Long expectedVersion,
             @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(productService.uploadProductImage(id, file));
+        return ResponseEntity.ok(productService.uploadProductImage(id, file, expectedVersion));
     }
 }

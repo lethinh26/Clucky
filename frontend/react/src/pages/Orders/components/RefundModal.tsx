@@ -2,16 +2,22 @@ import { message } from "../../../components/feedback";
 import { useLocaleTools } from "../../../i18n/hooks";
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Modal, Input, Radio, Typography, Space, Tag, Button, Alert, Spin, Upload } from "antd";
+import { Modal, Input, Radio, Typography, Space, Tag, Button, Alert, Spin, Upload, Checkbox } from "antd";
 import { AdminOrder } from "../../../types/order";
 import { refundsApi, getErrorMessage, type BackendRefund } from "../../../lib/api";
 import { useOrders } from "../../../context/OrderContext";
-import { CheckCircle2, AlertTriangle, Eye, UploadCloud, RefreshCw, XCircle } from "lucide-react";
+import { useAuth } from "../../../context/AuthContext";
+
+import { CheckCircle2, AlertTriangle, Eye, UploadCloud, XCircle } from "lucide-react";
+import "../admin-orders.css";
+
+type RefundDetails = BackendRefund & { paymentOperation?: string | null; paymentError?: string | null };
 
 interface RefundModalProps {
   order: AdminOrder | null;
   open: boolean;
   onClose: () => void;
+  onChanged?: () => void;
   onConfirmRefund?: (
     orderId: string,
     action: "APPROVED" | "REJECTED",
@@ -22,16 +28,32 @@ interface RefundModalProps {
 export const RefundModal: React.FC<RefundModalProps> = ({
   order,
   open,
-  onClose,
+  onClose: requestClose,
+  onChanged,
   onConfirmRefund,
 }) => {
   const { t } = useTranslation();
+  const { user, isAdmin } = useAuth();
   const { locale } = useLocaleTools();
   const { refreshOrders } = useOrders();
 
-  const [refund, setRefund] = useState<BackendRefund | null>(null);
+
+  const [refund, setRefund] = useState<RefundDetails | null>(null);
+  const loadedStatus = useRef("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const detailRequest = useRef<AbortController | null>(null);
+  const operationLock = useRef(false);
+  const activeRefund = useRef<number | undefined>(undefined);
+  activeRefund.current = open ? order?.refundRequestId : undefined;
+  const [confirmationPending, setConfirmationPending] = useState(false);
+  const syncParent = useCallback(() => {
+    if (onChanged) onChanged();
+    else void refreshOrders();
+  }, [onChanged, refreshOrders]);
+  const parentSync = useRef(syncParent);
+  parentSync.current = syncParent;
 
   // PENDING state fields
   const [action, setAction] = useState<"APPROVED" | "REJECTED">("APPROVED");
@@ -40,6 +62,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   // Sub-modals
   const [invalidModalOpen, setInvalidModalOpen] = useState(false);
   const [invalidReason, setInvalidReason] = useState("");
+  const [transferNotCompleted, setTransferNotCompleted] = useState(false);
 
   const [bankModalOpen, setBankModalOpen] = useState(false);
   const [bankName, setBankName] = useState("");
@@ -51,48 +74,64 @@ export const RefundModal: React.FC<RefundModalProps> = ({
 
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const onClose = () => { if (!operationLock.current) requestClose(); };
+
 
   const fetchRefundDetails = useCallback(async (refundId: number) => {
+    detailRequest.current?.abort();
+    const controller = new AbortController();
+    detailRequest.current = controller;
     try {
-      setLoading(true);
-      const data = await refundsApi.get(refundId);
+      setLoading(true); setLoadError("");
+      const data: RefundDetails = await refundsApi.get(refundId, controller.signal);
+      if (controller.signal.aborted || activeRefund.current !== refundId) return;
+      const state = `${data.id}:${data.status}:${data.paymentOperation || ''}`;
+      if (loadedStatus.current && loadedStatus.current !== state) parentSync.current();
+      loadedStatus.current = state;
       setRefund(data);
+      setConfirmationPending(!!data.paymentOperation);
       setBankName(data.bankName || "");
       setAccountNumber(data.accountNumber || data.bankAccountNo || "");
       setAccountHolderName(data.accountHolderName || data.bankAccountName || "");
     } catch (err) {
-      // Fallback to order-embedded refund data if available
-      if (order?.refundData) {
-        setRefund(order.refundData);
-        setBankName(order.refundData.bankName || "");
-        setAccountNumber(order.refundData.accountNumber || order.refundData.bankAccountNo || "");
-        setAccountHolderName(order.refundData.accountHolderName || order.refundData.bankAccountName || "");
-      }
+      if (!controller.signal.aborted) { setRefund(null); setLoadError(getErrorMessage(err)); }
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
-  }, [order?.refundData]);
+  }, []);
 
   useEffect(() => {
+    activeRefund.current = open ? order?.refundRequestId : undefined;
+    loadedStatus.current = "";
+    setRefund(null); setConfirmationPending(false);
+    setInvalidModalOpen(false); setBankModalOpen(false); setConfirmModalOpen(false);
     if (open && order?.refundRequestId) {
       setAction("APPROVED");
       setReviewNote("");
       setEvidenceFile(null);
       void fetchRefundDetails(order.refundRequestId);
-    } else if (open && order?.refundData) {
-      setRefund(order.refundData);
     }
-  }, [open, order?.refundRequestId, order?.refundData, fetchRefundDetails]);
+    return () => { detailRequest.current?.abort(); activeRefund.current = undefined; };
+  }, [open, order?.refundRequestId, fetchRefundDetails]);
+
+  useEffect(() => {
+    if (!open || !order?.refundRequestId || submitting || uploadingEvidence || loading || bankModalOpen || invalidModalOpen || confirmModalOpen) return;
+    const timer = window.setTimeout(() => void fetchRefundDetails(order.refundRequestId!), confirmationPending || loadError ? 5000 : 15000);
+    return () => window.clearTimeout(timer);
+  }, [open, order?.refundRequestId, confirmationPending, submitting, uploadingEvidence, loading, loadError, bankModalOpen, invalidModalOpen, confirmModalOpen, refund, fetchRefundDetails, syncParent]);
 
   if (!order) return null;
 
   const currentStatus = refund?.status || order.refundStatus || "PENDING";
   const hasEvidence = Boolean(refund?.evidencePublicId);
+  const currentAttempt = refund?.attempts?.find(attempt => attempt.attemptId === refund.currentAttemptId);
+  const ownsAttempt = currentAttempt?.createdBy === Number(user.id);
+  const hasBankDetails = Boolean(refund?.bankName && (refund.bankAccountNo || refund.accountNumber) && (refund.bankAccountName || refund.accountHolderName));
 
   // 1. Review action for PENDING
   const handleReviewSubmit = async () => {
-    if (!order.refundRequestId) return;
+    if (!order.refundRequestId || operationLock.current) return;
+    operationLock.current = true; detailRequest.current?.abort();
     try {
       setSubmitting(true);
       if (onConfirmRefund) {
@@ -105,74 +144,87 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           reviewNote
         );
       }
-      message.success(
-        action === "APPROVED"
-          ? t("business:refundmodal.refundApprovedForOrder", { value1: order.orderCode })
-          : t("business:refundmodal.refundRequestRejectedForOrder", { value1: order.orderCode })
-      );
-      await refreshOrders();
-      await fetchRefundDetails(order.refundRequestId);
+      message.info("Đã tiếp nhận yêu cầu xét duyệt. Theo dõi trạng thái mới; đặt giữ tiền có thể còn đang xử lý.");
+      
+      syncParent();
+      if (activeRefund.current === order.refundRequestId) await fetchRefundDetails(order.refundRequestId);
     } catch (err) {
       message.error(getErrorMessage(err, t("business:refundmodal.unableToProcessThisRefundCheckYourPermissionsAndTheCurrentData")));
     } finally {
+      operationLock.current = false;
       setSubmitting(false);
     }
   };
 
   // 2. Claim processing for APPROVED
   const handleClaimProcessing = async () => {
-    if (!order.refundRequestId) return;
+    if (!order.refundRequestId || operationLock.current) return;
+    operationLock.current = true; detailRequest.current?.abort();
     try {
       setSubmitting(true);
       const updated = await refundsApi.claimProcessing(order.refundRequestId);
+      syncParent();
+      if (activeRefund.current !== updated.id) return;
       setRefund(updated);
       message.success(t("business:refundmodal.claimProcessingSuccess"));
-      await refreshOrders();
+      
     } catch (err) {
       message.error(getErrorMessage(err));
     } finally {
+      operationLock.current = false;
       setSubmitting(false);
     }
   };
 
   // 3. Mark invalid bank details for PROCESSING
   const handleReportInvalidBank = async () => {
-    if (!order.refundRequestId || !invalidReason.trim()) return;
+    if (!order.refundRequestId || !invalidReason.trim() || operationLock.current) return;
+    if (currentStatus === "PROCESSING" && (!transferNotCompleted || hasEvidence || !ownsAttempt)) return;
+    operationLock.current = true; detailRequest.current?.abort();
     try {
       setSubmitting(true);
-      const updated = await refundsApi.requestBankDetails(order.refundRequestId, invalidReason.trim());
+      const updated = await refundsApi.requestBankDetails(order.refundRequestId, invalidReason.trim(), transferNotCompleted);
+      syncParent();
+      if (activeRefund.current !== updated.id) return;
       setRefund(updated);
       setInvalidModalOpen(false);
       setInvalidReason("");
       message.success(t("business:refundmodal.invalidBankDetailsSuccess"));
-      await refreshOrders();
+      
     } catch (err) {
       message.error(getErrorMessage(err));
     } finally {
+      operationLock.current = false;
       setSubmitting(false);
     }
   };
 
   // 4. Update bank details for WAITING_BANK_DETAILS / APPROVED
   const handleUpdateBankDetails = async () => {
+    if (operationLock.current) return;
     if (!order.refundRequestId || !bankName.trim() || !accountNumber.trim() || !accountHolderName.trim()) {
       message.warning(t("business:stores.pleaseCheckTheStoreInformationFields"));
       return;
     }
+    operationLock.current = true; detailRequest.current?.abort();
     try {
       setSubmitting(true);
       const updated = await refundsApi.updateBankDetails(order.refundRequestId, {
         bankName: bankName.trim(),
         accountNumber: accountNumber.trim(),
         accountHolderName: accountHolderName.trim(),
+        expectedBankDetailsVersion: refund?.bankDetailsVersion,
       });
+      syncParent();
+      if (activeRefund.current !== updated.id) return;
       setRefund(updated);
       setBankModalOpen(false);
       message.success(t("business:refundmodal.updateBankDetailsSuccess"));
-      await refreshOrders();
+      
     } catch (err) {
       message.error(getErrorMessage(err));
     } finally {
+      operationLock.current = false;
       setSubmitting(false);
     }
   };
@@ -180,17 +232,21 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   // 5. Upload evidence for PROCESSING
   const handleUploadEvidence = async (fileToUpload?: File) => {
     const file = fileToUpload || evidenceFile;
-    if (!order.refundRequestId || !file) return;
+    if (!order.refundRequestId || !file || operationLock.current) return;
+    operationLock.current = true; detailRequest.current?.abort();
     try {
       setUploadingEvidence(true);
       const updated = await refundsApi.uploadEvidence(order.refundRequestId, file);
+      syncParent();
+      if (activeRefund.current !== updated.id) return;
       setRefund(updated);
       setEvidenceFile(null);
       message.success(t("business:refundmodal.uploadEvidenceSuccess"));
-      await refreshOrders();
+      
     } catch (err) {
       message.error(getErrorMessage(err));
     } finally {
+      operationLock.current = false;
       setUploadingEvidence(false);
     }
   };
@@ -212,17 +268,23 @@ export const RefundModal: React.FC<RefundModalProps> = ({
 
   // 7. Confirm refund
   const handleConfirmRefundSubmit = async () => {
-    if (!order.refundRequestId) return;
+    if (!order.refundRequestId || operationLock.current) return;
+    operationLock.current = true; detailRequest.current?.abort();
     try {
       setSubmitting(true);
-      const updated = await refundsApi.confirmRefund(order.refundRequestId, confirmNote);
+      const updated = await refundsApi.confirmRefund(order.refundRequestId, isAdmin ? undefined : confirmNote);
+      syncParent();
+      if (activeRefund.current !== updated.id) return;
       setRefund(updated);
       setConfirmModalOpen(false);
-      message.success(t("business:refundmodal.confirmRefundSuccess"));
-      await refreshOrders();
+      setConfirmationPending(updated.status !== "REFUNDED");
+      if (updated.status === "REFUNDED") message.success(t("business:refundmodal.confirmRefundSuccess"));
+      else message.info("Yêu cầu xác nhận đã được tiếp nhận, đang chờ hoàn tất chi trả.");
+      
     } catch (err) {
       message.error(getErrorMessage(err));
     } finally {
+      operationLock.current = false;
       setSubmitting(false);
     }
   };
@@ -248,16 +310,25 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   return (
     <>
       <Modal
+        className={isAdmin ? 'admin-order-modal' : undefined}
+        centered={isAdmin}
         title={t("business:refundmodal.reviewRefundRequest", { value1: order.orderCode })}
         open={open}
         onCancel={onClose}
         footer={null}
-        width={620}
+        width={isAdmin ? 660 : 620}
+        closable={!submitting && !uploadingEvidence}
+        maskClosable={!submitting && !uploadingEvidence}
+        keyboard={!submitting && !uploadingEvidence}
       >
-        <Spin spinning={loading}>
+        {loadError && <Alert type="error" showIcon message={loadError} />}
+        {confirmationPending && <Alert type="info" showIcon message={`Đang chờ Payment xử lý ${refund?.paymentOperation || 'CONFIRM'}. Trạng thái hiện tại: ${refund?.status}. Chưa phải đã hoàn tất chi trả.`} />}
+        {refund?.paymentError && <Alert type="warning" showIcon message={refund.paymentError} description="Backend đang lưu yêu cầu để thử lại; không tạo khoản hoàn tiền mới." />}
+        <Spin spinning={loading || submitting || uploadingEvidence}>
+          {refund && <>
           {/* Summary Information */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div className={isAdmin ? 'refund-summary' : undefined} style={{ marginBottom: 16 }}>
+            <div className="refund-summary-top" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <Typography.Paragraph style={{ margin: 0 }}>
                 {t("business:refundmodal.customer")} <strong>{order.customerName}</strong> ({order.customerPhone})
               </Typography.Paragraph>
@@ -281,8 +352,8 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           </div>
 
           {/* Bank details card if available */}
-          {["APPROVED", "PROCESSING", "WAITING_BANK_DETAILS", "REFUNDED"].includes(currentStatus) && (
-            <div style={{ background: "#fafafa", border: "1px solid #e8e8e8", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+          {["PENDING", "APPROVED", "PROCESSING", "WAITING_BANK_DETAILS", "REFUNDED"].includes(currentStatus) && (
+            <div className={isAdmin ? 'refund-bank' : undefined} style={{ background: "#fafafa", border: "1px solid #e8e8e8", borderRadius: 8, padding: 12, marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <Typography.Text strong>{t("business:refundmodal.bankInfo")}</Typography.Text>
                 {refund?.bankDetailsVersion && (
@@ -303,7 +374,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                   <strong>{refund?.accountHolderName || refund?.bankAccountName || t("business:refundmodal.noBankInfo")}</strong>
                 </div>
               </div>
-              {["APPROVED", "WAITING_BANK_DETAILS"].includes(currentStatus) && (
+              {!refund?.paymentOperation && ["PENDING", "WAITING_BANK_DETAILS"].includes(currentStatus) && (
                 <div style={{ marginTop: 8 }}>
                   <Button size="small" onClick={() => setBankModalOpen(true)}>
                     {t("business:refundmodal.updateBankDetails")}
@@ -316,7 +387,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           {/* Workflow specific operations */}
 
           {/* A. PENDING */}
-          {currentStatus === "PENDING" && (
+          {!refund?.paymentOperation && currentStatus === "PENDING" && (
             <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 16 }}>
               <Typography.Text strong style={{ display: "block", marginBottom: 8 }}>
                 {t("business:refundmodal.reviewDecision")}
@@ -366,7 +437,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           )}
 
           {/* B. APPROVED */}
-          {currentStatus === "APPROVED" && (
+          {!refund?.paymentOperation && currentStatus === "APPROVED" && (
             <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 16 }}>
               <Alert
                 type="info"
@@ -377,9 +448,13 @@ export const RefundModal: React.FC<RefundModalProps> = ({
               />
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                 <Button onClick={onClose}>{t("account:cancel")}</Button>
+                <Button onClick={() => { setInvalidReason(""); setTransferNotCompleted(false); setInvalidModalOpen(true); }}>
+                  {t("business:refundmodal.invalidBankDetails")}
+                </Button>
                 <Button
                   type="primary"
                   loading={submitting}
+                  disabled={!hasBankDetails}
                   onClick={handleClaimProcessing}
                 >
                   {t("business:refundmodal.claimProcessing")}
@@ -389,7 +464,9 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           )}
 
           {/* C. PROCESSING */}
-          {currentStatus === "PROCESSING" && (
+          {currentStatus === "PROCESSING" && !ownsAttempt && <Alert type="info" showIcon
+            message={`Lượt chuyển tiền đang do tài khoản #${currentAttempt?.createdBy ?? "—"} xử lý. Không thực hiện thêm một lần chuyển tiền.`} />}
+          {!refund?.paymentOperation && !confirmationPending && currentStatus === "PROCESSING" && ownsAttempt && (
             <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 16 }}>
               <Alert
                 type="warning"
@@ -406,15 +483,15 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 </Typography.Text>
 
                 <Upload.Dragger
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/jpeg,image/png"
                   multiple={false}
                   beforeUpload={(file) => {
-                    const isImg = ["image/jpeg", "image/png", "image/webp"].includes(file.type);
+                    const isImg = ["image/jpeg", "image/png"].includes(file.type);
                     if (!isImg) {
                       message.error(t("business:refundmodal.invalidFormatError"));
                       return Upload.LIST_IGNORE;
                     }
-                    const isLt5M = file.size / 1024 / 1024 < 5;
+                    const isLt5M = file.size > 0 && file.size / 1024 / 1024 <= 5;
                     if (!isLt5M) {
                       message.error(t("business:refundmodal.fileTooLargeError"));
                       return Upload.LIST_IGNORE;
@@ -471,9 +548,12 @@ export const RefundModal: React.FC<RefundModalProps> = ({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <Button
                   danger
+                    disabled={hasEvidence}
+                    title={hasEvidence ? "Đã có chứng từ chuyển tiền; cần đối chiếu kết quả, không mở lượt chuyển khác." : undefined}
                   onClick={() => {
                     setInvalidReason("");
                     setInvalidModalOpen(true);
+                    setTransferNotCompleted(false);
                   }}
                 >
                   {t("business:refundmodal.invalidBankDetails")}
@@ -496,7 +576,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           )}
 
           {/* D. WAITING_BANK_DETAILS */}
-          {currentStatus === "WAITING_BANK_DETAILS" && (
+          {!refund?.paymentOperation && currentStatus === "WAITING_BANK_DETAILS" && (
             <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 16 }}>
               <Alert
                 type="warning"
@@ -561,17 +641,24 @@ export const RefundModal: React.FC<RefundModalProps> = ({
               </div>
             </div>
           )}
+          </>}
         </Spin>
       </Modal>
 
       {/* Sub-modal: Report Invalid Bank Details */}
       <Modal
         title={t("business:refundmodal.invalidBankDetails")}
+        className={isAdmin ? 'admin-order-modal' : undefined}
+        centered={isAdmin}
+        closable={!submitting}
+        maskClosable={!submitting}
+        keyboard={!submitting}
+        cancelButtonProps={{ disabled: submitting }}
         open={invalidModalOpen}
         onCancel={() => setInvalidModalOpen(false)}
         onOk={handleReportInvalidBank}
-        okButtonProps={{ danger: true, disabled: !invalidReason.trim(), loading: submitting }}
-        okText={t("adminmodal:confirmAction")}
+        okButtonProps={{ danger: true, disabled: !invalidReason.trim() || (currentStatus === "PROCESSING" && (!transferNotCompleted || hasEvidence)), loading: submitting }}
+        okText={t("business:adminmodal.confirmAction")}
       >
         <Typography.Paragraph>
           {t("business:refundmodal.invalidBankDetailsPrompt")}
@@ -582,11 +669,20 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           onChange={(e) => setInvalidReason(e.target.value)}
           placeholder={t("business:refundmodal.invalidBankPlaceholder")}
         />
+        {currentStatus === "PROCESSING" && <Checkbox checked={transferNotCompleted} onChange={event => setTransferNotCompleted(event.target.checked)} style={{ marginTop: 16 }}>
+          Tôi đã kiểm tra ngân hàng: chưa chuyển tiền thành công, không có giao dịch đang chờ hoặc chưa rõ kết quả.
+        </Checkbox>}
       </Modal>
 
       {/* Sub-modal: Update Bank Details */}
       <Modal
         title={t("business:refundmodal.updateBankDetails")}
+        className={isAdmin ? 'admin-order-modal' : undefined}
+        centered={isAdmin}
+        closable={!submitting}
+        maskClosable={!submitting}
+        keyboard={!submitting}
+        cancelButtonProps={{ disabled: submitting }}
         open={bankModalOpen}
         onCancel={() => setBankModalOpen(false)}
         onOk={handleUpdateBankDetails}
@@ -594,7 +690,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           disabled: !bankName.trim() || !accountNumber.trim() || !accountHolderName.trim(),
           loading: submitting,
         }}
-        okText={t("account:saveChanges")}
+        okText={t("business:account.saveChanges")}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
@@ -633,16 +729,22 @@ export const RefundModal: React.FC<RefundModalProps> = ({
       {/* Sub-modal: Confirm Refund */}
       <Modal
         title={t("business:refundmodal.confirmRefund")}
+        className={isAdmin ? 'admin-order-modal' : undefined}
+        centered={isAdmin}
+        closable={!submitting}
+        maskClosable={!submitting}
+        keyboard={!submitting}
+        cancelButtonProps={{ disabled: submitting }}
         open={confirmModalOpen}
         onCancel={() => setConfirmModalOpen(false)}
         onOk={handleConfirmRefundSubmit}
         okButtonProps={{ loading: submitting }}
-        okText={t("adminmodal:confirmAction")}
+        okText={t("business:adminmodal.confirmAction")}
       >
         <Typography.Paragraph>
           {t("business:refundmodal.confirmRefundPrompt")}
         </Typography.Paragraph>
-        <label style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>
+        {!isAdmin && <><label style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>
           {t("business:refundmodal.confirmNoteLabel")}
         </label>
         <Input.TextArea
@@ -650,8 +752,9 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           value={confirmNote}
           onChange={(e) => setConfirmNote(e.target.value)}
           placeholder={t("business:refundmodal.confirmNotePlaceholder")}
-        />
+        /></>}
       </Modal>
     </>
   );
 };
+

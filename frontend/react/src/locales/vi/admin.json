@@ -10,7 +10,10 @@
     "orders": "Quản lý Đơn hàng",
     "shiftOrders": "Đơn hàng Ca trực",
     "reviews": "Quản lý Đánh giá",
-    "users": "Quản lý Người dùng",
+    "users": "Tài khoản Chi nhánh",
+    "customers": "Khách hàng",
+    "emailLogs": "Nhật ký Email",
+    "audit": "Nhật ký Quản trị",
     "reports": "Báo cáo & Thống kê",
     "payments": "Thanh toán & Đối soát",
     "promotions": "Quản lý Khuyến mãi & Voucher"
@@ -19,7 +22,7 @@
     "catalog": "Thực đơn & Combo",
     "stores": "Hệ thống Chi nhánh",
     "reviews": "Đánh giá & Phản hồi",
-    "users": "Người dùng",
+    "users": "Tài khoản Chi nhánh",
     "promotions": "Khuyến mãi & Voucher"
   },
   "roles": {
@@ -77,7 +80,7 @@
   },
   "promotions": {
     "title": "Quản lý Khuyến mãi & Ưu đãi",
-    "subtitle": "Quản lý các mã voucher giảm giá, theo dõi đề xuất chi nhánh và banner tiếp thị thương hiệu.",
+    "subtitle": "Quản lý mã giảm giá, phạm vi áp dụng và cấu hình tích điểm toàn hệ thống.",
     "tabs": {
       "vouchers": "Mã giảm giá (Vouchers)",
       "proposals": "Duyệt đề xuất chi nhánh",

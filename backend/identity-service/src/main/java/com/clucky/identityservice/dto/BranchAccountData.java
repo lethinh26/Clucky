@@ -28,12 +28,4 @@ public final class BranchAccountData {
             @Email @Size(max = 255) String newEmail) {
         @Override public String toString() { return "Management[redacted]"; }
     }
-    public record Mapping(@Positive long managerId, @Positive long staffId,
-            @NotBlank @Email @Size(max = 255) String recoveryEmail,
-            @NotBlank @Size(max = 160) String backupReference,
-            @NotBlank @Pattern(regexp = "[a-f0-9]{64}") String inventoryVersion,
-            @NotBlank @Size(max = 72) String currentPassword) {
-        @Override public String toString() { return "Mapping[redacted]"; }
-    }
-    public record Inventory(long storeId, String inventoryVersion, boolean migrationEnabled, List<Account> accounts) {}
 }

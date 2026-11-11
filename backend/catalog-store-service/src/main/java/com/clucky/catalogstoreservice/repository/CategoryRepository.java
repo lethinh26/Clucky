@@ -10,4 +10,6 @@ import java.util.List;
 public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findByIsActiveTrueOrderBySortOrderAsc();
     List<Category> findAllByOrderBySortOrderAsc();
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(p) FROM Product p WHERE p.category.id = :categoryId")
+    long countProductsByCategoryId(@org.springframework.data.repository.query.Param("categoryId") Long categoryId);
 }

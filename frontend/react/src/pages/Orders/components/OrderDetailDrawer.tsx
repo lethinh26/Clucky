@@ -37,6 +37,8 @@ interface Props {
     reason?: string,
   ) => Promise<boolean> | boolean;
   onOpenRefundModal?: (order: AdminOrder) => void;
+  onOpenFinance?: (order: AdminOrder) => void;
+  onChanged?: () => void;
 }
 
 export function OrderDetailDrawer({
@@ -45,6 +47,8 @@ export function OrderDetailDrawer({
   onClose,
   onStatusChange,
   onOpenRefundModal,
+  onOpenFinance,
+  onChanged,
 }: Props) {
   const { t } = useTranslation();
 
@@ -214,7 +218,7 @@ export function OrderDetailDrawer({
             <div>
               <dt>{t("business:orderdetaildrawer.method")}</dt>
               <dd>
-                {order.paymentMethod === "COD"
+                {onOpenFinance ? (order.paymentMethod || "UNKNOWN") : order.paymentMethod === "COD"
                   ? t("business:orderdetaildrawer.cashCod")
                   : t("business:id.bankTransfer")}
               </dd>
@@ -249,6 +253,7 @@ export function OrderDetailDrawer({
           <h2 className={styles.drawerHeading}>{t("business:orderdetaildrawer.orderActions")}</h2>
           <p className={styles.actionHint}> {t("business:orderdetaildrawer.actionsDependOnTheCurrentStatusAndYourDemoRole")} </p>
           <div className={styles.drawerActions}>
+            {onOpenFinance && <Button icon={<Wallet size={16} />} onClick={() => onOpenFinance(order)}>Tài chính / thu tiền / hoàn tiền</Button>}
             {order.status === "CONFIRMED" && (
               <Button
                 type="primary"
@@ -263,7 +268,7 @@ export function OrderDetailDrawer({
                 onClick={() => onStatusChange(order.id, "READY")}
               > {t("business:orderdetaildrawer.mealReady")} </Button>
             )}
-            {order.paymentMethod === "COD" &&
+            {!onOpenFinance && order.paymentMethod === "COD" &&
               order.paymentStatus === "PENDING" &&
               !["CANCELLED", "COMPLETED"].includes(order.status) && (
                 <div><Button disabled icon={<Wallet size={16} />}>{t("business:orderdetaildrawer.confirmCodCollection")}</Button>
@@ -339,6 +344,7 @@ export function OrderDetailDrawer({
           setSubmittingRefund(false);
           if (ok) {
             setCreateRefundOpen(false);
+            onChanged?.();
             message.success(t("business:orderdetaildrawer.refundRequestSuccess"));
           }
         }}

@@ -1,729 +1,202 @@
-import { message } from "../../components/feedback";
-import { useTranslation } from "react-i18next";
-import { useLocaleTools } from "../../i18n/hooks";
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Button, Space, Tag, Switch, Segmented, Tooltip, Image, Typography } from "antd";
-import { TableColumnsType } from "antd";
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  FireOutlined,
-} from '@ant-design/icons';
-import { AdminTable } from '../../components/ui/AdminTable';
-import { StatusBadge } from '../../components/ui/StatusBadge';
-import { ConfirmModal } from '../../components/ui/AdminModal';
-import { CategoryIcon } from '../../components/ui/CategoryIcon';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Button, Empty, Form, Input, InputNumber, Modal, Result, Select, Space, Switch, Table, Tabs, Tag, Tooltip } from 'antd';
+import { AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined, ShopOutlined, TagsOutlined } from '@ant-design/icons';
+import type { TableColumnsType } from 'antd';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../context/AuthContext';
+import { useLocaleTools } from '../../i18n/hooks';
+import { getErrorMessage, type Product } from '../../lib/api';
+import { catalogAdministration as administration, type AdminProduct, type AdminCombo, type AdminCategory, type CategoryPayload, type ComboPayload } from '../../lib/catalog-administration';
 import { ProductForm } from './ProductForm';
-import { CatalogCategory, catalogApi, getErrorMessage, type Product, type Combo } from '../../lib/api';
+import { ComboForm } from './ComboForm';
+import { CatalogImage } from './ImageField';
+import { matchesCatalogSearch } from './presentation';
+import './catalog.css';
 
 export const CatalogPage: React.FC = () => {
   const { t } = useTranslation();
+  const { money, date } = useLocaleTools();
+  const { isAdmin } = useAuth();
+  const [catalog, setCatalog] = useState<{ products: AdminProduct[]; combos: AdminCombo[]; categories: AdminCategory[] }>({ products: [], combos: [], categories: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const request = useRef<AbortController | null>(null);
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState('products');
+  const [categoryId, setCategoryId] = useState<number>();
+  const [status, setStatus] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [productOpen, setProductOpen] = useState(false);
+  const [product, setProduct] = useState<AdminProduct | null>(null);
+  const productDraft = useRef<AdminProduct | null>(null);
+  const [comboOpen, setComboOpen] = useState(false);
+  const [combo, setCombo] = useState<AdminCombo | null>(null);
+  const comboDraft = useRef<AdminCombo | null>(null);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [category, setCategory] = useState<AdminCategory | null>(null);
+  const [categoryError, setCategoryError] = useState('');
+  const [categoryForm] = Form.useForm<CategoryPayload>();
+  const [deletion, setDeletion] = useState<{ kind: 'products' | 'combos' | 'categories'; row: AdminProduct | AdminCombo | AdminCategory } | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const text = (key: string, defaultValue: string) => t(`business:catalogAdmin.${key}`, { defaultValue });
 
-  const { money: formatVND } = useLocaleTools();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [combos, setCombos] = useState<Combo[]>([]);
-  const [categories, setCategories] = useState<CatalogCategory[]>([]);
-  const [pendingProductUpload, setPendingProductUpload] = useState<Product | null>(null);
-  const [pendingComboUpload, setPendingComboUpload] = useState<Combo | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'products' | 'combos'>('products');
-  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-
-  const fetchCatalogData = useCallback(async () => {
+  const refetch = useCallback(async () => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setLoading(true);
     try {
-      setLoading(true);
-      const [prods, cmbs, categoryList] = await Promise.all([
-        catalogApi.listProducts({ activeOnly: false }),
-        catalogApi.listCombos(false),
-        catalogApi.listCategories(),
-      ]);
-      setProducts(prods);
-      setCombos(cmbs);
-      setCategories(categoryList);
-    } catch (err) {
-      message.error(getErrorMessage(err));
+      const data = await administration.list(controller.signal);
+      if (!controller.signal.aborted) { setCatalog(data); setError(''); }
+    } catch (failure) {
+      if (!controller.signal.aborted) setError(getErrorMessage(failure));
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchCatalogData();
-  }, [fetchCatalogData]);
+    if (isAdmin) void refetch();
+    return () => { request.current?.abort(); };
+  }, [isAdmin, refetch]);
 
-  // Filtered Products
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchCategory =
-        categoryFilter === 'ALL' ? true : p.categoryId.toString() === categoryFilter;
-      const matchSearch =
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.categoryName.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchCategory && matchSearch;
+  const mutate = async (operation: () => Promise<void>) => {
+    if (!isAdmin || lock.current) throw new Error('Thao tác chưa sẵn sàng. Vui lòng thử lại.');
+    lock.current = true; setBusy(true);
+    try { await operation(); } finally { await refetch(); lock.current = false; setBusy(false); }
+  };
+
+  const saveProduct = async (data: Partial<Product>, file?: File, progress?: (percent: number) => void) => {
+    await mutate(async () => {
+      productDraft.current = await administration.saveProduct(data, productDraft.current);
+      if (file) productDraft.current = await administration.upload('products', productDraft.current, file, progress);
     });
-  }, [products, categoryFilter, searchTerm]);
-
-  // Filtered Combos
-  const filteredCombos = useMemo(() => {
-    return combos.filter(
-      (c) =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [combos, searchTerm]);
-
-  // Toggle active status
-  const handleToggleStatus = async (product: Product, checked: boolean) => {
-    try {
-      await catalogApi.updateProductStatus(product.id, checked);
-      setProducts((prev) =>
-        prev.map((p) => (p.id === product.id ? { ...p, isActive: checked } : p))
-      );
-      const statusText = checked ? t("business:catalog.available") : t("business:catalog.salesPaused");
-      message.success(t("business:catalog.changedTo", { value1: product.name, value2: statusText }));
-    } catch (err) {
-      message.error(getErrorMessage(err));
-    }
   };
-
-  // Toggle combo status
-  const handleToggleComboStatus = async (combo: Combo, checked: boolean) => {
-    try {
-      await catalogApi.updateComboStatus(combo.id, checked);
-      setCombos((prev) =>
-        prev.map((c) => (c.id === combo.id ? { ...c, isActive: checked } : c))
-      );
-      const statusText = checked ? t("business:catalog.active") : t("business:catalog.paused");
-      message.success(t("business:catalog.changedComboTo", { value1: combo.name, value2: statusText }));
-    } catch (err) {
-      message.error(getErrorMessage(err));
-    }
+  const saveCombo = async (data: ComboPayload, file?: File, progress?: (percent: number) => void) => {
+    await mutate(async () => {
+      comboDraft.current = await administration.saveCombo(data, comboDraft.current);
+      if (file) comboDraft.current = await administration.upload('combos', comboDraft.current, file, progress);
+    });
   };
-
-  // Delete combo
-  const handleDeleteCombo = async (combo: Combo) => {
-    try {
-      await catalogApi.deleteCombo(combo.id);
-      setCombos((prev) => prev.filter((c) => c.id !== combo.id));
-      message.success(t("business:catalog.deletedCombo", { value1: combo.name }));
-    } catch (err) {
-      message.error(getErrorMessage(err));
-    }
+  const openProduct = (current: AdminProduct | null) => { setProduct(current); productDraft.current = current; setProductOpen(true); };
+  const openCombo = (current: AdminCombo | null) => { setCombo(current); comboDraft.current = current; setComboOpen(true); };
+  const openCategory = (current: AdminCategory | null) => {
+    setCategory(current); setCategoryError(''); categoryForm.resetFields();
+    categoryForm.setFieldsValue(current ?? { name: '', sortOrder: 0, isActive: true }); setCategoryOpen(true);
   };
-
-  // Save product from ProductForm
-  const handleSaveProduct = async (
-    data: Partial<Product>,
-    imageFile?: File,
-    onUploadProgress?: (percent: number) => void
-  ) => {
-    let savedProduct: Product;
-    if (editingProduct) {
-      savedProduct = await catalogApi.updateProduct(editingProduct.id, data);
-      setProducts((prev) =>
-        prev.map((p) => (p.id === editingProduct.id ? savedProduct : p))
-      );
-    } else if (pendingProductUpload) {
-      savedProduct = await catalogApi.updateProduct(pendingProductUpload.id, data);
-      setProducts((prev) =>
-        prev.map((p) => (p.id === savedProduct.id ? savedProduct : p))
-      );
-    } else {
-      savedProduct = await catalogApi.createProduct(data);
-      setProducts((prev) => [savedProduct, ...prev]);
-      setPendingProductUpload(savedProduct);
-    }
-
-    if (imageFile) {
-      savedProduct = await catalogApi.uploadProductImage(
-        savedProduct.id,
-        imageFile,
-        onUploadProgress
-      );
-      setProducts((prev) =>
-        prev.map((product) => product.id === savedProduct.id ? savedProduct : product)
-      );
-    }
-    setPendingProductUpload(null);
+  const remove = (kind: 'products' | 'combos' | 'categories', row: AdminProduct | AdminCombo | AdminCategory) => {
+    setDeleteError(''); setDeletion({ kind, row });
   };
-
-  // Save combo from ProductForm
-  const handleSaveCombo = async (
-    data: Partial<Combo>,
-    imageFile?: File,
-    onUploadProgress?: (percent: number) => void
-  ) => {
-    let savedCombo = pendingComboUpload
-      ? await catalogApi.updateCombo(pendingComboUpload.id, data)
-      : await catalogApi.createCombo(data);
-    setCombos((prev) => pendingComboUpload
-      ? prev.map((combo) => combo.id === savedCombo.id ? savedCombo : combo)
-      : [savedCombo, ...prev]);
-    if (!pendingComboUpload) setPendingComboUpload(savedCombo);
-    if (imageFile) {
-      savedCombo = await catalogApi.uploadComboImage(
-        savedCombo.id,
-        imageFile,
-        onUploadProgress
-      );
-      setCombos((prev) =>
-        prev.map((combo) => combo.id === savedCombo.id ? savedCombo : combo)
-      );
-    }
-    setPendingComboUpload(null);
-    setViewMode('combos');
+  const toggle = async (kind: 'products' | 'combos', row: AdminProduct | AdminCombo, active: boolean) => {
+    try { await mutate(async () => { await administration.status(kind, row, active); }); }
+    catch (failure) { setError(getErrorMessage(failure)); }
   };
-
-  // Confirm delete
-  const handleDeleteConfirm = async () => {
-    if (productToDelete) {
-      try {
-        await catalogApi.deleteProduct(productToDelete.id);
-        setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
-        message.success(t("business:catalog.removedFromTheMenu", { value1: productToDelete.name }));
-      } catch (err) {
-        message.error(getErrorMessage(err));
-      } finally {
-        setDeleteModalOpen(false);
-        setProductToDelete(null);
-      }
-    }
-  };
-
-  const spicyBadges = (level?: number | null) => {
-    if (level == null) return null;
-    if (level === 0) return <Tag style={{ borderRadius: 6 }}>{t("business:catalog.notSpicy")}</Tag>;
-    if (level === 1)
-      return (
-        <Tag color="orange" style={{ borderRadius: 6 }}>
-          <FireOutlined /> {t("business:catalog.medium")} </Tag>
-      );
-    return (
-      <Tag color="red" style={{ borderRadius: 6 }}>
-        <FireOutlined /> {t("business:catalog.extraSpicy")} </Tag>
-    );
-  };
-
-  const columns: TableColumnsType<Product> = [
-    {
-      title: t("business:catalog.dish"),
-      dataIndex: 'name',
-      key: 'name',
-      render: (_, record) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Image
-            src={record.imageUrl ?? undefined}
-            alt={record.name}
-            width={58}
-            height={58}
-            style={{ borderRadius: 12, objectFit: 'cover', border: '1px solid #E8E2D9' }}
-          />
-          <div>
-            <div
-              style={{
-                fontFamily: 'Baloo 2, sans-serif',
-                fontWeight: 600,
-                fontSize: 15,
-                color: '#16100D',
-              }}
-            >
-              {record.name}
-            </div>
-            <div style={{ fontSize: 12, color: '#6B6259', marginTop: 2 }}>
-              <code>/{record.slug}</code>
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: t("business:catalog.category"),
-      dataIndex: 'categoryName',
-      key: 'categoryName',
-      width: 130,
-      render: (cat) => (
-        <Tag
-          style={{
-            borderRadius: 8,
-            backgroundColor: '#F5EDE0',
-            borderColor: '#E8E2D9',
-            color: '#16100D',
-            fontWeight: 600,
-            padding: '2px 8px',
-          }}
-        >
-          {cat}
-        </Tag>
-      ),
-    },
-    {
-      title: t("business:catalog.listPrice"),
-      dataIndex: 'basePrice',
-      key: 'basePrice',
-      width: 140,
-      render: (price) => (
-        <span
-          style={{
-            fontFamily: 'Baloo 2, sans-serif',
-            color: '#8F1216',
-            fontWeight: 700,
-            fontSize: 16,
-          }}
-        >
-          {formatVND(price)}
-        </span>
-      ),
-    },
-    {
-      title: t("business:catalog.spiceLevelCalories"),
-      key: 'meta',
-      width: 180,
-      render: (_, record) => (
-        <div>
-          {spicyBadges(record.spicyLevel)}
-          <span style={{ fontSize: 12, color: '#6B6259', marginLeft: 8 }}>
-            {record.kcal != null && `${record.kcal} kcal`}
-          </span>
-        </div>
-      ),
-    },
-    {
-      title: t("business:party.custom"),
-      key: 'options',
-      width: 150,
-      render: (_, record) => (
-        <div style={{ fontSize: 12, color: '#6B6259' }}>
-          <div>{record.options?.length || 0} {t("business:catalog.optionGroups")}</div>
-          <div>{record.toppings?.length || 0} toppings</div>
-        </div>
-      ),
-    },
-    {
-      title: t("business:catalog.status"),
-      dataIndex: 'isActive',
-      key: 'isActive',
-      width: 170,
-      render: (isActive, record) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Switch
-            checked={isActive}
-            onChange={(checked) => handleToggleStatus(record, checked)}
-            size="small"
-          />
-          <StatusBadge
-            status={isActive ? 'success' : 'error'}
-            text={isActive ? t("business:catalog.onSale") : t("business:catalog.suspended")}
-            size="small"
-          />
-        </div>
-      ),
-    },
-    {
-      title: t("business:catalog.actions"),
-      key: 'action',
-      width: 110,
-      align: 'right',
-      render: (_, record) => (
-        <Space size={6}>
-          <Tooltip title={t("business:catalog.editDish")}>
-            <Button
-              type="text"
-              icon={<EditOutlined style={{ color: '#22577A' }} />}
-              onClick={() => {
-                setEditingProduct(record);
-                setFormOpen(true);
-              }}
-            />
-          </Tooltip>
-          <Tooltip title={t("business:cart.removeItem")}>
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => {
-                setProductToDelete(record);
-                setDeleteModalOpen(true);
-              }}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    },
-  ];
-
-  const comboColumns: TableColumnsType<Combo> = [
-    {
-      title: t("business:catalog.comboPackage"),
-      key: 'name',
-      render: (_, record) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Image
-            src={record.imageUrl ?? undefined}
-            alt={record.name}
-            width={58}
-            height={58}
-            style={{ borderRadius: 12, objectFit: 'cover', border: '1px solid #E8E2D9' }}
-          />
-          <div>
-            <div
-              style={{
-                fontFamily: 'Baloo 2, sans-serif',
-                fontWeight: 600,
-                fontSize: 15,
-                color: '#16100D',
-              }}
-            >
-              {record.name}
-              <Tag
-                color="#8F1216"
-                style={{
-                  marginLeft: 8,
-                  borderRadius: 999,
-                  color: '#FFFFFF',
-                  fontWeight: 700,
-                  fontSize: 10,
-                }}
-              >
-                COMBO
-              </Tag>
-            </div>
-            <div style={{ fontSize: 12, color: '#6B6259', marginTop: 2 }}>
-              <code>/{record.slug}</code>
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: t("business:catalog.includedDishes"),
-      key: 'items',
-      render: (_, record) => (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {record.items && record.items.length > 0 ? (
-            record.items.map((item) => (
-              <Tag
-                key={item.productId}
-                style={{
-                  borderRadius: 6,
-                  backgroundColor: '#F5EDE0',
-                  borderColor: '#E8E2D9',
-                  color: '#16100D',
-                  fontWeight: 600,
-                }}
-              >
-                {item.productName} (x{item.quantity})
-              </Tag>
-            ))
-          ) : (
-            <span style={{ fontSize: 12, color: '#6B6259' }}>{record.description}</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: t("business:catalog.comboPrice"),
-      dataIndex: 'comboPrice',
-      key: 'comboPrice',
-      width: 140,
-      render: (price) => (
-        <span
-          style={{
-            fontFamily: 'Baloo 2, sans-serif',
-            color: '#8F1216',
-            fontWeight: 700,
-            fontSize: 16,
-          }}
-        >
-          {formatVND(price)}
-        </span>
-      ),
-    },
-    {
-      title: t("business:catalog.status"),
-      dataIndex: 'isActive',
-      key: 'isActive',
-      width: 170,
-      render: (isActive, record) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Switch
-            checked={isActive}
-            onChange={(checked) => handleToggleComboStatus(record, checked)}
-            size="small"
-          />
-          <StatusBadge
-            status={isActive ? 'success' : 'error'}
-            text={isActive ? t("business:catalog.onSale") : t("business:catalog.suspended")}
-            size="small"
-          />
-        </div>
-      ),
-    },
-    {
-      title: t("business:catalog.actions"),
-      key: 'action',
-      width: 90,
-      align: 'right',
-      render: (_, record) => (
-        <Tooltip title={t("business:catalog.deleteCombo")}>
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteCombo(record)}
-          />
-        </Tooltip>
-      ),
-    },
-  ];
-
-  return (
-    <div>
-      {/* Header Info */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: 24,
-          flexWrap: 'wrap',
-          gap: 16,
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontFamily: 'Baloo 2, sans-serif',
-              fontWeight: 700,
-              fontSize: 28,
-              color: '#16100D',
-              margin: 0,
-            }}
-          > {t("business:catalog.menuProductManagement")} </h1>
-          <p
-            style={{
-              fontFamily: 'Quicksand, sans-serif',
-              color: '#6B6259',
-              fontSize: 14,
-              margin: '6px 0 0',
-            }}
-          > {t("business:catalog.manageChickenBurgersToppingsAndPromotionalCombosAcrossAllStores")} </p>
-        </div>
-
-        <Space size={12}>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingProduct(null);
-              setFormOpen(true);
-            }}
-            style={{
-              backgroundColor: '#8F1216',
-              borderColor: '#8F1216',
-              borderRadius: 999,
-              height: 42,
-              padding: '0 24px',
-              fontWeight: 700,
-              fontFamily: 'Quicksand, sans-serif',
-            }}
-          > {t("business:catalog.addANewDish")} </Button>
-        </Space>
-      </div>
-
-      {/* View Mode Switcher */}
-      <Segmented
-        value={viewMode}
-        onChange={(val) => setViewMode(val as 'products' | 'combos')}
-        options={[
-          {
-            label: (
-              <span style={{ fontWeight: 700, padding: '4px 8px' }}>
-                {t("business:catalog.individualDishes")} ({products.length})
-              </span>
-            ),
-            value: 'products',
-          },
-          {
-            label: (
-              <span style={{ fontWeight: 700, padding: '4px 8px' }}>
-                {t("business:catalog.promotionalCombos")} ({combos.length})
-              </span>
-            ),
-            value: 'combos',
-          },
-        ]}
-        style={{
-          marginBottom: 20,
-          background: '#FFFAF3',
-          border: '1px solid #E8E2D9',
-          padding: 4,
-          borderRadius: 14,
-          fontFamily: 'Quicksand, sans-serif',
-        }}
-      />
-
-      {/* Admin Table for Products or Combos */}
-      {viewMode === 'products' ? (
-        <AdminTable<Product>
-          columns={columns}
-          dataSource={filteredProducts}
-          rowKey="id"
-          searchPlaceholder={t("business:catalog.searchDishNamesSlugsCategories")}
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          filterNodes={
-            <Segmented
-              value={categoryFilter}
-              onChange={(val) => setCategoryFilter(val as string)}
-              options={[
-                {
-                  label: (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: categoryFilter === 'ALL' ? '#8F1216' : '#5C554E',
-                        fontWeight: categoryFilter === 'ALL' ? 700 : 500,
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <CategoryIcon id={0} size={15} active={categoryFilter === 'ALL'} activeTheme="on-light" /> {t("business:catalog.all")} </span>
-                  ),
-                  value: 'ALL',
-                },
-                {
-                  label: (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: categoryFilter === '1' ? '#8F1216' : '#5C554E',
-                        fontWeight: categoryFilter === '1' ? 700 : 500,
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <CategoryIcon id={1} size={15} active={categoryFilter === '1'} activeTheme="on-light" /> {t("business:catalog.friedChicken")} </span>
-                  ),
-                  value: '1',
-                },
-                {
-                  label: (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: categoryFilter === '2' ? '#8F1216' : '#5C554E',
-                        fontWeight: categoryFilter === '2' ? 700 : 500,
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <CategoryIcon id={2} size={15} active={categoryFilter === '2'} activeTheme="on-light" /> Burger
-                    </span>
-                  ),
-                  value: '2',
-                },
-                {
-                  label: (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: categoryFilter === '4' ? '#8F1216' : '#5C554E',
-                        fontWeight: categoryFilter === '4' ? 700 : 500,
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <CategoryIcon id={4} size={15} active={categoryFilter === '4'} activeTheme="on-light" /> {t("business:catalog.sides")} </span>
-                  ),
-                  value: '4',
-                },
-                {
-                  label: (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        color: categoryFilter === '5' ? '#8F1216' : '#5C554E',
-                        fontWeight: categoryFilter === '5' ? 700 : 500,
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <CategoryIcon id={5} size={15} active={categoryFilter === '5'} activeTheme="on-light" /> {t("business:catalog.drinks")} </span>
-                  ),
-                  value: '5',
-                },
-              ]}
-              style={{
-                background: '#F5EDE0',
-                padding: 3,
-                borderRadius: 999,
-                fontFamily: 'Quicksand, sans-serif',
-                fontWeight: 600,
-              }}
-            />
-          }
-          emptyTitle={t("business:catalog.noDishesInThisCategory")}
-          emptyDescription={t("business:catalog.tryAnotherCategoryOrADifferentSearchTerm")}
-        />
-      ) : (
-        <AdminTable<Combo>
-          columns={comboColumns}
-          dataSource={filteredCombos}
-          rowKey="id"
-          searchPlaceholder={t("business:catalog.searchPromotionalComboNames")}
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          emptyTitle={t("business:catalog.noCombosFound")}
-          emptyDescription={t("business:catalog.tryAnotherSearchTermOrCreateAComboUsingTheButtonAbove")}
-        />
-      )}
-
-      {/* Product Form Drawer */}
-      <ProductForm
-        open={formOpen}
-        onClose={() => {
-          setFormOpen(false);
-          setEditingProduct(null);
-          setPendingProductUpload(null);
-          setPendingComboUpload(null);
-        }}
-        initialProduct={editingProduct}
-        products={products}
-        categories={categories}
-        onSaveProduct={handleSaveProduct}
-        onSaveCombo={handleSaveCombo}
-      />
-
-      {/* Confirm Delete Modal */}
-      <ConfirmModal
-        open={deleteModalOpen}
-        title={t("business:catalog.removeThisDishFromTheMenu")}
-        content={
-          <span> {t("business:catalog.areYouSureYouWantToDelete")}{' '}
-            <strong>"{productToDelete?.name}"</strong>{t("business:catalog.thisWillRemoveTheDishFromTheCustomerAppAndStoreCatalog")} </span>
-        }
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => {
-          setDeleteModalOpen(false);
-          setProductToDelete(null);
-        }}
-        confirmText={t("business:catalog.deletePermanently")}
-        danger
-      />
+  const actions = (kind: 'products' | 'combos' | 'categories', row: AdminProduct | AdminCombo | AdminCategory, edit: () => void) => <Space size={4}>
+    <Button type="text" icon={<EditOutlined />} disabled={busy || loading} onClick={edit} aria-label={`${text('edit', 'Sửa')} ${row.name}`}>{text('edit', 'Sửa')}</Button>
+    <Tooltip title={text('delete', 'Xóa')}><Button type="text" danger icon={<DeleteOutlined />} disabled={busy || loading} onClick={() => remove(kind, row)} aria-label={`${text('delete', 'Xóa')} ${row.name}`} /></Tooltip>
+  </Space>;
+  const identity = (row: AdminProduct | AdminCombo, edit: () => void) => <div className="catalog-item">
+    <div className="catalog-thumb"><CatalogImage url={row.imageUrl} name={row.name} /></div>
+    <div className="catalog-item-copy"><button type="button" className="catalog-item-name" disabled={busy || loading} onClick={edit}>{row.name}</button>
+      <p className="catalog-item-description">{row.description}</p><span className="catalog-item-meta">#{row.id}{'basePrice' in row && row.options?.length ? ` · ${row.options.length} nhóm tùy chọn` : ''}</span>
     </div>
-  );
+  </div>;
+  const saleStatus = (kind: 'products' | 'combos', row: AdminProduct | AdminCombo) => <div className={`catalog-status ${row.isActive ? 'is-active' : ''}`}>
+    <Switch size="small" checked={row.isActive} disabled={busy || loading} aria-label={`Cho phép bán ${row.name}`} onChange={active => void toggle(kind, row, active)} />
+    <span>{row.isActive ? 'Bật bán' : 'Ngừng bán'}</span>
+  </div>;
+  const productColumns: TableColumnsType<AdminProduct> = [
+    { title: text('dish', 'Món ăn'), key: 'name', width: 380, sorter: (first, second) => first.name.localeCompare(second.name, 'vi'), render: (_, row) => identity(row, () => openProduct(row)) },
+    { title: text('category', 'Danh mục'), dataIndex: 'categoryName', width: 170, render: name => <span className="catalog-category-tag">{name || 'Chưa phân loại'}</span> },
+    { title: text('price', 'Giá bán'), dataIndex: 'basePrice', width: 150, sorter: (first, second) => first.basePrice - second.basePrice, render: value => <span className="catalog-price">{money(value)}</span> },
+    { title: 'Cho phép bán', key: 'status', width: 150, render: (_, row) => saleStatus('products', row) },
+    { title: text('actions', 'Thao tác'), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('products', row, () => openProduct(row)) },
+  ];
+  const comboColumns: TableColumnsType<AdminCombo> = [
+    { title: 'Combo', key: 'name', width: 350, sorter: (first, second) => first.name.localeCompare(second.name, 'vi'), render: (_, row) => identity(row, () => openCombo(row)) },
+    { title: text('items', 'Thành phần'), key: 'items', width: 240, render: (_, row) => <div className="catalog-items-summary">{row.items.slice(0, 3).map((item, index) => <Tag key={item.id ?? index}>{item.quantity} × {item.productName}</Tag>)}{row.items.length > 3 && <Tag>+{row.items.length - 3} món</Tag>}</div> },
+    { title: 'Giá combo', dataIndex: 'comboPrice', width: 145, sorter: (first, second) => first.comboPrice - second.comboPrice, render: value => <span className="catalog-price">{money(value)}</span> },
+    { title: 'Thời gian áp dụng', key: 'schedule', width: 165, render: (_, row) => <div className="catalog-hint">{!row.startAt && !row.endAt ? 'Không giới hạn' : <>{row.startAt && <div>Từ {date(row.startAt, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}{row.endAt && <div>Đến {date(row.endAt, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>}</>}</div> },
+    { title: 'Cho phép bán', key: 'status', width: 145, render: (_, row) => saleStatus('combos', row) },
+    { title: text('actions', 'Thao tác'), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('combos', row, () => openCombo(row)) },
+  ];
+  const categoryColumns: TableColumnsType<AdminCategory> = [
+    { title: 'Danh mục', dataIndex: 'name', width: 300, render: (_, row) => <div><button type="button" className="catalog-item-name" disabled={busy || loading} onClick={() => openCategory(row)}>{row.name}</button><span className="catalog-item-meta">#{row.id}</span></div> },
+    { title: 'Món trong danh mục', key: 'products', width: 180, render: (_, row) => <span>{catalog.products.filter(item => item.categoryId === row.id).length} món</span> },
+    { title: 'Thứ tự hiển thị', dataIndex: 'sortOrder', width: 160, sorter: (first, second) => first.sortOrder - second.sortOrder },
+    { title: 'Trạng thái', dataIndex: 'isActive', width: 160, render: value => <Tag color={value ? 'green' : 'default'}>{value ? 'Đang hoạt động' : 'Ngừng hoạt động'}</Tag> },
+    { title: text('actions', 'Thao tác'), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('categories', row, () => openCategory(row)) },
+  ];
+  const matchesStatus = (row: { isActive: boolean }) => status === 'ALL' || row.isActive === (status === 'ACTIVE');
+  const products = catalog.products.filter(row => matchesStatus(row) && (!categoryId || row.categoryId === categoryId) && matchesCatalogSearch([row.name, row.categoryName], search));
+  const combos = catalog.combos.filter(row => matchesStatus(row) && matchesCatalogSearch([row.name, ...row.items.map(item => item.productName)], search));
+  const categories = catalog.categories.filter(row => matchesStatus(row) && matchesCatalogSearch([row.name], search));
+  const total = tab === 'products' ? products.length : tab === 'combos' ? combos.length : categories.length;
+  const filtered = Boolean(search || status !== 'ALL' || (tab === 'products' && categoryId));
+  const resetFilters = () => { setSearch(''); setStatus('ALL'); setCategoryId(undefined); setPage(1); };
+  const empty = { emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? 'Không tìm thấy kết quả phù hợp. Thử thay đổi bộ lọc.' : 'Chưa có dữ liệu. Bắt đầu bằng nút thêm mới ở phía trên.'} /> };
+  const pagination = { current: Math.min(page, Math.max(1, Math.ceil(total / pageSize))), pageSize, total, showSizeChanger: true, pageSizeOptions: [10, 20, 50], hideOnSinglePage: false,
+    onChange: (next: number, size: number) => { setPage(size === pageSize ? next : 1); setPageSize(size); } };
+  const panel = <>
+    <div className="catalog-toolbar">
+      <Input className="catalog-search" size="large" prefix={<SearchOutlined />} allowClear aria-label="Tìm kiếm thực đơn" placeholder={tab === 'combos' ? 'Tìm combo hoặc món trong combo…' : tab === 'categories' ? 'Tìm danh mục…' : 'Tìm tên món hoặc danh mục…'} value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} />
+      {tab === 'products' && <Select className="catalog-filter" size="large" allowClear placeholder="Tất cả danh mục" aria-label="Lọc danh mục" value={categoryId} onChange={value => { setCategoryId(value); setPage(1); }} options={catalog.categories.map(row => ({ value: row.id, label: row.name }))} />}
+      <Select className="catalog-filter" size="large" aria-label="Lọc trạng thái" value={status} onChange={value => { setStatus(value); setPage(1); }} options={[{ value: 'ALL', label: 'Tất cả trạng thái' }, { value: 'ACTIVE', label: tab === 'categories' ? 'Đang hoạt động' : 'Cho phép bán' }, { value: 'INACTIVE', label: tab === 'categories' ? 'Ngừng hoạt động' : 'Ngừng bán' }]} />
+    </div>
+    <div className="catalog-table-caption"><span>{loading ? 'Đang tải thực đơn…' : `${total} ${tab === 'products' ? 'món ăn' : tab === 'combos' ? 'combo' : 'danh mục'}`}{!loading && filtered ? ' phù hợp' : ''}</span>{filtered ? <Button type="link" size="small" onClick={resetFilters}>Xóa bộ lọc</Button> : <span>Quản lý toàn hệ thống</span>}</div>
+    {tab === 'products' ? <Table<AdminProduct> className="catalog-table" rowKey="id" loading={loading} columns={productColumns} dataSource={products} pagination={pagination} locale={empty} scroll={{ x: 980 }} />
+      : tab === 'combos' ? <Table<AdminCombo> className="catalog-table" rowKey="id" loading={loading} columns={comboColumns} dataSource={combos} pagination={pagination} locale={empty} scroll={{ x: 1210 }}
+        expandable={{ rowExpandable: row => row.items.length > 0, expandedRowRender: row => <div className="catalog-expand">{row.items.map((item, index) => {
+          const dish = catalog.products.find(candidate => candidate.id === item.productId);
+          const choice = dish?.options?.flatMap(group => group.choices).find(option => Number(option.id.replace(/^opt-/, '')) === item.optionId);
+          return <div key={item.id ?? index} className="catalog-expand-item"><div className="catalog-thumb"><CatalogImage url={dish?.imageUrl} name={item.productName} /></div><div><strong>{item.quantity} × {item.productName}</strong><p>{choice?.name ?? (item.optionId ? `Tùy chọn #${item.optionId}` : 'Không cố định tùy chọn')}</p></div></div>;
+        })}</div> }} />
+        : <Table<AdminCategory> className="catalog-table" rowKey="id" loading={loading} columns={categoryColumns} dataSource={categories} pagination={pagination} locale={empty} scroll={{ x: 850 }} />}
+  </>;
+  if (!isAdmin) return <Result status="403" title="403" subTitle={text('adminOnly', 'Chỉ Quản trị viên được quản lý danh mục.')} />;
+
+  return <section className="catalog-page" aria-busy={loading || busy}>
+    <div className="catalog-page-header"><div><span className="catalog-eyebrow">QUẢN TRỊ THỰC ĐƠN</span><h2>{text('title', 'Thực đơn & combo')}</h2><p>Chăm chút từng món ăn, quản lý giá bán và cách món xuất hiện trên thực đơn.</p></div>
+      <Button type="primary" icon={<PlusOutlined />} disabled={busy || loading} onClick={() => tab === 'products' ? openProduct(null) : tab === 'combos' ? openCombo(null) : openCategory(null)}>{tab === 'products' ? 'Thêm món ăn' : tab === 'combos' ? 'Tạo combo' : 'Thêm danh mục'}</Button>
+    </div>
+    {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => void refetch()} disabled={loading}>{text('retry', 'Thử lại')}</Button>} />}
+    <div className="catalog-panel"><Tabs activeKey={tab} onChange={value => { setTab(value); resetFilters(); }} items={[
+      { key: 'products', label: <span className="catalog-tab-label"><ShopOutlined />{text('products', 'Món ăn')}<span className="catalog-count">{catalog.products.length}</span></span>, children: tab === 'products' ? panel : null },
+      { key: 'combos', label: <span className="catalog-tab-label"><AppstoreOutlined />{text('combos', 'Combo')}<span className="catalog-count">{catalog.combos.length}</span></span>, children: tab === 'combos' ? panel : null },
+      { key: 'categories', label: <span className="catalog-tab-label"><TagsOutlined />{text('categories', 'Danh mục')}<span className="catalog-count">{catalog.categories.length}</span></span>, children: tab === 'categories' ? panel : null },
+    ]} /></div>
+    <ProductForm open={productOpen} initialProduct={product} onClose={() => { if (!lock.current) setProductOpen(false); }} categories={catalog.categories} onSaveProduct={saveProduct} />
+    <ComboForm open={comboOpen} combo={combo} products={catalog.products} onClose={() => { if (!lock.current) setComboOpen(false); }} onSave={saveCombo} />
+    <Modal className="catalog-modal" centered width={520} maskClosable={false} closable={!busy} keyboard={!busy} cancelButtonProps={{ disabled: busy }}
+      title={<div className="catalog-modal-heading"><span className="catalog-eyebrow">PHÂN LOẠI THỰC ĐƠN</span><h3>{category ? text('editCategory', 'Sửa danh mục') : text('createCategory', 'Thêm danh mục')}</h3><p>Nhóm các món ăn để khách dễ tìm và lựa chọn.</p></div>} open={categoryOpen} confirmLoading={busy}
+      onCancel={() => { if (!busy) setCategoryOpen(false); }} okText={text('save', 'Lưu')} cancelText={text('cancel', 'Hủy')} onOk={async () => {
+        try {
+          const values = await categoryForm.validateFields();
+          await mutate(async () => { await administration.saveCategory(values, category); });
+          setCategoryOpen(false);
+        } catch (failure) { if (!(failure && typeof failure === 'object' && 'errorFields' in failure)) setCategoryError(getErrorMessage(failure)); }
+      }}>
+      {categoryError && <Alert type="error" showIcon message={categoryError} />}
+      <Form name="catalog-category" form={categoryForm} layout="vertical" disabled={busy}>
+        <Form.Item name="name" label={text('name', 'Tên')} rules={[{ required: true, whitespace: true }, { max: 120 }]}><Input maxLength={120} /></Form.Item>
+        <Form.Item name="sortOrder" label="Thứ tự hiển thị" extra="Số nhỏ hơn được hiển thị trước." rules={[{ required: true }, { type: 'integer', min: 0 }]}><InputNumber min={0} precision={0} /></Form.Item>
+        <div className="catalog-publication"><div><strong>Danh mục hoạt động</strong><p>Cho phép hiển thị danh mục trên thực đơn.</p></div><Form.Item name="isActive" valuePropName="checked"><Switch aria-label="Danh mục hoạt động" /></Form.Item></div>
+      </Form>
+    </Modal>
+    <Modal className="catalog-modal" centered width={480} maskClosable={false} closable={!busy} keyboard={!busy} cancelButtonProps={{ disabled: busy }} open={Boolean(deletion)} title={text('confirmDelete', 'Xác nhận xóa')} confirmLoading={busy} okButtonProps={{ danger: true }} okText={text('delete', 'Xóa')} cancelText={text('cancel', 'Hủy')}
+      onCancel={() => { if (!busy) setDeletion(null); }} onOk={async () => {
+        if (!deletion) return;
+        try { await mutate(async () => { await administration.remove(deletion.kind, deletion.row); }); setDeletion(null); }
+        catch (failure) { setDeleteError(getErrorMessage(failure)); }
+      }}>
+      {deletion && <div className="catalog-delete-summary">{deletion.kind !== 'categories' && <div className="catalog-thumb"><CatalogImage url={deletion.row.imageUrl} name={deletion.row.name} preview={false} /></div>}<div><strong>{deletion.row.name}</strong><p className="catalog-hint">#{deletion.row.id}</p></div></div>}
+      <p>{text('references', 'Không thể xóa dữ liệu đang được tham chiếu. Có thể ngừng bán thay vì xóa.')}</p>
+      {deleteError && <Alert type="error" showIcon message={deleteError} />}
+    </Modal>
+  </section>;
 };
 
 export default CatalogPage;

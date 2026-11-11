@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from prepare import prepare, validate_environment
 
@@ -42,6 +43,84 @@ class BackendEnvironmentTest(unittest.TestCase):
         if os.name == "posix":
             self.assertEqual(target.stat().st_mode & 0o777, 0o600)
 
+    def test_missing_frontend_urls_are_derived_from_vps_host_and_written_to_runtime(self):
+        settings = {key: value for key, value in self.values.items() if not key.startswith("FRONTEND_")}
+        with patch.dict(os.environ, {"VPS_HOST": "192.0.2.10"}):
+            values = validate_environment(json.dumps(settings))
+            self.assertEqual(values["FRONTEND_CUSTOMER_URL"], "http://192.0.2.10")
+            self.assertEqual(values["FRONTEND_ADMIN_URL"], "http://192.0.2.10:8081")
+            self.assertEqual(values["AUTH_COOKIE_SECURE"], "false")
+            prepare(self.root, self.release, json.dumps(settings))
+        content = (self.root / "backend/incoming" / self.release / "runtime.env").read_text()
+        self.assertIn("FRONTEND_CUSTOMER_URL='http://192.0.2.10'", content)
+        self.assertIn("FRONTEND_ADMIN_URL='http://192.0.2.10:8081'", content)
+
+    def test_explicit_domains_override_host_and_empty_origin_uses_default(self):
+        with patch.dict(os.environ, {"VPS_HOST": "new-vps.test"}):
+            values = validate_environment(json.dumps(self.values))
+            self.assertEqual(values["FRONTEND_CUSTOMER_URL"], "https://customer.test")
+            self.assertEqual(values["FRONTEND_ADMIN_URL"], "https://admin.test")
+            self.assertEqual(values["AUTH_COOKIE_SECURE"], "true")
+            values = validate_environment(json.dumps({**self.values, "FRONTEND_ADMIN_URL": ""}))
+            self.assertEqual(values["FRONTEND_CUSTOMER_URL"], "https://customer.test")
+            self.assertEqual(values["FRONTEND_ADMIN_URL"], "http://new-vps.test:8081")
+            self.assertEqual(values["AUTH_COOKIE_SECURE"], "false")
+
+    def test_url_defaults_reject_missing_host_and_host_injection(self):
+        settings = {key: value for key, value in self.values.items() if not key.startswith("FRONTEND_")}
+        for host in ("", "https://vps.test", "vps.test:8686", "vps.test/path", "user@vps.test", "vps.test\nINJECTED=true", "vps.test'", " vps.test"):
+            with self.subTest(host=host), patch.dict(os.environ, {"VPS_HOST": host}):
+                with self.assertRaisesRegex(ValueError, "VPS_HOST"):
+                    validate_environment(json.dumps(settings))
+
+    def test_preflight_uses_vps_host_without_exposing_it(self):
+        settings = {key: value for key, value in self.values.items() if not key.startswith("FRONTEND_")}
+        command = [sys.executable, str(Path(__file__).with_name("prepare.py")), "--validate"]
+        result = subprocess.run(command, input=json.dumps(settings), text=True, capture_output=True,
+                                env={**os.environ, "VPS_HOST": "192.0.2.10"}, cwd=self.root)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("192.0.2.10", result.stdout + result.stderr)
+        self.assertFalse((self.root / "backend").exists())
+
+    def test_mapbox_geocoding_token_is_written_to_backend_environment(self):
+        for token in ("pk.test-geocoding", "sk.test-geocoding"):
+            with self.subTest(token_type=token[:3]):
+                prepare(self.root, self.release, json.dumps({**self.values, "MAPBOX_GEOCODING_TOKEN": token}))
+                content = (self.root / "backend/incoming" / self.release / "runtime.env").read_text()
+                self.assertIn(f"MAPBOX_GEOCODING_TOKEN='{token}'", content)
+
+    def test_mapbox_geocoding_token_rejects_invalid_values(self):
+        for token in ("not-a-mapbox-token", "pk.", " pk.test", "pk.test ", "sk.test token"):
+            with self.subTest(token=token):
+                with self.assertRaisesRegex(ValueError, "MAPBOX_GEOCODING_TOKEN"):
+                    validate_environment(json.dumps({**self.values, "MAPBOX_GEOCODING_TOKEN": token}))
+
+    def test_shared_secret_keeps_frontend_mapbox_tokens_out_of_backend_runtime(self):
+        settings = {**self.values, "MAPBOX_GEOCODING_TOKEN": "sk.server-mapbox",
+                    "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "pk.customer-mapbox", "VITE_MAPBOX_ACCESS_TOKEN": "pk.admin-mapbox"}
+        values = validate_environment(json.dumps(settings))
+        self.assertEqual(values["NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN"], "pk.customer-mapbox")
+        self.assertEqual(values["VITE_MAPBOX_ACCESS_TOKEN"], "pk.admin-mapbox")
+        prepare(self.root, self.release, json.dumps(settings))
+        content = (self.root / "backend/incoming" / self.release / "runtime.env").read_text()
+        self.assertIn("MAPBOX_GEOCODING_TOKEN='sk.server-mapbox'", content)
+        for name in ("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN"):
+            self.assertNotIn(name, content)
+            self.assertNotIn(settings[name], content)
+
+    def test_frontend_mapbox_tokens_cannot_contain_secrets_or_whitespace(self):
+        for name in ("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN"):
+            for token in ("sk.private-value", "pk.", " pk.test", "pk.test ", "pk.test token"):
+                with self.subTest(name=name, token=token):
+                    with self.assertRaisesRegex(ValueError, name):
+                        validate_environment(json.dumps({**self.values, name: token}))
+
+    def test_retired_service_tokens_are_not_accepted_as_deployment_configuration(self):
+        for name in ("CATALOG_SERVICE_TOKEN", "PROMOTION_SERVICE_TOKEN", "LOYALTY_INTERNAL_TOKEN"):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValueError, "unsupported keys"):
+                    validate_environment(json.dumps({**self.values, name: "unused-credential"}))
+
     def test_invalid_values_do_not_replace_existing_environment(self):
         prepare(self.root, self.release, json.dumps(self.values))
         target = self.root / "backend/incoming" / self.release / "runtime.env"
@@ -63,6 +142,9 @@ class BackendEnvironmentTest(unittest.TestCase):
             ({"private-key": "private-value"}, "unsupported keys"),
             ({"FRONTEND_CUSTOMER_URL": "https://[private-value"}, "FRONTEND_CUSTOMER_URL"),
             ({"MAIL_SENDER_ENABLED": "true"}, "MAIL_SENDER_USERNAME"),
+            ({"MAPBOX_GEOCODING_TOKEN": "private-value"}, "MAPBOX_GEOCODING_TOKEN"),
+            ({"NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "sk.private-value"}, "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN"),
+            ({"VITE_MAPBOX_ACCESS_TOKEN": "sk.private-value"}, "VITE_MAPBOX_ACCESS_TOKEN"),
         )
         for change, expected in cases:
             result = subprocess.run(command, input=json.dumps({**self.values, **change}), text=True,

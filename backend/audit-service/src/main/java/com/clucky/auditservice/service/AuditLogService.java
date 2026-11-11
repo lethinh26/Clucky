@@ -13,6 +13,9 @@ import com.clucky.auditservice.repository.AuditLogRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuditLogService {
+    public static final int MAX_EXPORT_ROWS = 10_000;
     private final AuditLogRepository repository;
     private final AuditMapper mapper;
 
@@ -33,11 +37,46 @@ public class AuditLogService {
     @Transactional(readOnly = true)
     public PageResponse<AuditLogResponse> search(AuditLogQuery query) {
         CurrentActor actor = CurrentActor.require();
+        Specification<AuditLog> specification = specification(actor, query);
+        PageRequest page = PageRequest.of(query.page() == null ? 0 : query.page(), query.size() == null ? 20 : query.size(),
+                Sort.by(Sort.Direction.DESC, "occurredAt", "id"));
+        return PageResponse.from(repository.findAll(specification, page).map(mapper::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] export(AuditLogQuery query) {
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() != Role.ADMIN) { throw new AccessDeniedException("Access denied"); }
+        var entries = repository.findAll(specification(actor, query),
+                PageRequest.of(0, MAX_EXPORT_ROWS + 1, Sort.by(Sort.Direction.DESC, "occurredAt", "id")));
+        if (entries.getTotalElements() > MAX_EXPORT_ROWS) { throw new ApiException(ErrorCode.REQUEST_TOO_LARGE); }
+        StringBuilder csv = new StringBuilder("\uFEFFeventId,correlationId,sourceService,actorId,actorRole,storeId,action,targetType,targetId,occurredAt\r\n");
+        for (AuditLog entry : entries) {
+            csv.append(Stream.of(entry.getEventId(), entry.getCorrelationId(), entry.getSourceService(),
+                    entry.getActorId(), entry.getActorRole(), entry.getStoreId(), entry.getAction(),
+                    entry.getTargetType(), entry.getTargetId(), entry.getOccurredAt())
+                    .map(AuditLogService::csvCell).collect(Collectors.joining(","))).append("\r\n");
+        }
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String csvCell(Object value) {
+        String text = value == null ? "" : value.toString();
+        if (text.stripLeading().matches("^[=+@-].*") || text.startsWith("\t") || text.startsWith("\r")) {
+            text = "'" + text;
+        }
+        return "\"" + text.replace("\"", "\"\"") + "\"";
+    }
+
+    private Specification<AuditLog> specification(CurrentActor actor, AuditLogQuery query) {
         Long store = effectiveStore(actor, query);
         if (query.from() != null && query.to() != null && query.from().isAfter(query.to())) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
-        Specification<AuditLog> specification = (entry, criteria, builder) -> {
+        if (query.sourceService() != null && !AccountAuditConsumer.ALLOWED_SOURCES.contains(query.sourceService())) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        return (entry, criteria, builder) -> {
             List<Predicate> filters = new ArrayList<>();
             if (store != null) { filters.add(builder.equal(entry.get("storeId"), store)); }
             String role = actor.role() == Role.STORE_MANAGER ? Role.STAFF.name() : query.actorRole();
@@ -51,9 +90,6 @@ public class AuditLogService {
             if (query.to() != null) { filters.add(builder.lessThanOrEqualTo(entry.get("occurredAt"), query.to())); }
             return builder.and(filters.toArray(Predicate[]::new));
         };
-        PageRequest page = PageRequest.of(query.page() == null ? 0 : query.page(), query.size() == null ? 20 : query.size(),
-                Sort.by(Sort.Direction.DESC, "occurredAt", "id"));
-        return PageResponse.from(repository.findAll(specification, page).map(mapper::toResponse));
     }
 
     public static Long effectiveStore(CurrentActor actor, AuditLogQuery query) {

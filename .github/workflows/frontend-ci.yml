@@ -137,6 +137,7 @@ jobs:
       - name: Validate backend secret without logging values
         env:
           BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
+          VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
         shell: bash
         run: printf '%s' "$BACKEND_ENV_JSON" | python3 deploy/backend/prepare.py --validate
 
@@ -167,9 +168,32 @@ jobs:
         id: release
         run: echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Load public Mapbox tokens from backend configuration
+        env:
+          BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
+          VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import sys
+          sys.path.insert(0, "deploy/backend")
+          from prepare import validate_environment
+          values = validate_environment(os.environ["BACKEND_ENV_JSON"])
+          names = ("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN")
+          if not all(values.get(name) for name in names):
+              sys.exit("Set NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN and VITE_MAPBOX_ACCESS_TOKEN in BACKEND_ENV_JSON.")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:
+              for name in names:
+                  token = values[name]
+                  print(f"::add-mask::{token}")
+                  environment.write(f"{name}={token}\n")
+          PY
+
       - name: Require public Firebase configuration
         shell: bash
         run: |
+          set -euo pipefail
           [[ -n "$FIREBASE_API_KEY" && -n "$FIREBASE_AUTH_DOMAIN" && -n "$FIREBASE_PROJECT_ID" ]] || { echo 'Set the three NEXT_PUBLIC_FIREBASE_* repository Variables before deploying.' >&2; exit 1; }
 
       - name: Build production images on GitHub runner
@@ -185,9 +209,11 @@ jobs:
               args+=(--build-arg "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN")
               args+=(--build-arg "NEXT_PUBLIC_FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID")
               args+=(--build-arg "NEXT_PUBLIC_M3_DEMO_ENABLED=$CUSTOMER_DEMO_ENABLED")
+              args+=(--build-arg "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=$NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN")
             else
               image=admin
               args+=(--build-arg "VITE_API_URL=$PUBLIC_API_URL")
+              args+=(--build-arg "VITE_MAPBOX_ACCESS_TOKEN=$VITE_MAPBOX_ACCESS_TOKEN")
             fi
             docker build --pull "${args[@]}" \
               --label "org.opencontainers.image.revision=$GITHUB_SHA" \
@@ -368,7 +394,7 @@ jobs:
           ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "set -e; umask 077; mkdir -p '$incoming' '$backend_incoming'; command -v python3 >/dev/null; command -v flock >/dev/null; docker compose version >/dev/null"
           scp -r -P "$DEPLOY_PORT" "${options[@]}" backend-bundle/. "$target:$backend_incoming/"
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "python3 '$backend_incoming/install-firebase.py' '$VPS_WORKDIR'"
-          printf '%s' "$BACKEND_ENV_JSON" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "python3 '$backend_incoming/prepare.py' '$VPS_WORKDIR' '$RELEASE_ID'"
+          printf '%s' "$BACKEND_ENV_JSON" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "VPS_HOST='$DEPLOY_HOST' python3 '$backend_incoming/prepare.py' '$VPS_WORKDIR' '$RELEASE_ID'"
           ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "VPS_WORKDIR='$VPS_WORKDIR' bash '$backend_incoming/deploy.sh' apply '$RELEASE_ID'"
           scp -P "$DEPLOY_PORT" "${options[@]}" \
             bundle/customer.tar.gz bundle/admin.tar.gz bundle/compose.yml \

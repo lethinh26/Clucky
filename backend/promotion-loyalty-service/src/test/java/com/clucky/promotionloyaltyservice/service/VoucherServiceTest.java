@@ -35,6 +35,12 @@ class VoucherServiceTest {
     @Mock
     private VoucherRepository voucherRepository;
 
+    @Mock
+    private VoucherAuditOutbox audit;
+
+    @Mock
+    private VoucherStoreVerifier stores;
+
     @InjectMocks
     private VoucherService voucherService;
 

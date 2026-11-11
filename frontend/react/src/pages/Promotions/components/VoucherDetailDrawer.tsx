@@ -138,6 +138,7 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span>Đã dùng: <b>{voucher.usedCount}</b></span>
+              <span>Đang giữ cho đơn hàng: <b>{voucher.reservedCount ?? 0}</b></span>
               <span>Giới hạn: <b>{voucher.totalLimit ?? 'Không giới hạn'}</b></span>
             </div>
             {usagePercent !== null && (

@@ -1,10 +1,13 @@
 package com.clucky.identityservice.controller;
 
 import com.clucky.identityservice.dto.AdminUserResponse;
+import com.clucky.identityservice.dto.AdminCustomerData.*;
 import com.clucky.identityservice.dto.Role;
 import com.clucky.identityservice.service.AdminUserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.util.List;
@@ -48,13 +51,37 @@ public class AdminUserController {
     }
 
     @PutMapping("/{id}/lock")
-    public AdminUserResponse lock(@PathVariable("id") @Positive Long id) {
-        return service.setLocked(id, true);
+    public AdminUserResponse lock(@PathVariable("id") @Positive Long id,
+            @Valid @RequestBody(required = false) StatusChange request) {
+        return service.setLocked(id, true, request);
     }
 
     @PutMapping("/{id}/unlock")
-    public AdminUserResponse unlock(@PathVariable("id") @Positive Long id) {
-        return service.setLocked(id, false);
+    public AdminUserResponse unlock(@PathVariable("id") @Positive Long id,
+            @Valid @RequestBody(required = false) StatusChange request) {
+        return service.setLocked(id, false, request);
+    }
+
+    @GetMapping("/customers")
+    @PreAuthorize("hasRole('ADMIN')")
+    public CustomerPage customers(
+            @RequestParam(value = "keyword", required = false) @Size(max = 255) String keyword,
+            @RequestParam(value = "status", required = false) Status status,
+            @RequestParam(value = "page", defaultValue = "0") @Min(0) int page,
+            @RequestParam(value = "size", defaultValue = "20") @Min(1) @Max(100) int size) {
+        return service.listCustomers(keyword, status, page, size);
+    }
+
+    @PutMapping("/customers/{id}/lock")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Customer lockCustomer(@PathVariable("id") @Positive Long id, @Valid @RequestBody StatusChange request) {
+        return service.setCustomerLocked(id, true, request);
+    }
+
+    @PutMapping("/customers/{id}/unlock")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Customer unlockCustomer(@PathVariable("id") @Positive Long id, @Valid @RequestBody StatusChange request) {
+        return service.setCustomerLocked(id, false, request);
     }
 
     public record AssignStoreRequest(@NotNull @Positive Long storeId) {}

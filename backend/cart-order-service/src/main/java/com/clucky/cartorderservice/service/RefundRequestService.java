@@ -3,627 +3,399 @@ package com.clucky.cartorderservice.service;
 import com.clucky.cartorderservice.config.AccessGuard;
 import com.clucky.cartorderservice.config.CurrentActor;
 import com.clucky.cartorderservice.dto.*;
-import com.clucky.cartorderservice.entity.Order;
-import com.clucky.cartorderservice.entity.OrderStatusHistory;
-import com.clucky.cartorderservice.entity.RefundAttempt;
-import com.clucky.cartorderservice.entity.RefundRequest;
+import com.clucky.cartorderservice.entity.*;
 import com.clucky.cartorderservice.exception.ApiException;
 import com.clucky.cartorderservice.exception.ErrorCode;
 import com.clucky.cartorderservice.mapper.DomainMapper;
 import com.clucky.cartorderservice.media.RefundEvidenceService;
-import com.clucky.cartorderservice.repository.OrderRepository;
-import com.clucky.cartorderservice.repository.OrderStatusHistoryRepository;
-import com.clucky.cartorderservice.repository.RefundAttemptRepository;
-import com.clucky.cartorderservice.repository.RefundRequestRepository;
+import com.clucky.cartorderservice.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 
 @Service
 public class RefundRequestService {
-    private static final Logger LOG = LoggerFactory.getLogger(RefundRequestService.class);
+    private final RefundRequestRepository refunds;
+    private final RefundAttemptRepository attempts;
+    private final OrderRepository orders;
+    private final OrderStatusHistoryRepository histories;
+    private final AccessGuard access;
+    private final PaymentClient payments;
+    private final RefundEvidenceService evidence;
+    private final OrderEventPublisher events;
+    private final ObjectMapper mapper;
+    private final CustomerProfileClient profiles;
 
-    private final RefundRequestRepository refundRequestRepository;
-    private final RefundAttemptRepository refundAttemptRepository;
-    private final OrderRepository orderRepository;
-    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
-    private final AccessGuard accessGuard;
-    private final PaymentClient paymentClient;
-    private final RefundEvidenceService refundEvidenceService;
-    private final OrderEventPublisher orderEventPublisher;
-    private final ObjectMapper objectMapper;
-
-    public RefundRequestService(
-            RefundRequestRepository refundRequestRepository,
-            RefundAttemptRepository refundAttemptRepository,
-            OrderRepository orderRepository,
-            OrderStatusHistoryRepository orderStatusHistoryRepository,
-            AccessGuard accessGuard,
-            PaymentClient paymentClient,
-            RefundEvidenceService refundEvidenceService,
-            OrderEventPublisher orderEventPublisher,
-            ObjectMapper objectMapper
-    ) {
-        this.refundRequestRepository = refundRequestRepository;
-        this.refundAttemptRepository = refundAttemptRepository;
-        this.orderRepository = orderRepository;
-        this.orderStatusHistoryRepository = orderStatusHistoryRepository;
-        this.accessGuard = accessGuard;
-        this.paymentClient = paymentClient;
-        this.refundEvidenceService = refundEvidenceService;
-        this.orderEventPublisher = orderEventPublisher;
-        this.objectMapper = objectMapper;
+    public RefundRequestService(RefundRequestRepository refunds, RefundAttemptRepository attempts, OrderRepository orders,
+            OrderStatusHistoryRepository histories, AccessGuard access, PaymentClient payments,
+            RefundEvidenceService evidence, OrderEventPublisher events, ObjectMapper mapper, CustomerProfileClient profiles) {
+        this.refunds = refunds; this.attempts = attempts; this.orders = orders; this.histories = histories;
+        this.access = access; this.payments = payments; this.evidence = evidence; this.events = events; this.mapper = mapper;
+        this.profiles = profiles;
     }
 
+    private CurrentActor role(boolean customerAllowed) {
+        var actor = CurrentActor.require();
+        if (actor.role() != Role.ADMIN && actor.role() != Role.STORE_MANAGER
+                && !(customerAllowed && actor.role() == Role.CUSTOMER)) throw new ApiException(ErrorCode.FORBIDDEN);
+        return actor;
+    }
+
+    private void scope(Order order, boolean customerAllowed) {
+        var actor = role(customerAllowed);
+        if (actor.role() == Role.CUSTOMER) access.requireOwner(order.getCustomerId());
+        else access.requireStore(order.getStoreId());
+    }
+
+    private Order order(RefundRequest refund) {
+        var order = orders.findById(refund.getOrderId()).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (!Objects.equals(refund.getCustomerId(), order.getCustomerId())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        return order;
+    }
+
+    private RefundRequest locked(Long id, boolean customerAllowed) {
+        role(customerAllowed);
+        var refund = refunds.lockById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        scope(order(refund), customerAllowed);
+        return refund;
+    }
+
+    private void state(RefundRequest refund, String... allowed) {
+        if (refund.getPaymentOperation() != null || refund.getConfirmationRequestedAt() != null || !Arrays.asList(allowed).contains(refund.getStatus()))
+            throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+    }
+
+    private RefundRequestResponse response(RefundRequest refund, Order order) {
+        return DomainMapper.toResponse(refund, order, attempts.findByRefundRequestIdOrderByAttemptNumberAsc(refund.getId()));
+    }
+
+    private void audit(RefundRequest refund, Order order, String action) {
+        var actor = CurrentActor.require();
+        events.auditRefund(order, refund, action, actor.userId(), actor.role().name());
+    }
+
+    private OrderStatusHistory cancellation(Order order) {
+        if (!"CANCELLED".equals(order.getStatus()) || !"BANK_TRANSFER".equals(order.getPaymentMethod())
+                || order.getCollectionMethod() != null && !"BANK_TRANSFER".equals(order.getCollectionMethod()))
+            throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
+        var history = histories.findByOrderIdOrderByCreatedAtAsc(order.getId());
+        var prepared = Set.of("PREPARING", "READY", "SHIPPING", "COMPLETED");
+        if (history.stream().anyMatch(entry -> entry.getFromStatus() != null && prepared.contains(entry.getFromStatus())
+                || entry.getToStatus() != null && prepared.contains(entry.getToStatus()))) throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
+        var cancelled = history.stream().filter(entry -> "CANCELLED".equals(entry.getToStatus())).findFirst()
+                .orElseThrow(() -> new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE));
+        if (cancelled.getFromStatus() == null || !List.of("PENDING_PAYMENT", "CONFIRMED").contains(cancelled.getFromStatus())
+                || cancelled.getChangedRole() == null || !Set.of("CUSTOMER", "ADMIN", "STORE_MANAGER", "STAFF").contains(cancelled.getChangedRole()))
+            throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
+        return cancelled;
+    }
+
+    private RefundAttempt processingAttempt(RefundRequest refund) {
+        if (refund.getCurrentAttemptId() == null) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        var attempt = attempts.findByAttemptId(refund.getCurrentAttemptId()).orElseThrow(() -> new ApiException(ErrorCode.INVALID_REFUND_STATE));
+        if (!Objects.equals(attempt.getRefundRequestId(), refund.getId()) || !"PROCESSING".equals(attempt.getStatus())
+                || attempt.getAmount() == null || attempt.getAmount().compareTo(refund.getAmount()) != 0
+                || !Objects.equals(attempt.getAttemptNumber(), refund.getAttemptCount())
+                || !Objects.equals(attempt.getBankName(), refund.getBankName())
+                || !Objects.equals(attempt.getBankAccountNo(), refund.getBankAccountNo())
+                || !Objects.equals(attempt.getBankAccountName(), refund.getBankAccountName())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        try {
+            if (mapper.readTree(refund.getCurrentAttemptBankSnapshot()).path("bankDetailsVersion").asInt(-1) != refund.getBankDetailsVersion())
+                throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        } catch (Exception failure) { throw new ApiException(ErrorCode.INVALID_REFUND_STATE); }
+        return attempt;
+    }
+
+    public record CreatedRefund(RefundRequestResponse refund, boolean created) {}
+
     @Transactional
-    public RefundRequestResponse createRefundRequest(CreateRefundRequest request) {
-        if (request == null || request.orderId() == null || request.reason() == null || request.reason().isBlank()) {
+    public CreatedRefund createRefundRequest(CreateRefundRequest request) {
+        if (CurrentActor.require().role() != Role.CUSTOMER) throw new ApiException(ErrorCode.FORBIDDEN);
+        if (request == null || request.orderId() == null || request.orderId() <= 0 || request.reason() == null || request.reason().isBlank())
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        var order = orders.lockById(request.orderId()).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        scope(order, true);
+        if (!order.isCustomerEmailVerified() && CurrentActor.require().role() == Role.CUSTOMER) {
+            order.setCustomerEmail(profiles.currentCustomerEmail(order.getCustomerId()));
+            order.setCustomerEmailVerified(true);
         }
-
-        Order order = orderRepository.lockById(request.orderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() == Role.STAFF) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-
-        if (order.getCustomerId() != null) {
-            if (actor.role() == Role.CUSTOMER) {
-                accessGuard.requireOwner(order.getCustomerId());
-            } else if (actor.role() == Role.STORE_MANAGER) {
-                accessGuard.requireStore(order.getStoreId());
-            }
-        } else {
-            // Counter order with no customerId: must be STORE_MANAGER of store or ADMIN
-            if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
-                throw new ApiException(ErrorCode.FORBIDDEN);
-            }
-            if (actor.role() == Role.STORE_MANAGER) {
-                accessGuard.requireStore(order.getStoreId());
-            }
-        }
-
-        if (order.getPaymentExpiresAt() != null || order.getCollectionMethod() != null) {
-            throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
-        }
-
-        // Eligibility 1: Method must be pure bank transfer
-        if (!"BANK_TRANSFER".equalsIgnoreCase(order.getPaymentMethod())) {
-            LOG.warn("event=refund_not_eligible reason=not_bank_transfer orderId={} method={}",
-                    order.getId(), order.getPaymentMethod());
+        var cancelled = cancellation(order);
+        var existing = refunds.findAllByOrderId(order.getId()).stream().filter(refund -> !"REJECTED".equals(refund.getStatus())).findFirst();
+        if (existing.isPresent()) return new CreatedRefund(response(existing.get(), order), false);
+        var eligible = payments.getEligibleRefund(order.getId(), order.getTotalAmount());
+        if (eligible == null || !eligible.eligible() || eligible.refundableAmount() == null || order.getTotalAmount().signum() <= 0
+                || eligible.refundableAmount().compareTo(order.getTotalAmount()) < 0)
             throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
-        }
-
-        // Eligibility 2: Must be cancelled
-        if (!"CANCELLED".equalsIgnoreCase(order.getStatus())) {
-            LOG.warn("event=refund_not_eligible reason=order_not_cancelled orderId={} status={}",
-                    order.getId(), order.getStatus());
-            throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
-        }
-
-        // Eligibility 3: Cancellation history snapshot check
-        List<OrderStatusHistory> histories = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
-        Set<String> preparedStatuses = Set.of("PREPARING", "READY", "SHIPPING", "COMPLETED");
-        boolean wasEverPrepared = histories.stream().anyMatch(h ->
-                (h.getToStatus() != null && preparedStatuses.contains(h.getToStatus()))
-                        || (h.getFromStatus() != null && preparedStatuses.contains(h.getFromStatus())));
-        if (wasEverPrepared) {
-            LOG.warn("event=refund_not_eligible reason=was_ever_prepared orderId={}", order.getId());
-            throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
-        }
-
-        Optional<OrderStatusHistory> cancelTransition = histories.stream()
-                .filter(h -> "CANCELLED".equalsIgnoreCase(h.getToStatus()))
-                .findFirst();
-
-        if (cancelTransition.isEmpty()) {
-            throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
-        }
-
-        OrderStatusHistory cancelRecord = cancelTransition.get();
-        Set<String> validCancelFromStatuses = Set.of("PENDING_PAYMENT", "CONFIRMED");
-        if (cancelRecord.getFromStatus() == null || !validCancelFromStatuses.contains(cancelRecord.getFromStatus())) {
-            LOG.warn("event=refund_not_eligible reason=invalid_cancellation_from_status orderId={} fromStatus={}",
-                    order.getId(), cancelRecord.getFromStatus());
-            throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
-        }
-
-        // Expiry cancellation check: do not refund expired sessions
-        if ("SYSTEM_SAGA".equalsIgnoreCase(cancelRecord.getChangedRole())
-                || (cancelRecord.getReason() != null && (cancelRecord.getReason().toLowerCase().contains("expire")
-                || cancelRecord.getReason().toLowerCase().contains("hết hạn")))) {
-            LOG.warn("event=refund_not_eligible reason=expiry_cancellation orderId={}", order.getId());
-            throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
-        }
-
-        // Check active refund requests to prevent duplicates
-        List<RefundRequest> existing = refundRequestRepository.findAllByOrderId(order.getId());
-        Set<String> activeStatuses = Set.of("PENDING", "APPROVED", "PROCESSING", "WAITING_BANK_DETAILS", "REFUNDED");
-        boolean hasActive = existing.stream().anyMatch(r ->
-                r.getStatus() != null && activeStatuses.contains(r.getStatus().toUpperCase()));
-        if (hasActive) {
-            LOG.warn("event=refund_request_conflict orderId={}", order.getId());
-            throw new ApiException(ErrorCode.REFUND_ALREADY_EXISTS);
-        }
-
-        // Query Payment Service for eligible received amount
-        PaymentClient.EligibleRefundResponse paymentCheck = paymentClient.getEligibleRefund(order.getId(), order.getTotalAmount());
-        if (!paymentCheck.eligible() || paymentCheck.refundableAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            LOG.warn("event=refund_not_eligible reason=payment_not_eligible orderId={} refundableAmount={}",
-                    order.getId(), paymentCheck.refundableAmount());
-            throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
-        }
-
-        // Server calculates refundable amount (min of order total and remaining eligible received amount)
-        BigDecimal refundAmount = order.getTotalAmount().min(paymentCheck.refundableAmount());
-
-        RefundRequest refund = new RefundRequest();
-        refund.setOrderId(order.getId());
-        refund.setCustomerId(order.getCustomerId());
-        refund.setAmount(refundAmount);
-        refund.setReason(request.reason().trim());
-        refund.setStatus("PENDING");
-        refund.setCancellationReasonSnapshot(cancelRecord.getReason());
-        refund.setCancellationStatusSnapshot(cancelRecord.getFromStatus());
-        refund.setBankName(request.bankName() != null ? request.bankName().trim() : null);
-        refund.setBankAccountNo(request.bankAccountNo() != null ? request.bankAccountNo().trim() : null);
-        refund.setBankAccountName(request.bankAccountName() != null ? request.bankAccountName().trim() : null);
-        refund.setBankDetailsVersion(1);
-        refund.setAttemptCount(0);
-        refund.setCreatedAt(Instant.now());
-        refund.setUpdatedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_requested refundId={} orderId={} customerId={} amount={}",
-                refund.getId(), order.getId(), order.getCustomerId(), refund.getAmount());
-
-        return DomainMapper.toResponse(refund, order, List.of());
+        var refund = new RefundRequest();
+        refund.setOrderId(order.getId()); refund.setCustomerId(order.getCustomerId());
+        refund.setAmount(order.getTotalAmount()); refund.setReason(request.reason().trim());
+        refund.setStatus("PENDING"); refund.setCancellationReasonSnapshot(cancelled.getReason());
+        refund.setCancellationStatusSnapshot(cancelled.getFromStatus());
+        refund.setBankName(request.bankName() == null ? null : request.bankName().trim());
+        refund.setBankAccountNo(request.bankAccountNo() == null ? null : request.bankAccountNo().trim());
+        refund.setBankAccountName(request.bankAccountName() == null ? null : request.bankAccountName().trim());
+        refund.setBankDetailsVersion(1); refund.setAttemptCount(0); refund.setCreatedAt(Instant.now()); refund.setUpdatedAt(Instant.now());
+        refund = refunds.saveAndFlush(refund);
+        audit(refund, order, "REFUND_REQUESTED");
+        return new CreatedRefund(response(refund, order), true);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<RefundRequestResponse> getRefundRequests(Long requestedStoreId, String status, Long orderId, Pageable pageable) {
-        CurrentActor actor = CurrentActor.require();
-        String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
-
-        Page<RefundRequest> page;
-        if (actor.role() == Role.CUSTOMER) {
-            if (orderId != null) {
-                page = refundRequestRepository.findByCustomerIdAndOrderId(actor.userId(), orderId, pageable);
-            } else {
-                page = refundRequestRepository.findByCustomerId(actor.userId(), pageable);
-            }
-        } else {
-            Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
-            page = refundRequestRepository.findRefundRequests(orderId, effectiveStoreId, cleanStatus, pageable);
-        }
-
-        return PageResponse.from(page.map(r -> {
-            Order order = orderRepository.findById(r.getOrderId()).orElse(null);
-            return DomainMapper.toResponse(r, order, List.of());
-        }));
+    public PageResponse<RefundRequestResponse> getRefundRequests(Long customerId, Long requestedStoreId, String status, Long orderId, Pageable pageable) {
+        var actor = role(true);
+        if (customerId != null && actor.role() != Role.ADMIN) throw new ApiException(ErrorCode.FORBIDDEN);
+        if (customerId != null && customerId <= 0 || requestedStoreId != null && requestedStoreId <= 0 || orderId != null && orderId <= 0)
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        String cleanStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase(Locale.ROOT);
+        if (cleanStatus != null && !Set.of("PENDING","APPROVED","PROCESSING","WAITING_BANK_DETAILS","REJECTED","REFUNDED").contains(cleanStatus))
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        Page<RefundRequest> page = refunds.findRefundRequests(actor.role() == Role.CUSTOMER ? actor.userId() : customerId,
+                orderId, actor.role() == Role.CUSTOMER ? requestedStoreId : access.effectiveStore(requestedStoreId), cleanStatus, pageable);
+        return PageResponse.from(page.map(refund -> DomainMapper.toResponse(refund, order(refund), List.of())));
     }
 
     @Transactional(readOnly = true)
     public RefundRequestResponse getRefundRequestById(Long id) {
-        RefundRequest refund = refundRequestRepository.findById(id)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() == Role.CUSTOMER) {
-            accessGuard.requireOwner(order.getCustomerId());
-        } else if (actor.role() == Role.STORE_MANAGER) {
-            accessGuard.requireStore(order.getStoreId());
-        } else if (actor.role() == Role.STAFF) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-
-        List<RefundAttempt> attempts = refundAttemptRepository.findByRefundRequestIdOrderByAttemptNumberAsc(id);
-        return DomainMapper.toResponse(refund, order, attempts);
+        role(true);
+        var refund = refunds.findById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        var order = order(refund); scope(order, true);
+        return response(refund, order);
     }
 
     @Transactional
-    public RefundRequestResponse approveRefundRequest(Long refundRequestId, ReviewRefundRequest request) {
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
-            LOG.warn("event=refund_approve_forbidden actorRole={} actorId={}", actor.role(), actor.userId());
-            throw new ApiException(ErrorCode.FORBIDDEN);
+    public RefundRequestResponse approveRefundRequest(Long id, ReviewRefundRequest request) {
+        var refund = locked(id, false); var order = order(refund);
+        if ("APPROVED".equals(refund.getStatus()) || "RESERVE".equals(refund.getPaymentOperation())) return response(refund, order);
+        if (refund.getPaymentError() != null) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        state(refund, "PENDING"); cancellation(order);
+        refund.setReviewedBy(CurrentActor.require().userId()); refund.setReviewedAt(Instant.now());
+        refund.setReviewRole(CurrentActor.require().role().name()); enqueue(refund, "RESERVE");
+        refund.setReviewNote(request == null ? null : request.effectiveReason()); refund.setUpdatedAt(Instant.now()); refunds.save(refund);
+        audit(refund, order, "REFUND_APPROVAL_REQUESTED");
+        return response(refund, order);
+    }
+
+    @Transactional
+    public RefundRequestResponse rejectRefundRequest(Long id, ReviewRefundRequest request) {
+        var refund = locked(id, false); var order = order(refund);
+        String reason = request == null ? null : request.effectiveReason();
+        if (reason == null || reason.isBlank()) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        if ("REJECTED".equals(refund.getStatus())) return response(refund, order);
+        if (ErrorCode.REFUND_ALREADY_EXISTS.name().equals(refund.getPaymentError())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        if (!"PENDING".equals(refund.getStatus()) || refund.getConfirmationRequestedAt() != null) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        enqueue(refund, "RELEASE");
+        refund.setStatus("REJECTED"); refund.setReviewNote(reason); refund.setReviewedBy(CurrentActor.require().userId());
+        refund.setReviewedAt(Instant.now()); refund.setUpdatedAt(Instant.now()); refunds.save(refund);
+        events.publishRefundEvent("refund.rejected", refund, order, reason); audit(refund, order, "REFUND_REJECTED");
+        return response(refund, order);
+    }
+
+    @Transactional
+    public RefundRequestResponse claimProcessing(Long id) {
+        var refund = locked(id, false); var order = order(refund);
+        if ("PROCESSING".equals(refund.getStatus())) {
+            if (!Objects.equals(processingAttempt(refund).getCreatedBy(), CurrentActor.require().userId()))
+                throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+            return response(refund, order);
         }
-
-        RefundRequest refund = refundRequestRepository.findById(refundRequestId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (!"PENDING".equalsIgnoreCase(refund.getStatus())) {
-            LOG.warn("event=refund_invalid_state refundId={} status={}", refund.getId(), refund.getStatus());
+        state(refund, "APPROVED"); cancellation(order);
+        var held = payments.reserveRefund(id, order.getId(), order.getOrderCode(), refund.getAmount());
+        if (held == null || !"HELD".equals(held.status()) || !Objects.equals(held.refundRequestId(), id)
+                || !Objects.equals(held.orderId(), order.getId()) || held.amount() == null || held.amount().compareTo(refund.getAmount()) != 0)
             throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
-        }
-
-        Order order = orderRepository.lockById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (actor.role() == Role.STORE_MANAGER) {
-            accessGuard.requireStore(order.getStoreId());
-        }
-
-        if (order.getPaymentExpiresAt() != null) throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
-        // Atomically reserve funds in Payment Service to prevent over-refunding
-        paymentClient.reserveRefund(refund.getId(), order.getId(), order.getOrderCode(), refund.getAmount());
-
-        refund.setStatus("APPROVED");
-        refund.setReviewedBy(actor.userId());
-        refund.setReviewedAt(Instant.now());
-        refund.setReviewNote(request != null ? request.effectiveReason() : null);
-        refund.setUpdatedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_approved refundId={} orderId={} byRole={} byUserId={}",
-                refund.getId(), refund.getOrderId(), actor.role(), actor.userId());
-
-        orderEventPublisher.publishRefundEvent("refund.approved", refund, order, refund.getReviewNote());
-
-        List<RefundAttempt> attempts = refundAttemptRepository.findByRefundRequestIdOrderByAttemptNumberAsc(refund.getId());
-        return DomainMapper.toResponse(refund, order, attempts);
-    }
-
-    @Transactional
-    public RefundRequestResponse rejectRefundRequest(Long refundRequestId, ReviewRefundRequest request) {
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
-            LOG.warn("event=refund_reject_forbidden actorRole={} actorId={}", actor.role(), actor.userId());
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-
-        // Spec D1: Reject requires mandatory business reason
-        String reason = request != null ? request.effectiveReason() : null;
-        if (reason == null || reason.isBlank()) {
+        if (refund.getBankName() == null || refund.getBankName().isBlank() || refund.getBankAccountNo() == null
+                || refund.getBankAccountNo().isBlank() || refund.getBankAccountName() == null || refund.getBankAccountName().isBlank())
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
-        }
-
-        RefundRequest refund = refundRequestRepository.findById(refundRequestId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (!"PENDING".equalsIgnoreCase(refund.getStatus())) {
-            LOG.warn("event=refund_invalid_state refundId={} status={}", refund.getId(), refund.getStatus());
-            throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
-        }
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (actor.role() == Role.STORE_MANAGER) {
-            accessGuard.requireStore(order.getStoreId());
-        }
-
-        // Release any held reservation in Payment Service
-        paymentClient.releaseRefund(refund.getId());
-
-        refund.setStatus("REJECTED");
-        refund.setReviewedBy(actor.userId());
-        refund.setReviewedAt(Instant.now());
-        refund.setReviewNote(reason.trim());
-        refund.setUpdatedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_rejected refundId={} orderId={} byRole={} reason={}",
-                refund.getId(), refund.getOrderId(), actor.role(), reason);
-
-        orderEventPublisher.publishRefundEvent("refund.rejected", refund, order, reason.trim());
-
-        List<RefundAttempt> attempts = refundAttemptRepository.findByRefundRequestIdOrderByAttemptNumberAsc(refund.getId());
-        return DomainMapper.toResponse(refund, order, attempts);
+        var attempt = new RefundAttempt();
+        attempt.setRefundRequestId(id); attempt.setAttemptNumber(refund.getAttemptCount() + 1); attempt.setAttemptId(UUID.randomUUID().toString());
+        attempt.setBankName(refund.getBankName()); attempt.setBankAccountNo(refund.getBankAccountNo()); attempt.setBankAccountName(refund.getBankAccountName());
+        attempt.setAmount(refund.getAmount()); attempt.setStatus("PROCESSING"); attempt.setCreatedAt(Instant.now()); attempt.setUpdatedAt(Instant.now());
+        attempt.setCreatedBy(CurrentActor.require().userId()); attempts.save(attempt);
+        String snapshot;
+        try { snapshot = mapper.writeValueAsString(Map.of("bankName", refund.getBankName(), "bankAccountNo", refund.getBankAccountNo(),
+                "bankAccountName", refund.getBankAccountName(), "amount", refund.getAmount(), "bankDetailsVersion", refund.getBankDetailsVersion()));
+        } catch (Exception failure) { throw new ApiException(ErrorCode.INTERNAL_ERROR); }
+        refund.setStatus("PROCESSING"); refund.setAttemptCount(attempt.getAttemptNumber()); refund.setCurrentAttemptId(attempt.getAttemptId());
+        refund.setCurrentAttemptBankSnapshot(snapshot); refund.setEvidencePublicId(null); refund.setEvidenceUrl(null);
+        refund.setEvidenceRegisteredAt(null); refund.setEvidenceRegisteredBy(null); refund.setUpdatedAt(Instant.now()); refunds.save(refund);
+        audit(refund, order, "REFUND_PROCESSING_CLAIMED"); return response(refund, order);
     }
 
     @Transactional
-    public RefundRequestResponse claimProcessing(Long refundRequestId) {
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
+    public RefundRequestResponse requestBankDetails(Long id, BankDetailsInvalidRequest request) {
+        var refund = locked(id, false); var order = order(refund);
+        state(refund, "APPROVED", "PROCESSING");
+        if (request == null || request.reason() == null || request.reason().isBlank()) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        if ("PROCESSING".equals(refund.getStatus())) {
+            if (!Boolean.TRUE.equals(request.transferNotCompleted()) || refund.getEvidencePublicId() != null) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+            var attempt = processingAttempt(refund);
+            if (!Objects.equals(attempt.getCreatedBy(), CurrentActor.require().userId())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+            attempt.setStatus("FAILED_BANK_DETAILS"); attempt.setFailureReason(request.reason().trim());
+            attempt.setUpdatedAt(Instant.now()); attempts.save(attempt);
         }
-
-        RefundRequest refund = refundRequestRepository.findById(refundRequestId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (!"APPROVED".equalsIgnoreCase(refund.getStatus())) {
-            throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
-        }
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (actor.role() == Role.STORE_MANAGER) {
-            accessGuard.requireStore(order.getStoreId());
-        }
-
-        if (refund.getBankAccountNo() == null || refund.getBankAccountNo().isBlank()) {
-            throw new ApiException(ErrorCode.VALIDATION_ERROR);
-        }
-
-        int nextAttemptNumber = refund.getAttemptCount() + 1;
-        String attemptId = UUID.randomUUID().toString();
-
-        Map<String, Object> snapshotMap = new HashMap<>();
-        snapshotMap.put("bankName", refund.getBankName());
-        snapshotMap.put("bankAccountNo", refund.getBankAccountNo());
-        snapshotMap.put("bankAccountName", refund.getBankAccountName());
-        snapshotMap.put("amount", refund.getAmount());
-        snapshotMap.put("attemptNumber", nextAttemptNumber);
-        snapshotMap.put("claimedAt", Instant.now().toString());
-
-        String snapshotJson;
-        try {
-            snapshotJson = objectMapper.writeValueAsString(snapshotMap);
-        } catch (Exception ex) {
-            snapshotJson = "{}";
-        }
-
-        RefundAttempt attempt = new RefundAttempt();
-        attempt.setRefundRequestId(refund.getId());
-        attempt.setAttemptNumber(nextAttemptNumber);
-        attempt.setAttemptId(attemptId);
-        attempt.setBankName(refund.getBankName());
-        attempt.setBankAccountNo(refund.getBankAccountNo());
-        attempt.setBankAccountName(refund.getBankAccountName());
-        attempt.setAmount(refund.getAmount());
-        attempt.setStatus("PROCESSING");
-        attempt.setCreatedAt(Instant.now());
-        attempt.setUpdatedAt(Instant.now());
-        attempt.setCreatedBy(actor.userId());
-        refundAttemptRepository.save(attempt);
-
-        refund.setStatus("PROCESSING");
-        refund.setAttemptCount(nextAttemptNumber);
-        refund.setCurrentAttemptId(attemptId);
-        refund.setCurrentAttemptBankSnapshot(snapshotJson);
-        refund.setUpdatedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_processing_claimed refundId={} attemptId={} attemptNumber={}",
-                refund.getId(), attemptId, nextAttemptNumber);
-
-        List<RefundAttempt> attempts = refundAttemptRepository.findByRefundRequestIdOrderByAttemptNumberAsc(refund.getId());
-        return DomainMapper.toResponse(refund, order, attempts);
+        refund.setStatus("WAITING_BANK_DETAILS"); refund.setReviewNote(request.reason().trim()); refund.setUpdatedAt(Instant.now()); refunds.save(refund);
+        events.publishRefundEvent("refund.waiting-bank-details", refund, order, request.reason().trim()); audit(refund, order, "REFUND_BANK_DETAILS_REQUESTED");
+        return response(refund, order);
     }
 
     @Transactional
-    public RefundRequestResponse requestBankDetails(Long refundRequestId, BankDetailsInvalidRequest request) {
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-
-        if (request == null || request.reason() == null || request.reason().isBlank()) {
+    public RefundRequestResponse updateBankDetails(Long id, UpdateBankDetailsRequest request) {
+        var refund = locked(id, true); var order = order(refund);
+        state(refund, "PENDING", "WAITING_BANK_DETAILS");
+        if (request == null || request.bankName() == null || request.bankName().isBlank() || request.bankAccountNo() == null
+                || request.bankAccountNo().isBlank() || request.bankAccountName() == null || request.bankAccountName().isBlank()) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        if (CurrentActor.require().role() == Role.ADMIN && request.expectedBankDetailsVersion() == null)
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
-        }
-
-        RefundRequest refund = refundRequestRepository.findById(refundRequestId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (refund.getStatus() == null || !Set.of("APPROVED", "PROCESSING").contains(refund.getStatus().toUpperCase())) {
-            throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
-        }
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (actor.role() == Role.STORE_MANAGER) {
-            accessGuard.requireStore(order.getStoreId());
-        }
-
-        // If an attempt was in progress, stop it cleanly
-        if ("PROCESSING".equalsIgnoreCase(refund.getStatus()) && refund.getCurrentAttemptId() != null) {
-            refundAttemptRepository.findByAttemptId(refund.getCurrentAttemptId()).ifPresent(att -> {
-                att.setStatus("FAILED_BANK_DETAILS");
-                att.setFailureReason(request.reason().trim());
-                att.setUpdatedAt(Instant.now());
-                refundAttemptRepository.save(att);
-            });
-        }
-
-        refund.setStatus("WAITING_BANK_DETAILS");
-        refund.setReviewNote(request.reason().trim());
-        refund.setUpdatedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_waiting_bank_details refundId={} reason={}", refund.getId(), request.reason());
-
-        orderEventPublisher.publishRefundEvent("refund.waiting-bank-details", refund, order, request.reason().trim());
-
-        List<RefundAttempt> attempts = refundAttemptRepository.findByRefundRequestIdOrderByAttemptNumberAsc(refund.getId());
-        return DomainMapper.toResponse(refund, order, attempts);
-    }
-
-    @Transactional
-    public RefundRequestResponse updateBankDetails(Long refundRequestId, UpdateBankDetailsRequest request) {
-        if (request == null || request.bankName() == null || request.bankName().isBlank()
-                || request.bankAccountNo() == null || request.bankAccountNo().isBlank()
-                || request.bankAccountName() == null || request.bankAccountName().isBlank()) {
-            throw new ApiException(ErrorCode.VALIDATION_ERROR);
-        }
-
-        RefundRequest refund = refundRequestRepository.findById(refundRequestId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() == Role.STAFF) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-
-        if (order.getCustomerId() != null) {
-            if (actor.role() == Role.CUSTOMER) {
-                accessGuard.requireOwner(order.getCustomerId());
-            } else if (actor.role() == Role.STORE_MANAGER) {
-                accessGuard.requireStore(order.getStoreId());
-            }
-        } else {
-            // Counter order: manager of store or admin
-            if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
-                throw new ApiException(ErrorCode.FORBIDDEN);
-            }
-            if (actor.role() == Role.STORE_MANAGER) {
-                accessGuard.requireStore(order.getStoreId());
-            }
-        }
-
-        // Only allowed in WAITING_BANK_DETAILS
-        if (!"WAITING_BANK_DETAILS".equalsIgnoreCase(refund.getStatus())) {
-            LOG.warn("event=refund_update_bank_details_invalid_state refundId={} status={}", refund.getId(), refund.getStatus());
-            throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
-        }
-
-        refund.setBankName(request.bankName().trim());
-        refund.setBankAccountNo(request.bankAccountNo().trim());
-        refund.setBankAccountName(request.bankAccountName().trim());
+        if (request.expectedBankDetailsVersion() != null && !request.expectedBankDetailsVersion().equals(refund.getBankDetailsVersion()))
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        refund.setBankName(request.bankName().trim()); refund.setBankAccountNo(request.bankAccountNo().trim()); refund.setBankAccountName(request.bankAccountName().trim());
         refund.setBankDetailsVersion(refund.getBankDetailsVersion() + 1);
-        refund.setStatus("APPROVED"); // Return to APPROVED for new attempt
-        refund.setUpdatedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        LOG.info("event=refund_bank_details_updated refundId={} newVersion={}", refund.getId(), refund.getBankDetailsVersion());
-
-        List<RefundAttempt> attempts = refundAttemptRepository.findByRefundRequestIdOrderByAttemptNumberAsc(refund.getId());
-        return DomainMapper.toResponse(refund, order, attempts);
+        if ("WAITING_BANK_DETAILS".equals(refund.getStatus())) refund.setStatus("APPROVED");
+        if (!order.isCustomerEmailVerified() && CurrentActor.require().role() == Role.CUSTOMER) {
+            order.setCustomerEmail(profiles.currentCustomerEmail(order.getCustomerId()));
+            order.setCustomerEmailVerified(true);
+        }
+        refund.setUpdatedAt(Instant.now()); refunds.save(refund);
+        audit(refund, order, "REFUND_BANK_DETAILS_UPDATED"); return response(refund, order);
     }
 
     @Transactional
-    public RefundRequestResponse uploadEvidence(Long refundRequestId, MultipartFile file) {
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-
-        RefundRequest refund = refundRequestRepository.findById(refundRequestId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (!"PROCESSING".equalsIgnoreCase(refund.getStatus())) {
-            throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
-        }
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        if (actor.role() == Role.STORE_MANAGER) {
-            accessGuard.requireStore(order.getStoreId());
-        }
-
-        RefundEvidenceService.UploadResult uploadResult = refundEvidenceService.uploadEvidence(
-                order.getStoreId(), refund.getId(), refund.getCurrentAttemptId(), file);
-
-        refund.setEvidencePublicId(uploadResult.publicId());
-        refund.setEvidenceUrl(uploadResult.secureUrl());
-        refund.setEvidenceRegisteredAt(Instant.now());
-        refund.setEvidenceRegisteredBy(actor.userId());
-        refund.setUpdatedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        if (refund.getCurrentAttemptId() != null) {
-            refundAttemptRepository.findByAttemptId(refund.getCurrentAttemptId()).ifPresent(att -> {
-                att.setEvidencePublicId(uploadResult.publicId());
-                att.setEvidenceUrl(uploadResult.secureUrl());
-                att.setUpdatedAt(Instant.now());
-                refundAttemptRepository.save(att);
-            });
-        }
-
-        LOG.info("event=refund_evidence_registered refundId={} publicId={}", refund.getId(), uploadResult.publicId());
-
-        List<RefundAttempt> attempts = refundAttemptRepository.findByRefundRequestIdOrderByAttemptNumberAsc(refund.getId());
-        return DomainMapper.toResponse(refund, order, attempts);
+    public RefundRequestResponse uploadEvidence(Long id, MultipartFile file) {
+        var refund = locked(id, false); var order = order(refund);
+        state(refund, "PROCESSING"); cancellation(order); var attempt = processingAttempt(refund);
+        if (!Objects.equals(attempt.getCreatedBy(), CurrentActor.require().userId())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        var uploaded = evidence.uploadEvidence(order.getStoreId(), id, attempt.getAttemptId(), file);
+        if (uploaded == null || uploaded.publicId() == null) throw new ApiException(ErrorCode.EVIDENCE_REQUIRED);
+        attempt.setEvidencePublicId(uploaded.publicId()); attempt.setEvidenceUrl(null); attempt.setUpdatedAt(Instant.now()); attempts.save(attempt);
+        refund.setEvidencePublicId(uploaded.publicId()); refund.setEvidenceUrl(null); refund.setEvidenceRegisteredAt(Instant.now());
+        refund.setEvidenceRegisteredBy(CurrentActor.require().userId()); refund.setUpdatedAt(Instant.now()); refunds.save(refund);
+        audit(refund, order, "REFUND_EVIDENCE_REGISTERED"); return response(refund, order);
     }
 
     @Transactional(readOnly = true)
-    public EvidenceAccessResponse getEvidenceAccess(Long refundRequestId) {
-        RefundRequest refund = refundRequestRepository.findById(refundRequestId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() == Role.CUSTOMER) {
-            accessGuard.requireOwner(order.getCustomerId());
-        } else if (actor.role() == Role.STORE_MANAGER) {
-            accessGuard.requireStore(order.getStoreId());
-        } else if (actor.role() != Role.ADMIN) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
-
-        if (refund.getEvidencePublicId() == null || refund.getEvidencePublicId().isBlank()) {
-            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
-        }
-
-        String signedUrl = refundEvidenceService.generatePrivateDeliveryUrl(refund.getEvidencePublicId());
-        return new EvidenceAccessResponse(signedUrl, 600L);
+    public EvidenceAccessResponse getEvidenceAccess(Long id) {
+        role(true); var refund = refunds.findById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        var order = order(refund); scope(order, true);
+        if (!List.of("PROCESSING", "REFUNDED").contains(refund.getStatus())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        evidence.verifyEvidence(refund.getEvidencePublicId(), order.getStoreId(), id, refund.getCurrentAttemptId());
+        return new EvidenceAccessResponse(evidence.generatePrivateDeliveryUrl(refund.getEvidencePublicId()), 600L);
     }
 
     @Transactional
-    public RefundRequestResponse confirmRefund(Long refundRequestId) {
-        CurrentActor actor = CurrentActor.require();
-        if (actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
-            throw new ApiException(ErrorCode.FORBIDDEN);
-        }
+    public RefundRequestResponse confirmRefund(Long id) {
+        var refund = locked(id, false); var order = order(refund);
+        if ("REFUNDED".equals(refund.getStatus()) || refund.getConfirmationRequestedAt() != null) return response(refund, order);
+        state(refund, "PROCESSING"); cancellation(order); validateEvidence(refund, order);
+        var actor = CurrentActor.require();
+        if (!Objects.equals(processingAttempt(refund).getCreatedBy(), actor.userId())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        refund.setConfirmationRequestedAt(Instant.now()); refund.setConfirmationRequestedBy(actor.userId());
+        enqueue(refund, "CONFIRM");
+        refund.setConfirmationRequestedRole(actor.role().name()); refund.setUpdatedAt(Instant.now()); refunds.save(refund);
+        audit(refund, order, "REFUND_CONFIRMATION_REQUESTED"); return response(refund, order);
+    }
 
-        RefundRequest refund = refundRequestRepository.findById(refundRequestId)
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+    private void validateEvidence(RefundRequest refund, Order order) {
+        var attempt = processingAttempt(refund);
+        if (refund.getEvidenceRegisteredAt() == null || refund.getEvidenceRegisteredBy() == null || refund.getEvidencePublicId() == null
+                || !Objects.equals(refund.getEvidencePublicId(), attempt.getEvidencePublicId())) throw new ApiException(ErrorCode.EVIDENCE_REQUIRED);
+        evidence.verifyEvidence(refund.getEvidencePublicId(), order.getStoreId(), refund.getId(), attempt.getAttemptId());
+    }
 
-        if (!"PROCESSING".equalsIgnoreCase(refund.getStatus())) {
+    @Transactional
+    public void completeConfirmation(Long id) {
+        var refund = refunds.lockById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        if ("REFUNDED".equals(refund.getStatus())) return;
+        if (!"PROCESSING".equals(refund.getStatus()) || refund.getConfirmationRequestedAt() == null
+                || refund.getConfirmationRequestedBy() == null || refund.getConfirmationRequestedRole() == null
+                || !List.of("ADMIN", "STORE_MANAGER").contains(refund.getConfirmationRequestedRole()))
             throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        var order = orders.lockById(refund.getOrderId()).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        cancellation(order); processingAttempt(refund);
+        if (refund.getEvidenceRegisteredAt() == null || refund.getEvidenceRegisteredBy() == null || refund.getEvidencePublicId() == null
+                || !Objects.equals(refund.getEvidencePublicId(), processingAttempt(refund).getEvidencePublicId())) throw new ApiException(ErrorCode.EVIDENCE_REQUIRED);
+        String reference;
+        try { reference = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(refund.getEvidencePublicId().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException failure) { throw new IllegalStateException(failure); }
+        payments.confirmRefund(id, new PaymentClient.ConfirmRefundRequest(order.getId(), refund.getAmount(), refund.getCurrentAttemptId(), reference));
+        var attempt = processingAttempt(refund); attempt.setStatus("REFUNDED"); attempt.setUpdatedAt(Instant.now()); attempts.save(attempt);
+        refund.setStatus("REFUNDED"); refund.setConfirmedAt(Instant.now()); refund.setConfirmedBy(refund.getConfirmationRequestedBy());
+        enqueue(refund, null);
+        refund.setUpdatedAt(Instant.now()); refunds.save(refund); order.setPaymentStatus("REFUNDED"); orders.save(order);
+        events.publishRefundEvent("refund.processed", refund, order, null);
+        events.auditRefund(order, refund, "REFUND_CONFIRMED", refund.getConfirmationRequestedBy(), refund.getConfirmationRequestedRole());
+    }
+
+    private void enqueue(RefundRequest refund, String operation) {
+        refund.setPaymentOperation(operation); refund.setPaymentError(null); refund.setPaymentRetryAt(operation == null ? null : Instant.now());
+    }
+
+    @Transactional
+    public void recoverPayment(Long id) {
+        var refund = refunds.lockById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (refund.getPaymentOperation() == null) return;
+        if ("CONFIRM".equals(refund.getPaymentOperation())) { completeConfirmation(id); return; }
+        if ("RELEASE".equals(refund.getPaymentOperation())) {
+            if (!Set.of("PENDING", "REJECTED").contains(refund.getStatus())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+            payments.releaseRefund(id); enqueue(refund, null);
+            if ("PENDING".equals(refund.getStatus())) refund.setPaymentError(ErrorCode.INVALID_REFUND_STATE.name());
+            refunds.save(refund); return;
         }
+        if (!"PENDING".equals(refund.getStatus()) || refund.getReviewedBy() == null || refund.getReviewRole() == null
+                || !Set.of("ADMIN","STORE_MANAGER").contains(refund.getReviewRole())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
+        var order = order(refund); cancellation(order);
+        var reserved = payments.reserveRefund(id, order.getId(), order.getOrderCode(), refund.getAmount());
+        if (reserved == null || !"HELD".equals(reserved.status()) || !Objects.equals(reserved.refundRequestId(), id)
+                || !Objects.equals(reserved.orderId(), order.getId()) || reserved.amount() == null
+                || reserved.amount().compareTo(refund.getAmount()) != 0) throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+        refund.setStatus("APPROVED"); enqueue(refund, null); refund.setUpdatedAt(Instant.now()); refunds.save(refund);
+        events.publishRefundEvent("refund.approved", refund, order, refund.getReviewNote());
+        events.auditRefund(order, refund, "REFUND_APPROVED", refund.getReviewedBy(), refund.getReviewRole());
+    }
 
-        if (refund.getEvidencePublicId() == null || refund.getEvidencePublicId().isBlank()) {
-            throw new ApiException(ErrorCode.EVIDENCE_REQUIRED);
-        }
+    @Transactional
+    public void deferPayment(Long id, RuntimeException failure) {
+        var refund = refunds.lockById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (refund.getPaymentOperation() == null) return;
+        refund.setPaymentError(failure instanceof ApiException api ? api.getCode().name() : ErrorCode.DEPENDENCY_UNAVAILABLE.name());
+        refund.setPaymentRetryAt(Instant.now().plusSeconds(60)); refunds.save(refund);
+    }
 
-        Order order = orderRepository.findById(refund.getOrderId())
-                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+    @Transactional
+    public void recoverUntrackedReservation(Long id) {
+        var refund = refunds.lockById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (!"PENDING".equals(refund.getStatus()) || refund.getPaymentOperation() != null || refund.getPaymentError() != null) return;
+        refund.setPaymentRetryAt(Instant.now().plusSeconds(300));
+        var held = payments.reservation(id);
+        if (held == null) return;
+        if (!Objects.equals(held.refundRequestId(), id) || !Objects.equals(held.orderId(), refund.getOrderId())
+                || held.amount() == null || held.amount().compareTo(refund.getAmount()) != 0) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        if ("HELD".equals(held.status())) enqueue(refund, "RELEASE");
+        else refund.setPaymentError("CONFIRMED".equals(held.status()) ? ErrorCode.REFUND_ALREADY_EXISTS.name() : ErrorCode.INVALID_REFUND_STATE.name());
+        refunds.save(refund);
+    }
 
-        if (actor.role() == Role.STORE_MANAGER) {
-            accessGuard.requireStore(order.getStoreId());
-        }
-
-        // Confirm reservation in Payment Service
-        paymentClient.confirmRefund(refund.getId());
-
-        // Update attempt to REFUNDED
-        if (refund.getCurrentAttemptId() != null) {
-            refundAttemptRepository.findByAttemptId(refund.getCurrentAttemptId()).ifPresent(att -> {
-                att.setStatus("REFUNDED");
-                att.setUpdatedAt(Instant.now());
-                refundAttemptRepository.save(att);
-            });
-        }
-
-        refund.setStatus("REFUNDED");
-        refund.setConfirmedAt(Instant.now());
-        refund.setConfirmedBy(actor.userId());
-        refund.setUpdatedAt(Instant.now());
-        refund = refundRequestRepository.save(refund);
-
-        // Update Order paymentStatus to REFUNDED
-        order.setPaymentStatus("REFUNDED");
-        orderRepository.save(order);
-
-        LOG.info("event=refund_confirmed refundId={} orderId={} amount={}",
-                refund.getId(), order.getId(), refund.getAmount());
-
-        orderEventPublisher.publishRefundEvent("refund.confirmed", refund, order, null);
-
-        List<RefundAttempt> attempts = refundAttemptRepository.findByRefundRequestIdOrderByAttemptNumberAsc(refund.getId());
-        return DomainMapper.toResponse(refund, order, attempts);
+    @Transactional
+    public boolean automaticRefund(Long orderId) {
+        var order = orders.lockById(orderId).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        OrderStatusHistory cancelled;
+        try { cancelled = cancellation(order); }
+        catch (ApiException failure) { if (failure.getCode() == ErrorCode.REFUND_NOT_ELIGIBLE) return true; throw failure; }
+        if (!refunds.findAllByOrderId(orderId).isEmpty()) return true;
+        var eligible = payments.getEligibleRefund(orderId, order.getTotalAmount());
+        if (eligible == null || !eligible.eligible() || eligible.refundableAmount() == null
+                || order.getTotalAmount().signum() <= 0 || eligible.refundableAmount().compareTo(order.getTotalAmount()) < 0) return false;
+        var refund = new RefundRequest(); refund.setOrderId(orderId); refund.setCustomerId(order.getCustomerId());
+        refund.setAmount(order.getTotalAmount()); refund.setReason(cancelled.getReason());
+        refund.setCancellationReasonSnapshot(cancelled.getReason()); refund.setCancellationStatusSnapshot(cancelled.getFromStatus());
+        refund = refunds.saveAndFlush(refund);
+        events.auditRefund(order, refund, "REFUND_REQUESTED", cancelled.getChangedBy(), cancelled.getChangedRole());
+        return true;
     }
 }

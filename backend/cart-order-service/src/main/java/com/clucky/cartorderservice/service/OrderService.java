@@ -53,6 +53,8 @@ public class OrderService {
     private final PromotionClient promotionClient;
     private final LoyaltyClient loyaltyClient;
     private final ShippingClient shippingClient;
+    private final VoucherCheckoutRecovery voucherRecovery;
+    private final CustomerProfileClient customerProfiles;
     private final Random random = new SecureRandom();
 
     public OrderService(
@@ -66,7 +68,9 @@ public class OrderService {
             CatalogClient catalogClient,
             PromotionClient promotionClient,
             ShippingClient shippingClient,
-            LoyaltyClient loyaltyClient
+            LoyaltyClient loyaltyClient,
+            VoucherCheckoutRecovery voucherRecovery,
+            CustomerProfileClient customerProfiles
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -79,6 +83,8 @@ public class OrderService {
         this.promotionClient = promotionClient;
         this.shippingClient = shippingClient;
         this.loyaltyClient = loyaltyClient;
+        this.voucherRecovery = voucherRecovery;
+        this.customerProfiles = customerProfiles;
     }
 
     public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
@@ -261,6 +267,8 @@ public class OrderService {
         Order order = new Order();
         order.setOrderCode(generateOrderCode());
         order.setCustomerId(customerId);
+        order.setCustomerEmail(customerProfiles.currentCustomerEmail(customerId));
+        order.setCustomerEmailVerified(true);
         order.setStoreId(request.storeId());
         order.setType(type);
         order.setStatus(initialStatus);
@@ -281,6 +289,11 @@ public class OrderService {
         order.setScheduledAt(request.scheduledAt());
         order = orderRepository.save(order);
 
+        voucherRecovery.lock(order.getId());
+        if (order.getVoucherCode() != null) {
+            voucherRecovery.track(order.getId());
+            loyaltyClient.reserveVoucher(order.getId(), customerId, order.getStoreId(), order.getVoucherCode(), subtotal, voucherCalc.discountAmount());
+        }
         loyaltyClient.reserve(order.getId(), customerId, subtotal.subtract(voucherCalc.discountAmount()).max(BigDecimal.ZERO), loyaltyCalc);
 
         List<OrderItem> savedItems = new ArrayList<>();
@@ -359,7 +372,7 @@ public class OrderService {
 
         // P1.1: Release voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled Kafka event via Transactional Outbox
@@ -399,7 +412,7 @@ public class OrderService {
 
         // P1.1: Release voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled Kafka event via Transactional Outbox
@@ -471,7 +484,7 @@ public class OrderService {
             orderEventPublisher.publishOrderCompleted(order, items);
         } else if (OrderStatus.CANCELLED.name().equals(target)) {
             if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-                promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+                voucherRecovery.cancelled(order.getId());
             }
             orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
         } else {
@@ -535,7 +548,7 @@ public class OrderService {
 
         // P1.1: Compensate voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled compensation event via Transactional Outbox
@@ -594,14 +607,15 @@ public class OrderService {
         return mapToOrderResponsePage(orderPage);
     }
 
-    public PageResponse<OrderResponse> getOrders(Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+    public PageResponse<OrderResponse> getOrders(Long customerId, Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+        CurrentActor actor = CurrentActor.require();
+        if (customerId != null && actor.role() != Role.ADMIN) throw new com.clucky.cartorderservice.exception.ApiException(com.clucky.cartorderservice.exception.ErrorCode.FORBIDDEN);
+        if (customerId != null && customerId <= 0 || requestedStoreId != null && requestedStoreId <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
         Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
-        String orderCodePattern = (orderCode != null && !orderCode.isBlank())
-                ? "%" + orderCode.trim().toLowerCase() + "%"
-                : null;
-
-        Page<Order> orderPage = orderRepository.findOrders(effectiveStoreId, cleanStatus, orderCodePattern, pageable);
+        if (cleanStatus != null && Arrays.stream(OrderStatus.values()).noneMatch(value -> value.name().equals(cleanStatus))) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        String orderCodePattern = (orderCode != null && !orderCode.isBlank()) ? "%" + orderCode.trim().toLowerCase() + "%" : null;
+        Page<Order> orderPage = orderRepository.findOrders(customerId, effectiveStoreId, cleanStatus, orderCodePattern, pageable);
         return mapToOrderResponsePage(orderPage);
     }
 
@@ -719,3 +733,4 @@ public class OrderService {
         return "CLU-" + dateStr + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 4).toUpperCase();
     }
 }
+

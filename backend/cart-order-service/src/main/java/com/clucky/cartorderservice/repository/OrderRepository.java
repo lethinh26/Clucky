@@ -35,12 +35,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("""
         SELECT o FROM Order o
-        WHERE (:storeId IS NULL OR o.storeId = :storeId)
+        WHERE (:customerId IS NULL OR o.customerId = :customerId)
+          AND (:storeId IS NULL OR o.storeId = :storeId)
           AND (:status IS NULL OR o.status = :status)
           AND (:orderCodePattern IS NULL OR LOWER(o.orderCode) LIKE :orderCodePattern)
         ORDER BY o.createdAt DESC
     """)
     Page<Order> findOrders(
+        @Param("customerId") Long customerId,
         @Param("storeId") Long storeId,
         @Param("status") String status,
         @Param("orderCodePattern") String orderCodePattern,

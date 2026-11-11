@@ -10,7 +10,10 @@
     "orders": "Order management",
     "shiftOrders": "Shift orders",
     "reviews": "Review management",
-    "users": "User management",
+    "users": "Branch accounts",
+    "customers": "Customers",
+    "emailLogs": "Email delivery logs",
+    "audit": "Administration audit",
     "reports": "Reports & statistics",
     "payments": "Payments & reconciliation",
     "promotions": "Promotions & Vouchers"
@@ -19,7 +22,7 @@
     "catalog": "Menu & combos",
     "stores": "Stores",
     "reviews": "Reviews & replies",
-    "users": "Users",
+    "users": "Branch accounts",
     "promotions": "Promotions & Vouchers"
   },
   "roles": {
@@ -77,7 +80,7 @@
   },
   "promotions": {
     "title": "Promotions & Voucher Management",
-    "subtitle": "Manage discount vouchers, review branch proposals, and oversee brand promotional banners.",
+    "subtitle": "Manage discount vouchers, eligibility and system-wide loyalty settings.",
     "tabs": {
       "vouchers": "Discount Vouchers",
       "proposals": "Branch Proposals",

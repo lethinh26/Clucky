@@ -122,6 +122,7 @@ public class VoucherController {
      * POST /api/promotions/vouchers/store-proposals
      */
     @PostMapping("/store-proposals")
+    @PreAuthorize("denyAll()")
     public ResponseEntity<VoucherResponse> createStoreProposal(
         @Valid @RequestBody VoucherRequest request
     ) {
@@ -141,6 +142,7 @@ public class VoucherController {
      * PUT /api/promotions/vouchers/{id}/approve
      */
     @PutMapping("/{id}/approve")
+    @PreAuthorize("denyAll()")
     public ResponseEntity<VoucherResponse> approveVoucher(
         @PathVariable("id") Long id
     ) {

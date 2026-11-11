@@ -7,6 +7,23 @@ import java.time.Instant;
 @Entity
 @Table(name = "refund_requests", schema = "order_service")
 public class RefundRequest {
+    @Column(name = "payment_operation", length = 16)
+    private String paymentOperation;
+    @Column(name = "payment_error", length = 64)
+    private String paymentError;
+    @Column(name = "payment_retry_at")
+    private Instant paymentRetryAt;
+    @Column(name = "review_role", length = 30)
+    private String reviewRole;
+
+    public String getPaymentOperation() { return paymentOperation; }
+    public void setPaymentOperation(String value) { paymentOperation = value; }
+    public String getPaymentError() { return paymentError; }
+    public void setPaymentError(String value) { paymentError = value; }
+    public Instant getPaymentRetryAt() { return paymentRetryAt; }
+    public void setPaymentRetryAt(Instant value) { paymentRetryAt = value; }
+    public String getReviewRole() { return reviewRole; }
+    public void setReviewRole(String value) { reviewRole = value; }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -168,6 +185,20 @@ public class RefundRequest {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    @jakarta.persistence.Column(name = "confirmation_requested_at")
+    private Instant confirmationRequestedAt;
+    @jakarta.persistence.Column(name = "confirmation_requested_by")
+    private Long confirmationRequestedBy;
+    @jakarta.persistence.Column(name = "confirmation_requested_role")
+    private String confirmationRequestedRole;
+
+    public Instant getConfirmationRequestedAt() { return confirmationRequestedAt; }
+    public void setConfirmationRequestedAt(Instant value) { confirmationRequestedAt = value; }
+    public Long getConfirmationRequestedBy() { return confirmationRequestedBy; }
+    public void setConfirmationRequestedBy(Long value) { confirmationRequestedBy = value; }
+    public String getConfirmationRequestedRole() { return confirmationRequestedRole; }
+    public void setConfirmationRequestedRole(String value) { confirmationRequestedRole = value; }
 
     public Long getVersion() { return version; }
     public void setVersion(Long version) { this.version = version; }

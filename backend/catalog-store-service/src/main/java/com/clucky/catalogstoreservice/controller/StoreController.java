@@ -52,15 +52,7 @@ public class StoreController {
     @PostMapping("/{id}/accounts-retry")
     @PreAuthorize("hasRole('ADMIN')")
     public java.util.Map<String, Object> retry(@PathVariable long id) {
-        branches.synchronize(id);
-        return branches.status(id);
-    }
-
-    @PostMapping("/internal/{id}/prepare-migration")
-    public ResponseEntity<Void> prepareMigration(@PathVariable long id, @RequestHeader("X-Branch-Time") long time,
-            @RequestHeader("X-Branch-Signature") String signature) {
-        branches.prepareMigration(id, time, signature);
-        return ResponseEntity.noContent().build();
+        return branches.retry(id);
     }
 
     @PutMapping("/{id}")
@@ -73,9 +65,8 @@ public class StoreController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteStore(@PathVariable Long id) {
-        storeService.deleteStore(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<StoreDto.Response> deleteStore(@PathVariable Long id, @RequestParam Long expectedVersion) {
+        return ResponseEntity.ok(storeService.deleteStore(id, expectedVersion));
     }
 
     @PutMapping("/{id}/location")

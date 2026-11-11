@@ -1,7 +1,6 @@
 package com.clucky.identityservice.controller;
 
 import com.clucky.identityservice.dto.BranchAccountData.*;
-import com.clucky.identityservice.dto.BranchAccountData.Mapping;
 import com.clucky.identityservice.exception.ApiException;
 import com.clucky.identityservice.exception.ErrorCode;
 import com.clucky.identityservice.service.BranchAccountService;
@@ -36,15 +35,6 @@ public class BranchAccountController {
     @GetMapping("/branch/stores/{storeId}")
     @PreAuthorize("hasAnyRole('ADMIN','STORE_MANAGER')")
     public Pair pair(@PathVariable long storeId) { return service.get(storeId); }
-    @GetMapping("/branch/stores/{storeId}/inventory")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Inventory inventory(@PathVariable long storeId) { return service.inventory(storeId); }
-    @GetMapping("/branch/stores/{storeId}/migration-report")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Object report(@PathVariable long storeId) { return service.migrationReport(storeId); }
-    @PostMapping("/branch/stores/{storeId}/migration")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Pair migrate(@PathVariable long storeId, @Valid @RequestBody Mapping request) { return service.migrate(storeId, request); }
     @PostMapping("/branch/accounts/{id}/challenge")
     @PreAuthorize("hasAnyRole('ADMIN','STORE_MANAGER')")
     public Challenge manage(@PathVariable long id, @Valid @RequestBody Management request) { return service.manage(id, request); }

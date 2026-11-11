@@ -2,6 +2,7 @@ package com.clucky.shippingservice.controller;
 
 import com.clucky.shippingservice.exception.ApiException;
 import com.clucky.shippingservice.exception.ErrorCode;
+import com.clucky.shippingservice.service.ShippingPolicyAudit;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
@@ -11,6 +12,7 @@ import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -34,10 +36,12 @@ public class ShippingController {
     private final JdbcTemplate jdbc;
     private final DiscoveryClient discovery;
     private final RestClient client;
+    private final ShippingPolicyAudit audit;
 
-    public ShippingController(JdbcTemplate jdbc, DiscoveryClient discovery, RestClient.Builder builder) {
+    public ShippingController(JdbcTemplate jdbc, DiscoveryClient discovery, RestClient.Builder builder, ShippingPolicyAudit audit) {
         this.jdbc = jdbc;
         this.discovery = discovery;
+        this.audit = audit;
         var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
         factory.setReadTimeout(Duration.ofSeconds(5));
         this.client = builder.requestFactory(factory).build();
@@ -54,11 +58,13 @@ public class ShippingController {
 
     @PutMapping("/config")
     @PreAuthorize("hasRole('ADMIN')")
+    @Transactional
     public Policy savePolicy(@Valid @RequestBody PolicyRequest request) {
         var result = jdbc.query("UPDATE shipping_service.shipping_policy SET fee=?,version=version+1,updated_at=now() "
                 + "WHERE id=1 AND version=? RETURNING fee,version",
                 (row, index) -> new Policy(row.getBigDecimal("fee"), row.getLong("version")), request.fee(), request.version());
         if (result.isEmpty()) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        audit.record(result.getFirst().fee(), result.getFirst().version());
         return result.getFirst();
     }
 

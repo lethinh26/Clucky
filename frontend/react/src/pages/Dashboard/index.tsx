@@ -33,7 +33,7 @@ import {
   MoreOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { useOrders } from '../../context/OrderContext';
+import { getDashboardOrders } from '../../lib/admin-reporting';
 import { useAuth } from '../../context/AuthContext';
 import { useLocaleTools } from '../../i18n/hooks';
 import { getBrowserLocale, getErrorMessage } from '../../i18n/core';
@@ -346,9 +346,8 @@ export default function Dashboard({
 }: DashboardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { money, number, date } = useLocaleTools();
-  const { orders: contextOrders, loading: ordersLoading } = useOrders();
 
   const isStaff = user.role === 'STAFF';
   const isManager = user.role === 'STORE_MANAGER';
@@ -363,8 +362,11 @@ export default function Dashboard({
 
   const [dashboard, setDashboard] = useState<DashboardReportResponse | null>(null);
   const [revenueReport, setRevenueReport] = useState<RevenueReportResponse | null>(null);
+  const [orderSnapshot, setOrderSnapshot] = useState<Awaited<ReturnType<typeof getDashboardOrders>> | null>(null);
+  const [orderError, setOrderError] = useState('');
   const [stores, setStores] = useState<Store[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [storeError, setStoreError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reloadNonce, setReloadNonce] = useState(0);
 
@@ -381,8 +383,8 @@ export default function Dashboard({
     return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
   }, [isManager, managerStoreId, selectedStore]);
 
+  const today = getVietnamTodayIso();
   const { fromIso, toIso } = useMemo(() => {
-    const today = getVietnamTodayIso();
     if (periodKey === '30d') {
       return { fromIso: shiftIsoDate(today, -29), toIso: today };
     }
@@ -390,7 +392,7 @@ export default function Dashboard({
       return { fromIso: `${today.slice(0, 8)}01`, toIso: today };
     }
     return { fromIso: shiftIsoDate(today, -6), toIso: today };
-  }, [periodKey]);
+  }, [periodKey, today]);
 
   const go = useCallback(
     (target: string) => {
@@ -407,6 +409,7 @@ export default function Dashboard({
     if (isStaff || managerMissingStore) {
       setDashboard(null);
       setRevenueReport(null);
+      setOrderSnapshot(null);
       setLoading(false);
       return;
     }
@@ -414,6 +417,9 @@ export default function Dashboard({
     const controller = new AbortController();
     setLoading(true);
     setLoadError('');
+    setDashboard(null);
+    setRevenueReport(null);
+    setStores([]); setStoreError('');
 
     const reportParams = {
       storeId: effectiveStoreId,
@@ -424,7 +430,10 @@ export default function Dashboard({
     Promise.all([
       reportsApi.getDashboard(reportParams, controller.signal),
       reportsApi.getRevenue(reportParams, controller.signal),
-      storesApi.list(undefined, controller.signal).catch(() => [] as Store[]),
+      storesApi.list(isAdmin ? false : undefined, controller.signal).catch(failure => {
+        if (!controller.signal.aborted) setStoreError(getErrorMessage(failure, getBrowserLocale()));
+        return [] as Store[];
+      }),
     ])
       .then(([dashData, revData, storeList]) => {
         if (controller.signal.aborted) return;
@@ -445,7 +454,20 @@ export default function Dashboard({
       });
 
     return () => controller.abort();
-  }, [effectiveStoreId, fromIso, toIso, isStaff, managerMissingStore, reloadNonce]);
+  }, [effectiveStoreId, fromIso, toIso, isStaff, managerMissingStore, reloadNonce, user.id, user.role]);
+
+  useEffect(() => {
+    setOrderSnapshot(null);
+    setOrderError('');
+    if (isStaff || managerMissingStore) return;
+    const controller = new AbortController();
+    getDashboardOrders(effectiveStoreId, controller.signal)
+      .then((snapshot) => { if (!controller.signal.aborted) setOrderSnapshot(snapshot); })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setOrderError(getErrorMessage(error, getBrowserLocale()));
+      });
+    return () => controller.abort();
+  }, [effectiveStoreId, isStaff, managerMissingStore, reloadNonce, user.id, user.role]);
 
   const storeMap = useMemo(() => {
     const map = new Map<number, Store>();
@@ -455,38 +477,20 @@ export default function Dashboard({
     return map;
   }, [stores]);
 
-  const scopedOrders = useMemo(() => {
-    return contextOrders.filter((order) => {
-      if (effectiveStoreId != null) {
-        return Number(order.storeId) === effectiveStoreId;
-      }
-      return true;
-    });
-  }, [contextOrders, effectiveStoreId]);
-
   const recentOrdersData: OrderSummary[] = useMemo(() => {
-    return scopedOrders.slice(0, 5).map((o) => ({
-      key: o.id,
-      code: '#' + o.orderCode,
-      customer: o.customerName,
-      items: o.items.reduce((sum, it) => sum + it.quantity, 0),
-      status: o.status,
-      total: o.total,
-      time: o.time || o.createdAt,
-      storeName: storeMap.get(Number(o.storeId))?.name ?? o.storeName,
+    return (orderSnapshot?.recent ?? []).map((order) => ({
+      key: String(order.id),
+      code: '#' + order.orderCode,
+      customer: order.receiverName,
+      items: (order.items ?? []).reduce((sum, item) => sum + item.quantity, 0),
+      status: order.status as OrderSummary['status'],
+      total: order.totalAmount,
+      time: order.createdAt,
+      storeName: storeMap.get(order.storeId)?.name ?? `#${order.storeId}`,
     }));
-  }, [scopedOrders, storeMap]);
+  }, [orderSnapshot, storeMap]);
 
-  const activeKitchenCount = useMemo(
-    () =>
-      scopedOrders.filter(
-        (order) =>
-          order.status === 'CONFIRMED' ||
-          order.status === 'PREPARING' ||
-          order.status === 'READY'
-      ).length,
-    [scopedOrders]
-  );
+  const activeKitchenCount = orderSnapshot?.activeKitchenCount;
 
   const chartSeries = useMemo(() => {
     const items: DailyStoreStatsItem[] = revenueReport?.items ?? [];
@@ -612,13 +616,13 @@ export default function Dashboard({
               style={{ minWidth: 200 }}
               options={storeSelectOptions}
             />
-            <Button
+            {!isAdmin && <Button
               icon={<ReloadOutlined />}
               onClick={() => setReloadNonce((n) => n + 1)}
               loading={loading}
             >
               {t('business:dashboard.refresh')}
-            </Button>
+            </Button>}
             <Button
               type="primary"
               icon={<BarChartOutlined />}
@@ -644,6 +648,9 @@ export default function Dashboard({
         />
       )}
 
+      {orderError && <Alert type="error" showIcon message={orderError} style={{ marginBottom: 16 }} />}
+      {storeError && <Alert type="warning" showIcon message="Chưa tải được danh sách chi nhánh" description={storeError} style={{ marginBottom: 16 }} />}
+
       {dashboard && !dashboard.projectionActive && (
         <Alert
           type="info"
@@ -661,6 +668,12 @@ export default function Dashboard({
         />
       )}
 
+      {dashboard && (
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }}
+          message="Số liệu từ projection đã lưu, không phải số dư ngân hàng hoặc doanh thu ròng sau hoàn tiền."
+          description={`Policy: ${dashboard.revenueEventPolicy ?? 'false'}. ${lastUpdatedLabel}. Bật policy không chứng minh dữ liệu đã đầy đủ hoặc cập nhật tức thời.`} />
+      )}
+
       {loading && !dashboard ? (
         <Card style={{ marginBottom: 16 }}>
           <Skeleton active paragraph={{ rows: 4 }} />
@@ -670,7 +683,7 @@ export default function Dashboard({
           <Col xs={24} sm={12} xl={6}>
             <MetricCard
               title={t('business:dashboard.todaySOrders')}
-              value={number(Number(dashboard?.todayOrderCount ?? 0))}
+              value={dashboard ? number(Number(dashboard.todayOrderCount)) : '—'}
               suffix={t('business:dashboard.orders')}
               trend={t('business:dashboard.periodOrdersSummary', {
                 value1: number(Number(dashboard?.periodOrderCount ?? 0)),
@@ -684,7 +697,7 @@ export default function Dashboard({
           <Col xs={24} sm={12} xl={6}>
             <MetricCard
               title={t('business:dashboard.todayRecognizedRevenue')}
-              value={money(Number(dashboard?.todayRevenue ?? 0))}
+              value={dashboard ? money(Number(dashboard.todayRevenue)) : '—'}
               trend={t('business:dashboard.periodRecognizedSummary', {
                 value1: money(periodTotalRevenue),
               })}
@@ -696,7 +709,7 @@ export default function Dashboard({
           <Col xs={24} sm={12} xl={6}>
             <MetricCard
               title={t('business:dashboard.pendingReconciliationKpi')}
-              value={money(periodPending)}
+              value={dashboard ? money(periodPending) : '—'}
               trend={t('business:dashboard.pendingReconciliationSub', {
                 value1: money(periodExcess),
                 value2: money(periodExpired),
@@ -709,11 +722,11 @@ export default function Dashboard({
           <Col xs={24} sm={12} xl={6}>
             <MetricCard
               title={t('business:orderprogress.preparing')}
-              value={number(activeKitchenCount)}
+              value={activeKitchenCount == null ? '—' : number(activeKitchenCount)}
               suffix={t('business:dashboard.orders')}
               trend={t('business:dashboard.activeKitchenOrdersSub')}
               icon={<CoffeeOutlined />}
-              warning={activeKitchenCount > 0}
+              warning={(activeKitchenCount ?? 0) > 0}
               tooltip={t('business:dashboard.paidOrConfirmedOrdersBeingPrepared')}
             />
           </Col>
@@ -737,7 +750,7 @@ export default function Dashboard({
             <OrdersTable
               compact
               orders={recentOrdersData}
-              loading={ordersLoading}
+              loading={!orderSnapshot && !orderError}
               onViewOrder={() => go('orders')}
             />
           </Card>

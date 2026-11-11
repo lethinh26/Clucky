@@ -16,6 +16,7 @@ public record RefundAttemptResponse(
         String failureReason,
         String evidencePublicId,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Long createdBy
 ) {}
 

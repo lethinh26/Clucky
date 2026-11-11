@@ -32,6 +32,7 @@ public class ProductService {
     private final StoreInventoryRepository storeInventoryRepository;
     private final CloudinaryMediaAdapter mediaAdapter;
     private final CatalogCacheService cacheService;
+    private final CatalogEvents events;
 
     public ProductService(ProductRepository productRepository,
                           CategoryRepository categoryRepository,
@@ -42,7 +43,7 @@ public class ProductService {
                           StoreProductRepository storeProductRepository,
                           StoreInventoryRepository storeInventoryRepository,
                           CloudinaryMediaAdapter mediaAdapter,
-                          CatalogCacheService cacheService) {
+                          CatalogCacheService cacheService, CatalogEvents events) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.optionRepository = optionRepository;
@@ -53,17 +54,18 @@ public class ProductService {
         this.storeInventoryRepository = storeInventoryRepository;
         this.mediaAdapter = mediaAdapter;
         this.cacheService = cacheService;
+        this.events = events;
     }
 
     @Transactional(readOnly = true)
     public List<ProductDto.Response> getProducts(Long storeId, Long categoryId, String keyword, Integer spicyLevel, boolean activeOnly) {
-        List<ProductDto.Response> all = getOrLoadStoreProducts(storeId);
+        List<ProductDto.Response> all = activeOnly ? getOrLoadStoreProducts(storeId) : loadFullProductsFromDb(storeId);
         return filterProducts(all, categoryId, keyword, spicyLevel, activeOnly);
     }
 
     @Transactional(readOnly = true)
     public PageResponse<ProductDto.Response> getProductsPaged(Long storeId, Long categoryId, String keyword, Integer spicyLevel, boolean activeOnly, Pageable pageable) {
-        List<ProductDto.Response> all = getOrLoadStoreProducts(storeId);
+        List<ProductDto.Response> all = activeOnly ? getOrLoadStoreProducts(storeId) : loadFullProductsFromDb(storeId);
         List<ProductDto.Response> filtered = filterProducts(all, categoryId, keyword, spicyLevel, activeOnly);
 
         int totalElements = filtered.size();
@@ -187,6 +189,7 @@ public class ProductService {
     }
 
     public ProductDto.Response createProduct(ProductDto.Request request) {
+        CloudinaryMediaAdapter.requireUnchangedImage(request.getImageUrl(), request.getImagePublicId(), null, null);
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục với mã: " + request.getCategoryId()));
 
@@ -203,7 +206,8 @@ public class ProductService {
 
         applyOptionsAndToppings(product, request.getOptions(), request.getToppings());
 
-        Product saved = productRepository.save(product);
+        Product saved = productRepository.saveAndFlush(product);
+        events.audit("PRODUCT_CREATED", "Product", saved.getId(), null);
 
         // Auto initialize store_products and store_inventory across all existing stores
         List<Store> stores = storeRepository.findAll();
@@ -220,8 +224,10 @@ public class ProductService {
     }
 
     public ProductDto.Response updateProduct(Long id, ProductDto.Request request) {
+        events.expect("products", id, request.getExpectedVersion());
         Product product = productRepository.findByIdWithCategory(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn với mã: " + id));
+        CloudinaryMediaAdapter.requireUnchangedImage(request.getImageUrl(), request.getImagePublicId(), product.getImageUrl(), product.getImagePublicId());
 
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId())
@@ -242,21 +248,25 @@ public class ProductService {
             applyOptionsAndToppings(product, request.getOptions(), request.getToppings());
         }
 
-        Product saved = productRepository.save(product);
+        Product saved = productRepository.saveAndFlush(product);
+        events.audit("PRODUCT_UPDATED", "Product", id, null);
         cacheService.evictAllStoreMenuCaches();
         return toResponse(saved);
     }
 
-    public ProductDto.Response updateProductStatus(Long id, boolean isActive) {
+    public ProductDto.Response updateProductStatus(Long id, boolean isActive, Long expectedVersion) {
+        events.expect("products", id, expectedVersion);
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn với mã: " + id));
         product.setIsActive(isActive);
-        Product saved = productRepository.save(product);
+        Product saved = productRepository.saveAndFlush(product);
+        events.audit("PRODUCT_STATUS_CHANGED", "Product", id, null);
         cacheService.evictAllStoreMenuCaches();
         return toResponse(saved);
     }
 
-    public void deleteProduct(Long id) {
+    public void deleteProduct(Long id, Long expectedVersion) {
+        events.expect("products", id, expectedVersion);
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn với mã: " + id));
 
@@ -264,6 +274,8 @@ public class ProductService {
         storeInventoryRepository.deleteByProductId(id);
         storeProductRepository.deleteByProductId(id);
         productRepository.delete(product);
+        productRepository.flush();
+        events.audit("PRODUCT_DELETED", "Product", id, null);
 
         if (oldPublicId != null && !oldPublicId.isBlank()) {
             mediaAdapter.deleteOldAssetAfterCommit(oldPublicId);
@@ -271,7 +283,8 @@ public class ProductService {
         cacheService.evictAllStoreMenuCaches();
     }
 
-    public ProductDto.Response uploadProductImage(Long id, MultipartFile file) {
+    public ProductDto.Response uploadProductImage(Long id, MultipartFile file, Long expectedVersion) {
+        events.expect("products", id, expectedVersion);
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn với mã: " + id));
 
@@ -280,7 +293,8 @@ public class ProductService {
 
         product.setImageUrl(uploadRes.getSecureUrl());
         product.setImagePublicId(uploadRes.getPublicId());
-        Product saved = productRepository.save(product);
+        Product saved = productRepository.saveAndFlush(product);
+        events.audit("PRODUCT_IMAGE_REPLACED", "Product", id, null);
 
         if (oldPublicId != null && !oldPublicId.isBlank() && !oldPublicId.equals(uploadRes.getPublicId())) {
             mediaAdapter.deleteOldAssetAfterCommit(oldPublicId);
@@ -359,6 +373,7 @@ public class ProductService {
     public ProductDto.Response toResponse(Product p) {
         ProductDto.Response r = new ProductDto.Response();
         r.setId(p.getId());
+        r.setVersion(p.getVersion());
         r.setSlug(ProductDto.toSlug(p.getName()) + "-" + p.getId());
         r.setName(p.getName());
         if (p.getCategory() != null) {
