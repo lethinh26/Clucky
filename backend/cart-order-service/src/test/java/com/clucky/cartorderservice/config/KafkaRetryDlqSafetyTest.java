@@ -132,3 +132,4 @@ class KafkaRetryDlqSafetyTest {
         assertTrue(dltMessageHeader.contains("***"), "Sanitized placeholder must be present");
     }
 }
+

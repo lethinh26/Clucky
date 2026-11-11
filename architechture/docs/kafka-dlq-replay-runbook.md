@@ -143,3 +143,4 @@ kafka-console-producer \
    - Giới hạn độ dài tối đa 500 ký tự để chống tràn header Kafka.
 2. **Không in Raw Payload nhạy cảm vào log lỗi**:
    - Log lỗi trong consumer tuân thủ tiêu chuẩn `SafeLog`, chỉ ghi ID, type và partition/offset, không log toàn bộ body chứa thông tin cá nhân.
+
