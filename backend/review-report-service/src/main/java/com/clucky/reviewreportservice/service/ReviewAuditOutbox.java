@@ -36,7 +36,8 @@ public class ReviewAuditOutbox {
         }
         var payload = mapper.valueToTree(Map.of("actorId", actor.userId(), "actorRole", actor.role().name(),
                 "storeId", storeId, "action", action, "targetType", "REVIEW", "targetId", reviewId,
-                "detail", Map.of("before", before, "after", after)));
+                "detail", Map.of("before", before, "after", after),
+                "before", before, "after", after));
         DomainEvent event = new DomainEvent(eventId, correlationId, "audit.recorded",
                 "review-report-service", Instant.now(), payload);
         try {

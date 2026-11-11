@@ -34,6 +34,7 @@ class ShippingSecurityTest {
     @MockitoBean JdbcTemplate jdbc;
     @MockitoBean DiscoveryClient discovery;
     @MockitoBean ShipmentRepository shipments;
+    @MockitoBean com.clucky.shippingservice.service.ShippingPolicyAudit audit;
     @TestConfiguration static class ClientConfig {
         @Bean RestClient.Builder builder() { return RestClient.builder(); }
     }

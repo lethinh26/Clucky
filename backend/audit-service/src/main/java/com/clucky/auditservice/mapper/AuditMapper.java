@@ -39,6 +39,7 @@ public class AuditMapper {
                 safe.put("identity", "SHARED_ACCOUNT_NOT_PERSON");
             }
             for (String field : List.of("storeId", "price", "amount", "quantity", "version", "replyId", "previousAccountId",
+                    "bankAccountId", "previousBankAccountId", "orderId", "attemptCount", "bankDetailsVersion",
                     "fee", "value", "totalLimit", "usedCount", "reservedCount", "minOrderAmount", "maxDiscount",
                     "spendPerPoint", "pointValue", "silverThreshold", "goldThreshold", "silverDiscount", "goldDiscount")) {
                 JsonNode value = original.get(field);

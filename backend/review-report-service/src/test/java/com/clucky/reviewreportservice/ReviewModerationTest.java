@@ -216,7 +216,7 @@ class ReviewModerationTest {
         assertEquals(ReviewStatus.DELETED, review.getStatus());
         assertEquals(9L, review.getDeletedBy());
         assertNotNull(review.getDeletedAt());
-        verify(reviews, never()).delete(any());
+        verify(reviews, never()).delete(any(Review.class));
         verify(audit, times(1)).record(new CurrentActor(9L, Role.ADMIN, null), 2L, "SOFT_DELETE_REVIEW", 1L,
                 Map.of("status", "VISIBLE"), Map.of("status", "DELETED"));
 
