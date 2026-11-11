@@ -78,9 +78,9 @@ export default function CheckoutPage() {
   }, [storesReload]);
 
   useEffect(() => {
-    const itemWithStore = items.find((it) => it.storeId != null);
-    if (itemWithStore?.storeId) {
-      setSelectedStore(String(itemWithStore.storeId));
+    const itemWithStore = items.find((it) => (it as { storeId?: number | string }).storeId != null);
+    if ((itemWithStore as { storeId?: number | string } | undefined)?.storeId) {
+      setSelectedStore(String((itemWithStore as { storeId?: number | string }).storeId));
     }
   }, [items]);
 

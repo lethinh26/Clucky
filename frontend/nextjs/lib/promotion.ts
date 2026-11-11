@@ -308,7 +308,7 @@ export async function fetchMyLoyalty(): Promise<MyLoyaltyResponse> {
     const data = await request<{ points?: MemberPoints; transactions?: PointTransaction[]; totalPoints?: number; tier?: LoyaltyTier }>("/api/loyalty/me");
     return {
       points: data.points ?? {
-        customerId: user.id || 'cus',
+        customerId: String(user.userId),
         totalPoints: Number(data.totalPoints) || 0,
         tier: data.tier ?? 'MEMBER',
       },
@@ -317,7 +317,7 @@ export async function fetchMyLoyalty(): Promise<MyLoyaltyResponse> {
     };
   } catch {
     return {
-      points: { customerId: user.id || '', totalPoints: 0, tier: 'MEMBER' },
+      points: { customerId: String(user.userId), totalPoints: 0, tier: 'MEMBER' },
       transactions: [],
       isGuest: false,
     };
