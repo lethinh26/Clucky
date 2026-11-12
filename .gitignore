@@ -76,6 +76,7 @@ docs/M3_CART_ORDER_FIX_FLOW.md
 **/M3_CART_ORDER_FIX_FLOW.md
 *.postman_collection.json
 docs/*.postman_collection.json
+!architechture/postman/*.postman_collection.json
 
 # Local state agent
 .agent-state

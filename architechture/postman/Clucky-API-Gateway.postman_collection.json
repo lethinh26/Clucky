@@ -1,0 +1,2812 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-47a8-b9c0-123456789abc",
+    "name": "Clucky - API Gateway E2E Collection",
+    "description": "Postman collection toàn diện cho Clucky Platform qua API Gateway (:8080). Bao gồm Happy Paths, Negative Cases, RBAC, và Chaining IDs giữa các dịch vụ.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "00. Auth & Sessions (BE-09, BE-16, BE-17, BE-76)",
+      "description": "Quản lý phiên, xác thực Cookie HttpOnly, CSRF qua Origin, phân quyền Customer và Admin.",
+      "item": [
+        {
+          "name": "01. Customer Register - Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/register",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Đăng ký tài khoản khách hàng mới qua Gateway.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyen Van A\",\n  \"email\": \"customer.test@clucky.vn\",\n  \"password\": \"{{customer_password}}\",\n  \"phone\": \"0901234567\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Customer Register - Validation Error (Password short)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/register",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Kiểm tra từ chối mật khẩu quá ngắn (< 8 ký tự).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyen Van A\",\n  \"email\": \"invalid@clucky.vn\",\n  \"password\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Error code is VALIDATION_ERROR\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"VALIDATION_ERROR\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "03. Customer Login - Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/login",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Đăng nhập Customer nhận cookie `clucky_customer_access` và thông tin tài khoản.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customer_email}}\",\n  \"password\": \"{{customer_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.userId;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"customerUserId\", String(val));",
+                  "        console.log(\"Set customerUserId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "04. Customer Login - Invalid Credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/login",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Kiểm tra từ chối sai thông tin đăng nhập.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customer_email}}\",\n  \"password\": \"WrongPassword999!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test(\"Error code is INVALID_CREDENTIALS\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"INVALID_CREDENTIALS\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "05. Customer Session - Get Active Session",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/session",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "session"
+              ]
+            },
+            "description": "Lấy phiên đăng nhập hiện tại từ cookie."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "06. Customer Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/refresh",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Xoay vòng refresh token, gia hạn phiên làm việc."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "07. Admin Login - Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/login",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Đăng nhập Quản trị viên (HQ Admin) nhận cookie `clucky_admin_access`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.userId;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"adminUserId\", String(val));",
+                  "        console.log(\"Set adminUserId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "08. Manager Login - Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/login",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Đăng nhập Quản lý chi nhánh.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{manager_email}}\",\n  \"password\": \"{{manager_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.userId;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"managerUserId\", String(val));",
+                  "        console.log(\"Set managerUserId =\", val);",
+                  "    }",
+                  "} catch (e) {}",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.storeId;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"managerStoreId\", String(val));",
+                  "        console.log(\"Set managerStoreId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "09. Staff Login - Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/login",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Đăng nhập Nhân viên ca trực chi nhánh.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{staff_email}}\",\n  \"password\": \"{{staff_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.userId;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"staffUserId\", String(val));",
+                  "        console.log(\"Set staffUserId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Customer Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/auth/logout",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Đăng xuất và thu hồi session ID trong Redis."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01. Catalog & Stores (BE-18, BE-20, BE-21)",
+      "description": "Quản lý cửa hàng, menu, danh mục món ăn, tồn kho và trạng thái phục vụ.",
+      "item": [
+        {
+          "name": "01. List Active Stores",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/stores",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "stores"
+              ]
+            },
+            "description": "Lấy danh sách các chi nhánh đang hoạt động."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = Array.isArray(json) && json.length > 0 ? (json[0].id || 1) : 1;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"storeId\", String(val));",
+                  "        console.log(\"Set storeId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Get Store Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/stores/{{storeId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}"
+              ]
+            },
+            "description": "Lấy thông tin chi tiết một chi nhánh (giờ mở cửa, hotline, địa chỉ)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "03. List Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/catalog/categories",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "catalog",
+                "categories"
+              ]
+            },
+            "description": "Lấy danh sách danh mục món ăn."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = Array.isArray(json) && json.length > 0 ? json[0].id : 1;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"categoryId\", String(val));",
+                  "        console.log(\"Set categoryId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "04. List Products by Store",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/catalog/products?storeId={{storeId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "catalog",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "storeId",
+                  "value": "{{storeId}}",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Lấy menu sản phẩm theo chi nhánh kèm trạng thái còn/hết."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.content && json.content.length > 0 ? json.content[0].id : (Array.isArray(json) && json.length > 0 ? json[0].id : 1);",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"productId\", String(val));",
+                  "        console.log(\"Set productId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "05. Get Product Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/catalog/products/{{productId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "catalog",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "Lấy chi tiết món ăn, các nhóm tùy chọn (size, sốt) và topping."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "06. Staff Toggle Availability - Success (Own Store)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/stores/{{storeId}}/products/{{productId}}/availability",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}",
+                "availability"
+              ]
+            },
+            "description": "Nhân viên bật/tắt phục vụ món tại quán của mình.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isAvailable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "07. Staff Toggle Availability - Forbidden (Other Store)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/stores/9999/products/{{productId}}/availability",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "9999",
+                "products",
+                "{{productId}}",
+                "availability"
+              ]
+            },
+            "description": "Kiểm tra chặn Staff thao tác trên chi nhánh khác.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isAvailable\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test(\"Error code is FORBIDDEN\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"FORBIDDEN\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02. Cart & Orders (BE-23, BE-24, BE-25, BE-27)",
+      "description": "Giỏ hàng Redis, tạo đơn, xem lịch sử và quản lý vòng đời đơn hàng.",
+      "item": [
+        {
+          "name": "01. View Cart",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/cart",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "Lấy giỏ hàng của khách hàng hiện tại từ Redis."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Add Item to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/cart/items",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "Thêm món vào giỏ hàng.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": 1,\n  \"quantity\": 2,\n  \"storeId\": 1,\n  \"options\": [],\n  \"note\": \"Ít cay\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.items && json.items.length > 0 ? json.items[0].key : \"\";",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"cartItemKey\", String(val));",
+                  "        console.log(\"Set cartItemKey =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "03. Preview Order Calculation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/orders/preview",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "preview"
+              ]
+            },
+            "description": "Tính tạm tính đơn hàng (phí ship, giảm giá voucher, trừ điểm tích lũy).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storeId\": 1,\n  \"deliveryAddress\": \"123 Le Loi, Quan 1, TP.HCM\",\n  \"voucherCode\": \"{{voucherCode}}\",\n  \"usePoints\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "04. Create Order from Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/orders",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ]
+            },
+            "description": "Tạo đơn hàng mới từ giỏ hàng.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storeId\": 1,\n  \"deliveryType\": \"DELIVERY\",\n  \"deliveryAddress\": \"123 Le Loi, Quan 1, TP.HCM\",\n  \"contactName\": \"Nguyen Van A\",\n  \"contactPhone\": \"0901234567\",\n  \"paymentMethod\": \"COD\",\n  \"voucherCode\": \"\",\n  \"usePoints\": 0,\n  \"note\": \"Giao giờ hành chính\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.id || json.orderId;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"orderId\", String(val));",
+                  "        console.log(\"Set orderId =\", val);",
+                  "    }",
+                  "} catch (e) {}",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.code || json.orderCode;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"orderCode\", String(val));",
+                  "        console.log(\"Set orderCode =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "05. Get My Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/orders/my",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "my"
+              ]
+            },
+            "description": "Xem danh sách lịch sử đơn hàng của tôi."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "06. Get Order Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/orders/{{orderId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": "Xem chi tiết đơn hàng (món ăn, thanh toán, trạng thái giao vận)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "07. Staff View Orders at Store",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/orders?storeId={{storeId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "storeId",
+                  "value": "{{storeId}}",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Nhân viên xem danh sách đơn hàng tại chi nhánh phụ trách."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "08. Staff Update Order Status (CONFIRMED)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/orders/{{orderId}}/status",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            },
+            "description": "Nhân viên xác nhận đơn hàng.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\",\n  \"note\": \"Đã nhận đơn và chuẩn bị chế biến\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "09. Customer Cancel Order - Valid Stage",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/orders/{{orderId}}/cancel",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "cancel"
+              ]
+            },
+            "description": "Khách hàng hủy đơn ở trạng thái hợp lệ kèm lý do.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Thay đổi kế hoạch dùng bữa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Cancel Order - Invalid State Conflict",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/orders/{{orderId}}/cancel",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderId}}",
+                "cancel"
+              ]
+            },
+            "description": "Kiểm tra từ chối hủy đơn đã hủy hoặc đã hoàn tất.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Thử hủy lại lần nữa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"Error code is RESOURCE_CONFLICT\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"RESOURCE_CONFLICT\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03. Payments & Reconciliation (BE-29, BE-30, BE-32)",
+      "description": "Khởi tạo thanh toán, đối soát COD và biên lai chuyển khoản ngân hàng.",
+      "item": [
+        {
+          "name": "01. Initiate Payment for Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/payments",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "payments"
+              ]
+            },
+            "description": "Khởi tạo thanh toán cho đơn hàng.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": 1,\n  \"paymentMethod\": \"COD\",\n  \"amount\": 50000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.id;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"paymentId\", String(val));",
+                  "        console.log(\"Set paymentId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Get Payment Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/payments/{{paymentId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "{{paymentId}}"
+              ]
+            },
+            "description": "Lấy trạng thái và chi tiết giao dịch thanh toán."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "03. Staff Collect COD Payment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/payments/{{paymentId}}/collect",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "{{paymentId}}",
+                "collect"
+              ]
+            },
+            "description": "Thu ngân/Staff xác nhận thu COD thành công.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"note\": \"Đã thu đủ tiền mặt từ shipper/khách\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "04. Repeat Collect - Resource Conflict",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/payments/{{paymentId}}/collect",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "payments",
+                "{{paymentId}}",
+                "collect"
+              ]
+            },
+            "description": "Kiểm tra không cho phép thu tiền trùng cho thanh toán đã thu.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"note\": \"Thu lại lần 2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"Error code is RESOURCE_CONFLICT\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"RESOURCE_CONFLICT\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04. Promotions & Loyalty (BE-33, BE-34, BE-35)",
+      "description": "Quản lý mã giảm giá, voucher chi nhánh, tích và đổi điểm thành viên.",
+      "item": [
+        {
+          "name": "01. List Active Vouchers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/promotions/vouchers",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "promotions",
+                "vouchers"
+              ]
+            },
+            "description": "Danh sách các voucher khuyến mãi đang có hiệu lực."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Verify Voucher Eligibility",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/promotions/vouchers/verify",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "promotions",
+                "vouchers",
+                "verify"
+              ]
+            },
+            "description": "Kiểm tra tính hợp lệ của voucher theo quán và giá trị đơn.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{voucherCode}}\",\n  \"storeId\": 1,\n  \"orderAmount\": 150000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "03. Get My Loyalty Points",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/loyalty/me",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "loyalty",
+                "me"
+              ]
+            },
+            "description": "Xem số điểm thưởng và hạng thành viên Clucky Club."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "04. Admin Create Voucher - Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/promotions/vouchers",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "promotions",
+                "vouchers"
+              ]
+            },
+            "description": "Quản trị viên tạo voucher toàn hệ thống.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CLUCKY_DEP09\",\n  \"type\": \"FIXED_AMOUNT\",\n  \"discountAmount\": 20000,\n  \"minOrderAmount\": 80000,\n  \"scope\": \"ALL\",\n  \"totalLimit\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "05. Staff Create Voucher - Forbidden",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/promotions/vouchers",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "promotions",
+                "vouchers"
+              ]
+            },
+            "description": "Kiểm tra chặn Staff tự ý tạo voucher.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"STAFF_FORBIDDEN\",\n  \"type\": \"PERCENT\",\n  \"discountPercent\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test(\"Error code is FORBIDDEN\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"FORBIDDEN\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05. Shipping & Dispatch (BE-38, BE-39)",
+      "description": "Ước tính phí giao hàng và tra cứu vận đơn.",
+      "item": [
+        {
+          "name": "01. Calculate Shipping Fee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/shipping/calculate",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "shipping",
+                "calculate"
+              ]
+            },
+            "description": "Tính toán phí ship theo khoảng cách địa lý chi nhánh.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storeId\": 1,\n  \"destinationAddress\": \"123 Le Loi, Ben Nghe, Quan 1, TP.HCM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Calculate Shipping Fee - Invalid Empty Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/shipping/calculate",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "shipping",
+                "calculate"
+              ]
+            },
+            "description": "Kiểm tra bắt lỗi địa chỉ rỗng khi tính cước vận chuyển.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"storeId\": 1,\n  \"destinationAddress\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Error code is VALIDATION_ERROR\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"VALIDATION_ERROR\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06. Reviews & Reports (BE-40, BE-41, BE-42)",
+      "description": "Đánh giá món ăn, phản hồi của chi nhánh, dashboard doanh thu và báo cáo.",
+      "item": [
+        {
+          "name": "01. List Product Reviews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/reviews?productId={{productId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "productId",
+                  "value": "{{productId}}",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Xem các đánh giá và nhận xét công khai của sản phẩm."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.content && json.content.length > 0 ? json.content[0].id : 1;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"reviewId\", String(val));",
+                  "        console.log(\"Set reviewId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Create Customer Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/reviews",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "reviews"
+              ]
+            },
+            "description": "Khách hàng viết đánh giá sau khi hoàn thành đơn.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": 1,\n  \"productId\": 1,\n  \"rating\": 5,\n  \"comment\": \"Gà rán rất giòn và sốt đậm đà ngon tuyệt!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "03. Staff Reply to Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/reviews/{{reviewId}}/reply",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "{{reviewId}}",
+                "reply"
+              ]
+            },
+            "description": "Nhân viên chi nhánh gửi phản hồi khách hàng.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Cảm ơn quý khách đã ủng hộ Clucky! Chúc quý khách ngon miệng.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "04. Admin View Revenue Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/reports/dashboard?storeId={{storeId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "dashboard"
+              ],
+              "query": [
+                {
+                  "key": "storeId",
+                  "value": "{{storeId}}",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Admin hoặc Manager xem dashboard thống kê doanh thu chi nhánh."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "05. Staff View Revenue Dashboard - Forbidden",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/reports/dashboard?storeId={{storeId}}",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "dashboard"
+              ],
+              "query": [
+                {
+                  "key": "storeId",
+                  "value": "{{storeId}}",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Kiểm tra chặn Staff xem báo cáo doanh thu tài chính."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test(\"Error code is FORBIDDEN\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"FORBIDDEN\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07. Notifications & Admin Audit (BE-43, BE-63, UI-50)",
+      "description": "Nhật ký gửi email, gửi lại email lỗi an toàn và nhật ký quản trị tập trung.",
+      "item": [
+        {
+          "name": "01. Admin Query Email Logs (Filters)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/notifications/email-logs?page=0&size=20&status=FAILED",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "email-logs"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "FAILED",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Tra cứu nhật ký email theo bộ lọc trạng thái, người nhận, mẫu email."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});",
+                  "try {",
+                  "    var json = pm.response.json();",
+                  "    var val = json.content && json.content.length > 0 ? json.content[0].id : 1;",
+                  "    if (val !== undefined && val !== null) {",
+                  "        pm.environment.set(\"emailLogId\", String(val));",
+                  "        console.log(\"Set emailLogId =\", val);",
+                  "    }",
+                  "} catch (e) {}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "02. Admin Retry Failed Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/notifications/email-logs/{{emailLogId}}/retry",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "email-logs",
+                "{{emailLogId}}",
+                "retry"
+              ]
+            },
+            "description": "Gửi lại email lỗi (chuyển sang QUEUED và tăng retry count)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "03. Admin Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "admin"
+              },
+              {
+                "key": "Origin",
+                "value": "{{admin_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/audit-logs",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "audit-logs"
+              ]
+            },
+            "description": "Xem nhật ký thay đổi quản trị tập trung (Audit Service)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "04. Non-Admin View Audit Logs - Forbidden",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/audit-logs",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "audit-logs"
+              ]
+            },
+            "description": "Kiểm tra chặn người dùng không có quyền truy cập nhật ký kiểm toán."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "pm.test(\"Error code is FORBIDDEN\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(\"FORBIDDEN\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "99. Safe Fixture Cleanup (DEP-09)",
+      "description": "Dọn dẹp giỏ hàng và dữ liệu tạm thời tạo ra trong quá trình chạy test, không xóa database chung.",
+      "item": [
+        {
+          "name": "01. Clear Test Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Clucky-Client",
+                "value": "customer"
+              },
+              {
+                "key": "Origin",
+                "value": "{{customer_origin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/cart",
+              "host": [
+                "{{gateway_url}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "Xóa giỏ hàng test đã tạo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response body is valid JSON\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.be.empty;",
+                  "    pm.response.to.be.json;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
