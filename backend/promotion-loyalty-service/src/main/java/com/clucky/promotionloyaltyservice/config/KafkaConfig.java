@@ -1,6 +1,7 @@
 package com.clucky.promotionloyaltyservice.config;
 
 import java.nio.charset.StandardCharsets;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -26,18 +27,60 @@ public class KafkaConfig {
 
     private ConsumerRecordRecoverer createDltRecoverer(
             KafkaTemplate<String, String> kafkaTemplate,
+            ObjectMapper mapper,
             long timeoutSec) {
         return (record, failure) -> {
             String originalTopic = record.topic();
             String targetTopic = originalTopic.endsWith(".DLT") ? originalTopic : originalTopic + ".DLT";
+
+            String raw = String.valueOf(record.value());
+            String key = record.key() == null ? null : record.key().toString();
+            if (key != null && !key.matches("[A-Za-z0-9._:-]{1,160}")) key = null;
+            var quarantine = mapper.createObjectNode().put("sourceTopic", originalTopic)
+                    .put("partition", record.partition()).put("offset", record.offset())
+                    .put("consumerService", "promotion-loyalty-service").put("sourceKey", key).put("replayable", false);
+            try {
+                quarantine.put("sha256", java.util.HexFormat.of().formatHex(java.security.MessageDigest
+                        .getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8))));
+            } catch (java.security.NoSuchAlgorithmException unavailable) {
+                throw new IllegalStateException("SHA-256 unavailable");
+            }
+            try {
+                var original = raw.length() > 1_000_000 ? null : mapper.reader()
+                        .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                        .with(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                        .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION).readTree(raw);
+                if (original != null && original.isObject() && original.path("payload").isObject()
+                        && original.path("eventId").asText().matches("[A-Za-z0-9._-]{1,160}")
+                        && original.path("correlationId").asText().matches("[A-Za-z0-9._-]{1,128}")
+                        && originalTopic.equals(original.path("eventType").asText())
+                        && original.path("sourceService").asText().matches("[a-z][a-z-]{0,63}")) {
+                    Instant.parse(original.path("occurredAt").asText());
+                    var event = mapper.createObjectNode();
+                    for (String name : List.of("eventId", "correlationId", "eventType", "sourceService", "occurredAt")) {
+                        event.set(name, original.get(name));
+                    }
+                    var payload = event.putObject("payload");
+                    for (String name : List.of("orderId", "customerId", "storeId", "paymentId", "collectionId", "actorId",
+                            "orderVersion", "amount", "receivedAmount", "totalAmount", "cashAmount", "declaredTransfer",
+                            "paymentExpired", "orderDecisionFinal", "shippingFee")) {
+                        var value = original.path("payload").get(name);
+                        if (value != null && (value.isNumber() || value.isBoolean())) payload.set(name, value);
+                    }
+                    quarantine.set("event", event);
+                    quarantine.put("replayable", key != null);
+                }
+            } catch (com.fasterxml.jackson.core.JsonProcessingException | java.time.format.DateTimeParseException invalid) {
+                quarantine.put("replayable", false);
+            }
 
             Long recordTimestamp = record.timestamp() >= 0 ? record.timestamp() : null;
             ProducerRecord<String, String> dltRecord = new ProducerRecord<>(
                     targetTopic,
                     null,
                     recordTimestamp,
-                    record.key() != null ? String.valueOf(record.key()) : null,
-                    record.value() != null ? String.valueOf(record.value()) : null);
+                    key,
+                    quarantine.toString());
 
             if (record.headers() != null) {
                 for (String name : List.of("X-Event-ID", "X-Correlation-ID")) {
@@ -66,42 +109,33 @@ public class KafkaConfig {
             String rootClass = root != null ? root.getClass().getName() : failure.getClass().getName();
             dltRecord.headers().add(new RecordHeader("X-DLT-Exception-Class",
                     SafeLog.token(rootClass).getBytes(StandardCharsets.UTF_8)));
-            dltRecord.headers()
-                    .add(new RecordHeader("X-DLT-Exception-Message",
-                            sanitizeErrorMessage(failure != null ? failure.getMessage() : "Unknown failure")
-                                    .getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(new RecordHeader("X-DLT-Exception-Message", "Consumer processing failed".getBytes(StandardCharsets.UTF_8)));
             dltRecord.headers().add(
                     new RecordHeader("X-DLT-Failed-At", Instant.now().toString().getBytes(StandardCharsets.UTF_8)));
 
             try {
                 kafkaTemplate.send(dltRecord).get(timeoutSec, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("DLQ publication interrupted");
             } catch (Exception sendFailure) {
-                throw new IllegalStateException("DLQ publish failed for topic " + targetTopic + ", aborting ack",
-                        sendFailure);
+                throw new IllegalStateException("DLQ publication pending");
             }
         };
     }
 
-    private static String sanitizeErrorMessage(String message) {
-        if (message == null || message.isBlank()) {
-            return "No exception message provided";
-        }
-        String sanitized = message
-                .replaceAll("(?i)(bearer\\s+)[A-Za-z0-9._~+/-]+", "$1***")
-                .replaceAll("(?i)(password|secret|token|apiKey|app-password|otp)[\"':=\\s]+[^\\s,;\"'\\}]+", "$1=***");
-        if (sanitized.length() > 500) {
-            sanitized = sanitized.substring(0, 500) + "...";
-        }
-        return sanitized;
-    }
 
     @Bean
     DefaultErrorHandler kafkaErrorHandler(
             KafkaTemplate<String, String> kafkaTemplate,
+            ObjectMapper mapper,
             @Value("${clucky.kafka.retry.backoff-ms:1000}") long backoffMs,
             @Value("${clucky.kafka.retry.max-attempts:3}") long maxAttempts,
             @Value("${clucky.kafka.retry.dlt-timeout-sec:10}") long dltTimeoutSec) {
-        ConsumerRecordRecoverer recoverer = createDltRecoverer(kafkaTemplate, dltTimeoutSec);
+        if (backoffMs < 0 || maxAttempts < 0 || maxAttempts > 20 || dltTimeoutSec < 1) {
+            throw new IllegalArgumentException("Invalid retry policy");
+        }
+        ConsumerRecordRecoverer recoverer = createDltRecoverer(kafkaTemplate, mapper, dltTimeoutSec);
         DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, new FixedBackOff(backoffMs, maxAttempts));
         handler.setAckAfterHandle(true);
         handler.setCommitRecovered(true);

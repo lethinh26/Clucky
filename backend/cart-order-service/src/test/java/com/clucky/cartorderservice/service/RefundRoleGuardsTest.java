@@ -252,9 +252,9 @@ class RefundRoleGuardsTest {
         var refund = refund(order, "PENDING");
         refund.setBankDetailsVersion(2);
         assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(ApiException.class, () -> service.updateBankDetails(1L,
-                new com.clucky.cartorderservice.dto.UpdateBankDetailsRequest("Bank", "123", "Owner"))).getCode());
+                new com.clucky.cartorderservice.dto.UpdateBankDetailsRequest("970436", "Bank", "123", "Owner", null))).getCode());
         assertEquals(ErrorCode.RESOURCE_CONFLICT, assertThrows(ApiException.class, () -> service.updateBankDetails(1L,
-                new com.clucky.cartorderservice.dto.UpdateBankDetailsRequest("Bank", "123", "Owner", 1))).getCode());
+                new com.clucky.cartorderservice.dto.UpdateBankDetailsRequest("970436", "Bank", "123", "Owner", 1))).getCode());
         assertEquals(2, refund.getBankDetailsVersion());
         verifyNoInteractions(paymentClient);
     }

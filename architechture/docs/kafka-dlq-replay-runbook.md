@@ -72,7 +72,7 @@ Mỗi record khi chuyển vào topic `<topic>.DLT` chỉ giữ các headers đ�
 | `X-DLT-Original-Offset` | String | Offset của bản ghi gặp lỗi | `10542` |
 | `X-DLT-Original-Timestamp` | String | Thời điểm message gốc được tạo (epoch ms) | `1731244800000` |
 | `X-DLT-Exception-Class` | String | Tên lớp exception gốc gây ra lỗi (sanitized) | `java.lang.IllegalArgumentException` |
-| `X-DLT-Exception-Message` | String | Nội dung lỗi đã qua bộ lọc che giấu bí mật | `Invalid amount for order 102 (token=***)` |
+| `X-DLT-Exception-Message` | String | Thông báo cố định, không sao chép nội dung exception | `Consumer processing failed` |
 | `X-DLT-Failed-At` | String | Thời điểm đưa vào DLT (ISO-8601 Instant) | `2026-11-10T13:45:00.123Z` |
 
 ---
@@ -110,18 +110,14 @@ kafka-console-consumer \
   - **Timestamp**: Thời điểm tiến hành.
 
 ### Bước 4: Thực thi Replay (Đẩy lại Topic gốc)
-Gửi lại message vào **topic gốc** (giữ nguyên key, value và chỉ các header `X-Event-ID`, `X-Correlation-ID` đã được allowlist).
-> **Lưu ý**: Tuyệt đối không xóa header `X-Event-ID` vì đây là chìa khóa để cơ chế idempotent của consumer nhận diện sự kiện lặp.
+DLT value là quarantine envelope (`sourceTopic`, `sourceKey`, `partition`, `offset`, `consumerService`, `sha256`, `replayable`, và `event` nếu hợp lệ), **không phải raw event**. Chỉ giữ các trường numeric/boolean cần thiết trong payload; không lưu chuỗi tự do, email, địa chỉ, OTP hoặc nested payload. Poison/malformed có `replayable: false`, cần điều tra tại nguồn.
 
-Ví dụ đẩy lại record qua producer console:
+Chạy công cụ có sẵn từ repo root để dry-run một quarantine record:
 ```bash
-# Đẩy lại record vào topic gốc
-kafka-console-producer \
-  --bootstrap-server localhost:9092 \
-  --topic order.completed \
-  --property parse.key=true \
-  --property key.separator=":"
+python scripts/replay-kafka-dlt.py secrets/dlt-record.json
 ```
+
+Chỉ sau phê duyệt mới thêm `--publish --source-record secrets/original-event.json --expected-sha256 <fileSha256-tu-dry-run> --reason <ly-do>`. Công cụ yêu cầu original value có SHA-256 khớp quarantine, giữ nguyên key/eventId/correlationId, xác nhận broker ACK và ghi audit trail. Không đẩy trực tiếp quarantine hoặc partial payload vào topic gốc. Công cụ chỉ hỗ trợ các order/payment topics trong allowlist; các topic khác cần quy trình domain riêng, không nới allowlist chỉ để ép replay.
 
 ### Bước 5: Kiểm tra Hậu Replay & Xác minh Tính Toàn vẹn (Post-Verification)
 1. Kiểm tra log consumer đích xem đã log `kafka_listener_returned` thành công hay chưa.
@@ -137,9 +133,7 @@ kafka-console-producer \
 ## 6. Chính sách Bảo mật Dữ liệu (Sanitization & Masking)
 
 1. **Loại bỏ Secret trong DLT Headers**:
-   - Tất cả exception message khi ghi vào `X-DLT-Exception-Message` được lọc tự động qua regex `sanitizeErrorMessage`:
-     - Che giấu `Bearer <token>` thành `Bearer ***`.
-     - Che giấu các trường `password`, `secret`, `apiKey`, `app-password`, `otp` thành `***`.
-   - Giới hạn độ dài tối đa 500 ký tự để chống tràn header Kafka.
+   - Không lưu raw exception message; `X-DLT-Exception-Message` luôn là `Consumer processing failed`. Điều tra bằng exception class, ID và source topic/partition/offset.
+   - Chỉ chuyển tiếp `X-Event-ID`/`X-Correlation-ID` hợp lệ; không sao chép authorization hoặc DLT headers cũ.
 2. **Không in Raw Payload nhạy cảm vào log lỗi**:
    - Log lỗi trong consumer tuân thủ tiêu chuẩn `SafeLog`, chỉ ghi ID, type và partition/offset, không log toàn bộ body chứa thông tin cá nhân.

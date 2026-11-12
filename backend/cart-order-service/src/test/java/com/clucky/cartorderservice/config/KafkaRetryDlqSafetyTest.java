@@ -19,17 +19,48 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class KafkaRetryDlqSafetyTest {
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void quarantinePreservesReplayEvidenceWithoutRawPayloadOrException() throws Exception {
+        KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
+        when(kafka.send(any(ProducerRecord.class))).thenReturn(CompletableFuture.completedFuture(null));
+        String original = """
+                {"eventId":"evt-1","correlationId":"corr-1","eventType":"order.created",
+                 "sourceService":"cart-order-service","occurredAt":"2026-11-12T00:00:00Z",
+                 "payload":{"orderId":1,"amount":200000,"email":"private@example.com",
+                 "reason":"private-note","secret":"private-token","items":[{"password":"private-password"}]}}
+                """;
+        var record = new ConsumerRecord<Object, Object>("order.created", 0, 100L, "1", original);
+        var recoverer = new KafkaConfig().createDltRecoverer(kafka, mapper, 2L);
+        recoverer.accept(record, new IllegalArgumentException("private-exception"));
+        ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
+        verify(kafka).send(captor.capture());
+        var published = captor.getValue();
+        var value = new com.fasterxml.jackson.databind.ObjectMapper().readTree(published.value());
+        assertEquals("order.created", value.path("sourceTopic").asText());
+        assertEquals("1", value.path("sourceKey").asText());
+        assertEquals("evt-1", value.path("event").path("eventId").asText());
+        assertEquals(1, value.path("event").path("payload").path("orderId").asLong());
+        assertEquals(200000, value.path("event").path("payload").path("amount").asLong());
+        assertEquals(java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(original.getBytes(StandardCharsets.UTF_8))), value.path("sha256").asText());
+        assertFalse(published.value().contains("private"));
+        assertFalse(new String(published.headers().lastHeader("X-DLT-Exception-Message").value(),
+                StandardCharsets.UTF_8).contains("private"));
+    }
 
     @Test
     @DisplayName("KAFKA-08/AC-01 & AC-03: Transient failure exhausts retries and publishes to DLT with headers")
-    void transientFailureExhaustsRetriesAndPublishesToDlt() {
+    void transientFailureExhaustsRetriesAndPublishesToDlt() throws Exception {
         @SuppressWarnings("unchecked")
         KafkaTemplate<String, String> kafkaTemplate = mock(KafkaTemplate.class);
         CompletableFuture<SendResult<String, String>> future = CompletableFuture.completedFuture(mock(SendResult.class));
         when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
 
         KafkaConfig kafkaConfig = new KafkaConfig();
-        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 2L, 5L);
+        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, mapper, 10L, 2L, 5L);
 
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>("order.created", 0, 100L, "ord-1", "{\"orderId\": 1}");
         record.headers().add(new RecordHeader("X-Event-ID", "evt-12345".getBytes(StandardCharsets.UTF_8)));
@@ -52,7 +83,8 @@ class KafkaRetryDlqSafetyTest {
         ProducerRecord<String, String> dltRecord = captor.getValue();
         assertEquals("order.created.DLT", dltRecord.topic());
         assertEquals("ord-1", dltRecord.key());
-        assertEquals("{\"orderId\": 1}", dltRecord.value());
+        assertEquals("order.created", mapper.readTree(dltRecord.value()).path("sourceTopic").asText());
+        assertFalse(mapper.readTree(dltRecord.value()).path("replayable").asBoolean());
 
         // Kiểm tra headers chẩn đoán
         assertEquals("order.created", new String(dltRecord.headers().lastHeader("X-DLT-Original-Topic").value(), StandardCharsets.UTF_8));
@@ -62,7 +94,7 @@ class KafkaRetryDlqSafetyTest {
         assertEquals("corr-999", new String(dltRecord.headers().lastHeader("X-Correlation-ID").value(), StandardCharsets.UTF_8));
         assertNull(dltRecord.headers().lastHeader("Authorization"), "Untrusted headers must not be copied to DLT");
         assertNotNull(dltRecord.headers().lastHeader("X-DLT-Failed-At"));
-        assertTrue(new String(dltRecord.headers().lastHeader("X-DLT-Exception-Message").value(), StandardCharsets.UTF_8).contains("DB Connection timeout"));
+        assertEquals("Consumer processing failed", new String(dltRecord.headers().lastHeader("X-DLT-Exception-Message").value(), StandardCharsets.UTF_8));
     }
 
     @Test
@@ -75,7 +107,7 @@ class KafkaRetryDlqSafetyTest {
 
         KafkaConfig kafkaConfig = new KafkaConfig();
         // Cấu hình max-attempts = 5
-        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 5L, 5L);
+        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, mapper, 10L, 5L, 5L);
 
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>("order.created", 1, 200L, "ord-2", "{invalid-json}");
         IllegalArgumentException malformedError = new IllegalArgumentException("Malformed payload syntax");
@@ -102,8 +134,8 @@ class KafkaRetryDlqSafetyTest {
         when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(failedFuture);
 
         KafkaConfig kafkaConfig = new KafkaConfig();
-        var recoverer = kafkaConfig.createDltRecoverer(kafkaTemplate, 2L);
-        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 0L, 2L);
+        var recoverer = kafkaConfig.createDltRecoverer(kafkaTemplate, mapper, 2L);
+        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, mapper, 10L, 0L, 2L);
 
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>("order.created", 0, 50L, "ord-3", "value");
 
@@ -125,7 +157,7 @@ class KafkaRetryDlqSafetyTest {
         when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
 
         KafkaConfig kafkaConfig = new KafkaConfig();
-        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 0L, 2L);
+        DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, mapper, 10L, 0L, 2L);
 
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>("order.created", 0, 10L, "ord-4", "payload");
         record.headers().add("X-Event-ID", null);
@@ -146,6 +178,24 @@ class KafkaRetryDlqSafetyTest {
         String dltMessageHeader = new String(captor.getValue().headers().lastHeader("X-DLT-Exception-Message").value(), StandardCharsets.UTF_8);
         assertFalse(dltMessageHeader.contains("SuperSecretPassword123"), "Password must be sanitized");
         assertFalse(dltMessageHeader.contains("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"), "Token must be sanitized");
-        assertTrue(dltMessageHeader.contains("***"), "Sanitized placeholder must be present");
+        assertEquals("Consumer processing failed", dltMessageHeader);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void malformedPayloadsAreMetadataOnlyAndNotReplayable() throws Exception {
+        for (String original : java.util.List.of("private-token", "null", "[]", "{} {}", "{\"eventId\":\"one\",\"eventId\":\"two\"}")) {
+            KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
+            when(kafka.send(any(ProducerRecord.class))).thenReturn(CompletableFuture.completedFuture(null));
+            var record = new ConsumerRecord<Object, Object>("order.created", 0, 1L, "unsafe\nkey", original);
+            new KafkaConfig().createDltRecoverer(kafka, mapper, 2L).accept(record, new IllegalArgumentException("private-error"));
+            ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
+            verify(kafka).send(captor.capture());
+            var quarantine = mapper.readTree(captor.getValue().value());
+            assertNull(captor.getValue().key());
+            assertFalse(quarantine.has("event"));
+            assertFalse(quarantine.path("replayable").asBoolean());
+            assertFalse(captor.getValue().value().contains("private"));
+        }
     }
 }

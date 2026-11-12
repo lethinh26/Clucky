@@ -1,5 +1,7 @@
 # [KAFKA-08] Triển khai retry, DLQ và xử lý sự kiện không lặp hiệu ứng cho Kafka consumer, hỗ trợ phát lại có kiểm soát khi khôi phục lỗi
 
+> **Rà soát cuối 12/11/2026:** khôi phục quarantine envelope tương thích `scripts/replay-kafka-dlt.py`; không chuyển raw payload/key không hợp lệ hoặc exception text vào DLT. Giữ SHA-256, identity và numeric/boolean evidence, poison chỉ có metadata. Regression mới tái hiện lỗi trước khi sửa rồi kiểm tra payload bí mật, malformed JSON và replay identity. Replay publish vẫn bắt buộc original source khớp hash; chưa chạy replay nghiệp vụ thật.
+
 > **Review fix 12/11/2026:** merge `origin/main`, giữ Flyway `baseline-on-migrate: false` và `out-of-order` của Payment. Redis password lấy từ môi trường, mặc định rỗng cho Redis local không AUTH. DLT chỉ chuyển tiếp ID headers có giá trị đúng format/độ dài; bỏ header tùy ý, null và header DLT cũ. `IllegalStateException` được retry vì có thể bao bọc dependency lỗi. Regression `KafkaRetryDlqSafetyTest` kiểm tra các trường hợp này. Các PASS lịch sử bên dưới không thay thế evidence PostgreSQL/Kafka restart/replay thật; chưa tự replay production.
 
 > **SP hiện hành ngày 09/11/2026: 5 — SPRINT 3.** Thang 0/1/2/3/5/8, tối đa 8. Một cơ chế retry/DLQ/replay có kiểm soát dùng chung; giữ idempotency và phục hồi lỗi. Giữ nguyên AC/DoD, PIC, trạng thái và giờ nguồn; không hạ điểm do công đã làm, không quy đổi thành remaining/capacity. Phạm vi mở rộng RBAC A–E mới là kế hoạch đề xuất, chưa nằm trong estimate này. SP/lịch trong các mục lịch sử không phải estimate hiện hành.
@@ -42,7 +44,7 @@
 
 - Topic/group/serializer/ack/retry/DLQ từ Config Server theo KAFKA-01 (`config-repo/application.yml`).
 - Transient/permanent/unknown categories:
-  - **Permanent/Poison**: `IllegalArgumentException`, `IllegalStateException`, `JsonProcessingException`, `MessageConversionException`, `DeserializationException`, `ClassCastException` -> 0 retry, chuyển thẳng sang DLT.
+  - **Permanent/Poison**: `IllegalArgumentException`, `JsonProcessingException`, `MessageConversionException`, `DeserializationException`, `ClassCastException` -> 0 retry, chuyển thẳng sang DLT. `IllegalStateException` vẫn retry.
   - **Transient**: Lỗi mạng, DB deadlock, timeout -> Bounded backoff 1000ms, tối đa 3 lần retry. Hết lượt -> chuyển sang DLT.
 - **ACK Contract**: Chỉ ACK sau khi nghiệp vụ hoàn tất bền vững hoặc sau khi đã publish thành công vào DLT (`setCommitRecovered(true)`, `setAckAfterHandle(true)`). Nếu publish DLT lỗi -> ném `IllegalStateException`, KHÔNG commit offset, bảo toàn dữ liệu nguồn.
 - **Replay Contract**: Replay giữ nguyên `X-Event-ID` và `X-Correlation-ID` gốc; DLT headers đính kèm `X-DLT-Original-*`, `X-DLT-Exception-*` đã được sanitize che giấu triệt để secret/token/password.
@@ -86,7 +88,7 @@
 | KAFKA-08/AC-10 | Consumer domain chưa bàn giao dedup | Ghi BLOCKED coverage domain đó, không nhận shared config là toàn hệ thống đạt | **PASS** | Ma trận domain coverage chi tiết trong Runbook |
 | KAFKA-08/AC-11 | Hai operation dùng cùng correlationId và một operation bị retry | Correlation chỉ trace; mỗi operation có identity riêng, retry cùng operation giữ eventId/operation key theo contract | **PASS** | `KafkaLogging` phân tách rõ `X-Correlation-ID` và `X-Event-ID` |
 | KAFKA-08/AC-12 | Đối chiếu đầu ra qua API/domain readback sau event và recovery | Nguồn sự thật persisted khớp expected, không chỉ log consumed/sent; thiếu downstream ghi BLOCKED phạm vi đó | **PASS** | Đối chiếu qua `processed_events`, `notifications`, `orders` |
-| KAFKA-08/AC-13 | Config runtime hoặc payload lỗi có dữ liệu nhạy cảm | Config Server/Eureka và error policy được giữ; không log secret/raw sensitive payload khi báo lỗi | **PASS** | Regex masking `sanitizeErrorMessage` trong `KafkaConfig` |
+| KAFKA-08/AC-13 | Config runtime hoặc payload lỗi có dữ liệu nhạy cảm | Config Server/Eureka và error policy được giữ; không log secret/raw sensitive payload khi báo lỗi | **UNIT PASS; cần evidence tích hợp** | Quarantine numeric/boolean allowlist, exception message cố định và `quarantinePreservesReplayEvidenceWithoutRawPayloadOrException` |
 
 ---
 
