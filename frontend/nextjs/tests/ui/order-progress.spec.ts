@@ -58,7 +58,7 @@ for (const locale of ["vi", "en"] as const) {
       await page.reload();
       await expect(rail.locator('[aria-current="step"]')).toHaveText(locale === "vi"
         ? (type === "PICKUP" ? "Đã nhận tại quán" : "Đã giao hàng")
-        : (type === "PICKUP" ? "Collected at store" : "Delivered"), { timeout: 10000 });
+        : (type === "PICKUP" ? "Collected at store" : "Delivered"));
 
       order.status = "CANCELLED";
       timeline.push({ id: 7, toStatus: "CANCELLED", reason: "PAYMENT_EXPIRED", createdAt: order.createdAt });
@@ -66,7 +66,7 @@ for (const locale of ["vi", "en"] as const) {
       await expect(rail).toHaveCount(0);
       await expect(history).toContainText(locale === "vi"
         ? "Đơn đã hủy do quá thời hạn thanh toán."
-        : "Order cancelled because the payment deadline expired.", { timeout: 10000 });
+        : "Order cancelled because the payment deadline expired.");
     });
   }
 }
