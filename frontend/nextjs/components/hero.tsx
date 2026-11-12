@@ -1,6 +1,7 @@
 import Link from '@/components/ui-loader/navigation-link';
 import Image from 'next/image';
 import { Sparkles, ArrowRight } from 'lucide-react';
+import { BannerSlider, type BannerSlideItem } from '@/components/promotion/banner-slider';
 
 export interface HeroAction {
   href: string;
@@ -16,6 +17,7 @@ export interface HeroProps {
   actions?: HeroAction[];
   imageSrc?: string;
   imageAlt?: string;
+  heroBanners?: BannerSlideItem[];
 }
 
 /**
@@ -30,7 +32,9 @@ export function Hero({
   actions = [],
   imageSrc,
   imageAlt,
+  heroBanners = [],
 }: HeroProps) {
+  const hasHeroBanners = heroBanners.length > 0;
   return (
     <section className="hero">
       <div className="hero-inner">
@@ -60,16 +64,22 @@ export function Hero({
           )}
         </div>
 
-        {imageSrc && (
+        {(hasHeroBanners || imageSrc) && (
           <div className="hero-food">
-            <Image
-              src={imageSrc}
-              alt={imageAlt ?? ''}
-              width={560}
-              height={440}
-              priority
-              style={{ width: '100%', height: 'auto', borderRadius: 28, objectFit: 'cover' }}
-            />
+            {hasHeroBanners ? (
+              <BannerSlider slides={heroBanners} variant="hero" />
+            ) : (
+              imageSrc && (
+                <Image
+                  src={imageSrc}
+                  alt={imageAlt ?? ''}
+                  width={560}
+                  height={440}
+                  priority
+                  style={{ width: '100%', height: 'auto', borderRadius: 28, objectFit: 'cover' }}
+                />
+              )
+            )}
           </div>
         )}
       </div>

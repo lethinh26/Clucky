@@ -97,7 +97,7 @@ export function refreshSession(): Promise<SessionUser> {
 export async function sessionRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const revision = state.revision;
   const publicRead = (!options.method || options.method === "GET")
-    && /^\/api\/(?:stores(?:\/\d+)?|catalog\/(?:products|categories|combos)(?:\/\d+)?|reviews\/products\/\d+)(?:\?|$)/.test(path);
+    && /^\/api\/(?:stores(?:\/\d+)?|catalog\/(?:products|categories|combos)(?:\/\d+)?|reviews\/products\/\d+|promotions\/banners)(?:\?|$)/.test(path);
   try {
     const result = await send<T>(path, options);
     if (revision !== state.revision && path !== "/api/auth/session" && !publicRead) throw new DOMException("Session changed", "AbortError");
@@ -144,7 +144,12 @@ export async function signIn<T extends SessionUser | { status: string; pendingTo
 ): Promise<T> {
   return sessionLock(async () => {
     const result = await send<T>(path, { method: "POST", body: JSON.stringify(body) });
-    if ("userId" in result) publish(result, true);
+    if ("userId" in result) {
+      if (typeof window !== "undefined") {
+        try { window.localStorage.removeItem("clucky_dismissed_popup_banners_v1"); } catch {}
+      }
+      publish(result, true);
+    }
     return result;
   });
 }

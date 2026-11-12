@@ -1,7 +1,6 @@
 import type {
   AdminVoucher,
   VoucherProposal,
-  PromoBanner,
 } from '../types/promotion';
 
 export const MOCK_VOUCHERS: AdminVoucher[] = [
@@ -223,40 +222,3 @@ export const MOCK_PROPOSALS: VoucherProposal[] = [
     proposedAt: '2026-10-24 16:45',
   },
 ];
-
-export const MOCK_BANNERS: PromoBanner[] = [
-  {
-    id: 'BAN-01',
-    title: 'Combo Gà Giòn Đậm Vị - Giảm ngay 30%',
-    imageUrl: 'https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?auto=format&fit=crop&w=1200&q=80',
-    targetUrl: '/menu?category=combo',
-    position: 'HERO_HOME',
-    startAt: '2026-10-15',
-    endAt: '2026-11-30',
-    isActive: true,
-    order: 1,
-  },
-  {
-    id: 'BAN-02',
-    title: 'Thứ 4 Vui Vẻ - Mua 1 Tặng 1 Burger Gà',
-    imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80',
-    targetUrl: '/menu?category=burger',
-    position: 'HERO_HOME',
-    startAt: '2026-10-20',
-    endAt: '2026-12-15',
-    isActive: true,
-    order: 2,
-  },
-  {
-    id: 'BAN-03',
-    title: 'Tải App Clucky Nhận Ngay Voucher 50K',
-    imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80',
-    targetUrl: '/promotions',
-    position: 'POPUP',
-    startAt: '2026-10-01',
-    endAt: '2026-12-31',
-    isActive: true,
-    order: 3,
-  },
-];
-

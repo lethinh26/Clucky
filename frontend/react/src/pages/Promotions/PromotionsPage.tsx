@@ -20,12 +20,14 @@ import {
   PercentageOutlined,
   ThunderboltOutlined,
   ClockCircleOutlined,
+  PictureOutlined,
 } from '@ant-design/icons';
 import { AdminTable } from '../../components/ui/AdminTable';
 import { VoucherBadge } from '../../components/ui/VoucherBadge';
 import { VoucherModal } from './components/VoucherModal';
 import { VoucherDetailDrawer } from './components/VoucherDetailDrawer';
 import { LoyaltySettings } from './components/LoyaltySettings';
+import { BannerManagementSection } from './components/BannerManagementSection';
 import { useAuth } from '../../context/AuthContext';
 import {
   promotionsApi,
@@ -817,6 +819,20 @@ export const PromotionsPage: React.FC = () => {
               </div>
             ),
           },
+          ...(isAdmin
+            ? [
+                {
+                  key: 'banners',
+                  label: (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <PictureOutlined />
+                      {t('admin:promotions.tabs.banners')}
+                    </span>
+                  ),
+                  children: <BannerManagementSection />,
+                },
+              ]
+            : []),
           {
             key: 'approvals',
             label: <span className={`voucher-review-tab${pendingCount > 0 && !loadError ? ' has-pending' : ''}`}>

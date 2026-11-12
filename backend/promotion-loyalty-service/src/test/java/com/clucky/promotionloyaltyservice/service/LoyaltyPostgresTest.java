@@ -73,6 +73,31 @@ class LoyaltyPostgresTest {
     @Autowired VoucherReservationService reservations;
     @Autowired VoucherRepository voucherRepository;
     @Autowired JpaTransactionManager transactionManager;
+    @Autowired BannerRepository bannerRepository;
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void bannerFiltersRespectSchedulePositionStatusAndKeywordOnPostgres() {
+        Instant now = Instant.parse("2030-01-01T00:00:00Z");
+        String title = "Banner " + UUID.randomUUID();
+        var banner = new com.clucky.promotionloyaltyservice.entity.Banner();
+        banner.setTitle(title);
+        banner.setImageUrl("https://example.test/banner.png");
+        banner.setPosition("HERO_HOME");
+        banner.setIsActive(true);
+        banner.setStartAt(now.minusSeconds(60));
+        banner.setEndAt(now.plusSeconds(60));
+        bannerRepository.saveAndFlush(banner);
+        assertTrue(bannerRepository.findActiveBanners(now, false, "").contains(banner));
+        assertFalse(bannerRepository.findActiveBanners(now, true, "POPUP").contains(banner));
+        assertFalse(bannerRepository.findActiveBanners(now.minusSeconds(61), false, "").contains(banner));
+        assertFalse(bannerRepository.findActiveBanners(now.plusSeconds(61), false, "").contains(banner));
+        assertEquals(java.util.List.of(banner), bannerRepository.findAdminBanners(false, "", false, false, true,
+                "%" + title.toLowerCase(java.util.Locale.ROOT) + "%"));
+        banner.setIsActive(false);
+        bannerRepository.saveAndFlush(banner);
+        assertFalse(bannerRepository.findActiveBanners(now, false, "").contains(banner));
+    }
 
     @Test
     @org.springframework.transaction.annotation.Transactional

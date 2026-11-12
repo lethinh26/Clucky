@@ -47,6 +47,11 @@ const server = await createServer({
             res.end(JSON.stringify([]));
             return;
           }
+          if (req.url?.split("?")[0] === "/api/promotions/banners") {
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify([]));
+            return;
+          }
           if (req.url && req.url.startsWith("/api/catalog/combos")) {
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify([]));
