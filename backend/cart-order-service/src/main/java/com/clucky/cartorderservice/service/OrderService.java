@@ -583,6 +583,17 @@ public class OrderService {
         return cartService.getCart(cartKey);
     }
 
+    public PageResponse<CustomerOrderHistoryItem> getCustomerOrderHistory(Long customerId, String status,
+            java.time.Instant from, java.time.Instant to, Pageable pageable) {
+        if (customerId == null || customerId <= 0) {
+            throw new IllegalArgumentException("customerId must be positive");
+        }
+        String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
+        return PageResponse.from(orderRepository.findCustomerOrderHistory(customerId, cleanStatus, from, to, pageable)
+                .map(order -> new CustomerOrderHistoryItem(order.getId(), order.getOrderCode(), order.getStatus(),
+                        order.getTotalAmount(), order.getCreatedAt())));
+    }
+
     public PageResponse<OrderResponse> getMyOrders(String status, Pageable pageable) {
         Long customerId = CurrentActor.require().userId();
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;

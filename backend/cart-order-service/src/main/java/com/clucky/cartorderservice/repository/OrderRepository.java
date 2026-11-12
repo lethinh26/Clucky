@@ -20,6 +20,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         SELECT o FROM Order o
         WHERE o.customerId = :customerId
           AND (:status IS NULL OR o.status = :status)
+          AND (:from IS NULL OR o.createdAt >= :from)
+          AND (:to IS NULL OR o.createdAt < :to)
+        ORDER BY o.createdAt DESC
+    """)
+    Page<Order> findCustomerOrderHistory(
+        @Param("customerId") Long customerId,
+        @Param("status") String status,
+        @Param("from") java.time.Instant from,
+        @Param("to") java.time.Instant to,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT o FROM Order o
+        WHERE o.customerId = :customerId
+          AND (:status IS NULL OR o.status = :status)
         ORDER BY o.createdAt DESC
     """)
     Page<Order> findCustomerOrders(

@@ -40,6 +40,18 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/internal/customer-history")
+    public ResponseEntity<PageResponse<CustomerOrderHistoryItem>> getCustomerOrderHistory(
+            @RequestParam Long customerId, @RequestParam(required = false) String status,
+            @RequestParam(required = false) String from, @RequestParam(required = false) String to,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 200),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(orderService.getCustomerOrderHistory(customerId, status,
+                from == null || from.isBlank() ? null : java.time.Instant.parse(from),
+                to == null || to.isBlank() ? null : java.time.Instant.parse(to), pageable));
+    }
+
     @GetMapping("/my")
     public ResponseEntity<PageResponse<OrderResponse>> getMyOrders(
             @RequestParam(value = "status", required = false) String status,

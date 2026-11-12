@@ -83,6 +83,7 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/api/cart/merge").authenticated();
                     auth.requestMatchers("/api/cart", "/api/cart/**").permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/orders/preview").permitAll();
+                    auth.requestMatchers("/api/orders/internal/**").hasAnyRole("INTERNAL_SERVICE", "ADMIN");
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })
