@@ -103,10 +103,13 @@ public class RefundRequestService {
                 || attempt.getAmount() == null || attempt.getAmount().compareTo(refund.getAmount()) != 0
                 || !Objects.equals(attempt.getAttemptNumber(), refund.getAttemptCount())
                 || !Objects.equals(attempt.getBankName(), refund.getBankName())
+                || !Objects.equals(attempt.getBankBin(), refund.getBankBin())
                 || !Objects.equals(attempt.getBankAccountNo(), refund.getBankAccountNo())
                 || !Objects.equals(attempt.getBankAccountName(), refund.getBankAccountName())) throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
         try {
-            if (mapper.readTree(refund.getCurrentAttemptBankSnapshot()).path("bankDetailsVersion").asInt(-1) != refund.getBankDetailsVersion())
+            var snapshot = mapper.readTree(refund.getCurrentAttemptBankSnapshot());
+            if (snapshot.path("bankDetailsVersion").asInt(-1) != refund.getBankDetailsVersion()
+                    || refund.getBankBin() != null && !Objects.equals(snapshot.path("bankBin").asText(null), refund.getBankBin()))
                 throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
         } catch (Exception failure) { throw new ApiException(ErrorCode.INVALID_REFUND_STATE); }
         return attempt;
@@ -128,18 +131,26 @@ public class RefundRequestService {
         var cancelled = cancellation(order);
         var existing = refunds.findAllByOrderId(order.getId()).stream().filter(refund -> !"REJECTED".equals(refund.getStatus())).findFirst();
         if (existing.isPresent()) return new CreatedRefund(response(existing.get(), order), false);
+        if (request.bankBin() == null || !request.bankBin().matches("\\d{6}")
+                || request.bankAccountNo() == null || !request.bankAccountNo().matches("\\d{1,80}")
+                || request.bankAccountName() == null || request.bankAccountName().trim().isBlank())
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
         var eligible = payments.getEligibleRefund(order.getId(), order.getTotalAmount());
         if (eligible == null || !eligible.eligible() || eligible.refundableAmount() == null || order.getTotalAmount().signum() <= 0
                 || eligible.refundableAmount().compareTo(order.getTotalAmount()) < 0)
             throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
+        String bankName = request.bankName() != null && !request.bankName().isBlank()
+                ? request.bankName().trim()
+                : request.bankBin();
         var refund = new RefundRequest();
         refund.setOrderId(order.getId()); refund.setCustomerId(order.getCustomerId());
         refund.setAmount(order.getTotalAmount()); refund.setReason(request.reason().trim());
         refund.setStatus("PENDING"); refund.setCancellationReasonSnapshot(cancelled.getReason());
         refund.setCancellationStatusSnapshot(cancelled.getFromStatus());
-        refund.setBankName(request.bankName() == null ? null : request.bankName().trim());
-        refund.setBankAccountNo(request.bankAccountNo() == null ? null : request.bankAccountNo().trim());
-        refund.setBankAccountName(request.bankAccountName() == null ? null : request.bankAccountName().trim());
+        refund.setBankName(bankName);
+        refund.setBankBin(request.bankBin());
+        refund.setBankAccountNo(request.bankAccountNo().trim());
+        refund.setBankAccountName(request.bankAccountName().trim().toUpperCase(Locale.ROOT));
         refund.setBankDetailsVersion(1); refund.setAttemptCount(0); refund.setCreatedAt(Instant.now()); refund.setUpdatedAt(Instant.now());
         refund = refunds.saveAndFlush(refund);
         audit(refund, order, "REFUND_REQUESTED");
@@ -209,16 +220,18 @@ public class RefundRequestService {
         if (held == null || !"HELD".equals(held.status()) || !Objects.equals(held.refundRequestId(), id)
                 || !Objects.equals(held.orderId(), order.getId()) || held.amount() == null || held.amount().compareTo(refund.getAmount()) != 0)
             throw new ApiException(ErrorCode.INVALID_REFUND_STATE);
-        if (refund.getBankName() == null || refund.getBankName().isBlank() || refund.getBankAccountNo() == null
+        if (refund.getBankBin() == null || refund.getBankBin().isBlank()
+                || refund.getBankName() == null || refund.getBankName().isBlank() || refund.getBankAccountNo() == null
                 || refund.getBankAccountNo().isBlank() || refund.getBankAccountName() == null || refund.getBankAccountName().isBlank())
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         var attempt = new RefundAttempt();
         attempt.setRefundRequestId(id); attempt.setAttemptNumber(refund.getAttemptCount() + 1); attempt.setAttemptId(UUID.randomUUID().toString());
-        attempt.setBankName(refund.getBankName()); attempt.setBankAccountNo(refund.getBankAccountNo()); attempt.setBankAccountName(refund.getBankAccountName());
+        attempt.setBankName(refund.getBankName()); attempt.setBankBin(refund.getBankBin());
+        attempt.setBankAccountNo(refund.getBankAccountNo()); attempt.setBankAccountName(refund.getBankAccountName());
         attempt.setAmount(refund.getAmount()); attempt.setStatus("PROCESSING"); attempt.setCreatedAt(Instant.now()); attempt.setUpdatedAt(Instant.now());
         attempt.setCreatedBy(CurrentActor.require().userId()); attempts.save(attempt);
         String snapshot;
-        try { snapshot = mapper.writeValueAsString(Map.of("bankName", refund.getBankName(), "bankAccountNo", refund.getBankAccountNo(),
+        try { snapshot = mapper.writeValueAsString(Map.of("bankName", refund.getBankName(), "bankBin", refund.getBankBin(), "bankAccountNo", refund.getBankAccountNo(),
                 "bankAccountName", refund.getBankAccountName(), "amount", refund.getAmount(), "bankDetailsVersion", refund.getBankDetailsVersion()));
         } catch (Exception failure) { throw new ApiException(ErrorCode.INTERNAL_ERROR); }
         refund.setStatus("PROCESSING"); refund.setAttemptCount(attempt.getAttemptNumber()); refund.setCurrentAttemptId(attempt.getAttemptId());
@@ -248,13 +261,21 @@ public class RefundRequestService {
     public RefundRequestResponse updateBankDetails(Long id, UpdateBankDetailsRequest request) {
         var refund = locked(id, true); var order = order(refund);
         state(refund, "PENDING", "WAITING_BANK_DETAILS");
-        if (request == null || request.bankName() == null || request.bankName().isBlank() || request.bankAccountNo() == null
-                || request.bankAccountNo().isBlank() || request.bankAccountName() == null || request.bankAccountName().isBlank()) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        if (request == null || request.bankBin() == null || !request.bankBin().matches("\\d{6}")
+                || request.bankAccountNo() == null || !request.bankAccountNo().matches("\\d{1,80}")
+                || request.bankAccountName() == null || request.bankAccountName().trim().isBlank())
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
         if (CurrentActor.require().role() == Role.ADMIN && request.expectedBankDetailsVersion() == null)
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         if (request.expectedBankDetailsVersion() != null && !request.expectedBankDetailsVersion().equals(refund.getBankDetailsVersion()))
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
-        refund.setBankName(request.bankName().trim()); refund.setBankAccountNo(request.bankAccountNo().trim()); refund.setBankAccountName(request.bankAccountName().trim());
+        String bankName = request.bankName() != null && !request.bankName().isBlank()
+                ? request.bankName().trim()
+                : (refund.getBankName() != null ? refund.getBankName() : request.bankBin());
+        refund.setBankName(bankName);
+        refund.setBankBin(request.bankBin());
+        refund.setBankAccountNo(request.bankAccountNo().trim());
+        refund.setBankAccountName(request.bankAccountName().trim().toUpperCase(Locale.ROOT));
         refund.setBankDetailsVersion(refund.getBankDetailsVersion() + 1);
         if ("WAITING_BANK_DETAILS".equals(refund.getStatus())) refund.setStatus("APPROVED");
         if (!order.isCustomerEmailVerified() && CurrentActor.require().role() == Role.CUSTOMER) {

@@ -12,7 +12,7 @@ Phạm vi: Admin toàn chuỗi. Không triển khai thêm luồng Quản lý chi
 | --- | --- | --- |
 | Khách hàng | `/admin/customers`, `/api/users/customers` | Tìm kiếm/phân trang, che thông tin liên hệ, khóa/mở khóa có lý do và trạng thái kỳ vọng, thu hồi phiên, lịch sử đơn thật theo customerId |
 | Tài khoản legacy | Identity | Chặn assign-store legacy đi vòng quy trình cấp tài khoản; không mở khóa tài khoản chi nhánh đã bị thay thế; audit bền vững |
-| Nhật ký toàn chuỗi | `/admin/audit`, `/api/audit-logs` | Lọc domain/tài khoản/quán/ngày/action/target; phân trang, xuất CSV cùng bộ lọc tối đa 10.000 dòng, chống công thức; giữ sessionId để phân biệt phiên tài khoản Staff dùng chung; loại bỏ credential/ngân hàng |
+| Nhật ký toàn chuỗi | `/admin/audit`, `/api/audit-logs` | Lọc domain/tài khoản/quán/ngày/action/target; phân trang, xuất Excel `.xlsx` cùng bộ lọc tối đa 10.000 dòng, tiêu đề tiếng Việt, màu Clucky, thời gian UTC+7, cố định tiêu đề/lọc cột; ID lưu dạng chữ, không thực thi công thức; giữ sessionId trong chi tiết để phân biệt phiên tài khoản Staff dùng chung; file xuất không có nội dung tự do/credential/ngân hàng |
 | Thông báo/email | Chuông Admin, `/admin/email-logs` | Inbox Admin, trạng thái đọc riêng từng Admin, liên kết đơn/kho thật; log gửi email phân trang/lọc, che địa chỉ, mã lỗi/retry/eventId/correlationId; đủ template từ chối/yêu cầu sửa ngân hàng/hoàn tiền; không gửi lại tùy ý |
 | Báo cáo | Dashboard/Reports | Không giữ dữ liệu cũ dưới bộ lọc mới; số đơn đang xử lý lấy tổng từ API; xuất theo bộ lọc; chỉ rõ trạng thái ghi nhận doanh thu |
 | Phí giao hàng | Shipping | Cập nhật phí và ghi outbox audit trong cùng transaction; publish có retry |

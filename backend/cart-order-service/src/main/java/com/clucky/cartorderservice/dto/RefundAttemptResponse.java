@@ -9,6 +9,7 @@ public record RefundAttemptResponse(
         Integer attemptNumber,
         String attemptId,
         String bankName,
+        String bankBin,
         String bankAccountNo,
         String bankAccountName,
         BigDecimal amount,
@@ -19,4 +20,3 @@ public record RefundAttemptResponse(
         Instant updatedAt,
         Long createdBy
 ) {}
-

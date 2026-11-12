@@ -1,6 +1,7 @@
 package com.clucky.promotionloyaltyservice.service;
 
 import com.clucky.promotionloyaltyservice.dto.Role;
+import com.clucky.promotionloyaltyservice.dto.RejectVoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.ValidateVoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.ValidateVoucherResponse;
 import com.clucky.promotionloyaltyservice.dto.VoucherRequest;
@@ -263,6 +264,8 @@ public class VoucherService {
         voucher.setUsedCount(0);
 
         Voucher saved = voucherRepository.save(voucher);
+        voucherRepository.flush();
+        audit.record(actorId, actorRole, saved.getStoreId(), "VOUCHER_PROPOSED", "VOUCHER", saved.getId(), Map.of(), snapshot(saved));
         return VoucherResponse.fromEntity(saved);
     }
 
@@ -301,17 +304,47 @@ public class VoucherService {
             throw new BadRequestException("Chỉ có thể phê duyệt voucher đang ở trạng thái chờ duyệt (PENDING_APPROVAL). Trạng thái hiện tại: " + voucher.getStatus());
         }
 
+        if (voucher.getScope() != VoucherScope.STORE) {
+            throw new BadRequestException("Only store proposals can be approved");
+        }
+        stores.requireExists(voucher.getStoreId());
+        var before = snapshot(voucher);
         voucher.setStatus(VoucherStatus.ACTIVE);
         voucher.setApprovedBy(actorId);
         voucher.setUpdatedAt(now);
 
         Voucher saved = voucherRepository.save(voucher);
+        voucherRepository.flush();
+        audit.record(actorId, actorRole, saved.getStoreId(), "VOUCHER_APPROVED", "VOUCHER", saved.getId(), before, snapshot(saved));
         return VoucherResponse.fromEntity(saved);
     }
 
-    /**
-     * Update an existing voucher.
-     */
+    @Transactional
+    public VoucherResponse rejectVoucher(Long id, RejectVoucherRequest request, Long actorId, String actorRole) {
+        if (actorId == null || actorRole == null) throw new ApiException(ErrorCode.UNAUTHENTICATED);
+        if (!Role.ADMIN.name().equalsIgnoreCase(actorRole)) throw new ApiException(ErrorCode.FORBIDDEN);
+        if (request == null || request.reason() == null || request.reason().isBlank()
+                || request.reason().length() > 500 || request.version() == null || request.version() < 0)
+            throw new BadRequestException("A rejection reason and expected voucher version are required");
+        String reason = request.reason().strip();
+        Voucher voucher = voucherRepository.findByIdWithLock(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Voucher proposal not found"));
+        if (voucher.getStatus() == VoucherStatus.REJECTED && reason.equals(voucher.getRejectionReason()))
+            return VoucherResponse.fromEntity(voucher);
+        if (voucher.getStatus() != VoucherStatus.PENDING_APPROVAL || voucher.getScope() != VoucherScope.STORE)
+            throw new ConflictException("Only pending store proposals can be rejected");
+        if (request.version() != voucher.getVersion()) throw new ConflictException("Voucher changed; reload before reviewing");
+        var before = snapshot(voucher);
+        voucher.setStatus(VoucherStatus.REJECTED);
+        voucher.setRejectionReason(reason);
+        voucher.setRejectedBy(actorId);
+        voucher.setRejectedAt(Instant.now());
+        Voucher saved = voucherRepository.save(voucher);
+        voucherRepository.flush();
+        audit.record(actorId, actorRole, saved.getStoreId(), "VOUCHER_REJECTED", "VOUCHER", saved.getId(), before, snapshot(saved));
+        return VoucherResponse.fromEntity(saved);
+    }
+
     @Transactional
     public VoucherResponse updateVoucher(Long id, VoucherRequest request, Long actorId, String actorRole, Long actorStoreId) {
         requireEditor(actorId, actorRole);
@@ -330,9 +363,8 @@ public class VoucherService {
             throw new ConflictException("Quota is below committed voucher usage");
         if ("ADMIN".equalsIgnoreCase(actorRole)) {
             validateAdminStatus(request);
-            if ((existing.getStatus() == VoucherStatus.PENDING_APPROVAL || existing.getStatus() == VoucherStatus.REJECTED)
-                    && request.getStatus() != VoucherStatus.DISABLED)
-                throw new ApiException(ErrorCode.NOT_IMPLEMENTED);
+            if (existing.getStatus() == VoucherStatus.PENDING_APPROVAL || existing.getStatus() == VoucherStatus.REJECTED)
+                throw new ConflictException("Proposals cannot bypass the approval workflow through voucher updates");
         }
         var before = snapshot(existing);
 
@@ -367,6 +399,8 @@ public class VoucherService {
         requireEditor(actorId, actorRole);
         Voucher existing = voucherRepository.findByIdWithLock(id)
             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy voucher với id: " + id));
+        if (existing.getStatus() == VoucherStatus.PENDING_APPROVAL || existing.getStatus() == VoucherStatus.REJECTED)
+            throw new ConflictException("Review proposals instead of deleting their history");
 
         if ("STORE_MANAGER".equalsIgnoreCase(actorRole)) {
             if (actorStoreId == null || existing.getStoreId() == null || !existing.getStoreId().equals(actorStoreId)) {
@@ -452,6 +486,7 @@ public class VoucherService {
         values.put("scope", voucher.getScope());
         values.put("storeId", voucher.getStoreId());
         values.put("status", voucher.getStatus());
+        values.put("reason", voucher.getRejectionReason());
         values.put("version", voucher.getVersion());
         return values;
     }

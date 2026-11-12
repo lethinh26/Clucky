@@ -33,6 +33,7 @@ import { DemoOrderControls } from "@/components/order/demo-order-controls";
 import { PaymentStatusBadge } from "@/components/payment";
 import { LiveOrderPayment } from "@/components/payment/live-order-payment";
 import { ShipmentCard } from "@/components/shipping";
+import { RefundBankFields } from "@/components/refund/refund-bank-fields";
 import {
   OrderStatusChip,
   OrderItemCard,
@@ -79,10 +80,10 @@ export default function OrderTrackingPage({
   const [refund, setRefund] = useState<RefundResult | null>(null);
   const [evidenceUrl, setEvidenceUrl] = useState<string | null>(null);
   const [bankModalOpen, setBankModalOpen] = useState(false);
-  const [bankForm, setBankForm] = useState({ bankName: "", accountNumber: "", accountHolderName: "" });
+  const [bankForm, setBankForm] = useState({ bankBin: "", bankName: "", accountNumber: "", accountHolderName: "" });
   const [submittingBank, setSubmittingBank] = useState(false);
   const [createRefundOpen, setCreateRefundOpen] = useState(false);
-  const [createRefundForm, setCreateRefundForm] = useState({ bankName: "", accountNumber: "", accountHolderName: "", reason: "" });
+  const [createRefundForm, setCreateRefundForm] = useState({ bankBin: "", bankName: "", accountNumber: "", accountHolderName: "", reason: "" });
   const [submittingCreateRefund, setSubmittingCreateRefund] = useState(false);
 
   // INT-68: 5-second polling interval for order status until terminal status
@@ -147,9 +148,10 @@ export default function OrderTrackingPage({
         if (active && Array.isArray(list) && list.length > 0) {
           setRefund(list[0]);
           setBankForm({
+            bankBin: list[0].bankBin || "",
             bankName: list[0].bankName || "",
-            accountNumber: list[0].accountNumber || "",
-            accountHolderName: list[0].accountHolderName || "",
+            accountNumber: list[0].accountNumber || list[0].bankAccountNo || "",
+            accountHolderName: list[0].accountHolderName || list[0].bankAccountName || "",
           });
         }
       }).catch(() => {});
@@ -271,7 +273,8 @@ export default function OrderTrackingPage({
       const res = await refundApi.create({
         orderId: Number(order.id),
         reason: createRefundForm.reason.trim(),
-        bankName: createRefundForm.bankName.trim(),
+        bankBin: createRefundForm.bankBin,
+        bankName: createRefundForm.bankName,
         bankAccountNo: createRefundForm.accountNumber.trim(),
         bankAccountName: createRefundForm.accountHolderName.trim(),
       });
@@ -475,7 +478,10 @@ export default function OrderTrackingPage({
                 <button
                   type="button"
                   className={styles.outlineButton}
-                  onClick={() => setCreateRefundOpen(true)}
+                  onClick={() => {
+                    setCreateRefundForm({ bankBin: "", bankName: "", accountNumber: "", accountHolderName: "", reason: "" });
+                    setCreateRefundOpen(true);
+                  }}
                 >
                   <RotateCcw size={17} /> {t("business.id.requestRefund")}
                 </button>
@@ -578,7 +584,15 @@ export default function OrderTrackingPage({
                       <button
                         type="button"
                         style={{ fontSize: "13px", padding: "6px 12px", borderRadius: "8px", border: "1px solid #d97706", color: "#b45309", background: "#fff", cursor: "pointer", fontWeight: 600 }}
-                        onClick={() => setBankModalOpen(true)}
+                        onClick={() => {
+                          setBankForm({
+                            bankBin: refund?.bankBin || "",
+                            bankName: refund?.bankName || "",
+                            accountNumber: refund?.accountNumber || refund?.bankAccountNo || "",
+                            accountHolderName: refund?.accountHolderName || refund?.bankAccountName || "",
+                          });
+                          setBankModalOpen(true);
+                        }}
                       >
                         {t("business.id.updateBankDetails")}
                       </button>
@@ -609,13 +623,19 @@ export default function OrderTrackingPage({
                           </strong>
                         </div>
                         {(refund?.bankName || order.refundData?.bankName) && (
-                          <div>{t("business.id.beneficiaryBank")} <strong>{refund?.bankName || order.refundData?.bankName}</strong></div>
+                          <div>
+                            {t("business.id.beneficiaryBank")}{" "}
+                            <strong>{refund?.bankName || order.refundData?.bankName}</strong>
+                            {(refund?.bankBin || order.refundData?.bankBin) && (
+                              <span> ({refund?.bankBin || order.refundData?.bankBin})</span>
+                            )}
+                          </div>
                         )}
-                        {(refund?.accountNumber || order.refundData?.accountNumber) && (
-                          <div>{t("business.id.bankAccountNumber")} <strong>{refund?.accountNumber || order.refundData?.accountNumber}</strong></div>
+                        {(refund?.accountNumber || refund?.bankAccountNo || order.refundData?.accountNumber || order.refundData?.bankAccountNo) && (
+                          <div>{t("business.id.bankAccountNumber")} <strong>{refund?.accountNumber || refund?.bankAccountNo || order.refundData?.accountNumber || order.refundData?.bankAccountNo}</strong></div>
                         )}
-                        {(refund?.accountHolderName || order.refundData?.accountHolderName) && (
-                          <div>{t("business.id.bankAccountHolder")} <strong>{refund?.accountHolderName || order.refundData?.accountHolderName}</strong></div>
+                        {(refund?.accountHolderName || refund?.bankAccountName || order.refundData?.accountHolderName || order.refundData?.bankAccountName) && (
+                          <div>{t("business.id.bankAccountHolder")} <strong>{refund?.accountHolderName || refund?.bankAccountName || order.refundData?.accountHolderName || order.refundData?.bankAccountName}</strong></div>
                         )}
                       </div>
                       {evidenceUrl && (
@@ -662,7 +682,10 @@ export default function OrderTrackingPage({
                         type="button"
                         className={styles.outlineButton}
                         style={{ fontSize: "13px", padding: "8px 16px" }}
-                        onClick={() => setCreateRefundOpen(true)}
+                        onClick={() => {
+                          setCreateRefundForm((prev) => ({ ...prev, accountHolderName: "" }));
+                          setCreateRefundOpen(true);
+                        }}
                       >
                         {t("business.id.requestRefund")}
                       </button>
@@ -705,7 +728,7 @@ export default function OrderTrackingPage({
               placeholder={t("business.id.tellCluckyYourReason")}
               maxLength={500}
             />
-            <div>
+            <div className={styles.dialogActions}>
               <button
                 type="button"
                 className={styles.outlineButton}
@@ -731,37 +754,17 @@ export default function OrderTrackingPage({
         >
           <div className={styles.cancelDialog}>
             <h2 id="update-bank-details-title">{t("business.id.updateBankDetails")}</h2>
-            <label htmlFor="refund-bank-name" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
-              {t("business.id.bankName")} *
-            </label>
-            <input
-              id="refund-bank-name"
-              value={bankForm.bankName}
-              onChange={(e) => setBankForm((prev) => ({ ...prev, bankName: e.target.value }))}
-              placeholder="Vietcombank, MB Bank, Techcombank..."
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "12px", fontSize: "14px", boxSizing: "border-box" }}
+            <RefundBankFields
+              active={bankModalOpen}
+              bankBin={bankForm.bankBin}
+              bankName={bankForm.bankName}
+              accountNumber={bankForm.accountNumber}
+              accountHolderName={bankForm.accountHolderName}
+              onBankBinChange={(bankBin, bankName) => setBankForm((prev) => ({ ...prev, bankBin, bankName }))}
+              onAccountNumberChange={(accountNumber) => setBankForm((prev) => ({ ...prev, accountNumber }))}
+              onAccountHolderNameChange={(accountHolderName) => setBankForm((prev) => ({ ...prev, accountHolderName }))}
             />
-            <label htmlFor="refund-account-num" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
-              {t("business.id.accountNumber")} *
-            </label>
-            <input
-              id="refund-account-num"
-              value={bankForm.accountNumber}
-              onChange={(e) => setBankForm((prev) => ({ ...prev, accountNumber: e.target.value }))}
-              placeholder="123456789..."
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "12px", fontSize: "14px", boxSizing: "border-box" }}
-            />
-            <label htmlFor="refund-account-holder" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
-              {t("business.id.accountHolderName")} *
-            </label>
-            <input
-              id="refund-account-holder"
-              value={bankForm.accountHolderName}
-              onChange={(e) => setBankForm((prev) => ({ ...prev, accountHolderName: e.target.value }))}
-              placeholder="NGUYEN VAN A"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "16px", fontSize: "14px", boxSizing: "border-box" }}
-            />
-            <div>
+            <div className={styles.dialogActions}>
               <button
                 type="button"
                 className={styles.outlineButton}
@@ -772,15 +775,17 @@ export default function OrderTrackingPage({
               <button
                 type="button"
                 className={styles.primaryButton}
-                disabled={submittingBank || !bankForm.bankName.trim() || !bankForm.accountNumber.trim() || !bankForm.accountHolderName.trim()}
+                disabled={submittingBank || !bankForm.bankBin || !/^\d{1,80}$/.test(bankForm.accountNumber.trim()) || !bankForm.accountHolderName.trim()}
                 onClick={async () => {
                   if (!refund?.id) return;
                   try {
                     setSubmittingBank(true);
                     const updated = await refundApi.updateBankDetails(refund.id, {
-                      bankName: bankForm.bankName.trim(),
-                      accountNumber: bankForm.accountNumber.trim(),
-                      accountHolderName: bankForm.accountHolderName.trim(),
+                      bankBin: bankForm.bankBin,
+                      bankName: bankForm.bankName,
+                      bankAccountNo: bankForm.accountNumber.trim(),
+                      bankAccountName: bankForm.accountHolderName.trim(),
+                      expectedBankDetailsVersion: refund.bankDetailsVersion,
                     });
                     setRefund(updated);
                     setBankModalOpen(false);
@@ -804,41 +809,21 @@ export default function OrderTrackingPage({
         >
           <div className={styles.cancelDialog}>
             <h2 id="create-refund-title">{t("business.id.requestRefund")}</h2>
-            <p style={{ fontSize: "13px", color: "#64748b", margin: "4px 0 12px" }}>
+            <p style={{ fontSize: "13px", color: "#64748b", margin: "4px 0 14px" }}>
               {t("business.id.provideBankDetailsNotice", { amount: formatPrice(order.totalAmount) })}
             </p>
-            <label htmlFor="create-refund-bank-name" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
-              {t("business.id.bankName")} *
-            </label>
-            <input
-              id="create-refund-bank-name"
-              value={createRefundForm.bankName}
-              onChange={(e) => setCreateRefundForm((prev) => ({ ...prev, bankName: e.target.value }))}
-              placeholder="Vietcombank, MB Bank, Techcombank..."
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "12px", fontSize: "14px", boxSizing: "border-box" }}
+            <RefundBankFields
+              active={createRefundOpen}
+              bankBin={createRefundForm.bankBin}
+              bankName={createRefundForm.bankName}
+              accountNumber={createRefundForm.accountNumber}
+              accountHolderName={createRefundForm.accountHolderName}
+              onBankBinChange={(bankBin, bankName) => setCreateRefundForm((prev) => ({ ...prev, bankBin, bankName }))}
+              onAccountNumberChange={(accountNumber) => setCreateRefundForm((prev) => ({ ...prev, accountNumber }))}
+              onAccountHolderNameChange={(accountHolderName) => setCreateRefundForm((prev) => ({ ...prev, accountHolderName }))}
             />
-            <label htmlFor="create-refund-account-num" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
-              {t("business.id.accountNumber")} *
-            </label>
-            <input
-              id="create-refund-account-num"
-              value={createRefundForm.accountNumber}
-              onChange={(e) => setCreateRefundForm((prev) => ({ ...prev, accountNumber: e.target.value }))}
-              placeholder="123456789..."
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "12px", fontSize: "14px", boxSizing: "border-box" }}
-            />
-            <label htmlFor="create-refund-account-holder" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
-              {t("business.id.accountHolderName")} *
-            </label>
-            <input
-              id="create-refund-account-holder"
-              value={createRefundForm.accountHolderName}
-              onChange={(e) => setCreateRefundForm((prev) => ({ ...prev, accountHolderName: e.target.value }))}
-              placeholder="NGUYEN VAN A"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "12px", fontSize: "14px", boxSizing: "border-box" }}
-            />
-            <label htmlFor="create-refund-reason" style={{ display: "block", marginBottom: "4px", fontSize: "14px", fontWeight: 600 }}>
-              {t("business.id.refundReason")}
+            <label htmlFor="create-refund-reason" style={{ display: "block", marginBottom: "6px", fontSize: "14px", fontWeight: 600 }}>
+              {t("business.id.refundReason")} *
             </label>
             <textarea
               id="create-refund-reason"
@@ -846,9 +831,8 @@ export default function OrderTrackingPage({
               onChange={(e) => setCreateRefundForm((prev) => ({ ...prev, reason: e.target.value }))}
               placeholder={t("business.id.enterRefundReason")}
               rows={3}
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", marginBottom: "16px", fontSize: "14px", boxSizing: "border-box" }}
             />
-            <div>
+            <div className={styles.dialogActions}>
               <button
                 type="button"
                 className={styles.outlineButton}
@@ -861,8 +845,8 @@ export default function OrderTrackingPage({
                 className={styles.primaryButton}
                 disabled={
                   submittingCreateRefund ||
-                  !createRefundForm.bankName.trim() ||
-                  !createRefundForm.accountNumber.trim() ||
+                  !createRefundForm.bankBin ||
+                  !/^\d{1,80}$/.test(createRefundForm.accountNumber.trim()) ||
                   !createRefundForm.accountHolderName.trim() ||
                   !createRefundForm.reason.trim()
                 }

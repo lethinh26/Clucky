@@ -1,5 +1,15 @@
 # Notification delivery and review checks
 
+## Branded templates and transactional wiring (12 November 2026)
+
+V14 refreshes all 19 templates to the approved minimal layout: 560px white card, 80px inline logo, centered transaction button, item/price/total tables and compact footer. All seven security/OTP templates have **no links or buttons**. Absolute expiry, escaping, trusted transaction URLs, plain-text alternatives and frozen queued snapshots are preserved. This supersedes the original V13 appearance, not its delivery behavior.
+
+See [the 19-template inventory and trigger matrix](../../architechture/docs/Email_Templates_2026-11-12.md): 14 customer templates, 5 staff/Admin security templates, embedded Clucky logo, escaped HTML, full plain-text alternative, trusted frontend links, frozen encrypted snapshots. V13 retires two legacy render keys without deleting history. Order/payment events now resolve the verified CUSTOMER contact through Identity/Eureka; refunds keep the producer-verified recipient contract. Customer/admin origins come from Config Server and Compose. This section supersedes historical recipient/no-resend descriptions below. Standalone regression tests and inbox acceptance remain unrun by user instruction.
+
+## Current email operations contract (11 November 2026)
+
+BE-62/BE-63/UI-50 now use frozen encrypted snapshots, per-attempt history, atomic terminal failure outbox, scoped Admin/Manager reads and restricted Admin retries. See [the contract and recovery runbook](../../architechture/docs/Email_Operations_2026-11-11.md); it supersedes older read-only/ADMIN-only email-log and no-resend notes below. `GET /api/notifications/email-logs/{id}` exposes safe attempt/failure history; `POST /api/notifications/email-logs/{id}/retry` requires `{requestId,expectedGeneration}` and never accepts recipients or bodies. UI uses UTC+7 date boundaries and VI/EN labels. The security-event consumer now durably enqueues register/reset/branch OTP with absolute expiry into the same SMTP worker. Existing Admin inbox permissions are unchanged. Functional acceptance is pending; do not read historical build notes as acceptance of this update.
+
 ## Admin operations integration (11 November 2026, not validated)
 
 - `GET /api/notifications/email-logs?page=0&size=20&recipient=...&status=SENT&from=2026-11-10T00:00:00Z&to=2026-11-11T00:00:00Z`: ADMIN only; zero-based pagination, size 1–100, literal case-insensitive recipient substring, creation time `[from,to)`. Status is one of QUEUED/SENDING/SENT/FAILED/EXPIRED. Response `{content,page,size,totalElements,totalPages}`, rows `{id,toEmail,subject,status,template,sentAt,createdAt}`. Recipient and addresses within subject are masked in the backend. No bodies, template variables, exception text, credentials, or send/resend endpoint are exposed. `SENT` means SMTP accepted the submission, not confirmed inbox delivery.
@@ -47,7 +57,7 @@ Regression sources: `AdminNotificationOperationsTest` plus the existing notifica
 
 Domain-event processing commits in-app notifications and email intents together, then acknowledges Kafka. Invalid envelopes remain unacknowledged for the configured error handler; a durable DLQ must be configured before treating poison-message recovery as complete.
 
-Email recipients must be present in the producer contract. No customer-email lookup or guessed recipient is performed. An order-created event is not treated as order-confirmed. The separate Identity `email.requested`/OTP consumer is outside this domain-event PR.
+Order/payment recipients are now resolved from Identity's authenticated internal contact endpoint, never guessed from payload email fields. Refund recipients still require the verified producer contract. An order-created event uses ORDER_CREATED only while PENDING_PAYMENT, or ORDER_CONFIRMED if it is already CONFIRMED (COD). Identity `email.requested`/branch OTP uses the common durable email worker.
 
 The SMTP worker is disabled by default (`MAIL_SENDER_ENABLED=false`). When enabled, it claims committed QUEUED rows with PostgreSQL `SKIP LOCKED`, releases the transaction, then sends. Connect failures retry with bounded backoff. Unknown SMTP outcomes and stale SENDING claims become FAILED with `SMTP_OUTCOME_UNKNOWN`: reconcile with the provider before any manual requeue, because SMTP cannot guarantee exactly-once delivery. Diagnostics never persist provider exception text or sender credentials. Missing templates fail instead of sending generic content.
 

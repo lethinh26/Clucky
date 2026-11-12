@@ -1,5 +1,62 @@
 /* Promotions Page Custom Styles - Clucky Brand Guidelines */
 
+.voucher-review-tab { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 9px; }
+.voucher-review-tab.has-pending { background: #fff1ae; color: #754300; }
+.voucher-review-count .ant-badge-count { background: #e8e2d9; color: #6b6259; box-shadow: none; font-weight: 800; }
+.voucher-review-tab.has-pending .ant-badge-count { background: #ffc928; color: #16100d; }
+.voucher-review-reason { white-space: pre-wrap; overflow-wrap: anywhere; }
+.voucher-rejection { margin-top: 20px; padding: 18px; border: 1px solid #f0c9c4; border-radius: 14px; background: #fff8f7; }
+.voucher-rejection h5.ant-typography { margin-top: 0; color: #b42318; }
+
+.voucher-validity-detail { display: grid; gap: 8px; font-size: 12px; }
+.voucher-usage-detail { margin: 24px 0; }
+.voucher-usage-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.voucher-usage-grid > div { padding: 14px 12px; border: 1px solid #e8e2d9; border-radius: 12px; background: #fafafa; }
+.voucher-usage-grid dt { color: #6b6259; font-size: 12px; margin-bottom: 8px; }
+.voucher-usage-grid dd { margin: 0; color: #16100d; font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .voucher-usage-grid { grid-template-columns: minmax(0, 1fr); }
+  .voucher-usage-grid > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .voucher-usage-grid dt { margin: 0; }
+}
+
+.loyalty-settings { display: grid; gap: 20px; }
+.loyalty-banner { display: flex; align-items: center; gap: 20px; padding: 26px; background: #16100d; border-radius: 20px; color: #fffaf3; }
+.loyalty-banner-icon { flex-shrink: 0; display: grid; place-items: center; width: 64px; height: 64px; border: 1px solid #c9a227; border-radius: 18px; color: #e4c76f; font-size: 30px; }
+.loyalty-eyebrow { color: #e4c76f; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.loyalty-banner h3.ant-typography { color: #fffaf3; margin: 4px 0 6px; font-size: 28px; }
+.loyalty-banner p { margin: 0; max-width: 780px; color: #ddd1c2; line-height: 1.6; }
+.loyalty-version.ant-tag { margin-left: auto; align-self: flex-start; white-space: nowrap; background: #302719; border-color: #c9a227; color: #f0d887; }
+.loyalty-rates, .loyalty-tiers { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.loyalty-tiers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.loyalty-settings .ant-card { background: #fffaf3; border-color: #e8e2d9; border-radius: 18px; overflow: hidden; }
+.loyalty-settings .ant-input-number { width: 100%; }
+.loyalty-settings .ant-form-item-label > label { height: auto; }
+.loyalty-settings .ant-form-item { margin-bottom: 18px; }
+.loyalty-equation { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 14px; border-radius: 12px; background: #f5ede0; color: #8f1216; font-size: 16px; }
+.loyalty-section-heading { margin: 28px 0 16px; }
+.loyalty-section-heading h4.ant-typography { margin: 0 0 4px; }
+.loyalty-tier-member { border-top: 4px solid #6b6259 !important; }
+.loyalty-tier-silver { border-top: 4px solid #8b98a7 !important; }
+.loyalty-tier-gold { border-top: 4px solid #c9a227 !important; }
+.loyalty-tier-benefit { font-size: 38px; font-weight: 700; line-height: 1.2; color: #16100d; }
+.loyalty-tier-benefit span { font-size: 20px; margin-left: 3px; }
+.loyalty-tier-gold .loyalty-tier-benefit { color: #826515; }
+.loyalty-rules { margin-top: 20px; }
+.loyalty-savebar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 20px 0 4px; }
+@media (max-width: 1199px) {
+  .loyalty-tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .loyalty-tier-member { grid-column: 1 / -1; }
+  .loyalty-banner { flex-wrap: wrap; }
+  .loyalty-version.ant-tag { margin-left: 0; }
+}
+@media (max-width: 640px) {
+  .loyalty-rates, .loyalty-tiers { grid-template-columns: minmax(0, 1fr); }
+  .loyalty-banner { padding: 20px; gap: 14px; }
+  .loyalty-banner-icon { width: 48px; height: 48px; font-size: 24px; }
+  .loyalty-equation { gap: 10px; font-size: 14px; }
+}
+
 .promotions-wrapper {
   display: flex;
   flex-direction: column;

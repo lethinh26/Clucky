@@ -50,4 +50,3 @@ public class InternalPaymentController {
         return ResponseEntity.noContent().build();
     }
 }
-

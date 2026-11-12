@@ -31,6 +31,9 @@ public class VoucherResponse {
     private VoucherStatus effectiveStatus;
     private Long createdBy;
     private Long approvedBy;
+    private String rejectionReason;
+    private Long rejectedBy;
+    private Instant rejectedAt;
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -40,6 +43,10 @@ public class VoucherResponse {
     public int getReservedCount() { return reservedCount; }
 
     public long getVersion() { return version; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public Long getRejectedBy() { return rejectedBy; }
+    public Instant getRejectedAt() { return rejectedAt; }
 
     public static VoucherResponse fromEntity(Voucher v) {
         return fromEntity(v, Instant.now());
@@ -70,6 +77,9 @@ public class VoucherResponse {
         dto.setEffectiveStatus(v.computeEffectiveStatus(now));
         dto.setCreatedBy(v.getCreatedBy());
         dto.setApprovedBy(v.getApprovedBy());
+        dto.rejectionReason = v.getRejectionReason();
+        dto.rejectedBy = v.getRejectedBy();
+        dto.rejectedAt = v.getRejectedAt();
         dto.setCreatedAt(v.getCreatedAt());
         dto.setUpdatedAt(v.getUpdatedAt());
         return dto;

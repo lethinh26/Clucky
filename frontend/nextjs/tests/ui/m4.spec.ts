@@ -353,25 +353,30 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
 test("Google request loading and error can be retried without storing a pending token", async ({
   page,
 }) => {
-  let release: () => void = () => undefined;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.route("**/api/auth/google", async (route) => {
-    await new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    await gate;
     await route.fulfill({
       status: 503,
       json: { message: "Dịch vụ tạm gián đoạn" },
     });
   });
-  await page.goto(fixture);
-  await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
-  await expect(
-    page.getByRole("button", { name: "Đang mở Google…" }),
-  ).toBeDisabled();
-  release();
-  await expect(page.locator("[data-sonner-toast] [data-description]").first()).toHaveText("Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.");
-  await expect(
-    page.getByRole("button", { name: "Đăng nhập bằng Google" }),
-  ).toBeEnabled();
-  expect(await page.evaluate(() => localStorage.length)).toBe(0);
+  try {
+    await page.goto(fixture);
+    await page.getByRole("button", { name: "Đăng nhập bằng Google" }).click();
+    await expect(
+      page.getByRole("button", { name: "Đang mở Google…" }),
+    ).toBeDisabled();
+    release();
+    await expect(page.locator("[data-sonner-toast] [data-description]").first()).toHaveText("Dịch vụ tạm thời không khả dụng. Vui lòng thử lại sau.");
+    await expect(
+      page.getByRole("button", { name: "Đăng nhập bằng Google" }),
+    ).toBeEnabled();
+    expect(await page.evaluate(() => localStorage.length)).toBe(0);
+  } finally {
+    release();
+  }
 });

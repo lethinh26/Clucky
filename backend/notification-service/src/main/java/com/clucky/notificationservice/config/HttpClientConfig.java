@@ -8,6 +8,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 public class HttpClientConfig {
     @Bean
+    @org.springframework.cloud.client.loadbalancer.LoadBalanced
+    org.springframework.web.client.RestClient.Builder serviceRestClientBuilder(
+            org.springframework.boot.autoconfigure.web.client.RestClientBuilderConfigurer configurer) {
+        return configurer.configure(org.springframework.web.client.RestClient.builder());
+    }
+
+    @Bean
     RestClientCustomizer correlationIdCustomizer() {
         return builder -> builder.requestInterceptor((request, body, execution) -> {
             String correlationId = MDC.get("correlationId");

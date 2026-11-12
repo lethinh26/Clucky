@@ -150,4 +150,3 @@ public class PaymentClient {
         return new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
     }
 }
-

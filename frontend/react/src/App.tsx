@@ -226,7 +226,7 @@ export const App: React.FC = () => {
                     />
                     <Route
                       path="email-logs"
-                      element={<ProtectedRoute allowedRoles={["ADMIN"]}><EmailLogsPage /></ProtectedRoute>}
+                      element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}><EmailLogsPage /></ProtectedRoute>}
                     />
                     <Route
                       path="audit"
@@ -238,7 +238,7 @@ export const App: React.FC = () => {
                         <ProtectedRoute
                           allowedRoles={["ADMIN", "STORE_MANAGER"]}
                         >
-                          <ProtectedRoute allowedRoles={["ADMIN"]}><PromotionsPage /></ProtectedRoute>
+                          <PromotionsPage />
                         </ProtectedRoute>
                       }
                     />
