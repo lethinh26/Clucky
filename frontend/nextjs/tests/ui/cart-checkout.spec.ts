@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 const customer = "http://127.0.0.1:4174";
 
 test("cart preserves combo/options and server keys; failed mutations keep the cart", async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-11-12T05:00:00Z'));
   const items: any[] = [];
   let signedIn = false;
   await page.route("**/api/auth/session", route => route.fulfill(signedIn

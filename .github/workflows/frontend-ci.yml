@@ -99,6 +99,7 @@ jobs:
       - name: Build customer for UI tests
         run: npm run build
         env:
+          INTERNAL_API_URL: "http://127.0.0.1:4175"
           NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "pk.playwright-test-token"
 
       - name: Build admin for UI tests
