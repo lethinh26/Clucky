@@ -115,3 +115,4 @@ class VietQrServiceTest {
         assertEquals(ErrorCode.UPSTREAM_ERROR, ex.getCode());
     }
 }
+

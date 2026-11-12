@@ -76,3 +76,4 @@ class RefundRequestValidationTest {
         assertTrue(validator.validate(valid).isEmpty());
     }
 }
+
