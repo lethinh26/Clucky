@@ -34,8 +34,9 @@ class KafkaRetryDlqSafetyTest {
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>("order.created", 0, 100L, "ord-1", "{\"orderId\": 1}");
         record.headers().add(new RecordHeader("X-Event-ID", "evt-12345".getBytes(StandardCharsets.UTF_8)));
         record.headers().add(new RecordHeader("X-Correlation-ID", "corr-999".getBytes(StandardCharsets.UTF_8)));
+        record.headers().add(new RecordHeader("Authorization", "Bearer secret-token".getBytes(StandardCharsets.UTF_8)));
 
-        RuntimeException transientError = new RuntimeException("DB Connection timeout");
+        RuntimeException transientError = new IllegalStateException("DB Connection timeout");
 
         // Mô phỏng container gọi handler qua các lần retry cho đến khi cạn lượt (max-attempts = 2, tổng 3 lượt gọi)
         handler.handleOne(transientError, record, mock(org.apache.kafka.clients.consumer.Consumer.class), mock(org.springframework.kafka.listener.MessageListenerContainer.class));
@@ -59,6 +60,7 @@ class KafkaRetryDlqSafetyTest {
         assertEquals("100", new String(dltRecord.headers().lastHeader("X-DLT-Original-Offset").value(), StandardCharsets.UTF_8));
         assertEquals("evt-12345", new String(dltRecord.headers().lastHeader("X-Event-ID").value(), StandardCharsets.UTF_8));
         assertEquals("corr-999", new String(dltRecord.headers().lastHeader("X-Correlation-ID").value(), StandardCharsets.UTF_8));
+        assertNull(dltRecord.headers().lastHeader("Authorization"), "Untrusted headers must not be copied to DLT");
         assertNotNull(dltRecord.headers().lastHeader("X-DLT-Failed-At"));
         assertTrue(new String(dltRecord.headers().lastHeader("X-DLT-Exception-Message").value(), StandardCharsets.UTF_8).contains("DB Connection timeout"));
     }
@@ -126,6 +128,9 @@ class KafkaRetryDlqSafetyTest {
         DefaultErrorHandler handler = kafkaConfig.kafkaErrorHandler(kafkaTemplate, 10L, 0L, 2L);
 
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>("order.created", 0, 10L, "ord-4", "payload");
+        record.headers().add("X-Event-ID", null);
+        record.headers().add("X-Correlation-ID", "Bearer secret-token".getBytes(StandardCharsets.UTF_8));
+        record.headers().add("X-DLT-Exception-Message", "secret-from-old-header".getBytes(StandardCharsets.UTF_8));
         RuntimeException leakException = new RuntimeException("Authentication failed for token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9 and password=SuperSecretPassword123");
 
         handler.handleOne(leakException, record, mock(org.apache.kafka.clients.consumer.Consumer.class), mock(org.springframework.kafka.listener.MessageListenerContainer.class));
@@ -134,10 +139,13 @@ class KafkaRetryDlqSafetyTest {
         ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
         verify(kafkaTemplate).send(captor.capture());
 
+        assertNull(captor.getValue().headers().lastHeader("X-Event-ID"));
+        assertNull(captor.getValue().headers().lastHeader("X-Correlation-ID"));
+        assertEquals(1, java.util.stream.StreamSupport.stream(
+                captor.getValue().headers().headers("X-DLT-Exception-Message").spliterator(), false).count());
         String dltMessageHeader = new String(captor.getValue().headers().lastHeader("X-DLT-Exception-Message").value(), StandardCharsets.UTF_8);
         assertFalse(dltMessageHeader.contains("SuperSecretPassword123"), "Password must be sanitized");
         assertFalse(dltMessageHeader.contains("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"), "Token must be sanitized");
         assertTrue(dltMessageHeader.contains("***"), "Sanitized placeholder must be present");
     }
 }
-

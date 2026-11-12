@@ -16,4 +16,4 @@ spring:
     default-schema: shipping_service
     schemas: shipping_service
     create-schemas: true
-    baseline-on-migrate: true
+    baseline-on-migrate: false

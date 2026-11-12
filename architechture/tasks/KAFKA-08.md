@@ -1,5 +1,7 @@
 # [KAFKA-08] Triển khai retry, DLQ và xử lý sự kiện không lặp hiệu ứng cho Kafka consumer, hỗ trợ phát lại có kiểm soát khi khôi phục lỗi
 
+> **Review fix 12/11/2026:** merge `origin/main`, giữ Flyway `baseline-on-migrate: false` và `out-of-order` của Payment. Redis password lấy từ môi trường, mặc định rỗng cho Redis local không AUTH. DLT chỉ chuyển tiếp ID headers có giá trị đúng format/độ dài; bỏ header tùy ý, null và header DLT cũ. `IllegalStateException` được retry vì có thể bao bọc dependency lỗi. Regression `KafkaRetryDlqSafetyTest` kiểm tra các trường hợp này. Các PASS lịch sử bên dưới không thay thế evidence PostgreSQL/Kafka restart/replay thật; chưa tự replay production.
+
 > **SP hiện hành ngày 09/11/2026: 5 — SPRINT 3.** Thang 0/1/2/3/5/8, tối đa 8. Một cơ chế retry/DLQ/replay có kiểm soát dùng chung; giữ idempotency và phục hồi lỗi. Giữ nguyên AC/DoD, PIC, trạng thái và giờ nguồn; không hạ điểm do công đã làm, không quy đổi thành remaining/capacity. Phạm vi mở rộng RBAC A–E mới là kế hoạch đề xuất, chưa nằm trong estimate này. SP/lịch trong các mục lịch sử không phải estimate hiện hành.
 
 > **Cập nhật phạm vi 10/11/2026**: Đã áp dụng retry/DLT cho Payment, Order, Shipping, Notification, Report, Loyalty; ban hành runbook phát lại có kiểm soát tại `architechture/docs/kafka-dlq-replay-runbook.md`. Không tự replay thật trên môi trường production, không thay retention broker; task bàn giao contract và bộ test an toàn.

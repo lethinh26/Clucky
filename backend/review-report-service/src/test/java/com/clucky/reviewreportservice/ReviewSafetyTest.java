@@ -211,7 +211,7 @@ class ReviewSafetyTest {
                 .thenReturn(List.of(hidden));
         assertEquals(1, service.getMyReviews(7L).size());
         verify(repository).findByCustomerIdAndStatusNotOrderByCreatedAtDesc(7L, ReviewStatus.DELETED);
-        verify(repository, never()).delete(any());
+        verify(repository, never()).delete(any(Review.class));
     }
 
     private void authenticate(String role) {

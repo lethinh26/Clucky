@@ -40,7 +40,14 @@ public class KafkaConfig {
                     record.value() != null ? String.valueOf(record.value()) : null);
 
             if (record.headers() != null) {
-                record.headers().forEach(h -> dltRecord.headers().add(h.key(), h.value()));
+                for (String name : List.of("X-Event-ID", "X-Correlation-ID")) {
+                    var header = record.headers().lastHeader(name);
+                    int limit = "X-Event-ID".equals(name) ? 160 : 128;
+                    if (header != null && header.value() != null && header.value().length <= limit
+                            && new String(header.value(), StandardCharsets.UTF_8).matches("[A-Za-z0-9._-]+")) {
+                        dltRecord.headers().add(name, header.value());
+                    }
+                }
             }
 
             dltRecord.headers()
@@ -102,7 +109,6 @@ public class KafkaConfig {
 
         handler.addNotRetryableExceptions(
                 IllegalArgumentException.class,
-                IllegalStateException.class,
                 com.fasterxml.jackson.core.JsonProcessingException.class,
                 org.springframework.messaging.converter.MessageConversionException.class,
                 org.springframework.kafka.support.serializer.DeserializationException.class,

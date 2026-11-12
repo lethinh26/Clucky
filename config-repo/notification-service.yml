@@ -16,7 +16,7 @@ spring:
     default-schema: notification_service
     schemas: notification_service
     create-schemas: true
-    baseline-on-migrate: true
+    baseline-on-migrate: false
 
 clucky:
   frontend:

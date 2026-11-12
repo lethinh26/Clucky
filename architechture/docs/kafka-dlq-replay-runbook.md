@@ -48,7 +48,6 @@ flowchart TD
 
 ### A. Non-Retryable / Permanent / Poison (Không retry, đi thẳng DLT)
 - `java.lang.IllegalArgumentException`: Thiếu trường bắt buộc, payload không đúng business contract.
-- `java.lang.IllegalStateException`: Trạng thái hệ thống vi phạm invariant.
 - `com.fasterxml.jackson.core.JsonProcessingException`: JSON malformed, hỏng cú pháp.
 - `org.springframework.messaging.converter.MessageConversionException`: Sai kiểu dữ liệu envelope.
 - `org.springframework.kafka.support.serializer.DeserializationException`: Lỗi giải mã message.
@@ -58,12 +57,13 @@ flowchart TD
 - `org.springframework.web.client.RestClientException` / `ResourceAccessException`: Lỗi mạng, timeout khi gọi downstream REST.
 - `java.net.ConnectException`, `java.util.concurrent.TimeoutException`: Kết nối tạm thời gián đoạn.
 - `org.springframework.dao.TransientDataAccessException`: Deadlock cơ sở dữ liệu, connection pool cạn tạm thời.
+- `java.lang.IllegalStateException`: Có thể bao bọc lỗi dependency tạm thời; không phân loại toàn bộ nhóm này là poison.
 
 ---
 
 ## 4. Đặc tả Headers trong Topic Dead-Letter (.DLT)
 
-Mỗi record khi chuyển vào topic `<topic>.DLT` sẽ được giữ nguyên toàn bộ headers gốc (như `X-Event-ID`, `X-Correlation-ID`) và bổ sung các header chẩn đoán sau:
+Mỗi record khi chuyển vào topic `<topic>.DLT` chỉ giữ các headers định danh an toàn (`X-Event-ID`, `X-Correlation-ID`) và bổ sung các header chẩn đoán sau; không sao chép headers tùy ý từ input để tránh lộ secret/PII:
 
 | Header Key | Kiểu dữ liệu | Ý nghĩa | Ví dụ |
 |---|---|---|---|
@@ -110,7 +110,7 @@ kafka-console-consumer \
   - **Timestamp**: Thời điểm tiến hành.
 
 ### Bước 4: Thực thi Replay (Đẩy lại Topic gốc)
-Gửi lại message vào **topic gốc** (giữ nguyên key, value và header `X-Event-ID`, `X-Correlation-ID`).
+Gửi lại message vào **topic gốc** (giữ nguyên key, value và chỉ các header `X-Event-ID`, `X-Correlation-ID` đã được allowlist).
 > **Lưu ý**: Tuyệt đối không xóa header `X-Event-ID` vì đây là chìa khóa để cơ chế idempotent của consumer nhận diện sự kiện lặp.
 
 Ví dụ đẩy lại record qua producer console:
@@ -143,4 +143,3 @@ kafka-console-producer \
    - Giới hạn độ dài tối đa 500 ký tự để chống tràn header Kafka.
 2. **Không in Raw Payload nhạy cảm vào log lỗi**:
    - Log lỗi trong consumer tuân thủ tiêu chuẩn `SafeLog`, chỉ ghi ID, type và partition/offset, không log toàn bộ body chứa thông tin cá nhân.
-

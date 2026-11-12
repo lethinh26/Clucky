@@ -25,5 +25,6 @@ spring:
     default-schema: payment_service
     schemas: payment_service
     create-schemas: true
-    baseline-on-migrate: false`r`n    out-of-order: true
+    baseline-on-migrate: false
+    out-of-order: true
 
