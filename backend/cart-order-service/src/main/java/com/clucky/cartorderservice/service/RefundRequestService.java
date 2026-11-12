@@ -130,7 +130,44 @@ public class RefundRequestService {
         }
         var cancelled = cancellation(order);
         var existing = refunds.findAllByOrderId(order.getId()).stream().filter(refund -> !"REJECTED".equals(refund.getStatus())).findFirst();
-        if (existing.isPresent()) return new CreatedRefund(response(existing.get(), order), false);
+        if (existing.isPresent()) {
+            RefundRequest refund = existing.get();
+            boolean hasIncomingBankDetails = request.bankBin() != null && !request.bankBin().isBlank()
+                    && request.bankAccountNo() != null && !request.bankAccountNo().isBlank()
+                    && request.bankAccountName() != null && !request.bankAccountName().trim().isBlank();
+
+            if (hasIncomingBankDetails && Set.of("PENDING", "WAITING_BANK_DETAILS").contains(refund.getStatus())) {
+                if (!request.bankBin().matches("\\d{6}") || !request.bankAccountNo().matches("\\d{1,80}")) {
+                    throw new ApiException(ErrorCode.VALIDATION_ERROR);
+                }
+                String bankName = request.bankName() != null && !request.bankName().isBlank()
+                        ? request.bankName().trim()
+                        : request.bankBin();
+                if (request.reason() != null && !request.reason().isBlank()) {
+                    refund.setReason(request.reason().trim());
+                }
+                refund.setBankName(bankName);
+                refund.setBankBin(request.bankBin());
+                refund.setBankAccountNo(request.bankAccountNo().trim());
+                refund.setBankAccountName(request.bankAccountName().trim().toUpperCase(Locale.ROOT));
+                if ("WAITING_BANK_DETAILS".equals(refund.getStatus())) {
+                    refund.setStatus("APPROVED");
+                }
+                if (refund.getBankDetailsVersion() == null) {
+                    refund.setBankDetailsVersion(1);
+                } else {
+                    refund.setBankDetailsVersion(refund.getBankDetailsVersion() + 1);
+                }
+                if (refund.getCreatedAt() == null) {
+                    refund.setCreatedAt(Instant.now());
+                }
+                refund.setUpdatedAt(Instant.now());
+                refund = refunds.saveAndFlush(refund);
+                audit(refund, order, "REFUND_REQUESTED");
+                return new CreatedRefund(response(refund, order), true);
+            }
+            return new CreatedRefund(response(refund, order), false);
+        }
         if (request.bankBin() == null || !request.bankBin().matches("\\d{6}")
                 || request.bankAccountNo() == null || !request.bankAccountNo().matches("\\d{1,80}")
                 || request.bankAccountName() == null || request.bankAccountName().trim().isBlank())
@@ -415,7 +452,11 @@ public class RefundRequestService {
         var refund = new RefundRequest(); refund.setOrderId(orderId); refund.setCustomerId(order.getCustomerId());
         refund.setAmount(order.getTotalAmount()); refund.setReason(cancelled.getReason());
         refund.setCancellationReasonSnapshot(cancelled.getReason()); refund.setCancellationStatusSnapshot(cancelled.getFromStatus());
+        refund.setStatus("WAITING_BANK_DETAILS");
+        refund.setCreatedAt(Instant.now()); refund.setUpdatedAt(Instant.now());
+        refund.setBankDetailsVersion(1); refund.setAttemptCount(0);
         refund = refunds.saveAndFlush(refund);
+        events.publishRefundEvent("refund.waiting-bank-details", refund, order, cancelled.getReason());
         events.auditRefund(order, refund, "REFUND_REQUESTED", cancelled.getChangedBy(), cancelled.getChangedRole());
         return true;
     }
