@@ -411,4 +411,3 @@ export const BannerManagementSection: React.FC = () => {
     </div>
   );
 };
-

@@ -27,4 +27,3 @@ public record BannerRequest(
         return expectedVersion != null ? expectedVersion : version;
     }
 }
-

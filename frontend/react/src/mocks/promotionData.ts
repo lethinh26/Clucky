@@ -222,4 +222,3 @@ export const MOCK_PROPOSALS: VoucherProposal[] = [
     proposedAt: '2026-10-24 16:45',
   },
 ];
-

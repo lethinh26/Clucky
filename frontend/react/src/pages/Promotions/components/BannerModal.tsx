@@ -443,4 +443,3 @@ export const BannerModal: React.FC<BannerModalProps> = ({ open, banner, onCancel
     </Modal>
   );
 };
-

@@ -8,4 +8,3 @@ public record BannerUploadResult(
         int width,
         int height
 ) {}
-

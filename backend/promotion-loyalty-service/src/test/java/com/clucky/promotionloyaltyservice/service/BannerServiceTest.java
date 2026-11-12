@@ -201,4 +201,3 @@ class BannerServiceTest {
         verify(mediaAdapter).deleteOldAssetAfterCommit("clucky/banners/old");
     }
 }
-

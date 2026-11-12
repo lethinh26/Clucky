@@ -72,5 +72,3 @@ export interface PromoBanner {
   isActive: boolean;
   version?: number;
 }
-
-
