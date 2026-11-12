@@ -1,6 +1,10 @@
 server:
   port: ${SERVER_PORT:8087}
 spring:
+  task:
+    scheduling:
+      pool:
+        size: 2
   application:
     name: notification-service
   datasource:
@@ -19,8 +23,13 @@ spring:
     baseline-on-migrate: false
 
 clucky:
+  kafka:
+    security-email-topic: identity.branch-email
+    email-request-topic: email.requested
+    email-consumer-group: clucky-branch-mail-v1
   frontend:
     customer-url: ${FRONTEND_CUSTOMER_URL:http://localhost:3000}
+    admin-url: ${FRONTEND_ADMIN_URL:http://localhost:3001}
 
 mail-sender:
   enabled: ${MAIL_SENDER_ENABLED:false}
@@ -32,3 +41,10 @@ mail-sender:
   timeout-ms: ${MAIL_SENDER_TIMEOUT_MS:8000}
   max-retries: ${MAIL_SENDER_MAX_RETRIES:3}
   poll-interval-ms: ${MAIL_SENDER_POLL_INTERVAL_MS:1000}
+  lease-seconds: ${MAIL_SENDER_LEASE_SECONDS:300}
+  retention-hours: ${MAIL_SENDER_RETENTION_HOURS:168}
+  max-manual-retries: ${MAIL_SENDER_MAX_MANUAL_RETRIES:2}
+  retry-base-seconds: ${MAIL_SENDER_RETRY_BASE_SECONDS:5}
+  retry-max-seconds: ${MAIL_SENDER_RETRY_MAX_SECONDS:300}
+  failure-topic: ${MAIL_SENDER_FAILURE_TOPIC:notification.email-failed}
+  failure-poll-ms: ${MAIL_SENDER_FAILURE_POLL_MS:5000}

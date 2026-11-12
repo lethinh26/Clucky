@@ -344,6 +344,7 @@ export interface BackendRefundAttempt {
   attemptNumber: number;
   attemptId: string;
   bankName?: string;
+  bankBin?: string;
   bankAccountNo?: string;
   accountNumber?: string;
   bankAccountName?: string;
@@ -371,6 +372,7 @@ export interface BackendRefund {
   reviewedAt?: string;
   reviewNote?: string;
   bankName?: string;
+  bankBin?: string;
   bankAccountNo?: string;
   accountNumber?: string;
   bankAccountName?: string;
@@ -388,7 +390,7 @@ export interface BackendRefund {
 
 export const refundsApi = {
   create: (
-    data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string },
+    data: { orderId: number; reason: string; bankBin: string; bankName?: string; bankAccountNo: string; bankAccountName: string },
     signal?: AbortSignal
   ) =>
     api.post<BackendRefund>('/api/refund-requests', data, { signal }).then((r) => r.data),
@@ -430,13 +432,14 @@ export const refundsApi = {
     api.put<BackendRefund>(`/api/refund-requests/${id}/request-bank-details`, { reason, transferNotCompleted }, { signal }).then((r) => r.data),
   updateBankDetails: (
     id: string | number,
-    data: { bankName: string; bankAccountNo?: string; accountNumber?: string; bankAccountName?: string; accountHolderName?: string; expectedBankDetailsVersion?: number },
+    data: { bankBin: string; bankName?: string; bankAccountNo: string; bankAccountName: string; expectedBankDetailsVersion?: number },
     signal?: AbortSignal
   ) =>
     api.put<BackendRefund>(`/api/refund-requests/${id}/bank-details`, {
+      bankBin: data.bankBin,
       bankName: data.bankName,
-      bankAccountNo: data.accountNumber ?? data.bankAccountNo,
-      bankAccountName: data.accountHolderName ?? data.bankAccountName,
+      bankAccountNo: data.bankAccountNo,
+      bankAccountName: data.bankAccountName,
       expectedBankDetailsVersion: data.expectedBankDetailsVersion,
     }, { signal }).then((r) => r.data),
   uploadEvidence: (id: string | number, file: File, signal?: AbortSignal) => {
@@ -453,6 +456,18 @@ export const refundsApi = {
     api.get<{ accessUrl: string; expiresInSeconds: number }>(`/api/refund-requests/${id}/evidence`, { signal }).then((r) => r.data),
   confirmRefund: (id: string | number, note?: string, signal?: AbortSignal) =>
     api.put<BackendRefund>(`/api/refund-requests/${id}/confirm-refund`, { note }, { signal }).then((r) => r.data),
+};
+
+export interface VietQrBank {
+  bin: string;
+  shortName?: string;
+  name?: string;
+  logo?: string;
+}
+
+export const vietQrApi = {
+  banks: (signal?: AbortSignal) =>
+    api.get<VietQrBank[]>('/api/payments/banks', { signal }).then((r) => r.data),
 };
 
 /* ---------- Party Orders ---------- */
@@ -538,6 +553,12 @@ export const promotionsApi = {
     api.get<AdminVoucher>(`/api/promotions/vouchers/${id}`, { signal }).then((r) => r.data),
   createVoucher: (data: VoucherPayload, signal?: AbortSignal) =>
     api.post<AdminVoucher>('/api/promotions/vouchers', data, { signal }).then((r) => r.data),
+  createStoreProposal: (data: VoucherPayload, signal?: AbortSignal) =>
+    api.post<AdminVoucher>('/api/promotions/vouchers/store-proposals', data, { signal }).then(response => response.data),
+  approveVoucher: (id: number | string, signal?: AbortSignal) =>
+    api.put<AdminVoucher>(`/api/promotions/vouchers/${id}/approve`, undefined, { signal }).then(response => response.data),
+  rejectVoucher: (id: number | string, reason: string, version: number | undefined, signal?: AbortSignal) =>
+    api.put<AdminVoucher>(`/api/promotions/vouchers/${id}/reject`, { reason, version }, { signal }).then(response => response.data),
   updateVoucher: (id: number | string, data: VoucherPayload, signal?: AbortSignal) =>
     api.put<AdminVoucher>(`/api/promotions/vouchers/${id}`, data, { signal }).then((r) => r.data),
   deleteVoucher: (id: number | string, signal?: AbortSignal) =>

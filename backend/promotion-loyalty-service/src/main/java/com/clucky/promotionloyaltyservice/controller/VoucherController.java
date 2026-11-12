@@ -2,6 +2,7 @@ package com.clucky.promotionloyaltyservice.controller;
 
 import com.clucky.promotionloyaltyservice.config.CurrentActor;
 import com.clucky.promotionloyaltyservice.dto.Role;
+import com.clucky.promotionloyaltyservice.dto.RejectVoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.ValidateVoucherRequest;
 import com.clucky.promotionloyaltyservice.dto.ValidateVoucherResponse;
 import com.clucky.promotionloyaltyservice.dto.VoucherRequest;
@@ -54,7 +55,7 @@ public class VoucherController {
      * GET /api/promotions/vouchers
      */
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
     public ResponseEntity<List<VoucherResponse>> getVouchers(
         @RequestParam(name = "scope", required = false) VoucherScope scope,
         @RequestParam(name = "storeId", required = false) Long storeId,
@@ -83,7 +84,7 @@ public class VoucherController {
      * GET /api/promotions/vouchers/{id}
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STORE_MANAGER')")
     public ResponseEntity<VoucherResponse> getVoucherById(@PathVariable("id") Long id) {
         CurrentActor actor = CurrentActor.require();
         if (actor.role() != Role.ADMIN && actor.role() != Role.STORE_MANAGER) {
@@ -122,7 +123,7 @@ public class VoucherController {
      * POST /api/promotions/vouchers/store-proposals
      */
     @PostMapping("/store-proposals")
-    @PreAuthorize("denyAll()")
+    @PreAuthorize("hasRole('STORE_MANAGER')")
     public ResponseEntity<VoucherResponse> createStoreProposal(
         @Valid @RequestBody VoucherRequest request
     ) {
@@ -142,7 +143,7 @@ public class VoucherController {
      * PUT /api/promotions/vouchers/{id}/approve
      */
     @PutMapping("/{id}/approve")
-    @PreAuthorize("denyAll()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VoucherResponse> approveVoucher(
         @PathVariable("id") Long id
     ) {
@@ -155,10 +156,16 @@ public class VoucherController {
         return ResponseEntity.ok(approved);
     }
 
-    /**
-     * Update a voucher.
-     * PUT /api/promotions/vouchers/{id}
-     */
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<VoucherResponse> rejectVoucher(
+        @PathVariable("id") Long id,
+        @Valid @RequestBody RejectVoucherRequest request
+    ) {
+        CurrentActor actor = CurrentActor.require();
+        return ResponseEntity.ok(voucherService.rejectVoucher(id, request, actor.userId(), actor.role().name()));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<VoucherResponse> updateVoucher(

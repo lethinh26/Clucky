@@ -409,6 +409,8 @@
     "bankName": "Ngân hàng",
     "accountNumber": "Số tài khoản",
     "accountHolderName": "Tên chủ tài khoản",
+    "searchAndChooseBank": "Tìm và chọn ngân hàng",
+    "pleaseCheckBankDetails": "Vui lòng kiểm tra lại thông tin tài khoản ngân hàng.",
     "bankDetailsVersion": "Phiên bản tài khoản",
     "claimProcessing": "Bắt đầu chuyển tiền",
     "claimProcessingSuccess": "Đã bắt đầu xử lý lượt chuyển tiền mới.",

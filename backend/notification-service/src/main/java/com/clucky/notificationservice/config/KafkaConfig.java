@@ -24,6 +24,13 @@ import org.springframework.util.backoff.FixedBackOff;
 @EnableKafka
 public class KafkaConfig {
 
+    @Bean
+    NewTopic emailFailureTopic(MailSenderProperties settings,
+            @Value("${clucky.kafka.partitions:3}") int partitions,
+            @Value("${clucky.kafka.replicas:1}") short replicas) {
+        return TopicBuilder.name(settings.failureTopic()).partitions(partitions).replicas(replicas).build();
+    }
+
     private ConsumerRecordRecoverer createDltRecoverer(
             KafkaTemplate<String, String> kafkaTemplate,
             long timeoutSec) {
@@ -110,11 +117,14 @@ public class KafkaConfig {
 
     @Bean
     KafkaAdmin.NewTopics domainTopics(@Value("${clucky.kafka.partitions:3}") int partitions,
-            @Value("${clucky.kafka.replicas:1}") int replicas) {
+            @Value("${clucky.kafka.replicas:1}") int replicas,
+            @Value("${clucky.kafka.security-email-topic}") String securityTopic,
+            @Value("${clucky.kafka.email-request-topic}") String emailTopic) {
         if (partitions < 1 || replicas < 1) { throw new IllegalArgumentException("Invalid topic settings"); }
         NewTopic[] topics = List.of("order.created", "order.status-changed", "order.completed", "order.cancelled",
-                "payment.confirmed", "payment.failed", "promotion.approved", "audit.recorded", "refund.processed").stream()
-                .flatMap(name -> java.util.stream.Stream.of(name, name + ".DLT"))
+                "payment.confirmed", "payment.failed", "promotion.approved", "audit.recorded", "refund.processed",
+                "refund.approved", "refund.rejected", "refund.waiting-bank-details", "refund.confirmed", "inventory.low-stock", securityTopic, emailTopic).stream()
+                .flatMap(name -> java.util.stream.Stream.of(name,name+".DLT"))
                 .map(name -> TopicBuilder.name(name).partitions(partitions).replicas(replicas).build())
                 .toArray(NewTopic[]::new);
         return new KafkaAdmin.NewTopics(topics);

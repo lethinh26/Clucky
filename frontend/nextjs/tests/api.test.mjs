@@ -7,6 +7,18 @@ import ts from 'typescript';
 const customer = { userId: 7, role: 'CUSTOMER', email: 'customer@example.com', fullName: 'Customer' };
 const result = (status, data = {}) => ({ ok: status >= 200 && status < 300, status, json: async () => data });
 
+test('registration preserves safe server field errors for inline feedback', async () => {
+  const app = load('customer', () => result(400, { code: 'VALIDATION_ERROR', fieldErrors: { password: 'INVALID' } }));
+  await assert.rejects(app.api.authApi.register({ fullName: 'Customer', email: customer.email, password: 'weakpassword' }),
+    error => error.code === 'VALIDATION_ERROR' && error.fieldErrors.password === 'INVALID');
+});
+
+test('registration preserves the duplicate phone field instead of guessing email', async () => {
+  const app = load('customer', () => result(409, { code: 'RESOURCE_CONFLICT', fieldErrors: { phone: 'ALREADY_EXISTS' } }));
+  await assert.rejects(app.api.authApi.register({ fullName: 'Customer', email: customer.email, phone: '0901234567', password: 'Password1' }),
+    error => error.code === 'RESOURCE_CONFLICT' && error.fieldErrors.phone === 'ALREADY_EXISTS');
+});
+
 test('paged catalog responses are unwrapped without appending unpaged combos', async () => {
   const products = [{ id: 1, name: 'Chicken' }];
   const app = load('customer', () => result(200, { content: products }));

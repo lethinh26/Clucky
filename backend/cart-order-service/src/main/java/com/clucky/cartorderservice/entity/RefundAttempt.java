@@ -24,6 +24,9 @@ public class RefundAttempt {
     @Column(name = "bank_name", length = 100)
     private String bankName;
 
+    @Column(name = "bank_bin", length = 6)
+    private String bankBin;
+
     @Column(name = "bank_account_no", length = 80)
     private String bankAccountNo;
 
@@ -69,6 +72,9 @@ public class RefundAttempt {
     public String getBankName() { return bankName; }
     public void setBankName(String bankName) { this.bankName = bankName; }
 
+    public String getBankBin() { return bankBin; }
+    public void setBankBin(String bankBin) { this.bankBin = bankBin; }
+
     public String getBankAccountNo() { return bankAccountNo; }
     public void setBankAccountNo(String bankAccountNo) { this.bankAccountNo = bankAccountNo; }
 
@@ -99,4 +105,3 @@ public class RefundAttempt {
     public Long getCreatedBy() { return createdBy; }
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
 }
-
