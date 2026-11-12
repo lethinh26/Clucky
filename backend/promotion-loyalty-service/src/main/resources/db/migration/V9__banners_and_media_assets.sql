@@ -22,3 +22,4 @@ CREATE TABLE IF NOT EXISTS promotion_service.media_assets (
 
 CREATE INDEX IF NOT EXISTS idx_promotion_media_assets_cleanup
     ON promotion_service.media_assets (cleanup_after);
+
