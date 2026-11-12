@@ -24,6 +24,20 @@ import static org.mockito.Mockito.*;
 class NotificationSafetyTest {
     private final CustomerContactClient contacts = mock(CustomerContactClient.class);
     @Test
+    void inboxUsesTheOwnerForFilteringAndTheGlobalUnreadCount() {
+        var repository = mock(NotificationRepository.class);
+        var pageable = org.springframework.data.domain.PageRequest.of(1, 20);
+        when(repository.findInbox(7L, true, "ORDER", pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(), pageable, 20));
+        when(repository.countByUserIdAndIsReadFalse(7L)).thenReturn(25L);
+        var inbox = new NotificationService(repository).inbox(7L, pageable, true, "ORDER");
+        assertEquals(25, inbox.unreadCount());
+        assertEquals(1, inbox.page());
+        verify(repository).findInbox(7L, true, "ORDER", pageable);
+        assertThrows(ApiException.class, () -> new NotificationService(repository).inbox(7L, pageable, false, "PRIVATE"));
+    }
+
+    @Test
     void eventReplayPreservesReadStateAndAcknowledgesOnlyAfterCommit() {
         var mapper = mock(EventMapper.class);
         var repository = mock(NotificationRepository.class);

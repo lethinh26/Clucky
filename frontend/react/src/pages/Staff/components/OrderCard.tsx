@@ -88,13 +88,13 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       case "READY":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenReady}`}>
-            <PackageCheck size={13} /> {t("business:staffcard.ready")}
+            <PackageCheck size={13} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.ready" : "business:staffcard.ready")}
           </span>
         );
       case "COMPLETED":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenCompleted}`}>
-            <CheckCircle2 size={13} /> {t("business:staffcard.completed")}
+            <CheckCircle2 size={13} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.completed" : "business:staffcard.completed")}
           </span>
         );
       default:
@@ -282,7 +282,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             </button>
           )}
 
-          {order.status === "CONFIRMED" && (order.orderType !== "PICKUP" || ["PAID", "COLLECTED"].includes(order.paymentStatus)) && (
+          {order.status === "CONFIRMED" && (
             <button
               type="button"
               className={`${styles.actionButton} ${styles.btnPrimary}`}
@@ -290,13 +290,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               aria-label={"Bắt đầu nấu đơn " + formattedQueue}
             >
               <ChefHat size={18} /> {t("business:staffcard.startCooking")}
-            </button>
-          )}
-
-          {order.status === "CONFIRMED" && order.orderType === "PICKUP" && order.paymentStatus === "PENDING" && (
-            <button type="button" className={`${styles.actionButton} ${styles.btnWarning}`}
-              onClick={() => onPaymentCollect?.(order)}>
-              <Wallet size={18} /> {t("business:staffcard.collectCounter")}
             </button>
           )}
 
@@ -328,29 +321,20 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   type="button"
                   className={`${styles.actionButton} ${styles.btnWarning}`}
                   onClick={() => onPaymentCollect?.(order)}
-                  aria-label={"Thu tiền và bàn giao đơn " + formattedQueue}
+                  aria-label={t("business:pickupFlow.collect", { code: formattedQueue })}
                 >
-                  <Wallet size={18} /> {t("business:staffcard.collectAndHandOver")}
+                  <Wallet size={18} /> {t("business:staffcard.collectCounter")}
                 </button>
-              ) : order.paymentStatus === "COLLECTED" ? (
-                <button
-                  type="button"
-                  className={`${styles.actionButton} ${styles.btnSuccess}`}
-                  onClick={() => onStatusChange?.(order.id, "COMPLETED")}
-                  aria-label={t("business:staffactions.retryOrderHandover", { queue: formattedQueue })}
-                >
-                  <CheckCircle2 size={18} /> {t("business:staffcard.retryHandover")}
-                </button>
-              ) : (
+              ) : ["PAID", "COLLECTED"].includes(order.paymentStatus) ? (
                 <button
                   type="button"
                   className={`${styles.actionButton} ${styles.btnSuccess}`}
                   onClick={() => onStatusChange?.(order.id, "COMPLETED")}
                   aria-label={"Bàn giao đơn " + formattedQueue}
                 >
-                  <CheckCircle2 size={18} /> {t("business:staffcard.handOver")}
+                  <CheckCircle2 size={18} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.handover" : "business:staffcard.handOver")}
                 </button>
-              )}
+              ) : null}
               <button
                 type="button"
                 className={`${styles.actionButton} ${styles.btnSecondary}`}

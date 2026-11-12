@@ -17,6 +17,7 @@ export interface PosProduct {
   price: number;
   image: string;
   inStock: boolean;
+  unavailableReason?: string;
   badge?: string;
   description?: string;
   optionGroups?: PosProductOptionGroup[];

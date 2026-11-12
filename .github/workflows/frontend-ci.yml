@@ -21,6 +21,47 @@ env:
   RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
+  backend:
+    name: Backend / tests and migrations
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: clucky_test
+          POSTGRES_PASSWORD: clucky-test-only
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d clucky_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      CLUCKY_TEST_DB_URL: jdbc:postgresql://localhost:5432/clucky_test
+      CLUCKY_TEST_DB_PASSWORD: clucky-test-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Backend regression tests
+        working-directory: backend
+        run: bash gradlew test --continue --no-daemon --max-workers=2
+      - name: Deployment configuration tests
+        run: |
+          python3 -m unittest discover -s deploy -p test_images.py
+          python3 -m unittest discover -s deploy/backend -p 'test*.py'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: backend-test-results
+          path: backend/*/build/reports/tests/
+          retention-days: 7
+
   frontend:
     name: ${{ matrix.app }} / lint, test, build
     if: github.event_name == 'pull_request'
@@ -324,7 +365,7 @@ jobs:
           cp deploy/frontend/compose.yml deploy/frontend/deploy.sh bundle/
           printf 'IMAGE_TAG=%s\n' "$RELEASE_ID" > bundle/release.env
           (cd bundle && sha256sum images.json compose.yml deploy.sh release.env > SHA256SUMS)
-          cp deploy/backend/compose.yml deploy/backend/deploy.sh deploy/backend/prepare.py backend-bundle/
+          cp deploy/backend/compose.yml deploy/backend/deploy.sh deploy/backend/prepare.py deploy/backend/smoke.py backend-bundle/
           cp deploy/identity/firebase_secret.py backend-bundle/install-firebase.py
           mkdir -p backend-bundle/config-repo
           cp config-repo/*.yml backend-bundle/config-repo/
@@ -371,6 +412,7 @@ jobs:
           printf '%s' "$BACKEND_ENV_JSON" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "VPS_HOST='$DEPLOY_HOST' python3 '$backend_incoming/prepare.py' '$VPS_WORKDIR' '$RELEASE_ID'"
           ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "DOCKER_CONFIG='$registry_config' VPS_WORKDIR='$VPS_WORKDIR' bash '$backend_incoming/deploy.sh' apply '$RELEASE_ID'"
           ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "DOCKER_CONFIG='$registry_config' VPS_WORKDIR='$VPS_WORKDIR' bash '$incoming/deploy.sh' apply '$RELEASE_ID'"
+          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "set -a; . '$VPS_WORKDIR/backend/current/runtime.env'; set +a; python3 '$VPS_WORKDIR/backend/current/smoke.py'"
 
       - name: Remove runner SSH material
         if: always()

@@ -386,7 +386,7 @@ public class OrderService {
                 order.getId(), order.getOrderCode(), customerId, order.getStoreId(), order.getTotalAmount(), paymentMethod);
 
         // Transactional Outbox: Saves outbox event in the same DB transaction
-        orderEventPublisher.publishOrderCreated(order, savedItems);
+        orderEventPublisher.publishOrderCreated(order, savedItems, catalogValidation.stockQuantities());
 
         return DomainMapper.toResponse(order, savedItems, List.of(history));
     }
@@ -550,7 +550,7 @@ public class OrderService {
         orderStatusHistoryRepository.save(history);
 
         // Transactional Outbox
-        orderEventPublisher.publishOrderCreated(order, savedItems);
+        orderEventPublisher.publishOrderCreated(order, savedItems, catalogValidation.stockQuantities());
 
         LOG.info("event=counter_order_created orderId={} orderCode={} queueNumber={} storeId={} total={}",
                 order.getId(), order.getOrderCode(), queueNumber, effectiveStoreId, order.getTotalAmount());
@@ -669,10 +669,6 @@ public class OrderService {
                 throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Đơn hàng chưa được thanh toán đầy đủ trước khi bàn giao.");
             }
         }
-        if ("PREPARING".equals(target) && "PICKUP".equalsIgnoreCase(order.getType())
-                && !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
-            throw new ApiException(ErrorCode.PAYMENT_REQUIRED_BEFORE_HANDOVER, "Cần xác nhận thanh toán trước khi chế biến đơn lấy tại quầy.");
-        }
         if ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)) {
             if (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
                 throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
@@ -689,10 +685,10 @@ public class OrderService {
         boolean valid = switch (current) {
             case "PENDING_PAYMENT" -> "CONFIRMED".equals(target) || "CANCELLED".equals(target);
             case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target)
-                    || ("COMPLETED".equals(target) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
+                    || ("COMPLETED".equals(target) && !"PICKUP".equalsIgnoreCase(order.getType()) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
             case "PREPARING" -> "READY".equals(target)
-                    || ("COMPLETED".equals(target) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
-            case "READY" -> "SHIPPING".equals(target) || "COMPLETED".equals(target);
+                    || ("COMPLETED".equals(target) && !"PICKUP".equalsIgnoreCase(order.getType()) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
+            case "READY" -> ("SHIPPING".equals(target) && "DELIVERY".equalsIgnoreCase(order.getType())) || "COMPLETED".equals(target);
             case "SHIPPING" -> "COMPLETED".equals(target);
             default -> false;
         };

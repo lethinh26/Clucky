@@ -1,7 +1,6 @@
 import { getTranslator } from "./i18n/translator.ts";
 import { getBrowserLocale, type Locale } from "./i18n/locale.ts";
 import type { NotificationItemData, NotificationType } from './types/notification';
-export { MOCK_CUSTOMER_NOTIFICATIONS } from '../mocks/notificationData.ts';
 
 export interface NotificationTypeMeta {
   type: NotificationType;
@@ -101,25 +100,15 @@ export interface TargetResolution {
 
 export function resolveNotificationTarget(item: NotificationItemData, locale: Locale = getBrowserLocale()): TargetResolution {
   const t = getTranslator(locale);
-  // Test case for invalid / unavailable target
-  if (item.link === '/orders/not-found-id' || item.refId === 999999) {
-    return {
-      url: null,
-      isValid: false,
-      reason: t("business.promotionUi.targetUnavailableOrder"),
-    };
-  }
-
   if (item.link) {
-    return { url: item.link, isValid: true };
+    if (/^\/(orders(?:\/\d+)?|vouchers|notifications)(?:[?#][^\s\\]*)?$/.test(item.link)) return { url: item.link, isValid: true };
+    return { url: null, isValid: false, reason: t("business.promotionUi.targetUnavailable") };
   }
 
   switch (item.type) {
     case 'ORDER':
-      if (item.refId) return { url: `/orders`, isValid: true };
-      return { url: '/orders', isValid: true };
     case 'PAYMENT':
-      return { url: '/orders', isValid: true };
+      return { url: Number.isSafeInteger(Number(item.refId)) && Number(item.refId) > 0 ? `/orders/${item.refId}` : '/orders', isValid: true };
     case 'PROMOTION':
       return { url: '/vouchers', isValid: true };
     case 'SYSTEM':

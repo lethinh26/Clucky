@@ -50,13 +50,13 @@ class BackendEnvironmentTest(unittest.TestCase):
         settings = {key: value for key, value in self.values.items() if not key.startswith("FRONTEND_")}
         with patch.dict(os.environ, {"VPS_HOST": "192.0.2.10"}):
             values = validate_environment(json.dumps(settings))
-            self.assertEqual(values["FRONTEND_CUSTOMER_URL"], "http://192.0.2.10")
-            self.assertEqual(values["FRONTEND_ADMIN_URL"], "http://192.0.2.10:8081")
-            self.assertEqual(values["AUTH_COOKIE_SECURE"], "false")
+            self.assertEqual(values["FRONTEND_CUSTOMER_URL"], "https://192.0.2.10")
+            self.assertEqual(values["FRONTEND_ADMIN_URL"], "https://192.0.2.10:8081")
+            self.assertEqual(values["AUTH_COOKIE_SECURE"], "true")
             prepare(self.root, self.release, json.dumps(settings))
         content = (self.root / "backend/incoming" / self.release / "runtime.env").read_text()
-        self.assertIn("FRONTEND_CUSTOMER_URL='http://192.0.2.10'", content)
-        self.assertIn("FRONTEND_ADMIN_URL='http://192.0.2.10:8081'", content)
+        self.assertIn("FRONTEND_CUSTOMER_URL='https://192.0.2.10'", content)
+        self.assertIn("FRONTEND_ADMIN_URL='https://192.0.2.10:8081'", content)
 
     def test_explicit_domains_override_host_and_empty_origin_uses_default(self):
         with patch.dict(os.environ, {"VPS_HOST": "new-vps.test"}):
@@ -66,8 +66,14 @@ class BackendEnvironmentTest(unittest.TestCase):
             self.assertEqual(values["AUTH_COOKIE_SECURE"], "true")
             values = validate_environment(json.dumps({**self.values, "FRONTEND_ADMIN_URL": ""}))
             self.assertEqual(values["FRONTEND_CUSTOMER_URL"], "https://customer.test")
-            self.assertEqual(values["FRONTEND_ADMIN_URL"], "http://new-vps.test:8081")
-            self.assertEqual(values["AUTH_COOKIE_SECURE"], "false")
+            self.assertEqual(values["FRONTEND_ADMIN_URL"], "https://new-vps.test:8081")
+            self.assertEqual(values["AUTH_COOKIE_SECURE"], "true")
+
+    def test_http_is_explicit_and_cannot_be_combined_with_secure_cookies(self):
+        settings = {**self.values, "FRONTEND_CUSTOMER_URL": "http://customer.test", "FRONTEND_ADMIN_URL": "http://admin.test"}
+        self.assertEqual(validate_environment(json.dumps(settings))["AUTH_COOKIE_SECURE"], "false")
+        with self.assertRaises(ValueError):
+            validate_environment(json.dumps({**settings, "AUTH_COOKIE_SECURE": "true"}))
 
     def test_url_defaults_reject_missing_host_and_host_injection(self):
         settings = {key: value for key, value in self.values.items() if not key.startswith("FRONTEND_")}

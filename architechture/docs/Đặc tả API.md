@@ -166,7 +166,7 @@ Contract triển khai, vòng đời reservation, error matrix, migration và ran
 # 7. NOTIFICATION SERVICE — /api/notifications
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
-| GET /api/notifications/my | Đã đăng nhập | Danh sách thông báo của tôi |
+| GET /api/notifications/my | Đã đăng nhập | Phân trang `page`/`size`, lọc `unread=true` và `type=ORDER/PAYMENT/PROMOTION/SYSTEM`. Chỉ dữ liệu của actor; trả `content,page,size,totalElements,totalPages,unreadCount` (tổng chưa đọc của actor, không phụ thuộc bộ lọc). |
 | PUT /api/notifications/{id}/read, /read-all | Đã đăng nhập | Đánh dấu đã đọc |
 | (Kafka consumers) | SYS | Nhận order.*, payment.*, promotion.* để tạo in-app notification và gửi email qua Gmail SMTP Mail Sender — không có API public |
 | GET /api/notifications/email-logs | ADM/MGR | Tra cứu trạng thái email transactional, không trả secret |

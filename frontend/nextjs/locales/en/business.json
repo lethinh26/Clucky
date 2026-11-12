@@ -1,4 +1,28 @@
 {
+  "notificationInbox": {
+    "signInHint": "Sign in to view your notifications.",
+    "refresh": "Refresh notifications",
+    "emptyHint": "New updates will appear here.",
+    "empty": "No notifications yet",
+    "retry": "Try again",
+    "previous": "Previous page",
+    "types": {
+      "ALL": "All types",
+      "PAYMENT": "Payments",
+      "SYSTEM": "System",
+      "ORDER": "Orders",
+      "PROMOTION": "Offers"
+    },
+    "page": "Page {page} / {total}",
+    "subtitle": "Updates on your orders, payments and offers.",
+    "type": "Notification type",
+    "filter": "Filter notifications",
+    "viewAll": "View all notifications",
+    "pagination": "Notification pagination",
+    "signIn": "Sign in",
+    "next": "Next page",
+    "all": "All"
+  },
   "account": {
     "welcomeBack": "Welcome back,",
     "exploreMenu": "Explore the menu",

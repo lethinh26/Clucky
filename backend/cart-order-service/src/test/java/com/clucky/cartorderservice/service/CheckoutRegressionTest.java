@@ -55,7 +55,7 @@ class CheckoutRegressionTest {
         var item = new CartItemDto(1L, null, "Chicken", 1, BigDecimal.valueOf(100), List.of(), List.of(), null, 1L);
         when(carts.getCart(anyString())).thenReturn(CartDto.of(List.of(item)));
         when(catalog.validateItems(anyLong(), anyList())).thenReturn(new CatalogClient.CatalogValidationResponse(true, true, null,
-                BigDecimal.valueOf(100), List.of()));
+                BigDecimal.valueOf(100), List.of(), java.util.Map.of(1L, 1L)));
         when(shipping.calculateShippingFee(anyString(), anyLong(), any(), any())).thenReturn(
                 new ShippingClient.ShippingFeeResult(true, BigDecimal.ZERO, "PICKUP", null, null, null));
         when(promotion.validateVoucher(anyString(), anyLong(), any())).thenReturn(new PromotionClient.VoucherResult(true, null, BigDecimal.TEN));
@@ -139,7 +139,7 @@ class CheckoutRegressionTest {
         CartItemDto item = new CartItemDto(1L, null, "Chicken", 1, BigDecimal.TEN, List.of(), List.of(), null, 1L);
         when(carts.getCart(anyString())).thenReturn(CartDto.of(List.of(item)));
         when(catalog.validateItems(anyLong(), anyList())).thenReturn(
-                new CatalogClient.CatalogValidationResponse(true, true, null, BigDecimal.TEN, List.of()));
+                new CatalogClient.CatalogValidationResponse(true, true, null, BigDecimal.TEN, List.of(), java.util.Map.of(1L, 1L)));
         when(shipping.calculateShippingFee(anyString(), anyLong(), any(), any()))
                 .thenReturn(new ShippingClient.ShippingFeeResult(true, BigDecimal.ZERO, "PICKUP", null, null, null));
         when(promotion.validateVoucher(anyString(), anyLong(), any()))

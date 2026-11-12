@@ -64,6 +64,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
   const [qrFailed, setQrFailed] = useState(false);
   const orderId = order?.id;
   const isWebCod = order?.orderSource === "WEB" && order.paymentMethod === "COD";
+  const isPickupCod = isWebCod && order?.orderType === "PICKUP";
   const isWebBank = order?.orderSource === "WEB" && order.paymentMethod === "BANK_TRANSFER";
 
   useEffect(() => {
@@ -251,7 +252,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
             type="button"
             role="tab"
             aria-selected={activeTab === "BANK_TRANSFER"}
-            disabled={isWebCod}
+            disabled={isSubmitting || isWebCod && !isPickupCod}
             className={`${styles.tabBtn} ${
               activeTab === "BANK_TRANSFER" ? styles.tabBtnActive : ""
             }`}
@@ -265,7 +266,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
             type="button"
             role="tab"
             aria-selected={activeTab === "SPLIT"}
-            disabled={order.orderSource !== "COUNTER"}
+            disabled={isSubmitting || order.orderSource !== "COUNTER"}
             className={`${styles.tabBtn} ${
               activeTab === "SPLIT" ? styles.tabBtnActive : ""
             }`}
@@ -578,7 +579,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
             )}
           </div>
 
-          {!isWebCod && !isWebBank && <button
+          {(!isWebCod || isPickupCod && activeTab === "BANK_TRANSFER") && !isWebBank && <button
             type="button"
             className={styles.confirmButton}
             disabled={(activeTab === "CASH" && !isCashSufficient) || isSubmitting

@@ -268,7 +268,8 @@ class RefundRoleGuardsTest {
         when(refundRepo.findAllByOrderId(1L)).thenReturn(List.of());
         when(paymentClient.getEligibleRefund(eq(1L), any())).thenReturn(
                 new com.clucky.cartorderservice.service.PaymentClient.EligibleRefundResponse(
-                        true, new java.math.BigDecimal("100000"), new java.math.BigDecimal("100000"), "PAID"
+                        true, new java.math.BigDecimal("100000"), new java.math.BigDecimal("100000"),
+                        java.math.BigDecimal.ZERO, new java.math.BigDecimal("100000"), "PAID"
                 )
         );
         when(refundRepo.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));

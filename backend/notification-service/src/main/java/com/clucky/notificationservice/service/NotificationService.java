@@ -3,6 +3,7 @@ package com.clucky.notificationservice.service;
 import com.clucky.notificationservice.dto.NotificationReadAllResponse;
 import com.clucky.notificationservice.dto.NotificationReadResponse;
 import com.clucky.notificationservice.dto.NotificationResponse;
+import com.clucky.notificationservice.dto.NotificationInboxResponse;
 import com.clucky.notificationservice.dto.PageResponse;
 import com.clucky.notificationservice.entity.Notification;
 import com.clucky.notificationservice.exception.ApiException;
@@ -36,6 +37,17 @@ public class NotificationService {
         Objects.requireNonNull(userId, "userId is required");
         Page<Notification> page = notificationRepository.findByUserId(userId, pageable);
         return PageResponse.from(page.map(DomainMapper::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    public NotificationInboxResponse inbox(Long userId, Pageable pageable, boolean unread, String type) {
+        Objects.requireNonNull(userId, "userId is required");
+        if (type != null && !java.util.Set.of("ORDER", "PAYMENT", "PROMOTION", "SYSTEM").contains(type)) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        var page = notificationRepository.findInbox(userId, unread, type, pageable);
+        return new NotificationInboxResponse(page.map(DomainMapper::toResponse).getContent(), page.getNumber(),
+                page.getSize(), page.getTotalElements(), page.getTotalPages(), notificationRepository.countByUserIdAndIsReadFalse(userId));
     }
 
     /**

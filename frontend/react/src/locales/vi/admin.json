@@ -1,4 +1,19 @@
 {
+  "customerDirectory": {
+    "viewOrder": "Xem chi tiết đơn",
+    "activeOnPage": "Đang hoạt động trên trang",
+    "history": "Lịch sử mua hàng",
+    "total": "Khách hàng tìm thấy",
+    "lockedOnPage": "Đã khóa trên trang",
+    "profile": "Thông tin khách hàng",
+    "clear": "Xóa bộ lọc",
+    "privacy": "Thông tin liên hệ được ẩn một phần để bảo vệ khách hàng.",
+    "eyebrow": "QUAN HỆ KHÁCH HÀNG",
+    "subtitle": "Tra cứu hồ sơ, theo dõi lịch sử mua và quản lý quyền truy cập của khách hàng.",
+    "details": "Xem hồ sơ",
+    "summary": "Hồ sơ & lịch sử",
+    "result": "{{count}} kết quả"
+  },
   "voucherUi": {
     "reviewTab": "Duyệt voucher", "proposalsTab": "Đề xuất chi nhánh", "pendingCount": "{{count}} voucher đang chờ duyệt",
     "review": "Xét duyệt", "reviewSearch": "Tìm mã, chương trình, chi nhánh hoặc lý do...", "refresh": "Làm mới",

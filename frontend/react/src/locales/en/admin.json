@@ -1,4 +1,19 @@
 {
+  "customerDirectory": {
+    "viewOrder": "View order details",
+    "activeOnPage": "Active on this page",
+    "history": "Purchase history",
+    "total": "Matching customers",
+    "lockedOnPage": "Locked on this page",
+    "profile": "Customer information",
+    "clear": "Clear filters",
+    "privacy": "Contact details are partially masked to protect customer privacy.",
+    "eyebrow": "CUSTOMER RELATIONSHIPS",
+    "subtitle": "Explore customer profiles, review purchase history and manage account access.",
+    "details": "View profile",
+    "summary": "Profile & history",
+    "result": "{{count}} results"
+  },
   "voucherUi": {
     "reviewTab": "Voucher approvals", "proposalsTab": "Branch proposals", "pendingCount": "{{count}} vouchers awaiting review",
     "review": "Review", "reviewSearch": "Search code, program, branch or reason...", "refresh": "Refresh",

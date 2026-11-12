@@ -80,6 +80,27 @@ class PaymentOperationsTest {
         assertFalse(result.has("reference"));
     }
 
+    @Test void pickupCodCanShowAndDeclareQrWhileCashStillRequiresEvidence() {
+        actor("STAFF", 2L);
+        Instant version = Instant.parse("2026-11-13T00:00:00Z");
+        when(flow.context(10L)).thenReturn(new PaymentFlow.Context(10L, "ORD-10", 1L, 2L,
+                new BigDecimal("200000"), "READY", "COD", "PENDING", null, version, "WEB", "PICKUP"));
+        when(jdbc.queryForList(startsWith("SELECT bank_name,bank_code,account_no,account_name FROM payment_service.store_bank_accounts"), eq(2L)))
+                .thenReturn(List.of(Map.of("bank_name", "Bank", "bank_code", "970422", "account_no", "123", "account_name", "STORE")));
+        assertEquals("ORD10", service.read(10L).path("reference").asText());
+        when(jdbc.queryForList(startsWith("SELECT id,order_id,status"), any(UUID.class))).thenReturn(List.of(collection()));
+        when(jdbc.queryForObject(startsWith("SELECT coalesce(sum(amount)"), eq(BigDecimal.class), any(UUID.class))).thenReturn(BigDecimal.ZERO);
+        assertDoesNotThrow(() -> service.collect(10L, new PaymentOperations.CollectionRequest(version, BigDecimal.ZERO,
+                new BigDecimal("200000"), BigDecimal.ZERO, BigDecimal.ZERO, "Customer requested QR"), UUID.randomUUID()));
+        verify(flow).enqueue(eq("payment.received"), eq(10L), argThat(payload -> payload.path("declaredTransfer").intValue() == 200000));
+        assertThrows(ApiException.class, () -> service.collect(10L, new PaymentOperations.CollectionRequest(version, new BigDecimal("200000"),
+                BigDecimal.ZERO, new BigDecimal("200000"), BigDecimal.ZERO, "Cash"), UUID.randomUUID()));
+        when(flow.context(10L)).thenReturn(new PaymentFlow.Context(10L, "ORD-10", 1L, 2L,
+                new BigDecimal("200000"), "READY", "COD", "PENDING", null, version, "WEB", "DELIVERY"));
+        assertThrows(ApiException.class, () -> service.collect(10L, new PaymentOperations.CollectionRequest(version, BigDecimal.ZERO,
+                new BigDecimal("200000"), BigDecimal.ZERO, BigDecimal.ZERO, "QR"), UUID.randomUUID()));
+    }
+
     private Map<String,Object> collection() {
         return new HashMap<>(Map.ofEntries(Map.entry("id",collectionId),Map.entry("order_id",10L),Map.entry("order_code","ORD-10"),
                 Map.entry("customer_id",1L),Map.entry("store_id",2L),Map.entry("version",0L),Map.entry("status","ACCEPTED"),

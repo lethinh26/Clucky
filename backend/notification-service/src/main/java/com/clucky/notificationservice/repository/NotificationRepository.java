@@ -17,6 +17,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     Page<Notification> findByUserId(Long userId, Pageable pageable);
 
+    @Query("SELECT n FROM Notification n WHERE n.userId = :userId AND (:unread = false OR n.isRead = false) AND (:type IS NULL OR n.type = :type)")
+    Page<Notification> findInbox(@Param("userId") Long userId, @Param("unread") boolean unread,
+            @Param("type") String type, Pageable pageable);
+
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.userId = :userId AND n.isRead = false")
     int markAllAsReadByUserId(@Param("userId") Long userId);

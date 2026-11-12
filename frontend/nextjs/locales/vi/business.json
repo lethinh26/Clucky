@@ -1,4 +1,28 @@
 {
+  "notificationInbox": {
+    "signInHint": "Đăng nhập để xem thông báo của bạn.",
+    "refresh": "Làm mới thông báo",
+    "emptyHint": "Các cập nhật mới sẽ xuất hiện tại đây.",
+    "empty": "Chưa có thông báo",
+    "retry": "Thử lại",
+    "previous": "Trang trước",
+    "types": {
+      "ALL": "Tất cả loại",
+      "PAYMENT": "Thanh toán",
+      "SYSTEM": "Hệ thống",
+      "ORDER": "Đơn hàng",
+      "PROMOTION": "Ưu đãi"
+    },
+    "page": "Trang {page} / {total}",
+    "subtitle": "Cập nhật đơn hàng, thanh toán và ưu đãi dành cho bạn.",
+    "type": "Loại thông báo",
+    "filter": "Lọc thông báo",
+    "viewAll": "Xem tất cả thông báo",
+    "pagination": "Phân trang thông báo",
+    "signIn": "Đăng nhập",
+    "next": "Trang sau",
+    "all": "Tất cả"
+  },
   "account": {
     "welcomeBack": "Chào mừng trở lại,",
     "exploreMenu": "Khám phá thực đơn",
@@ -680,7 +704,7 @@
     "daysAgo": "{count} ngày trước",
     "yourNotifications": "Thông báo của bạn",
     "yourNotificationsSub": "Theo dõi cập nhật đơn hàng, ưu đãi khuyến mãi và thông báo quan trọng.",
-    "markAllAsRead": "Đã đọc tất cả",
+    "markAllAsRead": "Đánh dấu tất cả đã đọc",
     "markAllReadAction": "Đánh dấu tất cả là đã đọc",
     "noUnreadNotifications": "Không có thông báo chưa đọc",
     "noNotificationsYet": "Chưa có thông báo nào",

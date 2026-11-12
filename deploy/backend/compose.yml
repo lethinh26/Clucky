@@ -205,7 +205,7 @@ services:
     image: clucky-review-report-service:${IMAGE_TAG:?IMAGE_TAG is required}
     environment:
       <<: *environment
-      REPORT_REVENUE_EVENT: ${REPORT_REVENUE_EVENT:-false}
+      REPORT_REVENUE_EVENT: ${REPORT_REVENUE_EVENT:-order.completed}
 
   audit-service:
     <<: *java

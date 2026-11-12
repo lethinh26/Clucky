@@ -65,10 +65,11 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
   const next = status === 'CONFIRMED' ? 'PREPARING' : status === 'PREPARING' ? 'READY' : ['READY', 'SHIPPING'].includes(status ?? '') ? 'COMPLETED' : undefined;
   const paid = ['PAID', 'COLLECTED'].includes(order?.paymentStatus ?? '');
   const history = [...(order?.timeline ?? [])].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
-  const steps = ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY',
+  const pickup = order?.type === 'PICKUP';
+  const steps = pickup ? ['CART', 'CONFIRMED', 'PREPARING', 'READY', 'PAYMENT', 'COMPLETED'] : ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY',
     ...(status === 'SHIPPING' || history.some(event => event.toStatus === 'SHIPPING') ? ['SHIPPING'] : []), 'COMPLETED'];
-  const progressIndex = steps.indexOf(status ?? '');
-  const progressItems = steps.map(step => ({ title: step === 'PENDING_PAYMENT' ? t("admin:ui.orderPlaced") : step === 'READY' ? t("business:orderprogress.ready") : step === 'COMPLETED' ? t("admin:ui.completed") : orderLabels[step] }));
+  const progressIndex = pickup && status === 'READY' && paid ? 5 : pickup && status === 'PENDING_PAYMENT' ? 1 : steps.indexOf(status ?? '');
+  const progressItems = steps.map(step => ({ title: step === 'CART' ? t("business:pickupFlow.choose") : step === 'PAYMENT' ? t("business:cart.checkout") : step === 'PENDING_PAYMENT' ? t("admin:ui.orderPlaced") : step === 'READY' ? t(pickup ? "business:pickupFlow.ready" : "business:orderprogress.ready") : step === 'COMPLETED' ? t(pickup ? "business:pickupFlow.completed" : "admin:ui.completed") : orderLabels[step] }));
   const disabled = busy || loading || !!error;
 
   return <>
@@ -79,7 +80,7 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
       footer={order && <div className="order-footer"><Button icon={<WalletOutlined />} disabled={busy} onClick={onFinance}>{t("admin:ui.financeRefunds")}</Button><Space wrap>
         {['PENDING_PAYMENT', 'CONFIRMED'].includes(status ?? '') && <Button danger disabled={disabled} onClick={beginCancellation}>{t("admin:ui.cancelOrder")}</Button>}
         {next && <Button type="primary" loading={busy && !cancelOpen} disabled={disabled || next === 'COMPLETED' && !paid} onClick={() => void submit(next)}>
-          {next === 'PREPARING' ? t("business:orderdetaildrawer.startPreparation") : next === 'READY' ? t("admin:ui.foodIsReady") : t("admin:ui.completeOrder")}</Button>}
+          {next === 'PREPARING' ? t("business:orderdetaildrawer.startPreparation") : next === 'READY' ? t("admin:ui.foodIsReady") : t(pickup ? "business:pickupFlow.handover" : "admin:ui.completeOrder")}</Button>}
       </Space></div>}>
       {error && <Alert type="error" showIcon message={error} />}
       {!order && !error && <Skeleton active paragraph={{ rows: 10 }} />}

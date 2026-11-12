@@ -46,8 +46,9 @@ public class OrderEventPublisher {
         this.jdbc = jdbc;
     }
 
-    public void publishOrderCreated(Order order, List<OrderItem> items) {
+    public void publishOrderCreated(Order order, List<OrderItem> items, java.util.Map<Long, Long> stockQuantities) {
         ObjectNode payload = buildOrderPayload(order, items, null, null);
+        payload.set("stockQuantities", objectMapper.valueToTree(stockQuantities));
         publish(TOPIC_ORDER_CREATED, order, payload);
     }
 

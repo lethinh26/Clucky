@@ -84,30 +84,22 @@ public class ShippingController {
     }
 
     public static Quote quote(Policy policy, Store store, QuoteRequest request) {
-        BigDecimal effectiveFee = (policy != null && policy.fee() != null && policy.fee().signum() > 0)
-                ? policy.fee()
-                : BigDecimal.valueOf(15000);
-        long effectiveVersion = policy != null ? Math.max(policy.version(), 1L) : 1L;
-        BigDecimal effectiveRadius = (store.deliveryRadiusKm() != null && store.deliveryRadiusKm().signum() > 0)
-                ? store.deliveryRadiusKm()
-                : BigDecimal.valueOf(15);
-        Double storeLat = (store.latitude() != null && Double.isFinite(store.latitude()) && Math.abs(store.latitude()) <= 90)
-                ? store.latitude()
-                : 10.7769;
-        Double storeLon = (store.longitude() != null && Double.isFinite(store.longitude()) && Math.abs(store.longitude()) <= 180)
-                ? store.longitude()
-                : 106.7009;
-
-        Double distance;
+        Double distance = null;
         String reason;
-        if (request.latitude() == null || request.longitude() == null) {
-            distance = 2.0;
-            reason = "OK";
+        if (store.latitude() == null || store.longitude() == null || !Double.isFinite(store.latitude())
+                || !Double.isFinite(store.longitude()) || Math.abs(store.latitude()) > 90 || Math.abs(store.longitude()) > 180) {
+            reason = "STORE_LOCATION_MISSING";
+        } else if (request.latitude() == null || request.longitude() == null || !request.isCoordinatePairValid()
+                || Math.abs(request.latitude()) > 90 || Math.abs(request.longitude()) > 180) {
+            reason = "LOCATION_REQUIRED";
         } else {
-            distance = distanceKm(storeLat, storeLon, request.latitude(), request.longitude());
-            reason = distance > effectiveRadius.doubleValue() ? "OUT_OF_RANGE" : "OK";
+            distance = distanceKm(store.latitude(), store.longitude(), request.latitude(), request.longitude());
+            reason = store.deliveryRadiusKm() == null || store.deliveryRadiusKm().signum() <= 0 ? "RADIUS_NOT_CONFIGURED"
+                    : distance > store.deliveryRadiusKm().doubleValue() ? "OUT_OF_RANGE"
+                    : policy == null || policy.fee() == null || policy.fee().signum() <= 0 ? "FEE_NOT_CONFIGURED" : "OK";
         }
-        return new Quote("OK".equals(reason), effectiveFee, reason, distance, effectiveRadius, effectiveVersion);
+        return new Quote("OK".equals(reason), policy == null ? null : policy.fee(), reason, distance,
+                store.deliveryRadiusKm(), policy == null ? 0 : policy.version());
     }
 
     public static double distanceKm(double fromLat, double fromLon, double toLat, double toLon) {

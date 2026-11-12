@@ -56,10 +56,10 @@ export const StaffInventoryPage: React.FC = () => {
   const currentStoreName = currentStore?.name || user.storeName;
   const storeThreshold = currentStore?.lowStockThreshold ?? 20;
 
-  const fetchInventory = useCallback(async () => {
+  const fetchInventory = useCallback(async (silent = false) => {
     const requestId = ++inventoryRequest.current;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const storeList = await storesApi.list(false);
       const selectedStoreId = isAdmin
         ? (storeList.some((store) => store.id === adminSelectedStoreId)
@@ -87,6 +87,17 @@ export const StaffInventoryPage: React.FC = () => {
     fetchInventory();
     return () => { inventoryRequest.current += 1; };
   }, [fetchInventory]);
+
+  useEffect(() => {
+    if (modalOpen || thresholdModalOpen || busy) return;
+    let pending = false;
+    const timer = window.setInterval(async () => {
+      if (document.hidden || pending) return;
+      pending = true;
+      try { await fetchInventory(true); } finally { pending = false; }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [fetchInventory, modalOpen, thresholdModalOpen, busy]);
 
   // Store-scoped inventory
   const storeInventory = useMemo(() => {
@@ -345,7 +356,7 @@ export const StaffInventoryPage: React.FC = () => {
     },
   ];
 
-  if (loadError) return <Alert type="error" showIcon message={loadError} action={<Button loading={loading} onClick={fetchInventory}>{t('common:retry')}</Button>} />;
+  if (loadError) return <Alert type="error" showIcon message={loadError} action={<Button loading={loading} onClick={() => void fetchInventory()}>{t('common:retry')}</Button>} />;
   return (
     <div className={isAdmin ? 'inventory-admin' : undefined}>
       {isAdmin ? <header className="inventory-header"><div><span className="inventory-eyebrow">{t("admin:ui.branchInventory")}</span><h1>{t("admin:ui.stockCountAvailability")}</h1><p>{t("admin:ui.recordActualQuantitiesAndManageDishesAvailableAt")}</p></div>

@@ -46,15 +46,11 @@ export function OrderProgress({
       const preparing = ["PREPARING", "READY", "COMPLETED"].includes(order.status);
       const ready = ["READY", "COMPLETED"].includes(order.status);
       return [
+        { key: "CART", label: t("business:pickupFlow.choose"), state: "done" },
         {
           key: "CONFIRMED",
           label: t("business:orderprogress.confirm"),
-          state: "done",
-        },
-        {
-          key: "PAID",
-          label: t("business:cart.checkout"),
-          state: isPaid ? "done" : "current",
+          state: preparing ? "done" : "current",
         },
         {
           key: "PREPARING",
@@ -63,13 +59,18 @@ export function OrderProgress({
         },
         {
           key: "READY",
-          label: t("business:orderprogress.awaitingCollection"),
-          state: order.status === "COMPLETED" ? "done" : order.status === "READY" ? "current" : "next",
+          label: t("business:pickupFlow.ready"),
+          state: order.status === "COMPLETED" || (ready && isPaid) ? "done" : order.status === "READY" ? "current" : "next",
+        },
+        {
+          key: "PAID",
+          label: t("business:cart.checkout"),
+          state: isPaid ? "done" : "next",
         },
         {
           key: "COMPLETED",
-          label: t("business:orderprogress.complete"),
-          state: order.status === "COMPLETED" ? "done" : "next",
+          label: t("business:pickupFlow.completed"),
+          state: order.status === "COMPLETED" ? "done" : ready && isPaid ? "current" : "next",
         },
       ];
     }

@@ -1,4 +1,22 @@
 {
+  "managerUi": {
+    "subtitle": "Manage your branch's operations account, recovery email and access history.",
+    "noBranch": "This account is not assigned to a branch. Please contact an administrator.",
+    "protected": "Changes require your current password and OTP verification."
+  },
+  "directory": {
+    "scope": "Each branch has one manager account and one shared operations account.",
+    "current": "Selected branch",
+    "selectHint": "Review status, lock or unlock accounts, assist with recovery and inspect access history.",
+    "subtitle": "Manage accounts, security and access history for each branch.",
+    "eyebrow": "ACCESS MANAGEMENT",
+    "search": "Search branch name, ID or address",
+    "branches": "Branch directory",
+    "empty": "No matching branches",
+    "count": "{{count}} branches",
+    "select": "Select a branch to manage",
+    "refresh": "Refresh branches"
+  },
   "title": "Branch accounts", "login": "Internal login or Admin email", "access": "Activate / recover account",
   "activation": "Activate", "reset": "Reset password", "request": "Send code", "challenge": "Challenge ID (from email)", "otp": "8-digit OTP",
   "newOtp": "OTP at the new email", "password": "New password (8–72 characters, uppercase, lowercase and number)", "confirm": "Confirm",

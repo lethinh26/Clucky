@@ -15,7 +15,18 @@ import {
   markAllNotificationsReadLocal,
   deleteNotificationLocal,
   NOTIFICATION_TYPE_CONFIG,
+  resolveNotificationTarget,
 } from '../lib/notification.ts';
+
+test('notification targets use the actual order and reject external or executable links', () => {
+  for (const type of ['ORDER', 'PAYMENT']) {
+    assert.equal(resolveNotificationTarget({ type, refId: 999999 }, 'vi').url, '/orders/999999');
+  }
+  for (const link of ['javascript:alert(1)', '//outside.example', 'https://outside.example', '/\\outside.example']) {
+    assert.equal(resolveNotificationTarget({ type: 'ORDER', refId: 42, link }, 'vi').isValid, false);
+  }
+  assert.equal(resolveNotificationTarget({ type: 'ORDER', link: '/orders/42' }, 'vi').url, '/orders/42');
+});
 
 // -------------------------------------------------------------
 // VOUCHER TESTS

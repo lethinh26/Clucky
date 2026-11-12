@@ -1,4 +1,41 @@
 {
+  "reportLive": { "basis": "Completed-order revenue · Before refunds" },
+  "codUpload": {
+    "submit": "Upload image",
+    "drop": "Drag an image here or click to select",
+    "formats": "JPG, PNG, WebP • Up to 2 MB • One evidence image",
+    "preview": "Selected evidence image"
+  },
+  "posUi": {
+    "options": "Options available",
+    "noBranch": "Select a branch before loading its menu.",
+    "loading": "Loading the branch menu…",
+    "empty": "No matching items. Try another search or category."
+  },
+  "posAvailability": {
+    "inactive": "No longer sold",
+    "soldOut": "Sold out at this branch",
+    "branchDisabled": "Temporarily unavailable at this branch",
+    "notStarted": "Not on sale yet",
+    "expired": "Sale period has ended",
+    "comboUnavailable": "An item in this combo is unavailable"
+  },
+  "orderAlerts": {
+    "blocked": "Audio could not start. Allow sound for this site, then enable the bell again.",
+    "newOrders": "{{count}} new order(s) · {{code}}",
+    "on": "Sound on",
+    "allow": "Click to allow sound",
+    "off": "Sound off"
+  },
+  "pickupFlow": {
+    "choose": "Choose items",
+    "steps": "Choose items → Confirm → Prepare → Await pickup → Pay → Picked up at store",
+    "completed": "Picked up at store",
+    "collect": "Collect payment for {{code}}",
+    "handover": "Confirm customer pickup",
+    "ready": "Awaiting customer pickup",
+    "collectionRecorded": "Payment recorded. Confirm handover separately when the customer receives the order."
+  },
   "account": {
     "saveChanges": "Save changes",
     "default": "Default",
@@ -304,7 +341,7 @@
     "monthToDate": "Month to date",
     "todayRecognizedRevenue": "Today's recognized revenue",
     "periodRecognizedSummary": "In period: {{value1}} · Excludes excess & expired",
-    "periodOrdersSummary": "In period: {{value1}} orders · COD: {{value2}}",
+    "periodOrdersSummary": "In period: {{value1}} completed orders · Cash today: {{value2}}",
     "pendingReconciliationKpi": "Pending bank reconciliation",
     "pendingReconciliationSub": "Excess: {{value1}} · Expired: {{value2}}",
     "pendingReconciliationTooltip": "Transfer amount recorded without bank confirmation; never labeled as bank-received.",
@@ -554,7 +591,7 @@
     "exportExcelXlsx": "Export Excel (.xlsx)",
     "exportPdfPdf": "Export PDF (.pdf)",
     "fromThePreviousPeriod": "+11.4% from the previous period",
-    "totalOrders": "Total orders",
+    "totalOrders": "Completed orders",
     "completedOrders": "+8.2% completed orders",
     "averageOrderValueAov": "Average order value (AOV)",
     "averagePerSuccessfulTransaction": "Average per successful transaction",
@@ -581,7 +618,7 @@
     "subtitle": "Track recognized revenue separately from pending reconciliation, excess receipts, and expired orders, with real Excel & PDF exports.",
     "recognizedRevenue": "Recognized revenue",
     "recognizedRevenueHint": "COD + valid bank transfers (capped at order value)",
-    "totalOrdersHint": "Completed valid orders only; excludes expired receipts",
+    "totalOrdersHint": "Completed within the reporting period",
     "pendingAndNonRevenue": "Pending reconciliation & non-revenue",
     "pendingAndNonRevenueHint": "Excess: {{value1}} · Expired: {{value2}} (excluded from revenue)",
     "pendingReconciliationShort": "Pending reconciliation (unconfirmed)",
@@ -745,7 +782,7 @@
     "collectionFailed": "Could not collect counter payment: {{detail}}",
     "cashier": "Cashier",
     "collectedAndHandedOver": "Payment collected and order handed over",
-    "collectionRecordedForOrder": "Payment collected for order #{{queue}}. You may proceed with preparation.",
+    "collectionRecordedForOrder": "Payment recorded for order #{{queue}}. Confirm handover separately when the customer receives the order.",
     "handoverFailed": "Payment was collected but handover could not be updated. Please retry."
   },
   "staffcard": {

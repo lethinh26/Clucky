@@ -3,8 +3,6 @@ import { useTranslation } from "react-i18next";
 import { getBrowserLocale } from "../../i18n/locale";
 import { getTranslator } from "../../i18n/translator";
 import {
-  Bell,
-  BellOff,
   Store,
   Search,
   CheckCircle2,
@@ -51,8 +49,8 @@ import { CounterPaymentModal } from "./components/CounterPaymentModal";
 import { ReceiptBillModal } from "./components/ReceiptBillModal";
 import styles from "./staff-orders.module.css";
 import { loadOrderItemImages, orderItemImage, type OrderItemImages } from "../../lib/order-item-images";
-
-const SOUND_STORAGE_KEY = "clucky_staff_sound_enabled";
+import { useOrderAlerts } from "../../hooks/useOrderAlerts";
+import { OrderSoundButton } from "../../components/ui/OrderSoundButton";
 
 type WorkQueueKey =
   | "PENDING_PAYMENT"
@@ -174,11 +172,8 @@ export function StaffOrdersPage() {
   storesRef.current = stores;
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
-  // 1. Quản lý âm thanh chuông báo (Sound Setting persisted in localStorage)
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
-    const saved = localStorage.getItem(SOUND_STORAGE_KEY);
-    return saved !== null ? saved === "true" : true;
-  });
+  const alerts = useOrderAlerts();
+  const { observe } = alerts;
 
   // 2. Data Layer: Khởi tạo danh sách đơn hàng (trống ban đầu, load từ backend API)
   const [orders, setOrders] = useState<StaffOrder[]>([]);
@@ -202,24 +197,6 @@ export function StaffOrdersPage() {
   }, []);
 
   const isFirstLoadDoneRef = useRef<boolean>(false);
-  const prevConfirmedIdsRef = useRef<Set<string>>(new Set());
-  const audioRef = useRef<AudioContext | null>(null);
-
-  useEffect(() => {
-    const unlock = () => {
-      if (!window.AudioContext) return;
-      audioRef.current ??= new AudioContext();
-      void audioRef.current.resume().catch(() => {});
-    };
-    window.addEventListener("pointerdown", unlock);
-    window.addEventListener("keydown", unlock);
-    return () => {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
-      void audioRef.current?.close().catch(() => {});
-      audioRef.current = null;
-    };
-  }, []);
 
   // Hàm load danh sách đơn từ backend API
   const fetchOrders = useCallback(async (isSilent = false) => {
@@ -236,9 +213,7 @@ export function StaffOrdersPage() {
       const converted = mapDailyStaffOrders(backendList || [], images, storesRef.current);
       setOrders(converted);
       setFetchError(false);
-      prevConfirmedIdsRef.current = new Set(
-        converted.filter((o) => o.status === "CONFIRMED" || o.status === "PENDING_PAYMENT").map((o) => o.id),
-      );
+      observe(converted, `${storeIdNum}:${selectedDate}`, selectedDate === businessDate());
       isFirstLoadDoneRef.current = true;
     } catch (err) {
       if (revision !== fetchRevisionRef.current) return;
@@ -247,7 +222,7 @@ export function StaffOrdersPage() {
     } finally {
       if (!isSilent && revision === fetchRevisionRef.current) setIsLoading(false);
     }
-  }, [user?.storeId, currentStore?.id, selectedDate]);
+  }, [user?.storeId, currentStore?.id, selectedDate, observe]);
 
   // Đồng bộ lại tên chi nhánh thật khi danh sách stores tải xong
   useEffect(() => {
@@ -284,45 +259,6 @@ export function StaffOrdersPage() {
   const [receiptModalOrder, setReceiptModalOrder] = useState<StaffOrder | null>(null);
   const [receiptInitialMode, setReceiptInitialMode] = useState<"RECEIPT" | "KOT">("RECEIPT");
 
-  // Web Audio API Synthesis Chime (D5 587.33Hz -> A5 880Hz nhẹ nhàng)
-  const playChime = useCallback(() => {
-    try {
-      const ctx = audioRef.current;
-      if (!ctx || ctx.state !== "running") return;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
-
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
-
-      osc.start();
-      osc.stop(ctx.currentTime + 0.6);
-      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
-    } catch (e) {
-      console.warn("Audio play blocked or unsupported:", e);
-    }
-  }, []);
-
-  // Toggle sound
-  const handleToggleSound = () => {
-    const nextState = !soundEnabled;
-    setSoundEnabled(nextState);
-    localStorage.setItem(SOUND_STORAGE_KEY, String(nextState));
-    if (nextState) {
-      playChime();
-      message.success(t("business:staffactions.bellEnabled"));
-    } else {
-      message.info(t("business:staffactions.bellDisabled"));
-    }
-  };
-
   // 7. Auto-polling ngầm (5s khi active, 15s khi background) đồng bộ với backend DB
   useEffect(() => {
     const pollIntervalTime = document.hidden ? 15000 : 5000;
@@ -339,26 +275,7 @@ export function StaffOrdersPage() {
         if (active && revision === fetchRevisionRef.current && backendList) {
           const converted = mapDailyStaffOrders(backendList, imageMapRef.current ?? new Map(), storesRef.current);
 
-          // Phát hiện đơn CONFIRMED mới xuất hiện
-          const confirmedOrders = converted.filter(
-            (o) => o.status === "CONFIRMED" || o.status === "PENDING_PAYMENT",
-          );
-
-          const newConfirmedList = confirmedOrders.filter(
-            (order) => !prevConfirmedIdsRef.current.has(order.id),
-          );
-
-          if (newConfirmedList.length > 0 && selectedDate === businessDate()) {
-            const newestOrder = newConfirmedList[0];
-            if (soundEnabled) {
-              playChime();
-            }
-            message.info(t("business:staffactions.newOrder", { queue: String(newestOrder.queueNumber).padStart(3, "0"), code: newestOrder.orderCode }));
-          }
-
-          prevConfirmedIdsRef.current = new Set(
-            confirmedOrders.map((o) => o.id),
-          );
+          observe(converted, `${storeIdNum}:${selectedDate}`, selectedDate === businessDate());
           setOrders(converted);
           setFetchError(false);
         }
@@ -373,7 +290,7 @@ export function StaffOrdersPage() {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [soundEnabled, playChime, user?.storeId, currentStore?.id, selectedDate, t]);
+  }, [observe, user?.storeId, currentStore?.id, selectedDate]);
 
   // 8. Lắng nghe phím tắt toàn cục: F1 (Nhập đơn nhanh)
   const handleOpenPOS = useCallback(() => {
@@ -476,17 +393,8 @@ export function StaffOrdersPage() {
       if (!Number.isNaN(numericId) && numericId > 0) {
         try {
           await paymentsApi.collectCod(numericId);
-          try {
-            await ordersApi.updateStatus(numericId, {
-              status: "COMPLETED",
-              note: t("business:stafforderspage.codOnlineCompletedNote"),
-            });
-            setActiveTab("COMPLETED");
-          } catch {
-            // Bỏ qua nếu đơn đã tự chuyển hoàn tất
-          }
           await fetchOrders(false);
-          message.success(t("business:staffactions.codCompletedSuccess"));
+          message.success(t("business:pickupFlow.collectionRecorded"));
           return true;
         } catch (err: any) {
           if (
@@ -834,7 +742,7 @@ export function StaffOrdersPage() {
       createdAt: found.createdAt,
       updatedAt: found.updatedAt,
     };
-  }, [selectedOrderId, orders]);
+  }, [selectedOrderId, orders, stores]);
 
   return (
     <div className={styles.staffContainer}>
@@ -875,24 +783,7 @@ export function StaffOrdersPage() {
           </div>
 
           {/* Nút Toggle Chuông âm thanh (Lưu localStorage) */}
-          <button
-            type="button"
-            className={`${styles.soundButton} ${
-              soundEnabled ? styles.soundEnabled : ""
-            }`}
-            onClick={handleToggleSound}
-            aria-label={
-              soundEnabled ? "Tắt chuông báo đơn mới" : "Bật chuông báo đơn mới"
-            }
-            title={
-              soundEnabled
-                ? "Chuông báo đang BẬT (Click để tắt)"
-                : "Chuông báo đang TẮT (Click để bật)"
-            }
-          >
-            {soundEnabled ? <Bell size={18} /> : <BellOff size={18} />}
-            <span>{t(soundEnabled ? "business:stafforderspage.soundOn" : "business:stafforderspage.soundOff")}</span>
-          </button>
+          <OrderSoundButton alerts={alerts} className={`${styles.soundButton} ${alerts.soundOn ? styles.soundEnabled : ""}`} />
 
           {/* Nút Đỏ Nổi Bật: Nhập đơn nhanh (F1) - Khóa khi cửa hàng chưa mở cửa */}
           <button

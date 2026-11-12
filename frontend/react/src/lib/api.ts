@@ -550,8 +550,8 @@ export const promotionsApi = {
 
 /* ---------- Catalog & Products ---------- */
 export const catalogApi = {
-  listProducts: (params?: { storeId?: number; categoryId?: number; keyword?: string; activeOnly?: boolean }) =>
-    api.get<Product[]>('/api/catalog/products', { params }).then((r) => r.data),
+  listProducts: (params?: { storeId?: number; categoryId?: number; keyword?: string; activeOnly?: boolean }, signal?: AbortSignal) =>
+    api.get<Product[]>('/api/catalog/products', { params, signal }).then((r) => r.data),
   getProduct: (id: number, storeId?: number) =>
     api.get<Product>(`/api/catalog/products/${id}`, { params: { storeId } }).then((r) => r.data),
   createProduct: (data: Partial<Product>) =>
@@ -577,8 +577,8 @@ export const catalogApi = {
   },
   listCategories: () =>
     api.get<CatalogCategory[]>('/api/catalog/categories').then((r) => r.data),
-  listCombos: (activeOnly?: boolean) =>
-    api.get<Combo[]>('/api/catalog/combos', { params: { activeOnly } }).then((r) => r.data),
+  listCombos: (activeOnly?: boolean, signal?: AbortSignal) =>
+    api.get<Combo[]>('/api/catalog/combos', { params: { activeOnly }, signal }).then((r) => r.data),
   createCombo: (data: Partial<Combo>) =>
     api.post<Combo>('/api/catalog/combos', data).then((r) => r.data),
   updateCombo: (id: number, data: Partial<Combo>) =>
@@ -702,17 +702,19 @@ export interface ShiftSummaryData {
 }
 
 export const paymentsApi = {
-  getCodEvidence: (orderId: string | number) => api.get<{
+  getCodEvidence: (orderId: string | number, signal?: AbortSignal) => api.get<{
     status: 'MISSING' | 'PENDING' | 'APPROVED' | 'REJECTED';
     uploaded_by?: number; reviewed_by?: number; review_reason?: string;
-  }>(`/api/payments/${orderId}/operations/cod-evidence`).then((r) => r.data),
+  }>(`/api/payments/${orderId}/operations/cod-evidence`, { signal }).then((r) => r.data),
   getCodEvidenceImage: (orderId: string | number) => api.get<Blob>(
     `/api/payments/${orderId}/operations/cod-evidence/image`, { responseType: 'blob' },
   ).then((r) => r.data),
   uploadCodEvidence: (orderId: string | number, file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return api.post(`/api/payments/${orderId}/operations/cod-evidence`, form).then((r) => r.data);
+    return api.post(`/api/payments/${orderId}/operations/cod-evidence`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
   },
   approveCodEvidence: (orderId: string | number) => api.post(
     `/api/payments/${orderId}/operations/cod-evidence/approve`, {},

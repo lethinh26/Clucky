@@ -89,7 +89,7 @@ public class InventoryService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy món ăn: " + productId));
 
-        StoreInventory inv = storeInventoryRepository.findByStoreIdAndProductId(storeId, productId)
+        StoreInventory inv = storeInventoryRepository.lockByStoreAndProduct(storeId, productId)
                 .orElseGet(() -> new StoreInventory(null, store, product, 0, store.getLowStockThreshold(), updatedBy));
 
         checkAdminVersion(inv.getVersion(), request.getExpectedVersion());
@@ -121,6 +121,25 @@ public class InventoryService {
 
         cacheService.evictStoreMenuCache(storeId);
         return toResponse(saved, storeId, storeThreshold);
+    }
+
+    public void changeForOrder(long storeId, long productId, int delta) {
+        StoreInventory inventory = storeInventoryRepository.lockByStoreAndProduct(storeId, productId)
+                .orElseThrow(() -> new ApiException(ErrorCode.INSUFFICIENT_INVENTORY));
+        int previous = inventory.getQuantityAvailable();
+        int quantity = Math.addExact(previous, delta);
+        if (quantity < 0) throw new ApiException(ErrorCode.INSUFFICIENT_INVENTORY);
+        inventory.setQuantityAvailable(quantity);
+        inventory.setUpdatedBy(null);
+        inventory.setUpdatedAt(OffsetDateTime.now());
+        storeInventoryRepository.saveAndFlush(inventory);
+        storeProductRepository.findByStoreIdAndProductId(storeId, productId).ifPresent(product -> {
+            if (quantity == 0) product.setIsSoldOut(true);
+            else if (previous == 0) product.setIsSoldOut(false);
+            storeProductRepository.saveAndFlush(product);
+        });
+        evaluateStockEpisode(storeId, inventory.getProduct(), previous, quantity, inventory.getStore().getLowStockThreshold());
+        cacheService.evictStoreMenuCache(storeId);
     }
 
     public long updateStoreThreshold(Long storeId, Integer newThreshold, Long expectedVersion) {

@@ -290,7 +290,7 @@ export function OrderDetailDrawer({
           <p className={styles.actionHint}> {t("business:orderdetaildrawer.actionsDependOnTheCurrentStatusAndYourDemoRole")} </p>
           <div className={styles.drawerActions}>
             {onOpenFinance && <Button icon={<Wallet size={16} />} onClick={() => onOpenFinance(order)}>{t("admin:ui.financeCollectionRefunds")}</Button>}
-            {order.status === "CONFIRMED" && (order.orderType !== "PICKUP" || ["PAID", "COLLECTED"].includes(order.paymentStatus)) && (
+            {order.status === "CONFIRMED" && (
               <Button
                 type="primary"
                 icon={<ChefHat size={16} />}
@@ -305,6 +305,7 @@ export function OrderDetailDrawer({
               > {t("business:orderdetaildrawer.mealReady")} </Button>
             )}
             {!onOpenFinance && order.paymentStatus === "PENDING" &&
+              (order.orderType !== "PICKUP" || order.status === "READY") &&
               !["CANCELLED", "COMPLETED", "PENDING_PAYMENT"].includes(order.status) && (
                 onCollectCounter ? (
                   <Button
@@ -326,7 +327,7 @@ export function OrderDetailDrawer({
                 disabled={!["PAID", "COLLECTED"].includes(order.paymentStatus)}
                 icon={<CheckCircle2 size={16} />}
                 onClick={() => onStatusChange(order.id, "COMPLETED")}
-              > {t("business:orderdetaildrawer.completeOrder")} </Button>
+              > {t(order.orderType === "PICKUP" ? "business:pickupFlow.handover" : "business:orderdetaildrawer.completeOrder")} </Button>
             )}
             {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
               <Button

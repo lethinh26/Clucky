@@ -258,7 +258,7 @@ test("customer mobile navigation stays above the content loader", async ({
   const release = await holdCustomerRoute(page, "/stores");
   try {
     await page.goto(customer + "/menu");
-    const toggle = page.locator("header button[aria-controls]");
+    const toggle = page.getByRole("banner").getByRole("button", { name: /^(Mở|Đóng) điều hướng$/ });
     await toggle.click();
     const mobileNav = page.locator('header nav[data-loading-shell="top"]');
     await mobileNav.locator('a[href="/stores"]').click();
@@ -282,8 +282,7 @@ async function seedBranchAccounts(page: Page) {
 }
 
 async function selectBranch(page: Page) {
-  await page.getByRole("combobox", { name: "Chọn chi nhánh", exact: true }).click();
-  await page.getByText("#1 · Clucky Test", { exact: true }).click();
+  await page.getByRole("navigation", { name: "Chọn chi nhánh", exact: true }).getByRole("button", { name: /Clucky Test/ }).click();
 }
 
 test("admin initial branch request is page-scoped; background synchronization remains local", async ({ page }) => {

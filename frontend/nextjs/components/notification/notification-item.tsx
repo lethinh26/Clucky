@@ -27,6 +27,7 @@ export interface NotificationItemProps {
   createdAt?: string;
   link?: string | null;
   loading?: boolean;
+  busy?: boolean;
   onClick?: (item: NotificationItemData) => void;
   onMarkRead?: (id: string | number) => void;
   onDelete?: (id: string | number) => void;
@@ -67,6 +68,7 @@ export function NotificationItem({
   createdAt: propCreatedAt = new Date().toISOString(),
   link: propLink,
   loading = false,
+  busy = false,
   onClick,
   onMarkRead,
   onDelete,
@@ -124,8 +126,9 @@ export function NotificationItem({
   const typeLabel = TYPE_LABELS[type] ?? t("business.promotionUi.notification");
 
   const handleClick = () => {
-    onClick?.(currentItem);
-    if (!isRead && onMarkRead) {
+    if (busy) return;
+    if (onClick) onClick(currentItem);
+    else if (!isRead && onMarkRead) {
       onMarkRead(id);
     }
   };
@@ -201,6 +204,7 @@ export function NotificationItem({
             type="button"
             className={styles.actionBtn}
             onClick={handleMarkReadClick}
+            disabled={busy}
             title={t("business.promotionUi.markRead")}
             aria-label={t("business.promotionUi.markNotification", { title: title })}
           >
