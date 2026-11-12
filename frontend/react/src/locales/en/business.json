@@ -409,6 +409,8 @@
     "bankName": "Bank Name",
     "accountNumber": "Account Number",
     "accountHolderName": "Account Holder Name",
+    "searchAndChooseBank": "Search and choose a bank",
+    "pleaseCheckBankDetails": "Please check the bank account details.",
     "bankDetailsVersion": "Bank Details Version",
     "claimProcessing": "Start Transfer",
     "claimProcessingSuccess": "Started refund processing attempt.",

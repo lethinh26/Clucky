@@ -344,6 +344,7 @@ export interface BackendRefundAttempt {
   attemptNumber: number;
   attemptId: string;
   bankName?: string;
+  bankBin?: string;
   bankAccountNo?: string;
   accountNumber?: string;
   bankAccountName?: string;
@@ -371,6 +372,7 @@ export interface BackendRefund {
   reviewedAt?: string;
   reviewNote?: string;
   bankName?: string;
+  bankBin?: string;
   bankAccountNo?: string;
   accountNumber?: string;
   bankAccountName?: string;
@@ -388,7 +390,7 @@ export interface BackendRefund {
 
 export const refundsApi = {
   create: (
-    data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string },
+    data: { orderId: number; reason: string; bankBin: string; bankName?: string; bankAccountNo: string; bankAccountName: string },
     signal?: AbortSignal
   ) =>
     api.post<BackendRefund>('/api/refund-requests', data, { signal }).then((r) => r.data),
@@ -430,13 +432,14 @@ export const refundsApi = {
     api.put<BackendRefund>(`/api/refund-requests/${id}/request-bank-details`, { reason, transferNotCompleted }, { signal }).then((r) => r.data),
   updateBankDetails: (
     id: string | number,
-    data: { bankName: string; bankAccountNo?: string; accountNumber?: string; bankAccountName?: string; accountHolderName?: string; expectedBankDetailsVersion?: number },
+    data: { bankBin: string; bankName?: string; bankAccountNo: string; bankAccountName: string; expectedBankDetailsVersion?: number },
     signal?: AbortSignal
   ) =>
     api.put<BackendRefund>(`/api/refund-requests/${id}/bank-details`, {
+      bankBin: data.bankBin,
       bankName: data.bankName,
-      bankAccountNo: data.accountNumber ?? data.bankAccountNo,
-      bankAccountName: data.accountHolderName ?? data.bankAccountName,
+      bankAccountNo: data.bankAccountNo,
+      bankAccountName: data.bankAccountName,
       expectedBankDetailsVersion: data.expectedBankDetailsVersion,
     }, { signal }).then((r) => r.data),
   uploadEvidence: (id: string | number, file: File, signal?: AbortSignal) => {
@@ -453,6 +456,18 @@ export const refundsApi = {
     api.get<{ accessUrl: string; expiresInSeconds: number }>(`/api/refund-requests/${id}/evidence`, { signal }).then((r) => r.data),
   confirmRefund: (id: string | number, note?: string, signal?: AbortSignal) =>
     api.put<BackendRefund>(`/api/refund-requests/${id}/confirm-refund`, { note }, { signal }).then((r) => r.data),
+};
+
+export interface VietQrBank {
+  bin: string;
+  shortName?: string;
+  name?: string;
+  logo?: string;
+}
+
+export const vietQrApi = {
+  banks: (signal?: AbortSignal) =>
+    api.get<VietQrBank[]>('/api/payments/banks', { signal }).then((r) => r.data),
 };
 
 /* ---------- Party Orders ---------- */

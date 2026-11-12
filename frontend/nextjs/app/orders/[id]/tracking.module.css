@@ -281,37 +281,51 @@
 }
 .cancelDialog {
   padding: 28px;
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 .cancelDialog h2 {
-  font: 600 28px var(--font-heading);
-  margin: 0 0 12px;
+  font: 600 24px var(--font-heading);
+  margin: 0 0 10px;
+  color: #16100d;
 }
 .cancelDialog p {
   color: #6b6259;
   font-size: 13px;
-  line-height: 1.8;
+  line-height: 1.6;
 }
 .cancelDialog label {
   display: block;
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #2b2521;
 }
 .cancelDialog textarea {
+  box-sizing: border-box;
   width: 100%;
-  min-height: 100px;
-  padding: 12px;
-  border: 1px solid #d6c9b9;
-  border-radius: 12px;
+  min-height: 88px;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
   background: white;
   font-size: 14px;
+  font-family: inherit;
   resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.cancelDialog > div {
+.cancelDialog textarea:focus-visible {
+  outline: none;
+  border-color: var(--primary, #8f1216);
+  box-shadow: 0 0 0 3px rgba(143, 18, 22, 0.15);
+}
+.dialogActions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
 }
 .feedback {
   display: flex;
@@ -346,10 +360,18 @@
     gap: 12px;
   }
   .cancelDialog {
-    padding: 24px 18px;
+    padding: 20px 16px;
+    max-height: calc(100dvh - 32px);
   }
-  .cancelDialog > div {
-    flex-direction: column;
+  .dialogActions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .dialogActions button {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
   }
 }
 

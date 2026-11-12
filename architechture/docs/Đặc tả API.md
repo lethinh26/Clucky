@@ -100,7 +100,8 @@ Quy ước chung:
 | GET /api/orders?storeId=&status= | STF/MGR/ADM | Danh sách đơn quản trị (Staff/Manager bị ép storeId của mình) |
 | PUT /api/orders/{id}/status | STF/MGR/ADM | Chuyển trạng thái đơn (xác nhận, chế biến, sẵn sàng, hoàn thành) |
 | PUT /api/orders/{id}/reject | STF/MGR/ADM | Từ chối/hủy đơn tại quán kèm lý do |
-| POST /api/orders/{id}/refund-requests | CUS | Tạo yêu cầu hoàn tiền |
+| POST /api/refund-requests | CUS-owner | Tạo yêu cầu refund với `{orderId, reason, bankBin, bankName, bankAccountNo, bankAccountName}` |
+| PUT /api/refund-requests/{id}/bank-details | CUS-owner/MGR/ADM | Cập nhật `{bankBin, bankName, bankAccountNo, bankAccountName, expectedBankDetailsVersion?}` khi state cho phép |
 | PUT /api/refund-requests/{id}/approve, /reject | MGR/ADM | Duyệt/từ chối hoàn tiền |
 | POST /api/party-orders | CUS | Gửi form đặt tiệc/đơn lớn |
 | GET/PUT /api/party-orders | STF/MGR/ADM | Tiếp nhận, báo giá, cập nhật trạng thái đơn tiệc |
@@ -108,6 +109,7 @@ Quy ước chung:
 # 4. PAYMENT SERVICE — /api/payments
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
+| GET /api/payments/banks | User đã xác thực | Danh sách ngân hàng VietQR (BIN, tên, logo); được cache ở Payment Service |
 | POST /api/payments/{orderId}/bank-transfer | CUS-owner | Tạo/đọc phiên mới: snapshot ngân hàng, reference riêng, hạn 15 phút không gia hạn; không nhận amount từ client |
 | GET /api/payments/{orderId} | CUS/STF/MGR/ADM | Trạng thái thanh toán của đơn |
 | POST /api/payments/webhook/sepay | SYS | API Key riêng, lưu receipt/dedup/conflict và tìm candidate contains; ACK sau commit, đối soát/xác nhận chạy bất đồng bộ |
@@ -123,6 +125,8 @@ Quy ước chung:
 | PUT /api/payments/bank-config/stores/{storeId} | ADM | Gán/ngưng gán: bankAccountId hoặc null, version; Idempotency-Key |
 
 Payment 09/11/2026: đã sửa mã bank-config, intake, QR Customer và đối soát tự động cho phiên mới; **chưa nghiệm thu chức năng**. Các PUT confirm-manual/confirm-cod/refund ở bảng trên vẫn là mục tiêu, chưa mở. Chỉ dùng SePay API Key. [Bàn giao hiện tại](../specs/rbac-branch-operations/P1-live-payment-handoff.md) chốt DTO/guard/events và phần còn khóa; bàn giao ngân hàng/intake là snapshot lịch sử.
+
+VietQR refund recipient: người dùng chọn ngân hàng từ danh sách VietQR public và nhập trực tiếp số tài khoản, tên chủ tài khoản; không dùng API key hay tra cứu server-side. Duyệt refund vẫn không tự chuyển tiền.
 
 Tiền vào 10/11/2026: Entry thêm `classification=UNCLASSIFIED|STORE_ONLY|PAYMENT_CANDIDATE|ALLOCATED`, giữ status tài chính riêng. Staff/Manager chỉ đọc giao dịch vào đã phân loại đúng quán và không conflict; sửa filter storeId khác JWT trả 403, detail ngoài scope/missing trả 404. Admin giữ toàn bộ inbox. `lastReceivedAt` theo scope quyền và store filter, không phải toàn chuỗi cho Staff/Manager. Account chỉ trả maskedAccount; không trả raw webhook/conflict payload, subAccount hay evidence nội bộ. UI `/admin/payments` mở read-only cho Staff/Manager, không tải/mở bank-config. Recovery trước snapshot không thay quyền thu thủ công hoặc mở lại đơn đóng.
 
@@ -248,4 +252,3 @@ Backend validate MIME/size, upload qua Cloudinary, lưu URL/public ID; frontend 
 - Order preview bổ sung `shipping` cùng cấu trúc; khi không giao được thì `orderValid=false`, shippingFee/totalAmount=null (không dùng 0 làm giá giả). UNAVAILABLE chỉ lỗi phụ thuộc khi Order gọi Shipping.
 - Order create tính lại phí/phạm vi server-side, giữ kiểm tra expectedTotal hiện hữu. PICKUP không gọi Shipping và phí 0. Đơn đã tạo không đổi snapshot phí/QR. Không còn per-km/free-from-amount hoặc fallback cấu hình quán khác trong tính phí mới.
 - UI qua Gateway, i18n và các lý do rõ ràng. Không mở shipper/tracking/đối tác vận chuyển.
-
