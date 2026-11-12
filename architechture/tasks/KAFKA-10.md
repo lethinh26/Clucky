@@ -3,7 +3,7 @@
 **Phụ trách:** Mai Sơn Việt · **Sprint:** 3 · **Ước lượng:** 8 SP  
 **Phụ thuộc:** KAFKA-01, BE-43
 
-> **Hiệu chỉnh review 12/11/2026:** các checkbox cũ bên dưới là báo cáo của tác giả, không thay thế evidence tích hợp. Producer của 7 domain đã có trong base; PR này không triển khai lại chúng. Notification chỉ có thao tác đọc thông báo của chính người dùng, chưa có producer quản trị trong source. Không coi source allowlist 8 service là bằng chứng 8 producer. Xem inventory kiểm chứng và giới hạn tại mục 7.
+> **Hiệu chỉnh review 12/11/2026:** các checkbox cũ bên dưới là báo cáo của tác giả, không thay thế evidence tích hợp. Producer của 7 domain đã có trong base; PR này không triển khai lại chúng. Base mới `d721fde` có thêm admin notification read và email retry nhưng chưa có audit producer tương ứng. Không coi source allowlist 8 service là bằng chứng 8 producer. Xem inventory kiểm chứng và giới hạn tại mục 7; task vẫn PARTIAL, không phải DONE.
 
 ### 1. User Story
 
@@ -98,7 +98,7 @@ PIC điều phối/evidence: Mai Sơn Việt. Đường dẫn dưới đây nằ
 | Voucher/loyalty | `VoucherService`, `LoyaltyService.configure` → `VoucherAuditOutbox.record` | `promotion_service.audit_outbox` → `VoucherAuditOutbox` | Đã có từ base; action gồm `VOUCHER_DISABLED`, `VOUCHER_DELETED`, `LOYALTY_POLICY_UPDATED` |
 | Review | `ReviewService.addReply/hideReview/softDeleteReview` → `ReviewAuditOutbox.record` | `review_report_service.audit_outbox` → `ReviewAuditDispatcher` | Chỉ dùng `payload.detail.before/after`; dispatcher chờ ACK rồi mark published |
 | Shipping | `ShippingController.savePolicy` → `ShippingPolicyAudit.record` | `shipping_service.audit_outbox` → `ShippingPolicyAudit` | Đã có từ base, `SHIPPING_POLICY_UPDATED` |
-| Notification | Chỉ thấy đọc/đánh dấu thông báo của chính actor; không thấy mutation quản trị có producer | Không có audit outbox | Không được tính là producer đã hoàn thành; PIC Việt cần chốt nếu bổ sung mutation quản trị |
+| Notification | `AdminNotificationService.markRead/markAllRead`, `EmailLogService.retry` có trong base `d721fde` | Có email retry persistence nhưng không có audit outbox/producer `audit.recorded` | Thiếu coverage cho mutation quản trị mới; PIC Việt cần chốt action/schema và owner, không được tính producer đã hoàn thành |
 
 Kiểm chứng mới: `./gradlew :audit-service:test :audit-service:auditSelfCheck :review-report-service:test` từ `backend`. `AuditRecoveryTest` kiểm tra poison quarantine không lộ payload/header, DLT unavailable không ACK và DB failure không bỏ audit intent. `AccountAuditConsumerTest` dùng mapper inject, kiểm tra unknown source và envelope null/array.
 

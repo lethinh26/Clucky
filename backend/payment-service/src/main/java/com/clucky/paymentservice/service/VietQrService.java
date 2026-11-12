@@ -28,6 +28,7 @@ public class VietQrService {
     private final RestClient restClient;
     private volatile BankCache bankCache;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public VietQrService(
             RestClient.Builder restClientBuilder,
             @Value("${vietqr.api.banks-url:" + DEFAULT_BANKS_URL + "}") String banksUrl) {
