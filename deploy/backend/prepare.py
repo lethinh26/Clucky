@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -88,6 +89,7 @@ def prepare(root, release, raw):
     if not re.fullmatch(r"[a-z][a-z0-9-]{4,28}[a-z0-9]", project):
         raise ValueError("Invalid Firebase project")
     values.update(IMAGE_TAG=release, VPS_WORKDIR=str(root), FIREBASE_PROJECT_ID=project)
+    values["FIREBASE_CREDENTIAL_REVISION"] = hashlib.sha256(firebase.read_bytes()).hexdigest()
     directory = root / "backend" / "incoming" / release
     if any(path.is_symlink() for path in (directory, *directory.parents)):
         raise ValueError("Deployment directory cannot be a symlink")

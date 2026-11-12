@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -39,6 +40,8 @@ class BackendEnvironmentTest(unittest.TestCase):
         content = target.read_text()
         self.assertIn("AUTH_COOKIE_SECURE='true'", content)
         self.assertIn("FIREBASE_PROJECT_ID='clucky-test'", content)
+        revision = hashlib.sha256((self.root / "secrets/firebase-service-account.json").read_bytes()).hexdigest()
+        self.assertIn("FIREBASE_CREDENTIAL_REVISION='" + revision + "'", content)
         self.assertIn("POSTGRES_PASSWORD='" + self.values["POSTGRES_PASSWORD"] + "'", content)
         if os.name == "posix":
             self.assertEqual(target.stat().st_mode & 0o777, 0o600)
