@@ -1,6 +1,7 @@
 import { errorCatalog, defaultErrorCodes, type ErrorCode } from "./error-codes.generated.ts";
 import { getBrowserLocale, type Locale } from "./locale.ts";
 import { getTranslator } from "./translator.ts";
+export { getTranslator } from "./translator.ts";
 export { getBrowserLocale, normalizeLocale, localeCookie, type Locale } from "./locale.ts";
 
 const intlLocales = { vi: "vi-VN", en: "en-US" } as const;

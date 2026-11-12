@@ -42,7 +42,8 @@ public class OrderPaymentService {
             BigDecimal amount, String status, String paymentMethod, Instant expiresAt) {}
 
     public record Context(long orderId, String orderCode, Long customerId, Long storeId, BigDecimal amount,
-            String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version) {}
+            String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version,
+            String orderSource, String orderType) {}
 
     @Transactional(readOnly = true)
     public Context context(long id) {
@@ -54,7 +55,8 @@ public class OrderPaymentService {
 
     private Context context(Order order) {
         return new Context(order.getId(), order.getOrderCode(), order.getCustomerId(), order.getStoreId(), order.getTotalAmount(),
-                order.getStatus(), order.getPaymentMethod(), order.getPaymentStatus(), order.getPaymentExpiresAt(), order.getUpdatedAt());
+                order.getStatus(), order.getPaymentMethod(), order.getPaymentStatus(), order.getPaymentExpiresAt(), order.getUpdatedAt(),
+                order.getOrderSource(), order.getType());
     }
 
 
@@ -144,6 +146,10 @@ public class OrderPaymentService {
                 || !payload.path("cashAmount").isNumber() || !payload.path("declaredTransfer").isNumber()) throw new IllegalArgumentException("Invalid collection event");
         long orderId = payload.path("orderId").asLong();
         Order order = orders.lockById(orderId).orElseThrow(() -> new IllegalArgumentException("Collection order missing"));
+        boolean customerMatches = order.getCustomerId() == null
+                ? "COUNTER".equals(order.getOrderSource()) && !payload.hasNonNull("customerId")
+                : payload.path("customerId").isIntegralNumber() && payload.path("customerId").canConvertToLong()
+                        && Objects.equals(order.getCustomerId(), payload.path("customerId").asLong());
         if (!jdbc.queryForList("SELECT collection_id FROM order_service.collection_decisions WHERE collection_id=?", java.util.UUID.class, collectionId).isEmpty()) return;
         BigDecimal cash = payload.path("cashAmount").decimalValue();
         BigDecimal transfer = payload.path("declaredTransfer").decimalValue();
@@ -152,9 +158,8 @@ public class OrderPaymentService {
                 || !java.util.Set.of("STAFF", "STORE_MANAGER", "ADMIN").contains(payload.path("actorRole").asText())
                 || !payload.path("actorId").isIntegralNumber() || !payload.path("actorId").canConvertToLong() || payload.path("actorId").asLong() <= 0
                 || !payload.path("storeId").isIntegralNumber() || !payload.path("storeId").canConvertToLong()
-                || !payload.path("customerId").isIntegralNumber() || !payload.path("customerId").canConvertToLong()
+                || !customerMatches
                 || !Objects.equals(order.getOrderCode(), payload.path("orderCode").asText())
-                || !Objects.equals(order.getCustomerId(), payload.path("customerId").asLong())
                 || !Objects.equals(order.getStoreId(), payload.path("storeId").asLong())
                 || order.getTotalAmount().compareTo(payload.path("amount").decimalValue()) != 0) throw new IllegalArgumentException("Collection snapshot mismatch");
         String decision = "CANCELLED";
@@ -163,7 +168,7 @@ public class OrderPaymentService {
                 && "PENDING_PAYMENT".equals(order.getStatus())) {
             orderService.compensateFailedPayment(orderId, order.getOrderCode(), "PAYMENT_EXPIRED");
             decision = "EXPIRED";
-        } else if (java.util.Set.of("PENDING_PAYMENT", "CONFIRMED", "PREPARING", "READY").contains(order.getStatus())) {
+        } else if (java.util.Set.of("PENDING_PAYMENT", "CONFIRMED", "PREPARING", "READY", "SHIPPING").contains(order.getStatus())) {
             if (!order.getUpdatedAt().equals(Instant.parse(payload.path("orderVersion").asText()))) decision = "STALE_VERSION";
             else {
                 String previous = order.getStatus();
@@ -181,7 +186,8 @@ public class OrderPaymentService {
         jdbc.update("INSERT INTO order_service.collection_decisions(collection_id,order_id,event_id,decision) VALUES (?,?,?,?)",
                 collectionId, orderId, event.eventId(), decision);
         var result = mapper.createObjectNode().put("operationType", "COLLECTION").put("collectionId", collectionId.toString()).put("orderId", orderId)
-                .put("customerId", order.getCustomerId()).put("storeId", order.getStoreId()).put("orderCode", order.getOrderCode()).put("decision", decision);
+                .put("storeId", order.getStoreId()).put("orderCode", order.getOrderCode()).put("decision", decision);
+        if (order.getCustomerId() != null) result.put("customerId", order.getCustomerId());
         events.publish("order.payment-resolved", order, result);
     }
 
@@ -192,5 +198,27 @@ public class OrderPaymentService {
                 && !order.getPaymentExpiresAt().isAfter(Instant.now())) {
             orderService.compensateFailedPayment(id, order.getOrderCode(), "PAYMENT_EXPIRED");
         }
+    }
+
+    @Transactional
+    public void updatePaymentStatus(long id, String paymentStatus) {
+        Order order = orders.lockById(id).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+        if (com.clucky.cartorderservice.config.CurrentActor.require().role() != com.clucky.cartorderservice.dto.Role.INTERNAL_SERVICE) {
+            throw new org.springframework.security.access.AccessDeniedException("Payment service credential required");
+        }
+        if (!java.util.Set.of("COUNTER", "WEB").contains(order.getOrderSource())
+                || !java.util.Set.of("CONFIRMED", "PREPARING", "READY", "SHIPPING").contains(order.getStatus())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Đơn hàng không cho phép cập nhật thu tiền quầy");
+        }
+        if ("COLLECTED".equalsIgnoreCase(paymentStatus)) {
+            if (!"PENDING".equals(order.getPaymentStatus())) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            order.setPaymentStatus("COLLECTED");
+        } else if ("PENDING".equalsIgnoreCase(paymentStatus)) {
+            if (!"COLLECTED".equals(order.getPaymentStatus())) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            order.setPaymentStatus("PENDING");
+        } else {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        }
+        orders.save(order);
     }
 }

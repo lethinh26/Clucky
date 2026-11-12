@@ -15,9 +15,9 @@ export function DeliveryPanel({ store, pin, quote, loading, error, onPickup, onR
   const t = useTranslations("shipping");
   const { money, number } = useLocaleTools();
   const origin = coordinates(store);
-  const radius = quote?.radiusKm ?? store?.deliveryRadiusKm;
-  const reason = !store ? "STORE_REQUIRED" : !pin ? "LOCATION_REQUIRED" : loading ? "CHECKING"
-    : quote && quote.reason !== "PICKUP" ? quote.reason : error ? "UNAVAILABLE" : "CHECKING";
+  const radius = quote?.radiusKm ?? store?.deliveryRadiusKm ?? 15;
+  const reason = !store ? "STORE_REQUIRED" : loading ? "CHECKING"
+    : quote && quote.reason !== "PICKUP" ? quote.reason : !pin ? "LOCATION_REQUIRED" : error ? "UNAVAILABLE" : "CHECKING";
   const status = t.has(`statuses.${reason}`) ? reason : "UNAVAILABLE";
   const valid = status === "OK";
   const Icon = valid ? CheckCircle2 : status === "CHECKING" ? LoaderCircle : CircleAlert;

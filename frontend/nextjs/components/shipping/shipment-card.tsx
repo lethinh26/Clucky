@@ -13,6 +13,7 @@ export interface ShipmentInfoProps {
   receiverPhone: string;
   address?: string;
   storeName?: string;
+  storeAddress?: string;
   fee?: number | null;
   /** Only pass an actual shipment status; never infer it from the order status. */
   status?: ShipmentStatus;
@@ -27,6 +28,7 @@ export function ShipmentCard({
   receiverPhone,
   address,
   storeName,
+  storeAddress,
   fee,
   status,
   orderType = "DELIVERY",
@@ -88,11 +90,11 @@ export function ShipmentCard({
           <dt className={styles.shipmentLabel}>
             <UserRound size={15} aria-hidden="true" /> {t("business.shipmentcard.recipient")} </dt>
           <dd className={styles.shipmentVal}>
-            {receiverName.trim() || t("business.shipmentcard.noRecipientNameAvailable")}
+            {(receiverName || "").trim() || t("business.shipmentcard.noRecipientNameAvailable")}
           </dd>
           <dd className={styles.shipmentVal}>
-            {receiverPhone.trim() ? (
-              <a href={`tel:${receiverPhone.replace(/[^+\d]/g, "")}`}>
+            {(receiverPhone || "").trim() ? (
+              <a href={`tel:${(receiverPhone || "").replace(/[^+\d]/g, "")}`}>
                 {receiverPhone}
               </a>
             ) : (
@@ -107,18 +109,21 @@ export function ShipmentCard({
           </dt>
           <dd className={styles.shipmentVal}>
             {pickup
-              ? storeName || address || t("business.shipmentcard.noStoreDetailsAvailable")
+              ? storeName || storeAddress || address || t("business.shipmentcard.noStoreDetailsAvailable")
               : address?.trim() || t("business.shipmentcard.noDeliveryAddressAvailable")}
           </dd>
-          {pickup && storeName && address && (
-            <dd className={styles.shipmentSecondary}>{address}</dd>
+          {pickup && (storeAddress || address) && (
+            <dd className={styles.shipmentSecondary}>{storeAddress || address}</dd>
           )}
         </div>
-        {!pickup && storeName && (
+        {!pickup && (storeName || storeAddress) && (
           <div className={styles.shipmentItem}>
             <dt className={styles.shipmentLabel}>
               <Store size={15} aria-hidden="true" /> {t("business.shipmentcard.preparedAt")} </dt>
             <dd className={styles.shipmentVal}>{storeName}</dd>
+            {storeAddress && (
+              <dd className={styles.shipmentSecondary}>{storeAddress}</dd>
+            )}
           </div>
         )}
       </dl>

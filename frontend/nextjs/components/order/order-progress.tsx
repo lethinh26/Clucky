@@ -16,7 +16,7 @@ import {
   ChevronDown,
   Clock3,
 } from "lucide-react";
-import type { Order, OrderStatus, OrderType } from "@/lib/types/order";
+import type { Order, OrderStatus, OrderType, PaymentMethod, PaymentStatus } from "@/lib/types/order";
 import { displayOrderTime, orderHistoryDescription, orderStatusKey } from "@/lib/order-demo";
 import styles from "./order-experience.module.css";
 
@@ -26,6 +26,8 @@ export function OrderProgress({
   stage,
   status = "CONFIRMED",
   type = "DELIVERY",
+  paymentStatus,
+  paymentMethod,
   compact = false,
   orderCode,
   updatedAt,
@@ -34,22 +36,45 @@ export function OrderProgress({
   stage?: "cart" | "checkout";
   status?: OrderStatus;
   type?: OrderType;
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: PaymentMethod;
   compact?: boolean;
   orderCode?: string;
   updatedAt?: string;
   history?: Order["timeline"];
 }) {
   const t = useTranslations();
+  const isPaid = paymentStatus === "PAID" || paymentStatus === "COLLECTED";
+  const isCodOrder = paymentMethod === "COD";
 
-  const steps = [
-    { status: "CART", label: t("business.orderprogress.chooseDishes"), icon: ShoppingBag },
-    { status: "PENDING_PAYMENT", label: t("business.cart.checkout"), icon: CreditCard },
-    { status: "CONFIRMED", label: t("business.orderprogress.confirm"), icon: ClipboardCheck },
-    { status: "PREPARING", label: t("business.orderprogress.preparing"), icon: ChefHat },
-    { status: "READY", label: t(orderStatusKey("READY", type)), icon: PackageCheck },
-    ...(type === "DELIVERY" ? [{ status: "SHIPPING", label: t(orderStatusKey("SHIPPING", type)), icon: Truck }] : []),
-    { status: "COMPLETED", label: t(orderStatusKey("COMPLETED", type)), icon: Flag },
-  ];
+  const steps = isCodOrder
+    ? [
+        { status: "CART", label: t("business.orderprogress.chooseDishes"), icon: ShoppingBag },
+        { status: "CONFIRMED", label: t("business.orderprogress.confirm"), icon: ClipboardCheck },
+        { status: "PREPARING", label: t("business.orderprogress.preparing"), icon: ChefHat },
+        { status: "READY", label: t(orderStatusKey("READY", type)), icon: PackageCheck },
+        ...(type === "DELIVERY"
+          ? [{ status: "SHIPPING", label: t(orderStatusKey("SHIPPING", type)), icon: Truck }]
+          : []),
+        { status: "PENDING_PAYMENT", label: t("business.cart.checkout"), icon: CreditCard },
+        { status: "COMPLETED", label: t(orderStatusKey("COMPLETED", type)), icon: Flag },
+      ]
+    : [
+        { status: "CART", label: t("business.orderprogress.chooseDishes"), icon: ShoppingBag },
+        ...(type === "PICKUP"
+          ? [
+              { status: "CONFIRMED", label: t("business.orderprogress.confirm"), icon: ClipboardCheck },
+              { status: "PENDING_PAYMENT", label: t("business.cart.checkout"), icon: CreditCard },
+            ]
+          : [
+              { status: "PENDING_PAYMENT", label: t("business.cart.checkout"), icon: CreditCard },
+              { status: "CONFIRMED", label: t("business.orderprogress.confirm"), icon: ClipboardCheck },
+            ]),
+        { status: "PREPARING", label: t("business.orderprogress.preparing"), icon: ChefHat },
+        { status: "READY", label: t(orderStatusKey("READY", type)), icon: PackageCheck },
+        ...(type === "DELIVERY" ? [{ status: "SHIPPING", label: t(orderStatusKey("SHIPPING", type)), icon: Truck }] : []),
+        { status: "COMPLETED", label: t(orderStatusKey("COMPLETED", type)), icon: Flag },
+      ];
 
   const { locale } = useLocaleTools();
   const [expanded, setExpanded] = useState(false);
@@ -71,7 +96,17 @@ export function OrderProgress({
       /* Storage is optional for the disclosure. */
     }
   };
-  const current = steps.findIndex(step => step.status === status);
+  const current = isCodOrder
+    ? (() => {
+        if (status === "COMPLETED") return steps.length - 1;
+        const payIdx = steps.findIndex(step => step.status === "PENDING_PAYMENT");
+        if (isPaid) return payIdx;
+        const statusIdx = steps.findIndex(step => step.status === status);
+        return statusIdx >= 0 ? statusIdx : 1;
+      })()
+    : type === "PICKUP" && ["PENDING_PAYMENT", "CONFIRMED"].includes(status)
+      ? isPaid ? 3 : 2
+      : steps.findIndex(step => step.status === status);
   if (stage)
     return (
       <nav className={styles.checkoutSteps} aria-label={t("business.orderprogress.orderingSteps")}>
@@ -103,7 +138,7 @@ export function OrderProgress({
           <Clock3 size={17} />
         </span>
         <span className={styles.progressCopy}>
-          <strong>{orderCode ?? t("business.demoordercontrols.orderProgress")}</strong>
+          <strong>{compact ? t("business.demoordercontrols.orderProgress") : orderCode ?? t("business.demoordercontrols.orderProgress")}</strong>
           <small>{displayOrderTime(updatedAt ?? history.at(-1)?.time, locale)}</small>
         </span>
         <span className={styles.progressState} data-status={status}>

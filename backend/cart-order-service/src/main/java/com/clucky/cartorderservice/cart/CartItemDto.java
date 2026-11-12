@@ -24,6 +24,8 @@ public class CartItemDto {
     private BigDecimal unitPrice = BigDecimal.ZERO;
     private List<Long> optionIds = new ArrayList<>();
     private List<Long> toppingIds = new ArrayList<>();
+    private Object optionsSnapshot;
+    private Object toppingsSnapshot;
     private String note;
     private Long storeId;
     private BigDecimal lineTotal;
@@ -105,6 +107,12 @@ public class CartItemDto {
 
     public List<Long> getToppingIds() { return toppingIds; }
     public void setToppingIds(List<Long> toppingIds) { this.toppingIds = toppingIds != null ? toppingIds : new ArrayList<>(); }
+
+    public Object getOptionsSnapshot() { return optionsSnapshot; }
+    public void setOptionsSnapshot(Object optionsSnapshot) { this.optionsSnapshot = optionsSnapshot; }
+
+    public Object getToppingsSnapshot() { return toppingsSnapshot; }
+    public void setToppingsSnapshot(Object toppingsSnapshot) { this.toppingsSnapshot = toppingsSnapshot; }
 
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }

@@ -453,9 +453,11 @@
   bottom: 0;
 }
 .orderCard {
-  padding: 18px;
-  gap: 12px;
+  padding: 22px;
+  gap: 14px;
   min-width: 0;
+  background: #fffdf9;
+  box-shadow: 0 10px 30px rgba(44, 29, 17, 0.05);
 }
 .cardHead {
   padding: 0 0 12px;
@@ -471,6 +473,11 @@
   margin-top: auto;
   padding-block: 10px 0;
 }
+.storeInfo { min-width: 0; max-width: 72%; }
+.itemsSummary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orderThumbs img { width: 64px; height: 64px; }
+.orderCode { font-size: 17px; }
+.cardPriceVal { font-size: 24px; }
 @media (min-width: 1100px) {
   .ordersList {
     display: grid;
@@ -484,4 +491,173 @@
   .orderDate {
     font-size: 11px;
   }
+}
+
+/* Filter & Sort Toolbar */
+.filterToolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 18px;
+  box-shadow: 0 4px 14px rgba(22, 16, 13, 0.03);
+}
+
+.filterToolbar .searchBar {
+  margin-bottom: 0;
+  max-width: 100%;
+}
+
+.filterControlsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #e8e2d9;
+}
+
+.filterGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterGroupLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b6259;
+  white-space: nowrap;
+}
+
+.filterDateInput {
+  padding: 7px 12px;
+  border: 1px solid #d6c9b9;
+  border-radius: 999px;
+  background: #ffffff;
+  font-family: "Quicksand", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #16100d;
+  outline: none;
+}
+
+.filterDateInput:focus {
+  border-color: #8f1216;
+}
+
+.paymentChipGroup {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filterPillBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border: 1px solid #e0d6c8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4b443c;
+  font-family: "Quicksand", sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.filterPillBtn:hover {
+  border-color: #8f1216;
+  color: #8f1216;
+}
+
+.filterPillActive {
+  background: #8f1216;
+  border-color: #8f1216;
+  color: #ffffff !important;
+}
+
+.filterSelect {
+  padding: 7px 14px;
+  border: 1px solid #d6c9b9;
+  border-radius: 999px;
+  background: #ffffff;
+  font-family: "Quicksand", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #16100d;
+  cursor: pointer;
+  outline: none;
+}
+
+.filterSelect:focus {
+  border-color: #8f1216;
+}
+
+.paymentMethodBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: #f5ede0;
+  color: #6b6259;
+}
+
+.paymentMethodBadge[data-method="BANK_TRANSFER"] {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.paymentMethodBadge[data-method="COD"] {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.filterSummaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #efe7dc;
+}
+
+.filterSummaryText {
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b6259;
+}
+
+.filterResetBtn {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid #8f1216;
+  background: #ffffff;
+  color: #8f1216;
+  font-family: "Quicksand", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.filterResetBtn:hover {
+  background: #8f1216;
+  color: #ffffff;
 }

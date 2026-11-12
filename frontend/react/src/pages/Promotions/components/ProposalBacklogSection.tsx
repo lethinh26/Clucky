@@ -154,7 +154,7 @@ export const ProposalBacklogSection: React.FC = () => {
           </div>
           <div
             style={{
-              fontFamily: 'Baloo 2, sans-serif',
+              fontFamily: 'Fredoka, Quicksand, sans-serif',
               fontWeight: 700,
               fontSize: 15,
               color: '#16100D',

@@ -42,6 +42,15 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/counter")
+    public ResponseEntity<OrderResponse> createCounterOrder(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody CreateCounterOrderRequest request
+    ) {
+        OrderResponse response = orderService.createCounterOrder(request, idempotencyKey);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
     @GetMapping("/my")
     public ResponseEntity<PageResponse<OrderResponse>> getMyOrders(
             @RequestParam(value = "status", required = false) String status,
@@ -61,7 +70,11 @@ public class OrderController {
             @RequestParam(value = "customerId", required = false) Long customerId,
             @RequestParam(value = "storeId", required = false) Long storeId,
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "paymentStatus", required = false) String paymentStatus,
+            @RequestParam(value = "orderSource", required = false) String orderSource,
+            @RequestParam(value = "date", required = false) String date,
             @RequestParam(value = "orderCode", required = false) String orderCode,
+            @RequestParam(value = "queueNumber", required = false) Integer queueNumber,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size
     ) {
@@ -69,7 +82,8 @@ public class OrderController {
         int pageSize = Math.min(Math.max(1, size), 200);
         Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        PageResponse<OrderResponse> response = orderService.getOrders(customerId, storeId, status, orderCode, pageable);
+        PageResponse<OrderResponse> response = orderService.getOrders(
+                customerId, storeId, status, paymentStatus, orderSource, date, orderCode, queueNumber, pageable);
         return ResponseEntity.ok(response);
     }
 
@@ -103,6 +117,11 @@ public class OrderController {
     public ResponseEntity<OrderResponse> rejectOrder(@PathVariable("id") @Positive Long id,
             @Valid @RequestBody CancelOrderRequest request) {
         return ResponseEntity.ok(orderService.rejectOrder(id, request));
+    }
+
+    @PostMapping("/{id}/reorder")
+    public ResponseEntity<CartDto> reorder(@PathVariable("id") @Positive Long id) {
+        return ResponseEntity.ok(orderService.reorder(id));
     }
 
     @PostMapping("/{id}/refund-requests")

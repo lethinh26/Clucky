@@ -29,7 +29,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, ch
         <Result
           status="403"
           title={
-            <span style={{ fontFamily: 'Baloo 2, sans-serif', fontSize: 32, color: '#16100D' }}>
+            <span style={{ fontFamily: 'Fredoka, Quicksand, sans-serif', fontSize: 32, color: '#16100D' }}>
               {t("admin:forbidden.title")}{" "}</span>
           }
           subTitle={

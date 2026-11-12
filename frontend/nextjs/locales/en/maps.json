@@ -58,6 +58,7 @@
   "distanceAway": "~ {distance} km away",
   "distanceUnavailable": "Distance unavailable",
   "defaultAddressOrigin": "From your default address",
+  "deliveryPinRequired": "Choose an address with a map pin to calculate the delivery fee.",
   "currentLocationOrigin": "From your current location",
   "storesLoading": "Loading branches…",
   "branches": "branches",

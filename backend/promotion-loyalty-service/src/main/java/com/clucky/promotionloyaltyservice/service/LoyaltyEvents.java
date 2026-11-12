@@ -44,6 +44,10 @@ public class LoyaltyEvents {
         if (!validator.validate(event).isEmpty() || !"cart-order-service".equals(event.sourceService())
                 || !record.topic().equals(event.eventType())) throw new IllegalArgumentException("Invalid loyalty event");
         var payload = event.payload();
+        if ("COUNTER".equals(payload.path("orderSource").asText()) && !payload.hasNonNull("customerId")) {
+            acknowledgment.acknowledge();
+            return;
+        }
         if (!payload.path("orderId").isIntegralNumber() || !payload.path("customerId").isIntegralNumber()
                 || !payload.path("orderId").canConvertToLong() || !payload.path("customerId").canConvertToLong()
                 || payload.path("orderId").asLong() <= 0 || payload.path("customerId").asLong() <= 0)

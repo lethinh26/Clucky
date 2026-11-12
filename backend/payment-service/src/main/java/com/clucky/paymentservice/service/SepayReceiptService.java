@@ -18,9 +18,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.security.access.AccessDeniedException;
@@ -50,9 +52,9 @@ public class SepayReceiptService {
         String fingerprint = fingerprint(payload);
         List<Long> inserted = jdbc.queryForList("INSERT INTO payment_service.bank_transactions "
                 + "(bank_tx_id,bank_account,amount,content,bank_gateway,transfer_direction,received_at,bank_occurred_at,"
-                + "webhook_fingerprint,sub_account,last_seen_at,status,reason) VALUES (?,?,?,?,?,?,now(),?,?,?,now(),'UNMATCHED','REFERENCE_NOT_FOUND') "
+                + "webhook_fingerprint,sub_account,raw_payload,last_seen_at,status,reason) VALUES (?,?,?,?,?,?,now(),?,?,?,jsonb_build_object('referenceCode',?::text),now(),'UNMATCHED','REFERENCE_NOT_FOUND') "
                 + "ON CONFLICT(bank_tx_id) DO NOTHING RETURNING id", Long.class, transactionId, input.accountNumber(),
-                input.transferAmount(), input.content(), input.gateway(), input.transferType(), Timestamp.from(input.transactionDate()), fingerprint, input.subAccount());
+                input.transferAmount(), input.content(), input.gateway(), input.transferType(), Timestamp.from(input.transactionDate()), fingerprint, input.subAccount(), input.referenceCode());
         if (inserted.isEmpty()) {
             var stored = jdbc.queryForMap("SELECT * FROM payment_service.bank_transactions WHERE bank_tx_id=? FOR UPDATE", transactionId);
             boolean same = stored.get("webhook_fingerprint") == null
@@ -82,6 +84,7 @@ public class SepayReceiptService {
             jdbc.update("UPDATE payment_service.bank_transactions SET status='IGNORED',reason='OUTGOING' WHERE id=?", receiptId);
         } else {
             classify(jdbc.queryForMap("SELECT * FROM payment_service.bank_transactions WHERE id=? FOR UPDATE", receiptId), candidates(), true);
+            reconcileCounterReceipt(receiptId);
         }
         jdbc.update("INSERT INTO payment_service.webhook_logs(provider,signature_valid,payload,processed) "
                 + "VALUES ('SEPAY',true,jsonb_build_object('transactionId',?::text,'authentication','API_KEY','stage','RECEIPT_STORED'),true)", transactionId);
@@ -95,7 +98,86 @@ public class SepayReceiptService {
                 + "AND recheck_after<=now() ORDER BY recheck_after,id LIMIT 50 FOR UPDATE SKIP LOCKED");
         if (receipts.isEmpty()) return;
         var candidates = candidates();
-        for (var receipt : receipts) classify(receipt, candidates, false);
+        for (var receipt : receipts) {
+            classify(receipt, candidates, false);
+            reconcileCounterReceipt(((Number) receipt.get("id")).longValue());
+        }
+    }
+
+    private void reconcileCounterReceipt(long bankTransactionId) {
+        var transactions = jdbc.queryForList(
+                "SELECT bank_tx.*,bank_tx.raw_payload->>'referenceCode' AS reference_code "
+                        + "FROM payment_service.bank_transactions bank_tx WHERE bank_tx.id=? "
+                        + "AND status='UNMATCHED' AND reason='REFERENCE_NOT_FOUND' AND sub_account='' "
+                        + "AND transfer_direction='in' AND payment_id IS NULL AND collection_id IS NULL "
+                        + "AND candidate_payment_id IS NULL AND webhook_fingerprint IS NOT NULL AND conflict_count=0 FOR UPDATE", bankTransactionId);
+        if (transactions.isEmpty()) return;
+        Map<String, Object> transaction = transactions.getFirst();
+
+        List<Map<String, Object>> candidates = jdbc.queryForList(
+                "SELECT receipt.id,receipt.receipt_code,receipt.order_code,receipt.store_id,receipt.bank_ref_code,"
+                        + "receipt.bank_amount_declared,receipt.collection_id,collection.bank_name,collection.bank_code,collection.account_no "
+                        + "FROM payment_service.counter_payment_receipts receipt "
+                        + "JOIN payment_service.collections collection ON collection.id=receipt.collection_id "
+                        + "JOIN payment_service.bank_transactions bank_tx ON bank_tx.id=? "
+                        + "WHERE receipt.status='PENDING_RECONCILIATION' AND receipt.bank_tx_id IS NULL "
+                        + "AND receipt.collection_status='ACCEPTED' AND collection.status='ACCEPTED' "
+                        + "AND bank_tx.status IN ('UNMATCHED','PENDING_RECONCILIATION') "
+                        + "AND bank_tx.payment_id IS NULL AND bank_tx.collection_id IS NULL "
+                        + "AND bank_tx.candidate_payment_id IS NULL AND bank_tx.webhook_fingerprint IS NOT NULL "
+                        + "AND bank_tx.conflict_count=0 AND bank_tx.transfer_direction='in' "
+                        + "AND bank_tx.bank_account=collection.account_no "
+                        + "AND receipt.store_id=ANY(bank_tx.bank_store_ids)", bankTransactionId);
+        String gateway = TransferReference.normalize((String) transaction.get("bank_gateway"));
+        String content = upper((String) transaction.get("content"));
+        String referenceCode = upper((String) transaction.get("reference_code"));
+        List<Map<String, Object>> matches = candidates.stream()
+                .filter(candidate -> gatewayMatches(gateway, candidate)
+                        && hasCounterReference(content, referenceCode, candidate))
+                .toList();
+        if (matches.size() != 1) return;
+
+        Map<String, Object> match = matches.getFirst();
+        if (jdbc.queryForList("SELECT id FROM payment_service.counter_payment_receipts WHERE id=? "
+                + "AND status='PENDING_RECONCILIATION' AND collection_status='ACCEPTED' AND bank_tx_id IS NULL FOR UPDATE", Long.class, match.get("id")).isEmpty()) return;
+        UUID collectionId = (UUID) match.get("collection_id");
+        int allocated = jdbc.update("UPDATE payment_service.bank_transactions SET collection_id=?,store_id=?,classified_store_id=?,"
+                        + "matched_order_code=?,status='MATCHED',reason='COLLECTION_EVIDENCE' WHERE id=? AND payment_id IS NULL "
+                        + "AND collection_id IS NULL AND candidate_payment_id IS NULL AND conflict_count=0",
+                collectionId, match.get("store_id"), match.get("store_id"), match.get("order_code"), bankTransactionId);
+        if (allocated != 1) return;
+
+        BigDecimal declared = (BigDecimal) match.get("bank_amount_declared");
+        BigDecimal received = (BigDecimal) transaction.get("amount");
+        String status = declared.compareTo(received) == 0 ? "RECONCILED" : "DISCREPANCY";
+        if (jdbc.update("UPDATE payment_service.counter_payment_receipts SET bank_tx_id=?,bank_amount_reconciled=?,status=?,"
+                        + "discrepancy_amount=?,version=version+1,updated_at=now() WHERE id=? AND status='PENDING_RECONCILIATION' AND bank_tx_id IS NULL",
+                transaction.get("bank_tx_id"), received, status, received.subtract(declared), match.get("id")) != 1) {
+            throw new IllegalStateException("Counter receipt changed during allocation");
+        }
+        jdbc.update("UPDATE payment_service.collections SET version=version+1 WHERE id=?", collectionId);
+    }
+
+    private static boolean gatewayMatches(String gateway, Map<String, Object> candidate) {
+        return !gateway.isBlank() && (gateway.equals(TransferReference.normalize((String) candidate.get("bank_name")))
+                || gateway.equals(TransferReference.normalize((String) candidate.get("bank_code"))));
+    }
+
+    private static boolean hasCounterReference(String content, String referenceCode, Map<String, Object> candidate) {
+        return containsReference(content, (String) candidate.get("order_code"))
+                || containsReference(referenceCode, (String) candidate.get("order_code"))
+                || containsReference(content, (String) candidate.get("receipt_code"))
+                || containsReference(referenceCode, (String) candidate.get("receipt_code"))
+                || containsReference(content, (String) candidate.get("bank_ref_code"))
+                || containsReference(referenceCode, (String) candidate.get("bank_ref_code"));
+    }
+
+    private static String upper(String value) { return value == null ? "" : value.toUpperCase(Locale.ROOT); }
+
+    private static boolean containsReference(String text, String reference) {
+        if (reference == null || reference.isBlank()) return false;
+        return java.util.regex.Pattern.compile("(?<![A-Z0-9])" + java.util.regex.Pattern.quote(upper(reference)) + "(?![A-Z0-9])")
+                .matcher(text).find();
     }
 
     private List<TransferReference.Candidate> candidates() {
@@ -139,7 +221,7 @@ public class SepayReceiptService {
         }
         jdbc.update("UPDATE payment_service.bank_transactions SET status=?,reason=?,candidate_payment_id=?,candidate_order_code=?,"
                         + "classified_store_id=?,classification_evidence=coalesce(?::jsonb,classification_evidence),recheck_after=now()+interval '2 seconds' "
-                        + "WHERE id=? AND payment_id IS NULL AND conflict_count=0",
+                        + "WHERE id=? AND payment_id IS NULL AND collection_id IS NULL AND conflict_count=0",
                 candidate == null ? "UNMATCHED" : "PENDING_RECONCILIATION", reason, candidate == null ? null : candidate.paymentId(),
                 candidate == null ? null : candidate.orderCode(), storeId, evidence, receipt.get("id"));
     }

@@ -1,3 +1,11 @@
+buildscript {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven { url 'https://repo1.maven.org/maven2/' }
+    }
+}
+
 plugins {
     id 'org.springframework.boot' version '3.4.5' apply false
     id 'io.spring.dependency-management' version '1.1.7' apply false
@@ -6,7 +14,11 @@ plugins {
 allprojects {
     group = 'com.clucky'
     version = '0.1.0-SNAPSHOT'
-    repositories { mavenCentral() }
+    repositories {
+        mavenCentral()
+        maven { url 'https://repo1.maven.org/maven2/' }
+        gradlePluginPortal()
+    }
 }
 
 subprojects {

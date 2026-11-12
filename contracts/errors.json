@@ -271,5 +271,19 @@
                                                   "vi":  "Sản phẩm đã hết hàng, không thể bật bán.",
                                                   "en":  "Product is out of stock and cannot be put on sale."
                                               }
-                             }
+                             },
+    "PAYMENT_REQUIRED_BEFORE_HANDOVER":  {
+                                             "httpStatus":  409,
+                                             "messages":  {
+                                                              "vi":  "Đơn hàng chưa được thanh toán đầy đủ trước khi bàn giao.",
+                                                              "en":  "Payment is required before completing handover."
+                                                          }
+                                         },
+    "INSUFFICIENT_INVENTORY":  {
+                                   "httpStatus":  400,
+                                   "messages":  {
+                                                    "vi":  "Một hoặc nhiều món không đủ số lượng tồn kho tại chi nhánh.",
+                                                    "en":  "One or more items have insufficient inventory."
+                                                }
+                               }
 }

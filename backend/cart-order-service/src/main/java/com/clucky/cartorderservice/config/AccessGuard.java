@@ -28,10 +28,19 @@ public final class AccessGuard {
         }
     }
 
+    public void requireCounterStaff() {
+        CurrentActor actor = CurrentActor.require();
+        if (actor.role() != Role.STAFF && actor.role() != Role.STORE_MANAGER && actor.role() != Role.ADMIN) {
+            throw new AccessDeniedException("Access denied");
+        }
+    }
+
     public Long effectiveStore(Long requestedStoreId) {
         CurrentActor actor = CurrentActor.require();
         if (actor.role() == Role.ADMIN) { return requestedStoreId; }
-        requireStore(requestedStoreId == null ? actor.storeId() : requestedStoreId);
-        return actor.storeId();
+        if (actor.role() == Role.STAFF || actor.role() == Role.STORE_MANAGER) {
+            return actor.storeId();
+        }
+        throw new AccessDeniedException("Access denied");
     }
 }

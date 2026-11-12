@@ -15,7 +15,6 @@ export function buildVietQrUrl({
   bank,
   amount,
   description,
-  storeName = "",
 }: {
   bank: BankInfo;
   amount: number;
@@ -31,17 +30,12 @@ export function buildVietQrUrl({
     amount <= 0
   )
     return null;
+  const bankCode = encodeURIComponent(bank.bankCode.trim());
+  const accountNo = encodeURIComponent(bank.accountNo.trim());
   const params = new URLSearchParams({
-    acc: bank.accountNo.trim(),
-    bank: bank.bankCode.trim(),
     amount: String(amount),
-    des: transferReference(description),
-    template: "qr_only",
-    download: "false",
-    showinfo: "false",
-    fullacc: "true",
-    holder: bank.accountName.trim(),
-    store: storeName.trim(),
+    addInfo: transferReference(description),
+    accountName: bank.accountName.trim(),
   });
-  return `https://vietqr.app/img?${params.toString()}`;
+  return `https://img.vietqr.io/image/${bankCode}-${accountNo}-compact2.png?${params.toString()}`;
 }
