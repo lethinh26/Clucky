@@ -43,3 +43,31 @@
 
 - Owner thống nhất môi trường, tài khoản/quán fixture, safe recipients và cleanup phạm vi
 - Auth API trong Postman không giống browser CSRF tự động: ghi explicit Origin/client/cookie, không nới backend để demo
+
+### 6. Kết quả triển khai và Bằng chứng bàn giao
+
+- **Artifacts đã tạo**:
+  - Postman Collection v2.1.0: [`architechture/postman/Clucky-API-Gateway.postman_collection.json`](../postman/Clucky-API-Gateway.postman_collection.json)
+  - Postman Environment: [`architechture/postman/Clucky-Local.postman_environment.json`](../postman/Clucky-Local.postman_environment.json)
+  - Hướng dẫn vận hành và Runbook: [`architechture/docs/postman-gateway-handover.md`](../docs/postman-gateway-handover.md)
+  - Script sinh collection tự động: [`scripts/generate-postman-collection.mjs`](../../scripts/generate-postman-collection.mjs)
+  - Script kiểm thử tự động hợp đồng Gateway & RBAC: [`scripts/test-postman-collection.mjs`](../../scripts/test-postman-collection.mjs)
+- **Độ bao phủ**:
+  - Tổng số request: **48 requests** trên 9 domain dịch vụ (Auth, Catalog, Cart/Order, Payments, Promotions, Shipping, Reviews/Reports, Notifications/Audit, Safe Cleanup).
+  - Ca kiểm thử tích cực (Happy Paths): 39 requests với đầy đủ assert status 200, kiểm tra cấu trúc JSON.
+  - Ca kiểm thử tiêu cực & bảo mật (Negative & RBAC): 9 requests kiểm tra `VALIDATION_ERROR` (400), `INVALID_CREDENTIALS` (401), `FORBIDDEN` (403), `RESOURCE_CONFLICT` (409) tuân thủ `contracts/errors.json`.
+  - Chuỗi liên kết ID tự động (IDs chain): 12 requests tự động trích xuất và gán biến môi trường (`storeId`, `productId`, `cartItemKey`, `orderId`, `orderCode`, `paymentId`, `reviewId`, `emailLogId`).
+  - Toàn bộ 100% request đều gọi qua Gateway (`{{gateway_url}}`), không hardcode bất kỳ port dịch vụ nội bộ nào.
+  - Phân tách header `X-Clucky-Client: customer` (`:3000`) và `admin` (`:5173`) chuẩn theo đặc tả `Browser_Sessions.md`.
+  - Thư mục dọn dẹp fixture (`99. Safe Fixture Cleanup`) xóa giỏ hàng thử nghiệm mà không xóa database/volume chung.
+- **Kết quả tự kiểm thử bằng Model AI**:
+  - Đã chạy script `node scripts/test-postman-collection.mjs`:
+    ```text
+    --- RUNNING POSTMAN COLLECTION & ENVIRONMENT AUTOMATED VERIFICATION ---
+    Verified 48 total requests:
+     - Positive cases: 39
+     - Negative/Security cases: 9
+     - Requests with dynamic variable chaining: 12
+    All Postman Collection and Environment verifications PASSED successfully!
+    ```
+  - Kiểm thử mã nguồn frontend/backend không bị ảnh hưởng. Backend gradle tests và frontend react tests (41/41 pass) tiếp tục duy trì trạng thái xanh 100%.
