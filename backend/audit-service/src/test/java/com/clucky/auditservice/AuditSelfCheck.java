@@ -5,6 +5,7 @@ import com.clucky.auditservice.dto.AuditLogQuery;
 import com.clucky.auditservice.dto.Role;
 import com.clucky.auditservice.mapper.AuditMapper;
 import com.clucky.auditservice.service.AuditLogService;
+import com.clucky.auditservice.service.AccountAuditConsumer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validation;
 import org.springframework.security.access.AccessDeniedException;
@@ -26,6 +27,14 @@ public final class AuditSelfCheck {
                  "body":"secret","otp":"secret"}
                 """)).toString();
         require(!safe.contains("secret") && safe.contains("100") && safe.contains("STAFF"), "Unsafe audit detail or lost typed fields");
+        String policy = new AuditMapper().safeDetail(mapper.readTree("{\"fee\":25000,\"version\":2,\"beforeStatus\":\"ACTIVE\",\"afterStatus\":\"LOCKED\",\"reason\":\"Account investigation\",\"apiKey\":\"secret\"}")).toString();
+        require(policy.contains("25000") && policy.contains("LOCKED") && policy.contains("Account investigation")
+                && !policy.contains("secret"), "Policy/status audit lost or secrets exposed");
+        require(AccountAuditConsumer.ALLOWED_SOURCES.containsAll(java.util.List.of("shipping-service", "catalog-store-service",
+                "promotion-loyalty-service", "review-report-service")), "Admin audit domain missing");
+        String provenance = new AuditMapper().safeDetail(mapper.readTree("{\"sessionId\":\"session-123\",\"identity\":\"SHARED_ACCOUNT_NOT_PERSON\",\"accessToken\":\"secret\"}")).toString();
+        require(provenance.contains("session-123") && provenance.contains("SHARED_ACCOUNT_NOT_PERSON") && !provenance.contains("secret"),
+                "Shared-account session provenance lost or bearer credential exposed");
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             require(!factory.getValidator().validate(query(-1L, "UNKNOWN")).isEmpty(), "Invalid query accepted");
         }

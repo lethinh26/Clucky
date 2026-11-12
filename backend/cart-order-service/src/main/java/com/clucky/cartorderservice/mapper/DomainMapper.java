@@ -114,7 +114,9 @@ public final class DomainMapper {
                 entity.getConfirmedBy(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                attemptResponses
+                attemptResponses,
+                entity.getPaymentOperation(),
+                entity.getPaymentError()
         );
     }
 
@@ -132,7 +134,8 @@ public final class DomainMapper {
                 attempt.getFailureReason(),
                 attempt.getEvidencePublicId(),
                 attempt.getCreatedAt(),
-                attempt.getUpdatedAt()
+                attempt.getUpdatedAt(),
+                attempt.getCreatedBy()
         );
     }
 

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import React, { useState } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
-import { Layout, Menu, Breadcrumb, Button, Badge, Dropdown, Avatar, Tag, Flex, Typography, Drawer, Grid } from "antd";
+import { Layout, Menu, Breadcrumb, Button, Dropdown, Avatar, Tag, Flex, Typography, Drawer, Grid } from "antd";
 import { MenuProps } from "antd";
 import {
   DashboardOutlined,
@@ -14,7 +14,9 @@ import {
   CommentOutlined,
   BarChartOutlined,
   GiftOutlined,
-  BellOutlined,
+  TeamOutlined,
+  MailOutlined,
+  AuditOutlined,
   UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -22,11 +24,13 @@ import {
   BankOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext";
+import { useOrders } from "../context/OrderContext";
 import { getErrorMessage } from "../lib/api";
 import { roleHome } from "../lib/role-home";
 import { AdminFooter } from "../components/AdminFooter";
 import { PageLoadingContent } from "../components/ui-loader/page-loading";
 import { AdminNotificationCenter } from "../components/ui/AdminNotificationCenter";
+import { AdminNotificationCenter as LiveAdminNotifications } from "../pages/EmailLogs/AdminNotificationCenter";
 
 const routeBreadcrumbMap: Record<string, string> = {
   "/admin": "admin:nav.overview",
@@ -39,6 +43,9 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/staff/orders": "admin:nav.shiftOrders",
   "/admin/reviews": "admin:nav.reviews",
   "/admin/users": "admin:nav.users",
+  "/admin/customers": "admin:nav.customers",
+  "/admin/email-logs": "admin:nav.emailLogs",
+  "/admin/audit": "admin:nav.audit",
   "/admin/reports": "admin:nav.reports",
   "/admin/payments": "admin:nav.payments",
   "/admin/promotions": "admin:nav.promotions",
@@ -52,6 +59,7 @@ export const AdminLayout: React.FC = () => {
   const screens = Grid.useBreakpoint();
   const isMobile = screens.lg === false;
   const { user, logout } = useAuth();
+  const { currentStore, storeOpenState } = useOrders();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -65,6 +73,9 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/party-orders")) selectedKey = "party-orders";
   else if (pathname.includes("/orders")) selectedKey = "orders";
   else if (pathname.includes("/users")) selectedKey = "users";
+  else if (pathname.includes("/customers")) selectedKey = "customers";
+  else if (pathname.includes("/email-logs")) selectedKey = "email-logs";
+  else if (pathname.includes("/audit")) selectedKey = "audit";
   else if (pathname.includes("/reviews")) selectedKey = "reviews";
   else if (pathname.includes("/reports")) selectedKey = "reports";
   else if (pathname.includes("/payments")) selectedKey = "payments";
@@ -88,6 +99,9 @@ export const AdminLayout: React.FC = () => {
       "payments",
       "transfers",
       "promotions",
+      "customers",
+      "email-logs",
+      "audit",
     ],
     STORE_MANAGER: [
       "dashboard",
@@ -101,7 +115,7 @@ export const AdminLayout: React.FC = () => {
       "payments",
       "transfers",
     ],
-    STAFF: ["inventory", "orders", "party-orders", "transfers", "reviews", "payments"],
+    STAFF: ["inventory", "orders", "party-orders", "reviews", "payments"],
   };
 
   const navItems: MenuProps["items"] = [
@@ -170,6 +184,24 @@ export const AdminLayout: React.FC = () => {
       icon: <BarChartOutlined />,
       label: t("admin:nav.reports"),
       onClick: () => navigate("/admin/reports"),
+    },
+    {
+      key: "customers",
+      icon: <TeamOutlined />,
+      label: t("admin:nav.customers"),
+      onClick: () => navigate("/admin/customers"),
+    },
+    {
+      key: "email-logs",
+      icon: <MailOutlined />,
+      label: t("admin:nav.emailLogs"),
+      onClick: () => navigate("/admin/email-logs"),
+    },
+    {
+      key: "audit",
+      icon: <AuditOutlined />,
+      label: t("admin:nav.audit"),
+      onClick: () => navigate("/admin/audit"),
     },
     {
       key: "payments",
@@ -443,9 +475,9 @@ export const AdminLayout: React.FC = () => {
               <Tag
                 className="admin-header-store"
                 style={{
-                  backgroundColor: "#FEF9C3",
-                  border: "1px solid #FDE047",
-                  color: "#946C00",
+                  backgroundColor: storeOpenState.isOpen ? "#FEF9C3" : "#FEF2F2",
+                  border: storeOpenState.isOpen ? "1px solid #FDE047" : "1px solid #FECACA",
+                  color: storeOpenState.isOpen ? "#946C00" : "#B42318",
                   borderRadius: 999,
                   padding: "4px 12px",
                   fontFamily: "Quicksand, sans-serif",
@@ -457,27 +489,26 @@ export const AdminLayout: React.FC = () => {
               >
                 <ShopOutlined />
                 <span>
-                  {t("admin:storeLabel")}{" "}{user.storeName || (user.storeId ? `#${user.storeId}` : t('errors:FORBIDDEN'))}
+                  {currentStore?.name || user.storeName || (user.storeId ? `${t("admin:storeLabel")} #${user.storeId}` : t('errors:FORBIDDEN'))}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: "1px 8px",
+                    borderRadius: 999,
+                    backgroundColor: storeOpenState.isOpen ? "#DCFCE7" : "#FEE2E2",
+                    color: storeOpenState.isOpen ? "#166534" : "#991B1B",
+                    fontWeight: 800,
+                  }}
+                >
+                  {storeOpenState.isOpen ? t("business:storeStatus.openNowChip") : t("business:storeStatus.closedNowChip")}
                 </span>
               </Tag>
             )}
 
 
             {/* Notification Center */}
-            <AdminNotificationCenter />
-            {false && (
-            <Badge dot color="#8F1216">
-              <Button
-                type="text"
-                shape="circle"
-                icon={
-                  <BellOutlined style={{ fontSize: 18, color: "#16100D" }} />
-                }
-                aria-label={t("admin:notifications.title")}
-                onClick={() => message.info(t("admin:notifications.empty"))}
-              />
-            </Badge>
-            )}
+            {user.role === "ADMIN" ? <LiveAdminNotifications /> : <AdminNotificationCenter />}
 
             {/* Profile Dropdown */}
             <LanguageSwitcher />

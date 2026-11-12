@@ -283,10 +283,10 @@ async function seedBranchAccounts(page: Page) {
 
 async function selectBranch(page: Page) {
   await page.getByRole("combobox", { name: "Chọn chi nhánh", exact: true }).click();
-  await page.getByText("1 — Clucky Test", { exact: true }).click();
+  await page.getByText("#1 · Clucky Test", { exact: true }).click();
 }
 
-test("admin initial branch request is page-scoped; refresh remains local", async ({ page }) => {
+test("admin initial branch request is page-scoped; background synchronization remains local", async ({ page }) => {
   await seedBranchAccounts(page);
   let release!: () => void;
   let gate = new Promise<void>(resolve => { release = resolve; });
@@ -302,17 +302,19 @@ test("admin initial branch request is page-scoped; refresh remains local", async
     await selectBranch(page);
     await expect(page.getByText("clucky.staff.1", { exact: true })).toBeVisible();
     gate = new Promise<void>(resolve => { release = resolve; });
+    let synchronized = false;
     await page.route("**/api/auth/branch/stores/1", async route => {
+      synchronized = true;
       await gate;
       await route.fallback().catch(() => {});
     });
     await observeLoading(page);
-    const refresh = page.getByRole("button", { name: /Tải lại$/ }).first();
-    await refresh.click();
-    await expect(refresh).toHaveClass(/ant-btn-loading/);
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect.poll(() => synchronized).toBe(true);
+    await expect(page.getByRole("button", { name: /Tải lại$/ })).toHaveCount(0);
     await expect(page.locator("body")).toHaveAttribute("data-loader-seen", "false");
     release();
-    await expect(refresh).not.toHaveClass(/ant-btn-loading/);
+    await expect(overlay(page)).toHaveCount(0);
     await expect(page.getByText("clucky.staff.1", { exact: true })).toBeVisible();
   } finally { release(); }
 });
@@ -345,7 +347,7 @@ test("admin branch errors settle into an explicit error and can be retried witho
   await expect(page.getByText("Dữ liệu mẫu", { exact: true })).toHaveCount(0);
   await expect(overlay(page)).toHaveCount(0);
   failed = false;
-  await page.getByRole("button", { name: "Tải lại", exact: true }).click();
+  await page.getByRole("button", { name: "Thử lại", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
   await selectBranch(page);
 });
@@ -383,10 +385,11 @@ test("admin modal action keeps loading local and cannot be dismissed mid-request
   try {
     await page.goto(admin + "/admin/users");
     await selectBranch(page);
-    await page.getByRole("button", { name: "Khóa", exact: true }).click();
+    await page.getByRole("button", { name: "Thao tác tài khoản clucky.staff.1", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Khóa tài khoản" }).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: /OK|Đồng ý/ }).click();
-    await expect(dialog.getByRole("button", { name: /Cancel|Hủy/ })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Xác nhận khóa", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Quay lại", exact: true })).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeVisible();
     await expect(overlay(page)).toHaveCount(0);

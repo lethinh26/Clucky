@@ -7,6 +7,8 @@ import { UnavailableFeature } from "../../components/UnavailableFeature";
 import { notify } from "../../components/feedback";
 import { usePageLoading } from "../../components/ui-loader/page-loading";
 import { TransactionsPanel } from "./TransactionsPanel";
+import { FinanceLookup } from "./FinanceDrawer";
+import { RefundsPanel } from "../Orders/RefundsPanel";
 import "./payments.css";
 
 interface Account {
@@ -75,8 +77,20 @@ function BankAccounts() {
   const [assignmentForm] = Form.useForm<{ storeId: number; bankAccountId?: number | null }>();
   const pendingOperation = useRef<{ signature: string; key: string } | null>(null);
   const alive = useRef(true);
-  usePageLoading(loading);
+  usePageLoading(loading && !data);
   const accountOpen = editing !== null;
+
+  useEffect(() => {
+    if (busy || accountOpen || assignmentStore) return;
+    const timer = window.setTimeout(() => setRevision(value => value + 1), 15000);
+    return () => window.clearTimeout(timer);
+  }, [busy, accountOpen, assignmentStore, revision]);
+
+  useEffect(() => {
+    if (!bankError || !accountOpen) return;
+    const timer = window.setTimeout(() => setBankRevision(value => value + 1), 15000);
+    return () => window.clearTimeout(timer);
+  }, [bankError, accountOpen, bankRevision]);
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -151,6 +165,8 @@ function BankAccounts() {
       setData(current => current && ({ ...current,
         accounts: [...current.accounts.filter(account => account.id !== response.data.id), response.data].sort((first, second) => first.id - second.id) }));
       setEditing(null);
+      pendingOperation.current = null;
+      setRevision(value => value + 1);
       notify.success(t("saved"));
     } catch (failure) { if (alive.current) setFormError(getErrorMessage(failure)); }
     finally { if (alive.current) setBusy(false); }
@@ -169,6 +185,8 @@ function BankAccounts() {
       setData(previous => previous && ({ ...previous,
         assignments: [...previous.assignments.filter(assignment => assignment.storeId !== response.data.storeId), response.data] }));
       setAssignmentStore(null);
+      pendingOperation.current = null;
+      setRevision(value => value + 1);
       notify.success(t("saved"));
     } catch (failure) { if (alive.current) setAssignmentError(getErrorMessage(failure)); }
     finally { if (alive.current) setBusy(false); }
@@ -178,14 +196,15 @@ function BankAccounts() {
     <div className="payments-header">
       <div><Typography.Title level={2}>{t("title")}</Typography.Title><Typography.Paragraph type="secondary">{t("intro")}</Typography.Paragraph></div>
       <Space wrap>{data && !data.sepayKeyConfigured && <Tag color="warning">{t("keyMissing")}</Tag>}
-        <Button loading={loading} disabled={busy} onClick={() => { setRevision(value => value + 1); }}>{t("reload")}</Button>
       </Space>
     </div>
-    {error && <Alert type="error" showIcon message={error} description={t("reloadHelp")} />}
-    {!error && data && <>
+    {error && <Alert type="error" showIcon message={error} />}
+    <>
       <Tabs defaultActiveKey="transactions" items={[
         { key: "transactions", label: t("transactionsTab"), children: <TransactionsPanel stores={stores} revision={revision} /> },
-        { key: "accounts", label: t("accounts"), children: <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        { key: "finance", label: t("admin:ui.collectionReconciliationLegacy"), children: <FinanceLookup onChanged={() => setRevision(value => value + 1)} /> },
+        { key: "refunds", label: t("business:orderspage.refund"), children: <RefundsPanel stores={stores} revision={revision} onChanged={() => setRevision(value => value + 1)} /> },
+        { key: "accounts", label: t("accounts"), children: data && !error && <Space direction="vertical" size="middle" style={{ width: "100%" }}>
       <Card title={t("accounts")} extra={<Button type="primary" disabled={busy || loading} onClick={() => edit("new")}>{t("add")}</Button>}>
         <div className="payments-table-scroll" role="region" aria-label={t("accounts")} tabIndex={0}>
         <Table<Account> rowKey="id" dataSource={data.accounts} loading={loading} style={{ minWidth: 950 }} pagination={{ pageSize: 10 }}
@@ -230,12 +249,12 @@ function BankAccounts() {
       </Card>
         </Space> },
       ]} />
-    </>}
+    </>
     <Modal open={assignmentStore !== null} title={t("assignments.modalTitle")} onCancel={() => setAssignmentStore(null)}
       onOk={() => assignmentForm.submit()} confirmLoading={busy} okText={t("saveAssignment")} cancelText={t("cancel")}
       cancelButtonProps={{ disabled: busy }} closable={!busy} maskClosable={!busy} keyboard={!busy}>
       <Typography.Title level={5}>{assignmentStore?.name}</Typography.Title><Typography.Paragraph type="secondary">{assignmentStore?.address}</Typography.Paragraph>
-      {assignmentError && <Alert type="error" showIcon message={assignmentError} description={t("reloadHelp")} style={{ marginBottom: 16 }} />}
+      {assignmentError && <Alert type="error" showIcon message={assignmentError} style={{ marginBottom: 16 }} />}
       <Form form={assignmentForm} layout="vertical" disabled={busy} onFinish={assign}>
         <Form.Item name="storeId" hidden><Input /></Form.Item>
         <Form.Item name="bankAccountId" label={t("receivingAccount")} extra={t("assignments.onlyFuture")}>
@@ -247,9 +266,8 @@ function BankAccounts() {
     <Modal open={editing !== null} title={t(editing === "new" ? "add" : "edit")} onCancel={() => setEditing(null)}
       onOk={() => accountForm.submit()} confirmLoading={busy} okText={t("save")} cancelText={t("cancel")}
       cancelButtonProps={{ disabled: busy }} closable={!busy} maskClosable={!busy} keyboard={!busy}>
-      {formError && <Alert type="error" showIcon message={formError} description={t("reloadHelp")} style={{ marginBottom: 16 }} />}
-      {bankError && <Alert type="warning" showIcon message={t("bankListUnavailable")} description={bankError} style={{ marginBottom: 16 }}
-        action={<Button disabled={busy} loading={bankLoading} onClick={() => setBankRevision(value => value + 1)}>{t("reloadBanks")}</Button>} />}
+      {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} />}
+      {bankError && <Alert type="warning" showIcon message={t("bankListUnavailable")} description={bankError} style={{ marginBottom: 16 }} />}
       <Form form={accountForm} layout="vertical" onFinish={saveAccount} disabled={busy}>
         <Form.Item name="bankName" label={t("bankName")} rules={[{ required: true, whitespace: true, max: 100, message: t("required") }]}
           getValueProps={value => ({ value: banks.find(bank => bank.code === bankCode && bank.shortName === value)?.code ?? (value ? "__saved__" : undefined) })}

@@ -100,6 +100,20 @@
   font-weight: 600;
 }
 
+.branchChipClosed {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.branchChipClosed > svg {
+  color: #b42318;
+}
+
+.branchStatusClosed {
+  color: #b42318 !important;
+  font-weight: 700;
+}
+
 /* Sound Toggle Button */
 .soundButton {
   display: inline-flex;
@@ -207,6 +221,342 @@
   font-size: 11px;
   font-weight: 800;
   border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.posQuickButtonDisabled {
+  background: #9ca3af !important;
+  color: #f9fafb !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+  opacity: 0.88;
+}
+
+/* Store Closed Context Banner */
+.storeClosedBanner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fff5f5 0%, #fffbeb 100%);
+  border: 1.5px solid #fecdca;
+  box-shadow: 0 6px 18px rgba(180, 35, 24, 0.08);
+  flex-wrap: wrap;
+}
+
+.storeClosedIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #b42318;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.storeClosedContent {
+  flex: 1 1 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.storeClosedTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.storeClosedTitleRow strong {
+  font-size: 15px;
+  color: #991b1b;
+  font-weight: 800;
+}
+
+.storeClosedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  background: #b42318;
+  color: #ffffff;
+}
+
+.storeClosedDesc {
+  margin: 0;
+  font-size: 13px;
+  color: #7f1d1d;
+  line-height: 1.5;
+}
+
+.storeClosedMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  min-width: 140px;
+}
+
+.storeClosedMeta span {
+  font-size: 11px;
+  color: #6b6259;
+  font-weight: 600;
+}
+
+.storeClosedMeta strong {
+  font-size: 15px;
+  color: #8f1216;
+  font-weight: 800;
+}
+
+/* === POLISHED DATE FILTER & EXCEL EXPORT CARD === */
+.dateFilterCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, #fffdf9 0%, #fffaf3 100%);
+  border: 1.5px solid #e4d9c8;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(22, 16, 13, 0.05);
+  flex-wrap: wrap;
+}
+
+.dateFilterLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dateFilterIconBox {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #fbe9e9;
+  color: #8f1216;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dateFilterTitleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dateFilterLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b6259;
+}
+
+.dateFilterReadable {
+  font-size: 14px;
+  font-weight: 800;
+  color: #16100d;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: capitalize;
+}
+
+.todayBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: none;
+}
+
+.dateFilterControls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f5ede0;
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid #e4d9c8;
+  flex-wrap: wrap;
+}
+
+.dateNavBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: #ffffff;
+  color: #16100d;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dateNavBtn:hover:not(:disabled) {
+  border-color: #8f1216;
+  color: #8f1216;
+  background: #fffaf3;
+}
+
+.dateNavBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dateInputWrap {
+  display: flex;
+  align-items: center;
+}
+
+.dateInputStyled {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid #d6c9b9;
+  background: #ffffff;
+  color: #16100d;
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+}
+
+.dateInputStyled:focus {
+  border-color: #8f1216;
+}
+
+.dateTodayBtn {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid #d6c9b9;
+  background: #ffffff;
+  color: #8f1216;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dateTodayBtnActive,
+.dateTodayBtn:hover {
+  background: #8f1216;
+  color: #ffffff;
+  border-color: #8f1216;
+}
+
+.dateStatsPills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dateStatPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e8e2d9;
+  font-size: 12px;
+  color: #6b6259;
+  font-weight: 600;
+}
+
+.dateStatPill strong {
+  font-weight: 800;
+  color: #16100d;
+}
+
+.dateFilterActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.exportExcelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: none;
+  background: #1e7a46;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(30, 122, 70, 0.25);
+  transition: all 0.16s ease;
+}
+
+.exportExcelBtn:hover:not(:disabled) {
+  background: #165c34;
+  transform: translateY(-1px);
+}
+
+.exportExcelBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.refreshBtnStyled {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1.5px solid #d6c9b9;
+  background: #ffffff;
+  color: #16100d;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.refreshBtnStyled:hover {
+  border-color: #8f1216;
+  color: #8f1216;
+  background: #fffaf3;
+}
+
+.autoRefreshTag {
+  font-size: 12px;
+  color: #6b6259;
+  background: #f5ede0;
+  padding: 5px 10px;
+  border-radius: 8px;
 }
 
 /* Simulation Controls */

@@ -1,0 +1,64 @@
+.inventory-admin { min-width: 0; max-width: 100%; color: #241a16; font-family: 'Quicksand', sans-serif; }
+.inventory-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 24px; }
+.inventory-eyebrow { color: #8f1216; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+.inventory-header h1 { margin: 5px 0 6px; font: 600 30px/1.3 'Fredoka', 'Quicksand', sans-serif; letter-spacing: -.5px; }
+.inventory-header p { color: #75685f; font-size: 13px; margin: 0; line-height: 1.7; }
+.inventory-store-select { width: 340px; max-width: 100%; }
+.inventory-store-select label { display: block; margin-bottom: 7px; color: #75685f; font-size: 11px; font-weight: 700; }
+.inventory-store-select .ant-select { width: 100%; }
+.inventory-threshold-banner { flex: 1 1 100%; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #eadfc9; background: #fbf5e9; padding: 12px 18px; border-radius: 12px; }
+.inventory-threshold-banner > div { display: flex; align-items: center; gap: 10px; color: #876126; font-size: 12px; line-height: 1.7; }
+.inventory-threshold-banner > div > .anticon { font-size: 18px; }
+.inventory-threshold-banner strong { color: #6b4b1e; }
+.inventory-threshold-banner .ant-btn { border-radius: 9px; font-size: 12px; font-weight: 700; border-color: #e5d7bf; background: #fffdf8; }
+.inventory-admin > .ant-card { max-width: 100%; min-width: 0; overflow: hidden; }
+.inventory-admin .ant-table-wrapper { min-width: 0; max-width: 100%; }
+.inventory-admin .ant-table-content { overscroll-behavior-x: contain; }
+.inventory-admin .ant-table-thead > tr > th { background: #faf7f1; color: #76685d; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 800; padding-block: 14px; }
+.inventory-admin .ant-table-tbody > tr > td { padding: 17px 16px; border-bottom-color: #eee7dd; vertical-align: middle; }
+.inventory-admin .ant-table-tbody > tr > td:first-child > div > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.inventory-admin .ant-table-tbody > tr.ant-table-row:hover > td { background: #fcf8f1; }
+.inventory-admin .ant-table-tbody .ant-btn { border-radius: 8px; }
+.inventory-thumb { width: 62px; height: 62px; flex: 0 0 62px; overflow: hidden; border-radius: 12px; border: 1px solid #e8e2d9; background: #f6f0e7; }
+.inventory-thumb .catalog-image-empty { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; width: 100%; height: 100%; background: #f6f0e7; color: #9b846e; text-align: center; }
+.inventory-thumb .catalog-image-empty > .anticon { font-size: 22px; }
+.inventory-thumb .catalog-image-empty > span:last-child { font-size: 9px; line-height: 1.3; padding-inline: 3px; }
+.inventory-thumb:focus-within { outline: 2px solid #8f1216; outline-offset: 3px; }
+.inventory-modal .ant-modal-container, .inventory-modal .ant-modal-content { padding: 0; border-radius: 20px; overflow: hidden; background: #fff; }
+.inventory-modal .ant-modal-header { margin: 0; padding: 24px 28px 20px; border-bottom: 1px solid #eee7dd; background: #fff; }
+.inventory-modal .ant-modal-title { padding-right: 24px; }
+.inventory-modal .ant-modal-body { padding: 24px 28px; max-height: calc(100dvh - 230px); overflow-y: auto; scrollbar-gutter: stable; background: #fff; }
+.inventory-modal .ant-modal-footer { margin: 0; padding: 16px 28px; border-top: 1px solid #eee7dd; background: #fffdfa; }
+.inventory-modal .ant-modal-footer .ant-btn { min-width: 100px; height: 40px; border-radius: 10px; font-weight: 700; }
+.inventory-modal .ant-form-item { margin-bottom: 18px; }
+.inventory-modal .ant-form-item-label > label { font-size: 13px; font-weight: 700; color: #514238; }
+.inventory-modal .ant-form-item-extra { padding-top: 6px; color: #887b70; font-size: 11px; }
+.inventory-modal .ant-input-number { border-radius: 10px; }
+.inventory-modal .ant-input-number-input { font-variant-numeric: tabular-nums; font-weight: 700; }
+.inventory-modal .ant-alert { margin-bottom: 16px; }
+.inventory-product-summary { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid #eee7dd; background: #faf7f2; border-radius: 14px; margin-bottom: 20px; }
+.inventory-product-summary > div:last-child { min-width: 0; }
+.inventory-product-summary strong { display: block; color: #241a16; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.inventory-product-summary > div > span { display: block; color: #887b70; font-size: 11px; margin-top: 5px; }
+.inventory-recorded { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 0 0 18px; margin-bottom: 20px; border-bottom: 1px solid #eee7dd; }
+.inventory-recorded > span { color: #75685f; font-size: 12px; }
+.inventory-recorded strong { font-size: 20px; color: #514238; font-variant-numeric: tabular-nums; }
+.inventory-recorded small { color: #887b70; font-size: 12px; font-weight: 500; }
+.inventory-difference { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: 10px; background: #f2f7f1; font-size: 12px; color: #3d6848; margin-bottom: 16px; }
+.inventory-difference.is-decrease { background: #fbf2e5; color: #8a6126; }
+.inventory-difference strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.inventory-audit-note { border-top: 1px solid #eee7dd; padding-top: 14px; margin-top: 18px; font-size: 12px; }
+.inventory-audit-note > span { color: #887b70; margin-right: 8px; }
+.inventory-audit-note > strong { color: #514238; }
+.inventory-audit-note p, .inventory-modal-hint { font-size: 11px; line-height: 1.7; color: #887b70; margin: 8px 0 0; }
+.inventory-modal-hint { font-size: 12px; margin: 0 0 18px; }
+.inventory-modal .ant-input-number + .inventory-modal-hint { margin: 12px 0 0; }
+@media (max-width: 700px) {
+  .inventory-header h1 { font-size: 26px; }
+  .inventory-store-select { width: 100%; }
+  .inventory-threshold-banner { padding: 12px; }
+  .inventory-modal .ant-modal-header { padding: 20px 18px 16px; }
+  .inventory-modal .ant-modal-body { padding: 18px; }
+  .inventory-modal .ant-modal-footer { padding: 14px 18px; }
+  .inventory-product-summary strong { font-size: 14px; }
+}

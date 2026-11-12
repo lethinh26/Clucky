@@ -17,14 +17,17 @@ public class PaymentClient {
 
     private final RestClient restClient;
     private final String paymentServiceUrl;
-    private final CatalogCredential credential;
+    private final InternalServiceCredential credential;
 
     public PaymentClient(
             RestClient restClient,
             @Value("${clucky.payment.service-url:http://payment-service}") String paymentServiceUrl,
-            CatalogCredential credential
+            InternalServiceCredential credential
     ) {
-        this.restClient = restClient;
+        var factory = new org.springframework.http.client.JdkClientHttpRequestFactory(java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(5)).build());
+        factory.setReadTimeout(java.time.Duration.ofSeconds(10));
+        this.restClient = restClient.mutate().requestFactory(factory).build();
         this.paymentServiceUrl = paymentServiceUrl;
         this.credential = credential;
     }
@@ -64,7 +67,7 @@ public class PaymentClient {
                     .body(EligibleRefundResponse.class);
         } catch (Exception ex) {
             LOG.error("event=payment_client_eligible_refund_failed orderId={} error={}", orderId, ex.getMessage());
-            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            throw failure(ex);
         }
     }
 
@@ -82,21 +85,25 @@ public class PaymentClient {
             throw new ApiException(ErrorCode.REFUND_AMOUNT_EXCEEDED);
         } catch (Exception ex) {
             LOG.error("event=payment_client_reserve_failed refundRequestId={} error={}", refundRequestId, ex.getMessage());
-            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            throw failure(ex);
         }
     }
 
-    public void confirmRefund(Long refundRequestId) {
+    public record ConfirmRefundRequest(Long orderId, BigDecimal amount, String attemptId, String evidenceReference) {}
+
+    public void confirmRefund(Long refundRequestId, ConfirmRefundRequest request) {
         String token = credential.token();
         try {
             restClient.put()
                     .uri(paymentServiceUrl + "/api/payments/internal/refund-reservations/{id}/confirm", refundRequestId)
                     .headers(h -> h.setBearerAuth(token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception ex) {
             LOG.error("event=payment_client_confirm_failed refundRequestId={} error={}", refundRequestId, ex.getMessage());
-            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+            throw failure(ex);
         }
     }
 
@@ -109,8 +116,38 @@ public class PaymentClient {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception ex) {
-            LOG.warn("event=payment_client_release_failed refundRequestId={} error={}", refundRequestId, ex.getMessage());
+            LOG.warn("event=payment_client_release_failed refundRequestId={}", refundRequestId);
+            throw failure(ex);
         }
+    }
+    public ReserveRefundResponse reservation(Long refundId) {
+        try {
+            var response = restClient.get().uri(paymentServiceUrl + "/api/payments/internal/refund-reservations/" + refundId)
+                    .headers(headers -> headers.setBearerAuth(credential.token())).retrieve().body(ReserveRefundResponse.class);
+            if (response == null) throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+            return response;
+        } catch (org.springframework.web.client.RestClientResponseException failure) {
+            if (failure.getStatusCode().value() == 404) return null;
+            throw failure(failure);
+        } catch (Exception failure) { throw failure(failure); }
+    }
+
+    private ApiException failure(Exception failure) {
+        if (failure instanceof ApiException api) return api;
+        if (failure instanceof org.springframework.web.client.RestClientResponseException response) {
+            try {
+                var body = response.getResponseBodyAs(com.clucky.cartorderservice.dto.ApiError.class);
+                if (body != null) {
+                    ErrorCode code = ErrorCode.valueOf(body.code());
+                    if (java.util.Set.of(ErrorCode.REFUND_NOT_ELIGIBLE, ErrorCode.REFUND_AMOUNT_EXCEEDED,
+                            ErrorCode.INVALID_REFUND_STATE, ErrorCode.RESOURCE_CONFLICT, ErrorCode.EVIDENCE_REQUIRED,
+                            ErrorCode.VALIDATION_ERROR).contains(code) && code.httpStatus() == response.getStatusCode().value())
+                        return new ApiException(code);
+                }
+            } catch (RuntimeException ignored) { }
+            if (response.getStatusCode().value() == 409) return new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+        return new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
     }
 }
 

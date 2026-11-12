@@ -19,6 +19,7 @@ spring:
     schemas: order_service
     create-schemas: true
     baseline-on-migrate: false
+    out-of-order: true
   session:
     timeout: 24h
     redis:
@@ -32,15 +33,11 @@ cloudinary:
   folder: ${CLOUDINARY_FOLDER:clucky}
 
 clucky:
-  loyalty:
-    internal-token: ${LOYALTY_INTERNAL_TOKEN:}
   identity:
     issuer: ${IDENTITY_ISSUER_URI:}
   catalog:
-    service-token: ${CATALOG_SERVICE_TOKEN:}
     service-url: ${CATALOG_SERVICE_URL:http://catalog-store-service}
   shipping:
     service-url: ${SHIPPING_SERVICE_URL:http://shipping-service}
   promotion:
-    service-token: ${PROMOTION_SERVICE_TOKEN:}
     service-url: ${PROMOTION_SERVICE_URL:http://promotion-loyalty-service}

@@ -1,6 +1,7 @@
 import { getBrowserLocale } from "../i18n/locale";
 import { useFeedback } from "../components/feedback";
 import { getTranslator } from "../i18n/translator";
+import { useTranslation } from "react-i18next";
 import {
   createContext,
   useCallback,
@@ -25,9 +26,135 @@ import {
   paymentsApi,
   getErrorMessage,
   refundsApi,
+  storesApi,
   type BackendOrder,
   type BackendRefund,
+  type Store,
 } from "../lib/api";
+
+export interface StoreOpenState {
+  isOpen: boolean;
+  statusCode: "OPEN" | "OUTSIDE_HOURS" | "CLOSED_TEMP" | "CLOSED";
+  statusLabel: string;
+  bannerTitle: string;
+  bannerDescription: string;
+  openTime: string;
+  closeTime: string;
+  currentTimeVn: string;
+}
+
+function parseMinutes(hhmm?: string): number | null {
+  if (!hhmm) return null;
+  const parts = hhmm.trim().split(":");
+  if (parts.length < 2) return null;
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
+function getCurrentVnMinutes(): { minutes: number; formatted: string } {
+  const now = new Date();
+  const formatted = new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(now);
+  const mins = parseMinutes(formatted);
+  return {
+    minutes: mins ?? now.getHours() * 60 + now.getMinutes(),
+    formatted,
+  };
+}
+
+export function evaluateStoreOpenState(store: Store | null | undefined): StoreOpenState {
+  const t = getTranslator(getBrowserLocale());
+  const { minutes: nowMins, formatted: currentTimeVn } = getCurrentVnMinutes();
+  const openTime = (store?.openTime || "09:00").slice(0, 5);
+  const closeTime = (store?.closeTime || "22:30").slice(0, 5);
+  const storeName = store?.name || "Clucky";
+
+  if (!store) {
+    return {
+      isOpen: true,
+      statusCode: "OPEN",
+      statusLabel: t("business:storeStatus.openShiftLabel", { openTime, closeTime }),
+      bannerTitle: t("business:storeStatus.openBannerTitle"),
+      bannerDescription: "",
+      openTime,
+      closeTime,
+      currentTimeVn,
+    };
+  }
+
+  const rawStatus = String(store.status || "OPEN");
+  if (rawStatus === "CLOSED_TEMP") {
+    return {
+      isOpen: false,
+      statusCode: "CLOSED_TEMP",
+      statusLabel: t("business:storeStatus.closedTempLabel", { openTime, closeTime }),
+      bannerTitle: t("business:storeStatus.closedTempBannerTitle", { storeName }),
+      bannerDescription: t("business:storeStatus.closedTempBannerDesc", { openTime, closeTime }),
+      openTime,
+      closeTime,
+      currentTimeVn,
+    };
+  }
+
+  if (rawStatus === "CLOSED" || rawStatus === "INACTIVE") {
+    return {
+      isOpen: false,
+      statusCode: "CLOSED",
+      statusLabel: t("business:storeStatus.closedLabel", { openTime, closeTime }),
+      bannerTitle: t("business:storeStatus.closedBannerTitle", { storeName }),
+      bannerDescription: t("business:storeStatus.closedBannerDesc", { openTime, closeTime }),
+      openTime,
+      closeTime,
+      currentTimeVn,
+    };
+  }
+
+  const openMins = parseMinutes(openTime);
+  const closeMins = parseMinutes(closeTime);
+  let withinHours = true;
+  if (openMins !== null && closeMins !== null) {
+    if (openMins <= closeMins) {
+      withinHours = nowMins >= openMins && nowMins <= closeMins;
+    } else {
+      withinHours = nowMins >= openMins || nowMins <= closeMins;
+    }
+  }
+
+  if (store.isOpenNow === false || !withinHours) {
+    return {
+      isOpen: false,
+      statusCode: "OUTSIDE_HOURS",
+      statusLabel: t("business:storeStatus.outsideHoursLabel", { openTime, closeTime }),
+      bannerTitle: t("business:storeStatus.outsideHoursBannerTitle", { openTime, closeTime }),
+      bannerDescription: t("business:storeStatus.outsideHoursBannerDesc", {
+        currentTime: currentTimeVn,
+        storeName,
+        openTime,
+        closeTime,
+      }),
+      openTime,
+      closeTime,
+      currentTimeVn,
+    };
+  }
+
+  return {
+    isOpen: true,
+    statusCode: "OPEN",
+    statusLabel: t("business:storeStatus.openShiftLabel", { openTime, closeTime }),
+    bannerTitle: t("business:storeStatus.openBannerTitle"),
+    bannerDescription: "",
+    openTime,
+    closeTime,
+    currentTimeVn,
+  };
+}
 
 const storageKey = "clucky-admin-orders-demo-v2";
 
@@ -102,6 +229,9 @@ function initialOrders(): AdminOrder[] {
 
 interface OrderWorkspace {
   orders: AdminOrder[];
+  stores: Store[];
+  currentStore: Store | null;
+  storeOpenState: StoreOpenState;
   loading: boolean;
   storageError: string;
   actionError: string;
@@ -118,12 +248,15 @@ interface OrderWorkspace {
   ) => Promise<boolean>;
   createRefund: (data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string }) => Promise<boolean>;
   refreshOrders: () => Promise<void>;
+  refreshStores: () => Promise<void>;
 }
 
 const OrderContext = createContext<OrderWorkspace | null>(null);
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
   const [allOrders, setOrders] = useState<AdminOrder[]>(initialOrders);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [clockTick, setClockTick] = useState(0);
   const latest = useRef(allOrders);
   const [loading, setLoading] = useState(true);
   const [loadedRevision, setLoadedRevision] = useState(-1);
@@ -134,6 +267,44 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   useFeedback(loadError);
   const storageError = loadError;
   const { user } = useAuthState();
+  const { i18n } = useTranslation();
+
+  const refreshStores = useCallback(async () => {
+    if (!user) return;
+    try {
+      const list = await storesApi.list(false);
+      if (Array.isArray(list)) {
+        setStores(list);
+      }
+    } catch {
+      // Ignore background store fetch errors so no false toast pops up
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setStores([]);
+      return;
+    }
+    void refreshStores();
+    const timer = window.setInterval(() => {
+      void refreshStores();
+      setClockTick((t) => t + 1);
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [user, refreshStores]);
+
+  const currentStore = useMemo(() => {
+    if (!stores.length) return null;
+    const targetStoreId = user?.storeId ? Number(user.storeId) : 1;
+    return stores.find((s) => Number(s.id) === targetStoreId) || stores[0] || null;
+  }, [stores, user?.storeId]);
+
+  const storeOpenState = useMemo(() => {
+    void clockTick;
+    void i18n.language;
+    return evaluateStoreOpenState(currentStore);
+  }, [currentStore, clockTick, i18n.language]);
 
   const refreshOrders = useCallback(async () => {
     if (!user) return;
@@ -141,9 +312,12 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     try {
       const storeIdParam =
         user?.role === "ADMIN" || !user?.storeId ? undefined : Number(user.storeId);
+      const canReadRefunds = user?.role === "ADMIN" || user?.role === "STORE_MANAGER";
       const [remoteOrders, remoteRefunds, images] = await Promise.all([
         ordersApi.list({ storeId: storeIdParam }),
-        refundsApi.list({ storeId: storeIdParam }),
+        canReadRefunds
+          ? refundsApi.list({ storeId: storeIdParam }).catch(() => [] as BackendRefund[])
+          : Promise.resolve([] as BackendRefund[]),
         loadOrderItemImages(),
       ]);
       if (revision !== getSessionState().revision) return;
@@ -158,6 +332,10 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         }
         const mapped = remoteOrders.map((bo) => {
             const adminOrder = mapBackendOrderToAdminOrder(bo, images);
+            const storeMatch = stores.find((s) => Number(s.id) === Number(bo.storeId));
+            if (storeMatch) {
+              adminOrder.storeName = storeMatch.name;
+            }
             const ref = refundByOrderId.get(Number(bo.id));
             if (ref) {
               adminOrder.hasRefundRequest = ["PENDING", "APPROVED", "PROCESSING", "WAITING_BANK_DETAILS"].includes(ref.status);
@@ -181,7 +359,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         setLoadError(getErrorMessage(error));
       }
     }
-  }, [user]);
+  }, [user, stores]);
 
   useEffect(() => {
     latest.current = [];
@@ -289,6 +467,9 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       orders,
+      stores,
+      currentStore,
+      storeOpenState,
       loading,
       storageError,
       actionError,
@@ -297,9 +478,13 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       reviewRefund,
       createRefund,
       refreshOrders,
+      refreshStores,
     }),
     [
       orders,
+      stores,
+      currentStore,
+      storeOpenState,
       loading,
       storageError,
       actionError,
@@ -308,6 +493,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       reviewRefund,
       createRefund,
       refreshOrders,
+      refreshStores,
     ],
   );
 

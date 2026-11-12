@@ -26,3 +26,4 @@ spring:
     schemas: payment_service
     create-schemas: true
     baseline-on-migrate: false
+    out-of-order: true

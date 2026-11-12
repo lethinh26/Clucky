@@ -76,6 +76,8 @@ Các task chính được viết theo 5 phần: User Story, Công việc, API/Co
 | [BE-75](BE-75.md) | Chuẩn hóa DTO metadata ảnh và loại credential, payload nhạy cảm khỏi response, log và bundle frontend | 3 |
 | [BE-76](BE-76.md) | Đăng nhập Google qua Firebase, xác minh ID token, yêu cầu tài khoản mới hoàn tất mật khẩu và phát JWT Clucky | 8 |
 | [BE-77](BE-77.md) | Upload hoặc thay avatar qua Identity, lưu metadata Cloudinary và chỉ cho phép người dùng sửa ảnh của mình | 3 |
+| [BE-82](BE-82.md) | Quản lý tài khoản Customer toàn hệ thống cho Admin | 5 |
+| [BE-83](BE-83.md) | Cung cấp lịch sử mua hàng Customer cho Admin qua contract giữa service | 5 |
 | [DEP-01](DEP-01.md) | Chuẩn bị VPS với Docker, Compose và cấu hình cổng mạng, chỉ công khai dịch vụ cần thiết để triển khai hệ thống | 3 |
 | [DEP-02](DEP-02.md) | Toàn bộ hệ thống bằng Docker Compose, nạp đúng cấu hình và khởi động theo thứ tự phụ thuộc của các dịch vụ | 5 |
 | [DEP-03](DEP-03.md) | Cấu hình Nginx reverse proxy và HTTPS Let's Encrypt để truy cập hai frontend, API qua đúng tên miền và đường dẫn | 3 |
@@ -147,8 +149,9 @@ Các task chính được viết theo 5 phần: User Story, Công việc, API/Co
 | [UI-49](UI-49.md) | Và nối luồng đăng nhập Google cho Customer, yêu cầu tài khoản mới nhập mật khẩu trước khi hoàn tất đăng nhập | 3 |
 | [UI-50](UI-50.md) | Màn tra cứu email log theo bộ lọc, xem chi tiết và gửi lại email lỗi khi API, quyền và chính sách được chốt | 3 |
 | [UI-51](UI-51.md) | Hiển thị trạng thái email liên quan đến đơn hoặc thanh toán cho Customer khi có contract được duyệt, không coi email lỗi là đơn lỗi | 2 |
+| [UI-53](UI-53.md) | Màn quản lý Customer cho Admin | 5 |
 
-Tổng cộng: **124 task chính / 505 SP**. Đã xóa **125 file mã cũ và 1 bản mẫu**; bảng tra cứu không phát sinh task hay SP.
+Tổng cộng: **127 task chính / 520 SP**. Đã xóa **125 file mã cũ và 1 bản mẫu**; bảng tra cứu không phát sinh task hay SP.
 
 Đối chiếu SP/dependency/liên kết tài liệu: `node architechture/verification/check-task-docs.mjs`. Không gọi ứng dụng.
 

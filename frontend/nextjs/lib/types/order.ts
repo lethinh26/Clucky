@@ -78,6 +78,7 @@ export interface Order {
   orderCode: string;
   storeId: string;
   storeName: string;
+  storeAddress?: string;
   type: OrderType;
   status: OrderStatus;
   subtotal: number;

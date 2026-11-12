@@ -100,7 +100,12 @@ public class PaymentFlow {
         var banks = jdbc.query("SELECT account.* FROM payment_service.store_bank_accounts assignment JOIN payment_service.bank_accounts_config account "
                 + "ON account.id=assignment.bank_account_id WHERE assignment.store_id=? AND account.is_active AND account.bank_code IS NOT NULL",
                 (row, index) -> new Bank(row.getString("bank_name"), row.getString("bank_code"), row.getString("account_no"), row.getString("account_name")), session.storeId());
-        if (banks.size() != 1) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        if (banks.isEmpty()) {
+            banks = jdbc.query("SELECT bank_name, bank_code, account_no, account_name FROM payment_service.bank_accounts_config "
+                    + "WHERE is_active AND bank_code IS NOT NULL ORDER BY id LIMIT 1",
+                    (row, index) -> new Bank(row.getString("bank_name"), row.getString("bank_code"), row.getString("account_no"), row.getString("account_name")));
+        }
+        if (banks.isEmpty()) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         Bank bank = banks.getFirst();
         Session opened = orderSession(orderId, true);
         if (opened == null || !session.orderId().equals(opened.orderId()) || !session.customerId().equals(opened.customerId())
@@ -222,7 +227,7 @@ public class PaymentFlow {
                     + "ON CONFLICT(order_id) DO UPDATE SET status='CANCELLED',updated_at=EXCLUDED.updated_at", orderId, Timestamp.from(event.occurredAt()));
             if (!matches.isEmpty()) {
                 String reason = payload.path("paymentExpired").asBoolean(false) ? "EXPIRED" : "CANCELLED";
-                jdbc.update("UPDATE payment_service.payments SET closed_reason=?,status=CASE WHEN status IN ('PAID','COLLECTED') THEN status ELSE ? END WHERE id=?",
+                jdbc.update("UPDATE payment_service.payments SET closed_reason=?,status=CASE WHEN status IN ('PAID','COLLECTED','REFUNDED') THEN status ELSE ? END WHERE id=?",
                         reason, reason, matches.getFirst().id());
                 if ("PENDING".equals(matches.getFirst().status()) && !Set.of("PAID","COLLECTED","REFUNDED").contains(payload.path("paymentStatus").asText())) failed(matches.getFirst(), reason);
             }
@@ -237,7 +242,7 @@ public class PaymentFlow {
             throw new IllegalArgumentException("Payment decision mismatch");
         }
         if ("ACCEPTED".equals(decision)) {
-            if (jdbc.update("UPDATE payment_service.payments SET status='PAID',paid_at=now() WHERE id=? AND paid_at IS NULL", payment.id()) > 0) {
+            if (jdbc.update("UPDATE payment_service.payments SET status='PAID',paid_at=now() WHERE id=? AND paid_at IS NULL AND status<>'REFUNDED'", payment.id()) > 0) {
                 var notification = mapper.createObjectNode().put("paymentId", payment.id()).put("orderId", orderId)
                         .put("orderCode", payment.orderCode()).put("customerId", payment.customerId()).put("storeId", payment.storeId())
                         .put("amount", payment.amount()).put("totalAmount", payment.amount()).put("status", "PAID");
@@ -245,8 +250,8 @@ public class PaymentFlow {
                 enqueue("payment.confirmed", orderId, notification);
             }
         } else {
-            if ("SUPERSEDED".equals(decision)) jdbc.update("UPDATE payment_service.payments SET status='COLLECTED' WHERE id=? AND paid_at IS NULL",payment.id());
-            else if (!"COLLECTED".equals(payment.status()) && jdbc.update("UPDATE payment_service.payments SET status=?,closed_reason=? WHERE id=? AND paid_at IS NULL",decision,decision,payment.id())>0) failed(payment,decision);
+            if ("SUPERSEDED".equals(decision)) jdbc.update("UPDATE payment_service.payments SET status='COLLECTED' WHERE id=? AND paid_at IS NULL AND status<>'REFUNDED'",payment.id());
+            else if (!"COLLECTED".equals(payment.status()) && jdbc.update("UPDATE payment_service.payments SET status=?,closed_reason=? WHERE id=? AND paid_at IS NULL AND status<>'REFUNDED'",decision,decision,payment.id())>0) failed(payment,decision);
         }
     }
 

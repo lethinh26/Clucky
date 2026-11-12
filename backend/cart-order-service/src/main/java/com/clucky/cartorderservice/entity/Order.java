@@ -27,6 +27,16 @@ public class Order {
     @Column(name = "queue_number")
     private Integer queueNumber;
 
+    @Column(name = "customer_email", length = 255)
+    private String customerEmail;
+    @Column(name = "customer_email_verified", nullable = false)
+    private boolean customerEmailVerified;
+
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+    public boolean isCustomerEmailVerified() { return customerEmailVerified; }
+    public void setCustomerEmailVerified(boolean verified) { customerEmailVerified = verified; }
+
     @Column(name = "store_id", nullable = false)
     private Long storeId;
 

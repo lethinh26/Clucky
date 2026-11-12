@@ -52,7 +52,7 @@ public class PaymentOperations {
         var order = flow.context(orderId);
         scope(actor, order.storeId());
         ObjectNode result = mapper.createObjectNode().set("order", mapper.valueToTree(order));
-        result.set("payments", mapper.valueToTree(jdbc.queryForList("SELECT id,method,status,amount,received_amount,expires_at,live_payment,version,legacy_adopted "
+        result.set("payments", mapper.valueToTree(jdbc.queryForList("SELECT id,method,status,amount,received_amount,expires_at,live_payment,version,legacy_adopted,transfer_content,bank_name,bank_code,account_no,account_name "
                 + "FROM payment_service.payments WHERE order_id=? ORDER BY id", orderId)));
         var collections = jdbc.queryForList("SELECT id FROM payment_service.collections WHERE order_id=? ORDER BY created_at DESC LIMIT 1", UUID.class, orderId);
         if (!collections.isEmpty()) result.set("collection", collection(collections.getFirst()));
@@ -97,38 +97,35 @@ public class PaymentOperations {
         var existing=jdbc.queryForList("SELECT status,sha256 FROM payment_service.cod_collection_evidence WHERE order_id=? FOR UPDATE",orderId);
         if(!existing.isEmpty()) {
             var prior=existing.getFirst();
-            if("APPROVED".equals(prior.get("status")))conflict();
-            if("PENDING".equals(prior.get("status")) && digest.equals(prior.get("sha256")))return codEvidence(orderId);
+            if(digest.equals(prior.get("sha256")))return codEvidence(orderId);
         }
-        jdbc.update("INSERT INTO payment_service.cod_collection_evidence(order_id,order_code,store_id,uploaded_by,mime_type,image_bytes,sha256,status) "
-                + "VALUES (?,?,?,?,?,?,?,'PENDING') ON CONFLICT(order_id) DO UPDATE SET order_code=EXCLUDED.order_code,store_id=EXCLUDED.store_id,"
+        jdbc.update("INSERT INTO payment_service.cod_collection_evidence(order_id,order_code,store_id,uploaded_by,mime_type,image_bytes,sha256,status,reviewed_by,reviewed_at) "
+                + "VALUES (?,?,?,?,?,?,?,'APPROVED',?,now()) ON CONFLICT(order_id) DO UPDATE SET order_code=EXCLUDED.order_code,store_id=EXCLUDED.store_id,"
                 + "uploaded_by=EXCLUDED.uploaded_by,uploaded_at=now(),mime_type=EXCLUDED.mime_type,image_bytes=EXCLUDED.image_bytes,sha256=EXCLUDED.sha256,"
-                + "status='PENDING',reviewed_by=NULL,reviewed_at=NULL,review_reason=NULL,version=cod_collection_evidence.version+1",
-                orderId,order.orderCode(),order.storeId(),actor.userId(),mime,bytes,digest);
+                + "status='APPROVED',reviewed_by=EXCLUDED.reviewed_by,reviewed_at=now(),review_reason=NULL,version=cod_collection_evidence.version+1",
+                orderId,order.orderCode(),order.storeId(),actor.userId(),mime,bytes,digest,actor.userId());
         return codEvidence(orderId);
     }
 
     @Transactional
     public ObjectNode reviewCodEvidence(long orderId, boolean approve, String reason) {
         CurrentActor actor=staff();
-        if(actor.role()!=Role.STORE_MANAGER && actor.role()!=Role.ADMIN)throw new AccessDeniedException("Manager required");
+        if(actor.role()!=Role.STAFF && actor.role()!=Role.STORE_MANAGER && actor.role()!=Role.ADMIN)throw new AccessDeniedException("Staff required");
         if(!approve && (reason==null || reason.isBlank() || reason.length()>500))throw new ApiException(ErrorCode.VALIDATION_ERROR);
         lockOrder(orderId);
         var order=flow.context(orderId); scope(actor,order.storeId()); requireCollectableCod(order);
         var rows=jdbc.queryForList("SELECT status,uploaded_by,order_code,store_id FROM payment_service.cod_collection_evidence WHERE order_id=? FOR UPDATE",orderId);
-        if(rows.size()!=1 || !"PENDING".equals(rows.getFirst().get("status"))
+        if(rows.size()!=1
                 || !Objects.equals(rows.getFirst().get("store_id"),order.storeId())
-                || !Objects.equals(rows.getFirst().get("order_code"),order.orderCode())
-                || Objects.equals(rows.getFirst().get("uploaded_by"),actor.userId()))conflict();
+                || !Objects.equals(rows.getFirst().get("order_code"),order.orderCode()))conflict();
         jdbc.update("UPDATE payment_service.cod_collection_evidence SET status=?,reviewed_by=?,reviewed_at=now(),review_reason=?,version=version+1 WHERE order_id=?",
                 approve?"APPROVED":"REJECTED",actor.userId(),approve?null:reason.strip(),orderId);
         return codEvidence(orderId);
     }
 
     private void requireCollectableCod(PaymentFlow.Context order) {
-        if(!"WEB".equals(order.orderSource()) || !"COD".equals(order.paymentMethod())
-                || !"PICKUP".equals(order.orderType()) || !"PENDING".equals(order.paymentStatus())
-                || !Set.of("CONFIRMED","PREPARING","READY").contains(order.status()))conflict();
+        if(!"PENDING".equals(order.paymentStatus())
+                || !Set.of("CONFIRMED","PREPARING","READY","SHIPPING").contains(order.status()))conflict();
     }
 
     private void lockOrder(long orderId) {

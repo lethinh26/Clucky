@@ -1,7 +1,7 @@
 import { message } from "../../../components/feedback";
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from "react-i18next";
-import { Button, Space, Tag, Switch, Image, Form, InputNumber, Card, Row, Col, Statistic, Tooltip, Select } from "antd";
+import { Alert, Button, Space, Tag, Switch, Image, Form, InputNumber, Card, Row, Col, Statistic, Select } from "antd";
 import { TableColumnsType } from "antd";
 import {
   ShopOutlined,
@@ -16,6 +16,9 @@ import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { AdminModal } from '../../../components/ui/AdminModal';
 import { useAuth } from '../../../context/AuthContext';
 import { inventoryApi, storesApi, getErrorMessage, type InventoryItem, type Store } from '../../../lib/api';
+import { CatalogImage } from '../../Catalog/ImageField';
+import { stockState } from './stock-state';
+import './inventory.css';
 
 export const StaffInventoryPage: React.FC = () => {
   const { t } = useTranslation();
@@ -23,17 +26,30 @@ export const StaffInventoryPage: React.FC = () => {
   const { user, isAdmin, isStaff } = useAuth();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'LOW_STOCK' | 'SOLD_OUT'>('ALL');
   const [adminSelectedStoreId, setAdminSelectedStoreId] = useState<number>(user.storeId ?? 0);
   const [modalOpen, setModalOpen] = useState(false);
   const [thresholdModalOpen, setThresholdModalOpen] = useState(false);
-  const [thresholdInput, setThresholdInput] = useState<number>(20);
+  const [thresholdStore, setThresholdStore] = useState<Store | null>(null);
+  const [savingStock, setSavingStock] = useState(false);
+  const [savingProductId, setSavingProductId] = useState<number | null>(null);
+  const inventoryRequest = useRef(0);
+  const [thresholdInput, setThresholdInput] = useState<number | null>(20);
+  const thresholdValid = typeof thresholdInput === 'number' && Number.isInteger(thresholdInput) && thresholdInput >= 0 && thresholdInput <= 9999;
   const [savingThreshold, setSavingThreshold] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [stockError, setStockError] = useState('');
+  const [thresholdError, setThresholdError] = useState('');
+  const mutationLock = useRef(false);
   const [form] = Form.useForm();
+  const quantityInput = Form.useWatch<number | null>('quantityAvailable', form);
+  const quantityValid = typeof quantityInput === 'number' && Number.isInteger(quantityInput) && quantityInput >= 0 && quantityInput <= 9999;
+  const quantityDifference = editingItem && quantityValid ? quantityInput! - editingItem.quantityAvailable : null;
+  const editingStore = stores.find(store => store.id === editingItem?.storeId);
+  const busy = savingStock || savingThreshold || savingProductId !== null;
 
   const activeStoreId = isAdmin ? adminSelectedStoreId || stores[0]?.id : user.storeId;
   const currentStore = stores.find((s) => s.id === activeStoreId);
@@ -41,6 +57,7 @@ export const StaffInventoryPage: React.FC = () => {
   const storeThreshold = currentStore?.lowStockThreshold ?? 20;
 
   const fetchInventory = useCallback(async () => {
+    const requestId = ++inventoryRequest.current;
     try {
       setLoading(true);
       const storeList = await storesApi.list(false);
@@ -52,6 +69,7 @@ export const StaffInventoryPage: React.FC = () => {
       const invList = selectedStoreId
         ? await inventoryApi.getStoreInventory(selectedStoreId)
         : [];
+      if (requestId !== inventoryRequest.current) return;
       setStores(storeList);
       setInventory(invList);
       setLoadError('');
@@ -59,14 +77,15 @@ export const StaffInventoryPage: React.FC = () => {
         setAdminSelectedStoreId(selectedStoreId);
       }
     } catch (err) {
-      setLoadError(getErrorMessage(err));
+      if (requestId === inventoryRequest.current) setLoadError(getErrorMessage(err));
     } finally {
-      setLoading(false);
+      if (requestId === inventoryRequest.current) setLoading(false);
     }
   }, [adminSelectedStoreId, isAdmin, user.storeId]);
 
   useEffect(() => {
     fetchInventory();
+    return () => { inventoryRequest.current += 1; };
   }, [fetchInventory]);
 
   // Store-scoped inventory
@@ -86,31 +105,37 @@ export const StaffInventoryPage: React.FC = () => {
       const isAvailable = !isSoldOut && !isLowStock;
 
       let matchStatus = true;
-      if (statusFilter === 'AVAILABLE') matchStatus = isAvailable;
-      else if (statusFilter === 'LOW_STOCK') matchStatus = isLowStock;
-      else if (statusFilter === 'SOLD_OUT') matchStatus = isSoldOut;
+      const state = isAdmin ? stockState(item, storeThreshold) : { available: isAvailable, lowStock: isLowStock, soldOut: isSoldOut };
+      if (statusFilter === 'AVAILABLE') matchStatus = state.available;
+      else if (statusFilter === 'LOW_STOCK') matchStatus = state.lowStock;
+      else if (statusFilter === 'SOLD_OUT') matchStatus = state.soldOut;
 
       return matchSearch && matchStatus;
     });
-  }, [storeInventory, searchTerm, statusFilter, storeThreshold]);
+  }, [storeInventory, searchTerm, statusFilter, storeThreshold, isAdmin]);
 
   // Statistics for current store
   const totalItems = storeInventory.length;
   const lowStockCount = storeInventory.filter(
-    (i) => i.quantityAvailable <= storeThreshold && !i.isSoldOut
+    (i) => isAdmin ? stockState(i, storeThreshold).lowStock : i.quantityAvailable <= storeThreshold && !i.isSoldOut
   ).length;
   const soldOutCount = storeInventory.filter((i) => i.isSoldOut || i.quantityAvailable === 0).length;
   const availableCount = totalItems - soldOutCount;
 
   // Toggle "Hết món trong ca" (Local branch switch)
   const handleToggleSoldOut = async (item: InventoryItem, checked: boolean) => {
+    if (savingProductId !== null || mutationLock.current) return;
+    mutationLock.current = true;
     try {
       if (!activeStoreId) return;
       if (!checked && item.quantityAvailable <= 0) {
         message.error(t("business:inventory.outOfStockCannotEnable"));
         return;
       }
-      await inventoryApi.updateAvailability(activeStoreId, item.productId, { isSoldOut: checked });
+      setSavingProductId(item.productId);
+      await inventoryApi.updateAvailability(isAdmin ? item.storeId : activeStoreId, item.productId, {
+        isSoldOut: checked, ...(isAdmin ? { expectedVersion: item.availabilityVersion } : {}),
+      });
       await fetchInventory();
       if (checked) {
         message.warning(
@@ -123,10 +148,15 @@ export const StaffInventoryPage: React.FC = () => {
       }
     } catch (err) {
       message.error(getErrorMessage(err));
+    } finally {
+      mutationLock.current = false;
+      setSavingProductId(null);
     }
   };
 
   const handleOpenUpdateModal = (item: InventoryItem) => {
+    setStockError('');
+    form.resetFields();
     setEditingItem(item);
     form.setFieldsValue({
       quantityAvailable: item.quantityAvailable,
@@ -135,17 +165,22 @@ export const StaffInventoryPage: React.FC = () => {
   };
 
   const handleUpdateStockSubmit = async () => {
+    if (savingStock || mutationLock.current) return;
+    mutationLock.current = true;
+    setStockError('');
     try {
       const values = await form.validateFields();
+      setSavingStock(true);
       if (editingItem && activeStoreId) {
-        const payload: { quantityAvailable?: number } = {
+        const payload = {
           quantityAvailable: values.quantityAvailable,
+          ...(isAdmin ? { expectedVersion: editingItem.version } : {}),
         };
 
-        const updated = await inventoryApi.updateInventory(activeStoreId, editingItem.productId, payload);
+        const updated = await inventoryApi.updateInventory(isAdmin ? editingItem.storeId : activeStoreId, editingItem.productId, payload);
         setInventory((prev) =>
           prev.map((i) =>
-            i.productId === editingItem.productId ? updated : i
+            i.productId === editingItem.productId && i.storeId === updated.storeId ? updated : i
           )
         );
         message.success(
@@ -154,7 +189,13 @@ export const StaffInventoryPage: React.FC = () => {
       }
       setModalOpen(false);
     } catch (err) {
-      message.error(getErrorMessage(err));
+      if (err && typeof err === 'object' && 'errorFields' in err) {
+        form.scrollToField('quantityAvailable', { focus: true });
+      } else if (isAdmin) setStockError(getErrorMessage(err));
+      else message.error(getErrorMessage(err));
+    } finally {
+      mutationLock.current = false;
+      setSavingStock(false);
     }
   };
 
@@ -162,15 +203,16 @@ export const StaffInventoryPage: React.FC = () => {
     {
       title: t("business:catalog.dish"),
       key: 'product',
+      width: isAdmin ? 330 : undefined,
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Image
+          {isAdmin ? <div className="inventory-thumb"><CatalogImage url={record.imageUrl} name={record.productName} /></div> : <Image
             src={record.imageUrl ?? undefined}
             alt={record.productName}
             width={52}
             height={52}
             style={{ borderRadius: 12, objectFit: 'cover', border: '1px solid #E8E2D9' }}
-          />
+          />}
           <div>
             <div
               style={{
@@ -204,7 +246,7 @@ export const StaffInventoryPage: React.FC = () => {
       key: 'quantityAvailable',
       width: 170,
       render: (qty: number, record) => {
-        const isLow = qty <= storeThreshold && !record.isSoldOut;
+        const isLow = isAdmin ? stockState(record, storeThreshold).lowStock : qty <= storeThreshold && !record.isSoldOut;
         return (
           <div>
             <span
@@ -248,19 +290,22 @@ export const StaffInventoryPage: React.FC = () => {
     {
       title: t("business:inventory.soldOutThisShift"),
       key: 'soldOut',
-      width: 170,
+      width: isAdmin ? 205 : 170,
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Switch
-            checked={record.isSoldOut}
+            checked={isAdmin ? stockState(record, storeThreshold).soldOut : record.isSoldOut}
+            loading={savingProductId === record.productId}
+            disabled={savingProductId !== null || loading || (isAdmin && (busy || record.quantityAvailable <= 0))}
+            aria-label={`${t("business:inventory.soldOutThisShift")}: ${record.productName}`}
             onChange={(checked) => handleToggleSoldOut(record, checked)}
             style={{
               backgroundColor: record.isSoldOut ? '#B42318' : undefined,
             }}
           />
           <StatusBadge
-            status={record.isSoldOut ? 'error' : 'success'}
-            text={record.isSoldOut ? t("business:inventory.salesDisabled") : t("business:catalog.available")}
+            status={(isAdmin ? stockState(record, storeThreshold).soldOut : record.isSoldOut) ? 'error' : 'success'}
+            text={isAdmin && record.quantityAvailable <= 0 ? t("admin:ui.outOfStock") : record.isSoldOut ? t("business:inventory.salesDisabled") : t("business:catalog.available")}
             size="small"
           />
         </div>
@@ -269,10 +314,11 @@ export const StaffInventoryPage: React.FC = () => {
     {
       title: t("business:inventory.lastUpdated"),
       key: 'updated',
+      width: isAdmin ? 195 : undefined,
       render: (_, record) => (
         <div style={{ fontSize: 12, color: '#6B6259' }}>
-          <div>{record.updatedAt}</div>
-          <div style={{ color: '#16100D', fontWeight: 600 }}>{record.updatedBy}</div>
+          <div>{record.updatedAt || '—'}</div>
+          <div style={{ color: '#16100D', fontWeight: 600 }}>{record.updatedBy || '—'}</div>
         </div>
       ),
     },
@@ -280,11 +326,12 @@ export const StaffInventoryPage: React.FC = () => {
       title: t("business:catalog.actions"),
       key: 'action',
       width: 120,
+      fixed: isAdmin ? 'right' : undefined,
       align: 'right',
       render: (_, record) => (
         <Button
           size="small"
-          disabled={isStaff}
+          disabled={isStaff || (isAdmin && (busy || loading))}
           icon={<EditOutlined />}
           onClick={() => handleOpenUpdateModal(record)}
           style={{
@@ -298,9 +345,15 @@ export const StaffInventoryPage: React.FC = () => {
     },
   ];
 
-  if (loadError) return <div role="alert"><p>{loadError}</p><Button onClick={fetchInventory}>{t('common:retry')}</Button></div>;
+  if (loadError) return <Alert type="error" showIcon message={loadError} action={<Button loading={loading} onClick={fetchInventory}>{t('common:retry')}</Button>} />;
   return (
-    <div>
+    <div className={isAdmin ? 'inventory-admin' : undefined}>
+      {isAdmin ? <header className="inventory-header"><div><span className="inventory-eyebrow">{t("admin:ui.branchInventory")}</span><h1>{t("admin:ui.stockCountAvailability")}</h1><p>{t("admin:ui.recordActualQuantitiesAndManageDishesAvailableAt")}</p></div>
+        <div className="inventory-store-select"><label htmlFor="inventory-store">{t("admin:ui.managedBranch")}</label><Select id="inventory-store" aria-label={t("admin:ui.managedBranch")} size="large" showSearch optionFilterProp="label" value={activeStoreId} disabled={busy || loading} loading={loading} placeholder={t("accounts:store")} onChange={value => { setAdminSelectedStoreId(value); setSearchTerm(''); setStatusFilter('ALL'); }} options={stores.map(store => ({ value: store.id, label: store.name }))} /></div>
+        <div className="inventory-threshold-banner"><div><WarningOutlined /><span>{t("admin:ui.branchWarningThreshold")} <strong>{loading ? '—' : currentStore ? t("admin:ui.portions579", { value1: storeThreshold }) : t("admin:ui.noBranchAvailable")}</strong></span></div>
+          <Button icon={<EditOutlined />} disabled={!currentStore || busy || loading} onClick={() => { setThresholdInput(storeThreshold); setThresholdStore(currentStore ?? null); setThresholdError(''); setThresholdModalOpen(true); }}>{t("admin:ui.editThreshold")}</Button>
+        </div>
+      </header> : <>
       {/* Header Info */}
       <div
         style={{
@@ -364,6 +417,7 @@ export const StaffInventoryPage: React.FC = () => {
                 icon={<EditOutlined />}
                 onClick={() => {
                   setThresholdInput(storeThreshold);
+                  setThresholdStore(currentStore ?? null);
                   setThresholdModalOpen(true);
                 }}
                 style={{ borderRadius: 999, fontWeight: 600 }}
@@ -383,6 +437,7 @@ export const StaffInventoryPage: React.FC = () => {
         </div>
       </div>
 
+      </>}
       {/* KPI Stats */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} md={6}>
@@ -396,7 +451,7 @@ export const StaffInventoryPage: React.FC = () => {
           >
             <Statistic
               title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.totalStockItems")}</span>}
-              value={totalItems}
+              value={isAdmin && loading ? '—' : totalItems}
               suffix={t("business:orderspage.items")}
               valueStyle={{ fontFamily: 'Fredoka', color: '#16100D', fontWeight: 700 }}
               prefix={<InboxOutlined style={{ color: '#22577A' }} />}
@@ -414,7 +469,7 @@ export const StaffInventoryPage: React.FC = () => {
           >
             <Statistic
               title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:catalog.available")}</span>}
-              value={availableCount}
+              value={isAdmin && loading ? '—' : availableCount}
               suffix={t("business:orderspage.items")}
               valueStyle={{ fontFamily: 'Fredoka', color: '#1E7A46', fontWeight: 700 }}
               prefix={<CheckCircleOutlined style={{ color: '#1E7A46' }} />}
@@ -433,7 +488,7 @@ export const StaffInventoryPage: React.FC = () => {
           >
             <Statistic
               title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.lowStock")}</span>}
-              value={lowStockCount}
+              value={isAdmin && loading ? '—' : lowStockCount}
               suffix={t("business:orderspage.items")}
               valueStyle={{ fontFamily: 'Fredoka', color: '#D97706', fontWeight: 700 }}
               prefix={<WarningOutlined style={{ color: '#D97706' }} />}
@@ -452,7 +507,7 @@ export const StaffInventoryPage: React.FC = () => {
           >
             <Statistic
               title={<span style={{ fontFamily: 'Quicksand', fontWeight: 600 }}>{t("business:inventory.salesPausedThisShift")}</span>}
-              value={soldOutCount}
+              value={isAdmin && loading ? '—' : soldOutCount}
               suffix={t("business:orderspage.items")}
               valueStyle={{ fontFamily: 'Fredoka', color: '#B42318', fontWeight: 700 }}
               prefix={<StopOutlined style={{ color: '#B42318' }} />}
@@ -463,7 +518,11 @@ export const StaffInventoryPage: React.FC = () => {
 
       {/* Admin Table */}
       <AdminTable<InventoryItem>
-        columns={columns}
+        key={isAdmin ? activeStoreId : 'branch-inventory'}
+        columns={isAdmin ? columns.filter(column => column.key !== 'storeThreshold') : columns}
+        loading={loading}
+        tableLayout={isAdmin ? 'fixed' : undefined}
+        scroll={isAdmin ? { x: 1020 } : undefined}
         dataSource={filteredItems}
         rowKey="productId"
         searchPlaceholder={t("business:inventory.searchInventoryItems")}
@@ -487,22 +546,38 @@ export const StaffInventoryPage: React.FC = () => {
 
       {/* Quick Stock Update Modal */}
       <AdminModal
+        className={isAdmin ? 'inventory-modal' : undefined}
+        centered={isAdmin}
+        styles={isAdmin ? {} : undefined}
+        maskClosable={isAdmin ? false : undefined}
         open={modalOpen}
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => { if (!savingStock) { setModalOpen(false); void fetchInventory(); } }}
         onOk={handleUpdateStockSubmit}
-        title={t("business:inventory.updateInventory", { value1: editingItem?.productName })}
-        subtitle={t("business:inventory.recordActualQuantitiesAfterShiftStocktake")}
-        width={480}
+        confirmLoading={savingStock}
+        title={isAdmin ? t("admin:ui.updateStock") : t("business:inventory.updateInventory", { value1: editingItem?.productName })}
+        subtitle={isAdmin ? editingStore?.name : t("business:inventory.recordActualQuantitiesAfterShiftStocktake")}
+        width={isAdmin ? 560 : 480}
+        okText={isAdmin ? t("admin:ui.saveStockCount") : undefined}
+        okButtonProps={{ disabled: isAdmin && (!quantityValid || quantityDifference === 0) }}
       >
-        <Form form={form} layout="vertical">
+        {isAdmin && editingItem && <div className="inventory-product-summary"><div className="inventory-thumb"><CatalogImage url={editingItem.imageUrl} name={editingItem.productName} /></div><div><strong>{editingItem.productName}</strong><span>{editingItem.categoryName} {t("admin:ui.dishId")}{editingItem.productId}</span></div></div>}
+        {isAdmin && stockError && <Alert type="error" showIcon message={stockError} description={t("admin:ui.yourInputIsPreservedIfThereIsA")} />}
+        <Form name="inventory-stock" form={form} layout="vertical" disabled={savingStock} onFinish={handleUpdateStockSubmit}>
+          {isAdmin && <div className="inventory-recorded"><span>{t("admin:ui.recordedQuantity")}</span><strong>{editingItem?.quantityAvailable ?? '—'} <small>{t("business:cart.servings")}</small></strong></div>}
           <Form.Item
             name="quantityAvailable"
-            label={t("business:inventory.actualRemainingQuantityServings")}
-            rules={[{ required: true, message: t("business:inventory.pleaseEnterTheInventoryQuantity") }]}
+            label={isAdmin ? t("admin:ui.actualQuantityAfterCounting") : t("business:inventory.actualRemainingQuantityServings")}
+            rules={[{ required: true, message: t("business:inventory.pleaseEnterTheInventoryQuantity") }, { type: 'integer', min: 0, max: 9999, message: t("admin:ui.enterAWholeNumberFrom0To9") }]}
+            extra={isAdmin ? t("admin:ui.enterTheTotalPortionsRemainingNotTheQuantity") : undefined}
           >
-            <InputNumber disabled={isStaff} min={0} max={9999} style={{ width: '100%', height: 40 }} />
+            <InputNumber disabled={isStaff || savingStock} min={0} max={9999} precision={0} size={isAdmin ? 'large' : undefined} style={{ width: '100%', height: isAdmin ? undefined : 40 }} />
           </Form.Item>
-
+          {isAdmin ? <>
+            {quantityDifference !== null && <div className={`inventory-difference ${quantityDifference < 0 ? 'is-decrease' : ''}`}><span>{t("admin:ui.differenceFromCurrentStock")}</span><strong>{quantityDifference > 0 ? '+' : ''}{quantityDifference} {t("business:cart.servings")}</strong></div>}
+            {quantityValid && quantityInput === 0 && <Alert type="warning" showIcon message={t("admin:ui.thisDishWillBeOutOfStock")} description={t("admin:ui.savingAQuantityOf0DisablesSalesOf")} />}
+            {quantityValid && quantityInput! > 0 && editingItem?.isSoldOut && <Alert type="info" showIcon message={t("admin:ui.salesOfThisDishAreDisabledAtThe")} description={t("admin:ui.updatingStockDoesNotReEnableSalesAutomatically")} />}
+            <div className="inventory-audit-note"><span>{t("admin:ui.updatedBy")}</span><strong>{user.fullName}</strong><p>{t("admin:ui.theTimeAndActingAccountAreRecordedWhen")}</p></div>
+          </> : <>
           <div style={{ marginBottom: 16 }}>
             <span style={{ color: '#6B6259', fontSize: 13 }}>
               {t("business:inventory.storeLowStockThreshold")}: <strong>≤ {storeThreshold} {t("business:cart.servings")}</strong>
@@ -519,43 +594,61 @@ export const StaffInventoryPage: React.FC = () => {
               fontFamily: 'Quicksand, sans-serif',
             }}
           > {t("business:inventory.stocktakeStaff")} <strong>{user.fullName}</strong> ({user.role})<br /> {t("business:inventory.recordedAtTheCurrentTime")} </div>
+          </>}
         </Form>
       </AdminModal>
 
       {/* Store Threshold Modal */}
       <AdminModal
+        className={isAdmin ? 'inventory-modal' : undefined}
+        centered={isAdmin}
+        styles={isAdmin ? {} : undefined}
+        maskClosable={isAdmin ? false : undefined}
         open={thresholdModalOpen}
-        onCancel={() => setThresholdModalOpen(false)}
+        onCancel={() => { if (!savingThreshold) { setThresholdModalOpen(false); void fetchInventory(); } }}
         onOk={async () => {
-          if (!activeStoreId) return;
+          const targetStoreId = isAdmin ? thresholdStore?.id : activeStoreId;
+          if (!targetStoreId || savingThreshold || mutationLock.current || !thresholdValid) return;
+          mutationLock.current = true; setThresholdError('');
           try {
             setSavingThreshold(true);
-            await inventoryApi.updateStoreThreshold(activeStoreId, thresholdInput);
+            await inventoryApi.updateStoreThreshold(targetStoreId, thresholdInput!, isAdmin ? thresholdStore?.version : undefined);
             message.success(t("business:inventory.storeThresholdUpdated", { value1: thresholdInput }));
             await fetchInventory();
             setThresholdModalOpen(false);
           } catch (err) {
-            message.error(getErrorMessage(err));
+            if (isAdmin) setThresholdError(getErrorMessage(err));
+            else message.error(getErrorMessage(err));
           } finally {
+            mutationLock.current = false;
             setSavingThreshold(false);
           }
         }}
         confirmLoading={savingThreshold}
         title={t("business:inventory.editStoreThreshold")}
-        subtitle={t("business:inventory.storeThresholdSubtitle")}
-        width={420}
+        subtitle={isAdmin ? thresholdStore?.name : t("business:inventory.storeThresholdSubtitle")}
+        width={isAdmin ? 520 : 420}
+        okText={isAdmin ? t("admin:ui.saveWarningThreshold") : undefined}
+        okButtonProps={{ disabled: isAdmin && (!thresholdValid || thresholdInput === thresholdStore?.lowStockThreshold) }}
       >
+        {isAdmin && <><p className="inventory-modal-hint">{t("admin:ui.oneThresholdAppliesToAllDishesInThe")}</p>
+          <div className="inventory-recorded"><span>{t("admin:ui.currentThreshold")}</span><strong>≤ {thresholdStore?.lowStockThreshold ?? storeThreshold} <small>{t("business:cart.servings")}</small></strong></div></>}
+        {isAdmin && thresholdError && <Alert type="error" showIcon message={thresholdError} description={t("admin:ui.ifTheDataHasChangedCloseTheForm")} />}
         <div style={{ padding: '12px 0' }}>
-          <label style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>
+          <label htmlFor="inventory-threshold-value" style={{ display: 'block', marginBottom: 6, fontWeight: 600 }}>
             {t("business:inventory.storeLowStockThreshold")}
           </label>
           <InputNumber
+            id="inventory-threshold-value"
+            disabled={savingThreshold}
+            precision={0}
             min={0}
             max={9999}
             value={thresholdInput}
-            onChange={(val) => setThresholdInput(val ?? 0)}
+            onChange={(val) => setThresholdInput(isAdmin ? val : val ?? 0)}
             style={{ width: '100%', height: 40 }}
           />
+          {isAdmin && <p className="inventory-modal-hint">{t("admin:ui.thisOnlyUpdatesTheWarningThresholdItDoes")}</p>}
         </div>
       </AdminModal>
     </div>

@@ -83,12 +83,12 @@ public class CounterPaymentService {
             return DomainMapper.toCounterReceiptResponse(existing.get());
         }
         PaymentFlow.Context order = flow.context(request.orderId());
-        if (!"COUNTER".equals(order.orderSource()) || !request.orderCode().equals(order.orderCode())
+        if (!List.of("COUNTER", "WEB").contains(order.orderSource()) || !request.orderCode().equals(order.orderCode())
                 || !request.storeId().equals(order.storeId()) || order.amount().compareTo(request.totalDue()) != 0) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Thông tin đơn hàng hoặc số tiền không khớp");
         }
         if (!"PENDING".equals(order.paymentStatus())
-                || !List.of("CONFIRMED", "PREPARING", "READY").contains(order.status())
+                || !List.of("CONFIRMED", "PREPARING", "READY", "SHIPPING").contains(order.status())
                 || receiptRepository.findByOrderId(request.orderId()).stream().anyMatch(r -> !"VOIDED".equals(r.getStatus()))) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Đơn hàng đã thu tiền hoặc không còn cho phép thu tiền");
         }

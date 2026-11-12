@@ -61,6 +61,8 @@ public class OrderService {
     private final LoyaltyClient loyaltyClient;
     private final ShippingClient shippingClient;
     private final StringRedisTemplate redisTemplate;
+    private final VoucherCheckoutRecovery voucherRecovery;
+    private final CustomerProfileClient customerProfiles;
     private final Random random = new SecureRandom();
 
     public OrderService(
@@ -74,11 +76,13 @@ public class OrderService {
             CatalogClient catalogClient,
             PromotionClient promotionClient,
             ShippingClient shippingClient,
-            LoyaltyClient loyaltyClient
+            LoyaltyClient loyaltyClient,
+            VoucherCheckoutRecovery voucherRecovery,
+            CustomerProfileClient customerProfiles
     ) {
         this(orderRepository, orderItemRepository, orderStatusHistoryRepository, cartService,
                 accessGuard, objectMapper, orderEventPublisher, catalogClient, promotionClient,
-                shippingClient, loyaltyClient, null);
+                shippingClient, loyaltyClient, null, voucherRecovery, customerProfiles);
     }
 
     @Autowired
@@ -94,7 +98,9 @@ public class OrderService {
             PromotionClient promotionClient,
             ShippingClient shippingClient,
             LoyaltyClient loyaltyClient,
-            StringRedisTemplate redisTemplate
+            StringRedisTemplate redisTemplate,
+            VoucherCheckoutRecovery voucherRecovery,
+            CustomerProfileClient customerProfiles
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -108,6 +114,8 @@ public class OrderService {
         this.shippingClient = shippingClient;
         this.loyaltyClient = loyaltyClient;
         this.redisTemplate = redisTemplate;
+        this.voucherRecovery = voucherRecovery;
+        this.customerProfiles = customerProfiles;
     }
 
     public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
@@ -293,6 +301,8 @@ public class OrderService {
         Order order = new Order();
         order.setOrderCode(generateOrderCode());
         order.setCustomerId(customerId);
+        order.setCustomerEmail(customerProfiles.currentCustomerEmail(customerId));
+        order.setCustomerEmailVerified(true);
         order.setStoreId(request.storeId());
         order.setType(type);
         order.setStatus(initialStatus);
@@ -313,6 +323,11 @@ public class OrderService {
         order.setScheduledAt(request.scheduledAt());
         order = orderRepository.save(order);
 
+        voucherRecovery.lock(order.getId());
+        if (order.getVoucherCode() != null) {
+            voucherRecovery.track(order.getId());
+            loyaltyClient.reserveVoucher(order.getId(), customerId, order.getStoreId(), order.getVoucherCode(), subtotal, voucherCalc.discountAmount());
+        }
         loyaltyClient.reserve(order.getId(), customerId, subtotal.subtract(voucherCalc.discountAmount()).max(BigDecimal.ZERO), loyaltyCalc);
 
         List<OrderItem> savedItems = new ArrayList<>();
@@ -591,7 +606,7 @@ public class OrderService {
 
         // P1.1: Release voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled Kafka event via Transactional Outbox
@@ -631,7 +646,7 @@ public class OrderService {
 
         // P1.1: Release voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled Kafka event via Transactional Outbox
@@ -669,7 +684,7 @@ public class OrderService {
         if ("COMPLETED".equals(target)) {
             if (order.getPaymentStatus() == null || "PENDING".equalsIgnoreCase(order.getPaymentStatus())
                     || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
-                throw new ApiException(ErrorCode.PAYMENT_REQUIRED_BEFORE_HANDOVER, "Đơn hàng chưa được thanh toán đầy đủ trước khi bàn giao.");
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Đơn hàng chưa được thanh toán đầy đủ trước khi bàn giao.");
             }
         }
         if ("PREPARING".equals(target) && "PICKUP".equalsIgnoreCase(order.getType())
@@ -691,8 +706,10 @@ public class OrderService {
 
         boolean valid = switch (current) {
             case "PENDING_PAYMENT" -> "CONFIRMED".equals(target) || "CANCELLED".equals(target);
-            case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target);
-            case "PREPARING" -> "READY".equals(target);
+            case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target)
+                    || ("COMPLETED".equals(target) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
+            case "PREPARING" -> "READY".equals(target)
+                    || ("COMPLETED".equals(target) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
             case "READY" -> "SHIPPING".equals(target) || "COMPLETED".equals(target);
             case "SHIPPING" -> "COMPLETED".equals(target);
             default -> false;
@@ -729,7 +746,7 @@ public class OrderService {
             orderEventPublisher.publishOrderCompleted(order, items);
         } else if (OrderStatus.CANCELLED.name().equals(target)) {
             if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-                promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+                voucherRecovery.cancelled(order.getId());
             }
             orderEventPublisher.publishOrderCancelled(order, items, history.getReason());
         } else {
@@ -793,7 +810,7 @@ public class OrderService {
 
         // P1.1: Compensate voucher and loyalty points if applied
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
-            promotionClient.releaseVoucher(order.getVoucherCode(), order.getId(), order.getCustomerId());
+            voucherRecovery.cancelled(order.getId());
         }
 
         // Publish order.cancelled compensation event via Transactional Outbox
@@ -812,8 +829,20 @@ public class OrderService {
         }
 
         String cartKey = RedisConfig.key("cart", order.getCustomerId().toString());
+        // Keep cart bound cleanly to the reordered order's store to prevent cross-branch conflicts
+        CartDto currentCart = cartService.getCart(cartKey);
+        if (currentCart != null && currentCart.getItems() != null) {
+            boolean hasOtherStoreItem = currentCart.getItems().stream()
+                    .anyMatch(existing -> existing.getStoreId() == null || !Objects.equals(existing.getStoreId(), order.getStoreId()));
+            if (hasOtherStoreItem) {
+                cartService.clearCart(cartKey);
+            }
+        }
 
         for (OrderItem it : items) {
+            if (it.getProductId() == null && it.getComboId() == null) {
+                continue;
+            }
             List<Long> optionIds = new ArrayList<>();
             if (it.getOptionsSnapshot() != null && it.getOptionsSnapshot().isArray()) {
                 for (JsonNode n : it.getOptionsSnapshot()) {
@@ -836,7 +865,7 @@ public class OrderService {
                     it.getProductId(),
                     it.getComboId(),
                     it.getItemName(),
-                    it.getQuantity(),
+                    it.getQuantity() != null && it.getQuantity() > 0 ? it.getQuantity() : 1,
                     it.getUnitPrice(),
                     optionIds,
                     toppingIds,
@@ -861,10 +890,15 @@ public class OrderService {
     }
 
     public PageResponse<OrderResponse> getOrders(Long requestedStoreId, String status, String orderCode, Pageable pageable) {
-        return getOrders(requestedStoreId, status, null, null, null, orderCode, pageable);
+        return getOrders(null, requestedStoreId, status, null, null, null, orderCode, pageable);
+    }
+
+    public PageResponse<OrderResponse> getOrders(Long customerId, Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+        return getOrders(customerId, requestedStoreId, status, null, null, null, orderCode, pageable);
     }
 
     public PageResponse<OrderResponse> getOrders(
+            Long customerId,
             Long requestedStoreId,
             String status,
             String paymentStatus,
@@ -873,8 +907,12 @@ public class OrderService {
             String orderCode,
             Pageable pageable
     ) {
+        CurrentActor actor = CurrentActor.require();
+        if (customerId != null && actor.role() != Role.ADMIN) throw new ApiException(ErrorCode.FORBIDDEN);
+        if (customerId != null && customerId <= 0 || requestedStoreId != null && requestedStoreId <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
         Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
+        if (cleanStatus != null && Arrays.stream(OrderStatus.values()).noneMatch(value -> value.name().equals(cleanStatus))) throw new ApiException(ErrorCode.VALIDATION_ERROR);
         String cleanPaymentStatus = (paymentStatus != null && !paymentStatus.isBlank()) ? paymentStatus.trim().toUpperCase() : null;
         String cleanOrderSource = (orderSource != null && !orderSource.isBlank()) ? orderSource.trim().toUpperCase() : null;
         String orderCodePattern = (orderCode != null && !orderCode.isBlank())
@@ -889,12 +927,12 @@ public class OrderService {
                 createdFrom = localDate.atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
                 createdTo = localDate.plusDays(1).atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
             } catch (Exception e) {
-                LOG.warn("Failed to parse date filter {}: {}", date, e.getMessage());
+                throw new ApiException(ErrorCode.VALIDATION_ERROR);
             }
         }
 
         Page<Order> orderPage = orderRepository.findOrdersFiltered(
-                effectiveStoreId, cleanStatus, cleanPaymentStatus, cleanOrderSource,
+                customerId, effectiveStoreId, cleanStatus, cleanPaymentStatus, cleanOrderSource,
                 createdFrom, createdTo, orderCodePattern, pageable);
         return mapToOrderResponsePage(orderPage);
     }
@@ -1038,3 +1076,4 @@ public class OrderService {
         return ((next - 1) % 999) + 1;
     }
 }
+

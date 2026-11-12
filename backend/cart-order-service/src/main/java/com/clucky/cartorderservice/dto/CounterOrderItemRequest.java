@@ -35,10 +35,21 @@ public record CounterOrderItemRequest(
             for (Object opt : options) {
                 if (opt instanceof Number n) {
                     ids.add(n.longValue());
-                } else if (opt instanceof String s && s.matches("\\d+")) {
-                    ids.add(Long.parseLong(s));
-                } else if (opt instanceof Map<?, ?> m && m.get("id") instanceof Number n) {
-                    ids.add(n.longValue());
+                } else if (opt instanceof String s) {
+                    String clean = s.replaceFirst("^(?i)opt-", "").trim();
+                    if (clean.matches("\\d+")) {
+                        ids.add(Long.parseLong(clean));
+                    }
+                } else if (opt instanceof Map<?, ?> m) {
+                    Object raw = m.get("id") != null ? m.get("id") : m.get("choiceId");
+                    if (raw instanceof Number n) {
+                        ids.add(n.longValue());
+                    } else if (raw instanceof String s) {
+                        String clean = s.replaceFirst("^(?i)opt-", "").trim();
+                        if (clean.matches("\\d+")) {
+                            ids.add(Long.parseLong(clean));
+                        }
+                    }
                 }
             }
             return ids;

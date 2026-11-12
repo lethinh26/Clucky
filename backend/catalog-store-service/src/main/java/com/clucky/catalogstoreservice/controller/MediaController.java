@@ -21,4 +21,11 @@ public class MediaController {
         mediaAdapter.deleteAsset(publicId);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteMediaByPublicId(@RequestParam String publicId) {
+        mediaAdapter.deleteAsset(publicId);
+        return ResponseEntity.noContent().build();
+    }
 }

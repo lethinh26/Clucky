@@ -5,6 +5,7 @@ import { useLocaleTools } from "@/lib/i18n/hooks";
 
 import { useEffect, useState } from "react";
 import Link from "@/components/ui-loader/navigation-link";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import { useOrder } from "@/components/order/order-provider";
 import { useNavigationTask } from "@/components/ui-loader";
 import { OrderProgress } from "@/components/order/order-progress";
@@ -14,6 +15,10 @@ import {
   Store,
   RotateCcw,
   Clock3,
+  Calendar,
+  CreditCard,
+  Wallet,
+  ArrowUpDown,
 } from "lucide-react";
 import { OrderStatusChip } from "@/components/order";
 import { FoodImage } from "@/components/order/food-image";
@@ -21,11 +26,29 @@ import { displayOrderTime } from "@/lib/order-demo";
 import styles from "./orders.module.css";
 
 type FilterTab = "ALL" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+type PaymentFilter = "ALL" | "BANK_TRANSFER" | "COD";
+type SortOption = "NEWEST" | "OLDEST" | "TOTAL_DESC" | "TOTAL_ASC";
+
+function toVnDateYmd(isoString?: string): string {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(d);
+}
+
+function getTodayVnYmd(): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date());
+}
 
 export default function OrdersHistoryPage() {
   const t = useTranslations();
 
   const { locale, money: formatPrice, errorMessage } = useLocaleTools();
+  const router = useRouter();
   const { orders, reorder, refreshOrders, ready } = useOrder();
   useNavigationTask(!ready);
 
@@ -41,35 +64,60 @@ export default function OrdersHistoryPage() {
   );
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const filteredOrders = orders.filter((order) => {
-    // Search filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      const matchCode = order.orderCode.toLowerCase().includes(q);
-      const matchStore = order.storeName.toLowerCase().includes(q);
-      if (!matchCode && !matchStore) return false;
-    }
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("ALL");
+  const [sortBy, setSortBy] = useState<SortOption>("NEWEST");
+  const todayVn = getTodayVnYmd();
 
-    // Tab filter
-    if (activeTab === "ALL") return true;
-    if (activeTab === "ACTIVE") {
-      return (
-        order.status === "PENDING_PAYMENT" ||
-        order.status === "CONFIRMED" ||
-        order.status === "PREPARING" ||
-        order.status === "READY" ||
-        order.status === "SHIPPING"
-      );
-    }
-    if (activeTab === "COMPLETED") return order.status === "COMPLETED";
-    if (activeTab === "CANCELLED") return order.status === "CANCELLED";
-    return true;
-  });
+  const filteredOrders = orders
+    .filter((order) => {
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const matchCode = order.orderCode.toLowerCase().includes(q);
+        const matchStore = order.storeName.toLowerCase().includes(q);
+        if (!matchCode && !matchStore) return false;
+      }
+
+      // Date filter
+      if (selectedDate) {
+        const orderDate = toVnDateYmd(order.createdAt);
+        if (orderDate !== selectedDate) return false;
+      }
+
+      // Payment method filter
+      if (paymentFilter !== "ALL") {
+        if (order.paymentMethod !== paymentFilter) return false;
+      }
+
+      // Tab filter
+      if (activeTab === "ALL") return true;
+      if (activeTab === "ACTIVE") {
+        return (
+          order.status === "PENDING_PAYMENT" ||
+          order.status === "CONFIRMED" ||
+          order.status === "PREPARING" ||
+          order.status === "READY" ||
+          order.status === "SHIPPING"
+        );
+      }
+      if (activeTab === "COMPLETED") return order.status === "COMPLETED";
+      if (activeTab === "CANCELLED") return order.status === "CANCELLED";
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "TOTAL_DESC") return b.totalAmount - a.totalAmount;
+      if (sortBy === "TOTAL_ASC") return a.totalAmount - b.totalAmount;
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return sortBy === "OLDEST" ? timeA - timeB : timeB - timeA;
+    });
 
   const handleReorder = async (order: Order) => {
     try {
       await reorder(order);
       notify.success(t("business.orders.itemsFromOrderHaveBeenAddedToYourCart", { value1: order.orderCode }));
+      router.push(`/checkout?storeId=${encodeURIComponent(order.storeId)}`);
     } catch {}
   };
 
@@ -103,26 +151,108 @@ export default function OrdersHistoryPage() {
           </div>
         )}
 
-        {/* Quick Search */}
-        <div className={styles.searchBar}>
-          <input
-            type="text"
-            placeholder={t("business.orders.searchByOrderCodeCluOrStoreName")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={styles.searchInput}
-            aria-label={t("business.orders.searchOrders")}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className={styles.searchBtn}
-              style={{ background: "#6b6259" }}
-            >
-              {t("business.account.delete")}
-            </button>
-          )}
+        {/* Quick Search & Filter Controls (Date, Payment Method, Sort) */}
+        <div className={styles.filterToolbar}>
+          <div className={styles.searchBar}>
+            <input
+              type="text"
+              placeholder={t("business.orders.searchByOrderCodeCluOrStoreName")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.searchInput}
+              aria-label={t("business.orders.searchOrders")}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className={styles.searchBtn}
+                style={{ background: "#6b6259" }}
+              >
+                {t("business.account.delete")}
+              </button>
+            )}
+          </div>
+
+          <div className={styles.filterControlsRow}>
+            {/* Date Filter */}
+            <div className={styles.filterGroup}>
+              <span className={styles.filterGroupLabel}>
+                <Calendar size={14} /> {t("business.orders.filterByDate")}
+              </span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className={styles.filterDateInput}
+                aria-label={t("business.orders.filterByDate")}
+              />
+              <button
+                type="button"
+                className={`${styles.filterPillBtn} ${selectedDate === todayVn ? styles.filterPillActive : ""}`}
+                onClick={() => setSelectedDate(selectedDate === todayVn ? "" : todayVn)}
+              >
+                {t("business.orders.today")}
+              </button>
+              {selectedDate && (
+                <button
+                  type="button"
+                  className={styles.filterPillBtn}
+                  onClick={() => setSelectedDate("")}
+                >
+                  {t("business.orders.allDates")}
+                </button>
+              )}
+            </div>
+
+            {/* Payment Method Filter */}
+            <div className={styles.filterGroup}>
+              <span className={styles.filterGroupLabel}>
+                <Wallet size={14} /> {t("business.orders.filterPayment")}
+              </span>
+              <div className={styles.paymentChipGroup}>
+                <button
+                  type="button"
+                  className={`${styles.filterPillBtn} ${paymentFilter === "ALL" ? styles.filterPillActive : ""}`}
+                  onClick={() => setPaymentFilter("ALL")}
+                >
+                  {t("business.orders.allPaymentMethods")}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.filterPillBtn} ${paymentFilter === "BANK_TRANSFER" ? styles.filterPillActive : ""}`}
+                  onClick={() => setPaymentFilter("BANK_TRANSFER")}
+                >
+                  <CreditCard size={13} /> {t("business.orders.paymentVietQr")}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.filterPillBtn} ${paymentFilter === "COD" ? styles.filterPillActive : ""}`}
+                  onClick={() => setPaymentFilter("COD")}
+                >
+                  <Wallet size={13} /> {t("business.orders.paymentCod")}
+                </button>
+              </div>
+            </div>
+
+            {/* Sort Selector */}
+            <div className={styles.filterGroup}>
+              <span className={styles.filterGroupLabel}>
+                <ArrowUpDown size={14} /> {t("business.orders.sortBy")}
+              </span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className={styles.filterSelect}
+                aria-label={t("business.orders.sortBy")}
+              >
+                <option value="NEWEST">{t("business.orders.sortNewest")}</option>
+                <option value="OLDEST">{t("business.orders.sortOldest")}</option>
+                <option value="TOTAL_DESC">{t("business.orders.sortTotalDesc")}</option>
+                <option value="TOTAL_ASC">{t("business.orders.sortTotalAsc")}</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Status Tabs */}
@@ -197,6 +327,9 @@ export default function OrdersHistoryPage() {
                       {" "}
                       · {displayOrderTime(order.createdAt, locale)}
                     </span>
+                    <span className={styles.paymentMethodBadge} data-method={order.paymentMethod}>
+                      {order.paymentMethod === "BANK_TRANSFER" ? "VietQR" : "COD"}
+                    </span>
                   </div>
                   <OrderStatusChip status={order.status} type={order.type} />
                 </div>
@@ -213,7 +346,7 @@ export default function OrdersHistoryPage() {
                       ))}
                     </div>
                     <span className={styles.storeName}>
-                      <Store size={15} /> {order.storeName}
+                      <Store size={15} /> {order.storeName}{order.storeAddress ? ` · ${order.storeAddress}` : ""}
                     </span>
                     <span className={styles.itemsSummary}>
                       {order.items
@@ -236,6 +369,7 @@ export default function OrdersHistoryPage() {
                   status={order.status}
                   type={order.type}
                   paymentStatus={order.paymentStatus}
+                  paymentMethod={order.paymentMethod}
                   compact
                   orderCode={order.orderCode}
                   updatedAt={order.updatedAt ?? order.createdAt}

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { message } from "../../../components/feedback";
 import { useAuth } from "../../../context/AuthContext";
+import { useOrders } from "../../../context/OrderContext";
 import type { StaffOrder } from "../../../mocks/mockStaffOrders";
 import { paymentsApi } from "../../../lib/api";
 import styles from "./receipt-bill.module.css";
@@ -36,6 +37,11 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { stores, currentStore } = useOrders();
+  const matchedStore = stores.find((s) => Number(s.id) === Number(order?.storeId)) || currentStore;
+  const resolvedStoreName = matchedStore?.name || order?.storeName || user?.storeName || "Clucky";
+  const resolvedStoreAddress = matchedStore?.address || "";
+  const resolvedStoreHotline = matchedStore?.phone || "1900 6868";
   const [mode, setMode] = useState<"RECEIPT" | "KOT">(initialMode);
   const [isPaperFeeding, setIsPaperFeeding] = useState<boolean>(false);
   const [printCount, setPrintCount] = useState<number>(0);
@@ -213,11 +219,15 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                     Gà Rán Giòn Cay - Đậm Vị Việt
                   </div>
                   <div className={styles.storeInfo}>
-                    Chi nhánh: <strong>{order.storeName || "Store #01 - Cầu Giấy"}</strong>
+                    Chi nhánh: <strong>{resolvedStoreName}</strong>
+                    {resolvedStoreAddress && (
+                      <>
+                        <br />
+                        {resolvedStoreAddress}
+                      </>
+                    )}
                     <br />
-                    123 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, Hà Nội
-                    <br />
-                    Hotline: 1900 6868 · Website: clucky.vn
+                    Hotline: {resolvedStoreHotline} · Website: clucky.vn
                   </div>
                 </div>
 
@@ -396,7 +406,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                 <div className={styles.kotHeader}>
                   <h2 className={styles.kotTitle}>PHIẾU CHẾ BIẾN BẾP</h2>
                   <div style={{ fontSize: 11, color: "#444444", marginTop: 4 }}>
-                    Bếp Chi nhánh: <strong>{order.storeName || "Store #01 - Cầu Giấy"}</strong>
+                    Bếp Chi nhánh: <strong>{resolvedStoreName}</strong>
                     <br />
                     Thời gian nhận: {order.time || "Ngay bây giờ"} · {order.createdAt ? new Date(order.createdAt).toLocaleTimeString("vi-VN") : ""}
                   </div>

@@ -32,9 +32,15 @@ public class InternalPaymentController {
         return ResponseEntity.ok(refundService.reserveRefund(request));
     }
 
+    @GetMapping("/refund-reservations/{refundRequestId}")
+    public ReserveRefundResponse reservation(@PathVariable Long refundRequestId) {
+        return refundService.reservation(refundRequestId);
+    }
+
     @PutMapping("/refund-reservations/{refundRequestId}/confirm")
-    public ResponseEntity<Void> confirmRefund(@PathVariable Long refundRequestId) {
-        refundService.confirmRefund(refundRequestId);
+    public ResponseEntity<Void> confirmRefund(@PathVariable Long refundRequestId,
+            @Valid @RequestBody com.clucky.paymentservice.dto.ConfirmRefundRequest request) {
+        refundService.confirmRefund(refundRequestId, request);
         return ResponseEntity.noContent().build();
     }
 

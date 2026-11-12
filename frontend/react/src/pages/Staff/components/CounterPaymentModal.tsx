@@ -10,6 +10,8 @@ import {
   Copy,
   Check,
   ArrowRight,
+  ImagePlus,
+  Trash2,
 } from "lucide-react";
 import { message } from "../../../components/feedback";
 import type { PaymentMethod, StaffOrder } from "../../../mocks/mockStaffOrders";
@@ -27,6 +29,7 @@ interface CounterPaymentModalProps {
     bankDeclaredAmount: number;
     manualReason?: string;
     refCode?: string;
+    codEvidenceFile?: File | null;
   }) => Promise<void> | void;
 }
 
@@ -63,6 +66,8 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
   // Tab 3: SPLIT state
   const [splitCash, setSplitCash] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [codEvidenceFile, setCodEvidenceFile] = useState<File | null>(null);
+  const [codEvidencePreviewUrl, setCodEvidencePreviewUrl] = useState<string | null>(null);
 
   // Reset when order changes or modal opens
   useEffect(() => {
@@ -72,6 +77,11 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
       setCashTendered(total);
       setSplitCash(Math.floor(total / 2));
       setManualReason("");
+      setCodEvidenceFile(null);
+      setCodEvidencePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
     }
   }, [open, order]);
 
@@ -151,6 +161,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
         bankDeclaredAmount: finalBankDeclared,
         manualReason: manualReason || undefined,
         refCode,
+        codEvidenceFile,
       });
     } finally {
       setIsSubmitting(false);
@@ -303,6 +314,124 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                   </strong>
                 </div>
               )}
+
+              {/* Import ảnh minh chứng thu tiền COD tối đa 2MB (hỗ trợ đơn khách đặt online / COD) */}
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: 12,
+                  borderRadius: 12,
+                  backgroundColor: "#fffaf3",
+                  border: "1px dashed #c9a227",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <div>
+                    <strong style={{ fontSize: 13, color: "#16100d", display: "block" }}>
+                      Ảnh bằng chứng xác nhận thu tiền COD (≤ 2MB)
+                    </strong>
+                    <span style={{ fontSize: 12, color: "#6b6259" }}>
+                      Hỗ trợ JPEG, PNG, WebP tối đa 2MB để lưu đối chiếu thu tiền mặt đơn online
+                    </span>
+                  </div>
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "7px 12px",
+                      borderRadius: 999,
+                      backgroundColor: "#8f1216",
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <ImagePlus size={14} />
+                    <span>{codEvidenceFile ? "Đổi ảnh (≤ 2MB)" : "Import ảnh (≤ 2MB)"}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        if (
+                          file.size === 0 ||
+                          file.size > 2 * 1024 * 1024 ||
+                          !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+                        ) {
+                          message.error("Ảnh bằng chứng phải là JPEG, PNG hoặc WebP và dung lượng tối đa 2MB.");
+                          return;
+                        }
+                        setCodEvidenceFile(file);
+                        setCodEvidencePreviewUrl((prev) => {
+                          if (prev) URL.revokeObjectURL(prev);
+                          return URL.createObjectURL(file);
+                        });
+                        message.success(`Đã chọn ảnh minh chứng: ${file.name}`);
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {codEvidenceFile && codEvidencePreviewUrl && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      padding: 8,
+                      borderRadius: 10,
+                      backgroundColor: "#fff",
+                      border: "1px solid #e8e2d9",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      <img
+                        src={codEvidencePreviewUrl}
+                        alt="Bằng chứng COD"
+                        style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, border: "1px solid #e8e2d9" }}
+                      />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#16100d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {codEvidenceFile.name}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#1e7a46", fontWeight: 600 }}>
+                          {(codEvidenceFile.size / 1024).toFixed(1)} KB · Sẵn sàng lưu bằng chứng COD
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCodEvidenceFile(null);
+                        setCodEvidencePreviewUrl((prev) => {
+                          if (prev) URL.revokeObjectURL(prev);
+                          return null;
+                        });
+                      }}
+                      style={{
+                        border: "none",
+                        background: "#fef2f2",
+                        color: "#b91c1c",
+                        borderRadius: 8,
+                        padding: "6px 8px",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                      }}
+                      title="Xóa ảnh"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -390,6 +519,21 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                     </button>
                   ))}
                 </div>
+                <input
+                  type="text"
+                  value={manualReason}
+                  onChange={(e) => setManualReason(e.target.value)}
+                  placeholder="Hoặc nhập ghi chú xác nhận chuyển khoản..."
+                  style={{
+                    marginTop: 8,
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #d6c9b9",
+                    fontSize: 13,
+                    boxSizing: "border-box",
+                  }}
+                />
               </div>
             </div>
           )}
@@ -451,6 +595,48 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Xác nhận phần chuyển khoản trong đơn kết hợp */}
+              <div className={styles.manualSection}>
+                <div className={styles.manualHeader}>
+                  <span className={styles.manualTitle}>
+                    Xác nhận đã nhận phần chuyển khoản (Bắt buộc cho đơn Kết hợp):
+                  </span>
+                </div>
+                <div className={styles.quickTagsList}>
+                  {[
+                    "Đã kiểm tra biên lai CK thành công",
+                    "Khách đã chuyển khoản phần còn lại",
+                    "Xác nhận kết hợp tiền mặt + QR",
+                  ].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={`${styles.quickTagBtn} ${
+                        manualReason === tag ? styles.quickTagBtnActive : ""
+                      }`}
+                      onClick={() => setManualReason(manualReason === tag ? "" : tag)}
+                    >
+                      {manualReason === tag ? `✓ ${tag}` : tag}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={manualReason}
+                  onChange={(e) => setManualReason(e.target.value)}
+                  placeholder="Hoặc nhập ghi chú xác nhận chuyển khoản..."
+                  style={{
+                    marginTop: 8,
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #d6c9b9",
+                    fontSize: 13,
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>

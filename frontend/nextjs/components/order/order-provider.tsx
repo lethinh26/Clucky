@@ -23,20 +23,39 @@ import {
   DEMO_CONTROLS_ENABLED,
   type DemoAction,
 } from "@/lib/order-demo";
-import type { CartItem, Order } from "@/lib/types/order";
+import type { CartItem, CartItemOption, CartItemTopping, Order } from "@/lib/types/order";
 import {
   cartApi,
   catalogApi,
   type ProductItem,
+  type StoreItem,
   orderApi,
   type BackendOrder,
   type BackendCartDto,
   type CreateOrderPayload,
 } from "@/lib/api";
+import { stores as FALLBACK_STORES } from "@/lib/products";
 
 const storageKey = "clucky-order-workspace-v1";
 
-export function mapBackendOrderToOrder(be: BackendOrder): Order {
+function resolveStoreMeta(
+  storeId: number | string | undefined,
+  storesList: Pick<StoreItem, "id" | "name" | "address">[] = FALLBACK_STORES
+): { storeName: string; storeAddress?: string } {
+  const numericId = Number(storeId);
+  const found =
+    storesList.find((s) => Number(s.id) === numericId) ??
+    FALLBACK_STORES.find((s) => Number(s.id) === numericId);
+  return {
+    storeName: found?.name || `Clucky #${storeId}`,
+    storeAddress: found?.address,
+  };
+}
+
+export function mapBackendOrderToOrder(
+  be: BackendOrder,
+  storesList: Pick<StoreItem, "id" | "name" | "address">[] = FALLBACK_STORES
+): Order {
   const statusMap: Record<string, Order["status"]> = {
     PENDING_PAYMENT: "PENDING_PAYMENT",
     CONFIRMED: "CONFIRMED",
@@ -47,6 +66,66 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
     CANCELLED: "CANCELLED",
   };
   const currentStatus = statusMap[be.status] || "CONFIRMED";
+  const normalizeOptions = (raw: unknown): CartItemOption[] => {
+    if (!raw) return [];
+    let parsed = raw;
+    if (typeof raw === "string") {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    }
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((o) => o != null)
+      .map((o, idx) =>
+        typeof o === "object"
+          ? {
+              id: Number((o as any).id ?? idx),
+              groupName: String((o as any).groupName ?? ""),
+              name: String((o as any).name ?? ""),
+              extraPrice: Number((o as any).extraPrice ?? 0),
+            }
+          : {
+              id: Number(o) || idx,
+              groupName: "",
+              name: `#${o}`,
+              extraPrice: 0,
+            }
+      )
+      .filter((o) => o.name);
+  };
+
+  const normalizeToppings = (raw: unknown): CartItemTopping[] => {
+    if (!raw) return [];
+    let parsed = raw;
+    if (typeof raw === "string") {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    }
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((t) => t != null)
+      .map((t, idx) =>
+        typeof t === "object"
+          ? {
+              id: Number((t as any).id ?? idx),
+              name: String((t as any).name ?? ""),
+              extraPrice: Number((t as any).extraPrice ?? 0),
+            }
+          : {
+              id: Number(t) || idx,
+              name: `#${t}`,
+              extraPrice: 0,
+            }
+      )
+      .filter((t) => t.name);
+  };
+
   const items = (be.items || []).map((it) => ({
     id: String(it.id),
     productId: it.productId,
@@ -58,8 +137,8 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
     quantity: it.quantity,
     image: it.imageUrl || "/images/food-placeholder.svg",
     lineTotal: Number(it.lineTotal),
-    optionsSnapshot: it.optionsSnapshot as any,
-    toppingsSnapshot: it.toppingsSnapshot as any,
+    optionsSnapshot: normalizeOptions(it.optionsSnapshot),
+    toppingsSnapshot: normalizeToppings(it.toppingsSnapshot),
     note: it.note,
   }));
 
@@ -83,11 +162,14 @@ export function mapBackendOrderToOrder(be: BackendOrder): Order {
         },
       ];
 
+  const storeMeta = resolveStoreMeta(be.storeId, storesList);
+
   return {
     id: String(be.id),
     orderCode: be.orderCode,
     storeId: String(be.storeId),
-    storeName: `Clucky #${be.storeId}`,
+    storeName: storeMeta.storeName,
+    storeAddress: storeMeta.storeAddress,
     type: be.type,
     status: currentStatus,
     subtotal: Number(be.subtotal),
@@ -169,20 +251,60 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   useFeedback(cartError ? errorMessage(cartError) : session.error ? errorMessage(session.error) : null);
   const cartBusy = useRef(false);
   const catalogForImages = useRef<Promise<ProductItem[]> | null>(null);
+  const storesListRef = useRef<Pick<StoreItem, "id" | "name" | "address">[]>(FALLBACK_STORES);
+
   useEffect(() => {
-    if (!workspace.orders.some(order => order.items.some(item => !item.image || item.image === "/images/food-placeholder.svg"))) return;
+    let active = true;
+    catalogApi.getStores(false).then((storesData) => {
+      if (!active || !Array.isArray(storesData) || storesData.length === 0) return;
+      storesListRef.current = storesData;
+      setWorkspace((previous) => {
+        if (!previous.orders.length) return previous;
+        let changed = false;
+        const orders = previous.orders.map((ord) => {
+          const meta = resolveStoreMeta(ord.storeId, storesData);
+          if (ord.storeName === meta.storeName && ord.storeAddress === meta.storeAddress) return ord;
+          changed = true;
+          return { ...ord, storeName: meta.storeName, storeAddress: meta.storeAddress };
+        });
+        return changed ? { ...previous, orders } : previous;
+      });
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [setWorkspace]);
+
+  useEffect(() => {
+    const needsOrderImages = workspace.orders.some(order => order.items.some(item => !item.image || item.image === "/images/food-placeholder.svg"));
+    const needsCartImages = workspace.items.some(item => !item.image || item.image === "/images/food-placeholder.svg");
+    if (!needsOrderImages && !needsCartImages) return;
     let active = true;
     const revision = getSessionState().revision;
     catalogForImages.current ??= catalogApi.getProducts();
     catalogForImages.current.then(products => {
       if (!active || revision !== getSessionState().revision) return;
+      const imgMap = new Map(products.map(p => [`${p.comboItems !== undefined ? "COMBO" : "PRODUCT"}:${p.id}`, p.imageUrl || p.image]));
       setWorkspace(previous => {
         const orders = fillOrderImages(previous.orders, products);
-        return orders.some((order, index) => order !== previous.orders[index]) ? { ...previous, orders } : previous;
+        const ordersChanged = orders.some((order, index) => order !== previous.orders[index]);
+        let cartChanged = false;
+        const items = previous.items.map(item => {
+          if (item.image && item.image !== "/images/food-placeholder.svg") return item;
+          const typeKey = item.comboId != null ? "COMBO" : "PRODUCT";
+          const idKey = item.comboId ?? item.productId;
+          const img = imgMap.get(`${typeKey}:${idKey}`);
+          if (!img) return item;
+          cartChanged = true;
+          return { ...item, image: img };
+        });
+        if (!ordersChanged && !cartChanged) return previous;
+        return {
+          items: cartChanged ? items : previous.items,
+          orders: ordersChanged ? orders : previous.orders,
+        };
       });
     }).catch(() => { catalogForImages.current = null; });
     return () => { active = false; };
-  }, [workspace.orders, setWorkspace]);
+  }, [workspace.orders, workspace.items, setWorkspace]);
 
   const mutateCart = useCallback(async (
     request: () => Promise<BackendCartDto>,
@@ -221,7 +343,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       if (revision !== getSessionState().revision) return;
       setOrdersError(null);
       if (page && Array.isArray(page.content)) {
-        const serverOrders = page.content.map(mapBackendOrderToOrder);
+        const serverOrders = page.content.map((be) => mapBackendOrderToOrder(be, storesListRef.current));
         setWorkspace((prev) => ({
           ...prev,
           orders: serverOrders,
@@ -339,7 +461,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       const revision = getSessionState().revision;
       const backendOrder = await orderApi.create(payload);
       if (revision !== getSessionState().revision) throw { code: "UNAUTHENTICATED", status: 401 };
-      const mappedOrder = mapBackendOrderToOrder(backendOrder);
+      const mappedOrder = mapBackendOrderToOrder(backendOrder, storesListRef.current);
       setWorkspace((prev) => ({
         items: [],
         orders: [ensureDemoShipment(mappedOrder), ...prev.orders],
@@ -356,7 +478,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
         const revision = getSessionState().revision;
         const updatedBackend = await orderApi.cancel(id, reason);
         if (revision !== getSessionState().revision) return;
-        const mapped = mapBackendOrderToOrder(updatedBackend);
+        const mapped = mapBackendOrderToOrder(updatedBackend, storesListRef.current);
         setWorkspace((prev) => ({
           ...prev,
           orders: prev.orders.map((o) => (o.id === id || o.orderCode === id ? mapped : o)),

@@ -70,6 +70,10 @@ public class CatalogCacheService {
     }
 
     public void evictStoreMenuCache(Long storeId) {
+        afterCommit(() -> evictStoreMenuCacheNow(storeId));
+    }
+
+    private void evictStoreMenuCacheNow(Long storeId) {
         if (redisTemplate == null) return;
         try {
             if (storeId != null) {
@@ -77,7 +81,7 @@ public class CatalogCacheService {
                 redisTemplate.delete(key);
                 log.info("Evicted Redis cache key: {}", key);
             } else {
-                evictAllStoreMenuCaches();
+                evictAllStoreMenuCachesNow();
             }
         } catch (Exception ex) {
             log.warn("Failed to evict Redis cache for store {}: {}", storeId, ex.getMessage());
@@ -85,6 +89,10 @@ public class CatalogCacheService {
     }
 
     public void evictAllStoreMenuCaches() {
+        afterCommit(this::evictAllStoreMenuCachesNow);
+    }
+
+    private void evictAllStoreMenuCachesNow() {
         if (redisTemplate == null) return;
         try {
             Set<String> keys = redisTemplate.keys("menu:store:*");
@@ -95,5 +103,14 @@ public class CatalogCacheService {
         } catch (Exception ex) {
             log.warn("Failed to evict all menu caches: {}", ex.getMessage());
         }
+    }
+
+    private void afterCommit(Runnable action) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() { action.run(); }
+                    });
+        } else action.run();
     }
 }

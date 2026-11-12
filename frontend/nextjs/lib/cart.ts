@@ -1,5 +1,21 @@
-import type { CartItem } from "./types/order";
+import type { CartItem, CartItemOption, CartItemTopping } from "./types/order";
 import type { BackendCartDto, CartItemPayload } from "./api";
+
+function parseSnapshotArray<T>(raw: unknown, mapper: (entry: Record<string, unknown>, idx: number) => T): T[] {
+  if (!raw) return [];
+  let parsed = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+    .map(mapper);
+}
 
 export function catalogSelectionId(value: string, prefix: "opt" | "top"): number {
   const match = new RegExp("^(?:" + prefix + "-)?([1-9]\\d*)$").exec(value);
@@ -38,8 +54,8 @@ export function toCartPayload(item: CartItem): CartItemPayload {
     quantity: item.quantity,
     optionIds: optionIds as number[],
     toppingIds: toppingIds as number[],
-    optionsSnapshot: item.optionsSnapshot ?? item.options,
-    toppingsSnapshot: item.toppingsSnapshot ?? item.toppings,
+    ...((item.optionsSnapshot ?? item.options) != null ? { optionsSnapshot: item.optionsSnapshot ?? item.options } : {}),
+    ...((item.toppingsSnapshot ?? item.toppings) != null ? { toppingsSnapshot: item.toppingsSnapshot ?? item.toppings } : {}),
     note: item.note,
   };
 }
@@ -51,15 +67,31 @@ export function mapBackendCart(cart: BackendCartDto, previous: CartItem[] = []):
       || ((candidate.productId ?? null) === (item.productId ?? null) && (candidate.comboId ?? null) === (item.comboId ?? null)
         && ids(candidate.optionIds) === ids(item.optionIds)
         && ids(candidate.toppingIds) === ids(item.toppingIds)));
+    const options = saved?.options ?? parseSnapshotArray<CartItemOption>(item.optionsSnapshot, (o, idx) => ({
+      id: typeof o.id === "number" ? o.id : Number(o.id ?? idx),
+      groupName: String(o.groupName ?? ""),
+      name: String(o.name ?? ""),
+      extraPrice: Number(o.extraPrice ?? 0),
+    }));
+    const toppings = saved?.toppings ?? parseSnapshotArray<CartItemTopping>(item.toppingsSnapshot, (t, idx) => ({
+      id: typeof t.id === "number" ? t.id : Number(t.id ?? idx),
+      name: String(t.name ?? ""),
+      extraPrice: Number(t.extraPrice ?? 0),
+    }));
     return {
       ...saved,
       id: item.itemKey,
       itemKey: item.itemKey,
+      storeId: item.storeId ?? saved?.storeId,
       productId: item.productId ?? undefined,
       comboId: item.comboId ?? undefined,
       itemType: item.productId != null ? "PRODUCT" : "COMBO",
       optionIds: item.optionIds ?? [],
       toppingIds: item.toppingIds ?? [],
+      options: options.length > 0 ? options : saved?.options,
+      toppings: toppings.length > 0 ? toppings : saved?.toppings,
+      optionsSnapshot: item.optionsSnapshot ?? saved?.optionsSnapshot,
+      toppingsSnapshot: item.toppingsSnapshot ?? saved?.toppingsSnapshot,
       slug: saved?.slug ?? String(item.productId ?? item.comboId),
       name: item.itemName,
       category: saved?.category ?? "",

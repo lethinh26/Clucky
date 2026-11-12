@@ -156,6 +156,7 @@ export interface BackendCartItem {
   itemKey: string;
   productId?: number;
   comboId?: number;
+  storeId?: number;
   itemName: string;
   unitPrice: number;
   quantity: number;

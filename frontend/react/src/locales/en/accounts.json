@@ -8,11 +8,8 @@
   "recovery": "Shared recovery email", "changeRecovery": "Change recovery email", "currentPassword": "Your current password", "newEmail": "New recovery email",
   "target": "Target account", "purpose": "Purpose", "lock": "Lock", "unlock": "Unlock", "lockConfirm": "Change status and revoke all sessions of this account?",
   "account": "Account", "role": "Role", "status": "Status", "activated": "Activated", "current": "Current account", "yes": "Yes", "no": "No",
-  "inventory": "Legacy inventory", "migration": "Approve migration", "manager": "Select retained Manager", "staff": "Select retained Staff", "backup": "Operator-approved backup reference",
-  "migrationWarning": "Do not automatically select accounts. Migration preserves IDs, locks extras, revokes sessions, closes the store and requires reactivation of the retained pair. It never reopens the store.",
-  "migrationDisabled": "Migration is disabled. An operator must back up data and configure BRANCH_MIGRATION_BACKUP_REFERENCE first.", "migrationConfirm": "Confirm this exact account pair and email? Extra accounts will be locked and all branch sessions revoked.",
   "report": "Before / after report", "audit": "Account / session audit", "auditNotice": "A shared account and session do not identify an employee. Managers only see Staff actions at their own branch.",
-  "action": "Action", "session": "Session", "time": "Time", "result": "Result", "legacy": "No current pair exists. Inventory and approve migration; legacy data is not marked complete.",
+  "action": "Action", "session": "Session", "time": "Time", "result": "Result", "unprovisioned": "This branch has no Manager or Staff accounts yet.", "recoveryMissing": "Not configured; contact an Admin to set up the recovery email.",
   "adminHelp": "Admin assistance: primary OTP goes to the stored Admin email. Recovery changes also require the new email OTP.", "managerHelp": "Recovery changes require your current password and OTPs at both old and new emails.",
   "manageSent": "Challenge created. Check the correct recipient inbox; this challenge is bound to the current session.", "readiness": "Account readiness", "next": "Next page"
 }

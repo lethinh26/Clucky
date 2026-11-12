@@ -17,12 +17,14 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -74,9 +76,11 @@ public class SecurityConfig {
                     if (docsEnabled) {
                         auth.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
                     }
+                    auth.requestMatchers("/api/promotions/banners", "/api/promotions/banners/**",
+                            "/api/promotions/vouchers/store-proposals", "/api/promotions/vouchers/*/approve").denyAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/stores", "/api/stores/{id}",
                             "/api/catalog/categories", "/api/catalog/products", "/api/catalog/products/{id}",
-                            "/api/catalog/combos", "/api/promotions/banners", "/api/reviews/products/{id}").permitAll();
+                            "/api/catalog/combos", "/api/reviews/products/{id}").permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/loyalty/earn", "/api/loyalty/redeem", "/api/loyalty/release")
                             .hasRole("INTERNAL_SERVICE");
                     auth.requestMatchers("/api/loyalty/me", "/api/loyalty/history").hasRole("CUSTOMER");
@@ -85,6 +89,11 @@ public class SecurityConfig {
                             "/api/auth/reset-password", "/api/auth/google", "/api/auth/google/complete",
                             "/api/promotions/vouchers/validate").permitAll();
                     auth.requestMatchers(HttpMethod.GET, "/api/promotions/vouchers/available", "/api/loyalty/policy").permitAll();
+                    auth.requestMatchers(HttpMethod.POST, "/internal/loyalty/preview", "/internal/loyalty/reserve",
+                            "/internal/loyalty/voucher-reservations", "/internal/loyalty/voucher-reservations/*/release")
+                            .access((authentication, context) -> new AuthorizationDecision(authentication.get() instanceof JwtAuthenticationToken token
+                                    && "INTERNAL_SERVICE".equals(token.getToken().getClaimAsString("role"))
+                                    && "cart-order-service".equals(token.getToken().getClaimAsString("service"))));
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })

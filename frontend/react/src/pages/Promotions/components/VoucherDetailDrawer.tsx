@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React from 'react';
 import {
   Drawer,
@@ -41,6 +42,7 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
   onToggleStatus,
   onDelete,
 }) => {
+  const { t } = useTranslation();
   if (!voucher) return null;
 
   const usagePercent =
@@ -108,7 +110,7 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
             <Text>
               {voucher.maxDiscount
                 ? voucher.maxDiscount.toLocaleString('vi-VN') + ' đ'
-                : 'Không giới hạn'}
+                : t("admin:ui.unlimited")}
             </Text>
           </Descriptions.Item>
         )}
@@ -138,7 +140,8 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span>Đã dùng: <b>{voucher.usedCount}</b></span>
-              <span>Giới hạn: <b>{voucher.totalLimit ?? 'Không giới hạn'}</b></span>
+              <span>{t("admin:ui.reservedForOrders")} <b>{voucher.reservedCount ?? 0}</b></span>
+              <span>Giới hạn: <b>{voucher.totalLimit ?? t("admin:ui.unlimited")}</b></span>
             </div>
             {usagePercent !== null && (
               <Progress
@@ -151,7 +154,7 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
           </div>
         </Descriptions.Item>
 
-        <Descriptions.Item label="Trạng thái">
+        <Descriptions.Item label={t("accounts:status")}>
           <Tag color={isActive ? 'success' : 'default'} style={{ fontWeight: 700 }}>
             {voucher.status}
           </Tag>
@@ -184,9 +187,7 @@ export const VoucherDetailDrawer: React.FC<VoucherDetailDrawerProps> = ({
           icon={<DeleteOutlined />}
           style={{ borderRadius: 999 }}
           onClick={() => onDelete(voucher)}
-        >
-          Xóa
-        </Button>
+        >{t("admin:ui.delete")} </Button>
       </div>
     </Drawer>
   );

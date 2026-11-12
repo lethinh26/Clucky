@@ -293,8 +293,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
           {order.status === "CONFIRMED" && order.orderType === "PICKUP" && order.paymentStatus === "PENDING" && (
             <button type="button" className={`${styles.actionButton} ${styles.btnWarning}`}
-              onClick={() => order.orderSource === "WEB" ? onViewDetails?.(order.id) : onPaymentCollect?.(order)}>
-              <Wallet size={18} /> {order.orderSource === "WEB" ? t("business:orderdemo.openCodEvidence") : t("business:staffcard.collectCounter")}
+              onClick={() => onPaymentCollect?.(order)}>
+              <Wallet size={18} /> {t("business:staffcard.collectCounter")}
             </button>
           )}
 
@@ -318,7 +318,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   onClick={() => onPaymentCollect?.(order)}
                   aria-label={"Thu tiền và bàn giao đơn " + formattedQueue}
                 >
-                  <Wallet size={18} /> {order.orderSource === "WEB" && order.paymentMethod === "COD" ? t("business:orderdemo.openCodEvidence") : t("business:staffcard.collectAndHandOver")}
+                  <Wallet size={18} /> {t("business:staffcard.collectAndHandOver")}
                 </button>
               ) : order.paymentStatus === "COLLECTED" ? (
                 <button

@@ -17,12 +17,14 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -83,6 +85,10 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/api/cart/merge").authenticated();
                     auth.requestMatchers("/api/cart", "/api/cart/**").permitAll();
                     auth.requestMatchers(HttpMethod.POST, "/api/orders/preview").permitAll();
+                    auth.requestMatchers(HttpMethod.GET, "/internal/loyalty/orders/*").access((authentication, context) ->
+                            new AuthorizationDecision(authentication.get() instanceof JwtAuthenticationToken token
+                                    && "INTERNAL_SERVICE".equals(token.getToken().getClaimAsString("role"))
+                                    && "promotion-loyalty-service".equals(token.getToken().getClaimAsString("service"))));
                     auth.requestMatchers("/internal/**", "/api/payments/webhook/**").denyAll();
                     auth.anyRequest().authenticated();
                 })

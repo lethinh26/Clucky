@@ -39,10 +39,11 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
         return findAll(filter, newestFirst(pageable));
     }
 
-    default Page<Order> findOrdersFiltered(Long storeId, String status, String paymentStatus,
+    default Page<Order> findOrdersFiltered(Long customerId, Long storeId, String status, String paymentStatus,
             String orderSource, Instant createdFrom, Instant createdTo, String orderCodePattern, Pageable pageable) {
         Specification<Order> filter = (root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
+            if (customerId != null) predicates.add(builder.equal(root.get("customerId"), customerId));
             if (storeId != null) predicates.add(builder.equal(root.get("storeId"), storeId));
             if (status != null) predicates.add(builder.equal(root.get("status"), status));
             if (paymentStatus != null) predicates.add(builder.equal(root.get("paymentStatus"), paymentStatus));

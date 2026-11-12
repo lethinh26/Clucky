@@ -24,18 +24,36 @@ import {
   Truck,
   Store,
   CircleAlert,
+  Calendar,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+  Wallet,
 } from "lucide-react";
 import { OrderDetailDrawer } from "./components/OrderDetailDrawer";
 import { RefundModal } from "./components/RefundModal";
+import { FinanceModal } from "../Payments/FinanceDrawer";
+import {
+  exportAdminOrdersByDateExcel,
+  formatDateLabelVn,
+  getOrderVnDateYmd,
+  getTodayVn,
+  shiftDateYmd,
+} from "../../utils/orderExcelExport";
 import styles from "./orders.module.css";
+import "./admin-orders.css";
 import { usePageLoading } from "../../components/ui-loader/page-loading";
 
 export const OrdersPage: React.FC = () => {
   const { t } = useTranslation();
-  const { locale } = useLocaleTools();
+  const { locale, money } = useLocaleTools();
+  const todayVn = getTodayVn();
 
   const {
     orders,
+    stores,
+    currentStore,
+    storeOpenState,
     updateStatus,
     confirmCOD,
     reviewRefund,
@@ -50,6 +68,7 @@ export const OrdersPage: React.FC = () => {
   const [refundSubFilter, setRefundSubFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedStore, setSelectedStore] = useState<string>("ALL");
+  const [selectedDate, setSelectedDate] = useState<string>("");
 
   // Drawer & Modal states
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -58,6 +77,7 @@ export const OrdersPage: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [orderForRefund, setOrderForRefund] = useState<AdminOrder | null>(null);
+  const [financeOrderId, setFinanceOrderId] = useState<number | null>(null);
 
   const handleOpenDetail = (order: AdminOrder) => {
     setSelectedOrderId(order.id);
@@ -73,7 +93,12 @@ export const OrdersPage: React.FC = () => {
     if (reason === "COLLECT_COD") {
       ok = await confirmCOD(orderId);
       if (ok) {
-        message.info(t("business:orderdemo.codCollectionPending"));
+        try {
+          await updateStatus(orderId, "COMPLETED", "Đã xác nhận thu tiền COD và hoàn tất đơn online");
+        } catch {
+          // Ignore if already completed
+        }
+        message.success("Đã xác nhận thu tiền COD và hoàn tất đơn hàng!");
         return true;
       }
     } else {
@@ -101,6 +126,7 @@ export const OrdersPage: React.FC = () => {
   // Filter logic
   const filteredOrders = orders.filter((o) => {
     if (selectedStore !== "ALL" && o.storeId !== selectedStore) return false;
+    if (selectedDate && getOrderVnDateYmd(o.createdAt) !== selectedDate) return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -129,6 +155,26 @@ export const OrdersPage: React.FC = () => {
 
     return true;
   });
+
+  const groupedByDate = React.useMemo(() => {
+    const map = new Map<string, AdminOrder[]>();
+    for (const order of filteredOrders) {
+      const dateKey = getOrderVnDateYmd(order.createdAt);
+      const list = map.get(dateKey) ?? [];
+      list.push(order);
+      map.set(dateKey, list);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
+  }, [filteredOrders]);
+
+  const handleExportExcel = (targetOrders: AdminOrder[], dateFilterLabel?: string) => {
+    if (targetOrders.length === 0) {
+      message.warning(t("business:dateFilter.noOrdersToExport"));
+      return;
+    }
+    exportAdminOrdersByDateExcel(targetOrders, stores, dateFilterLabel);
+    message.success(t("business:dateFilter.exportSuccess", { count: targetOrders.length }));
+  };
 
   const columns: TableColumnsType<AdminOrder> = [
     {
@@ -244,12 +290,25 @@ export const OrdersPage: React.FC = () => {
       key: "actions",
       align: "center",
       render: (_, record) => (
-        <Button
-          type="text"
-          icon={<Eye />}
-          onClick={() => handleOpenDetail(record)}
-          aria-label={t("business:orderspage.viewOrderDetails")}
-        > {t("business:orderdetaildrawer.details")} </Button>
+        <Space direction="vertical" size={2}>
+          <Button
+            type="text"
+            size="small"
+            icon={<Eye size={14} />}
+            onClick={() => handleOpenDetail(record)}
+            aria-label={t("business:orderspage.viewOrderDetails")}
+          >
+            {t("business:orderdetaildrawer.details")}
+          </Button>
+          <Button
+            type="text"
+            size="small"
+            icon={<Wallet size={14} />}
+            onClick={() => setFinanceOrderId(Number(record.id))}
+          >
+            {t("admin:ui.finance")}
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -298,6 +357,15 @@ export const OrdersPage: React.FC = () => {
           {actionError || storageError}
         </p>
       )}
+      {currentStore && !storeOpenState.isOpen && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={storeOpenState.bannerTitle}
+          description={storeOpenState.bannerDescription}
+        />
+      )}
       <div className={styles.pageHeading}>
         <div>
           <span className={styles.eyebrow}>{t("business:orderspage.cluckyOperations")}</span>
@@ -305,6 +373,69 @@ export const OrdersPage: React.FC = () => {
           <p>{t("business:orderspage.trackPreparationPaymentsAndRefundRequestsInOnePlace")}</p>
         </div>
       </div>
+
+      <section className="admin-orders-date-card" style={{ marginBottom: 16 }} aria-label={t("business:dateFilter.ariaLabel")}>
+        <div className="admin-orders-date-left">
+          <div className="admin-orders-date-icon">
+            <Calendar size={18} />
+          </div>
+          <div className="admin-orders-date-meta">
+            <span className="admin-orders-date-eyebrow">{t("business:dateFilter.managerEyebrow")}</span>
+            <strong className="admin-orders-date-title">
+              {selectedDate
+                ? `${selectedDate === todayVn ? t("business:dateFilter.todayPrefix") : ""}${formatDateLabelVn(selectedDate, locale)}`
+                : t("business:dateFilter.allDatesCount", { count: groupedByDate.length })}
+            </strong>
+          </div>
+        </div>
+        <div className="admin-orders-date-controls">
+          <div className="admin-orders-date-stepper">
+            <button
+              type="button"
+              className="admin-orders-date-step-btn"
+              title={t("business:dateFilter.prevDay")}
+              onClick={() => setSelectedDate(prev => shiftDateYmd(prev || todayVn, -1))}
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <input
+              type="date"
+              aria-label={t("business:dateFilter.pickDateAria")}
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="admin-orders-date-input"
+            />
+            <button
+              type="button"
+              className="admin-orders-date-step-btn"
+              title={t("business:dateFilter.nextDay")}
+              onClick={() => setSelectedDate(prev => shiftDateYmd(prev || todayVn, 1))}
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+          <Button
+            type={selectedDate === todayVn ? "primary" : "default"}
+            onClick={() => setSelectedDate(todayVn)}
+          >
+            {t("business:dateFilter.today")}
+          </Button>
+          {selectedDate && (
+            <Button onClick={() => setSelectedDate("")}>
+              {t("business:dateFilter.allDatesBtn")}
+            </Button>
+          )}
+          <Button
+            type="primary"
+            className="admin-orders-excel-btn"
+            icon={<Download size={14} />}
+            disabled={filteredOrders.length === 0}
+            onClick={() => handleExportExcel(filteredOrders, selectedDate || undefined)}
+          >
+            {t("business:dateFilter.exportExcel")}
+          </Button>
+        </div>
+      </section>
       <div className={styles.metricsGrid}>
         {[
           {
@@ -460,17 +591,53 @@ export const OrdersPage: React.FC = () => {
         )}
       </div>
       <div className={styles.desktopTable}>
-        <Table
-          loading={false}
-          columns={columns}
-          dataSource={filteredOrders}
-          rowKey="id"
-          pagination={{
-            pageSize: 8,
-            showTotal: (total) => t("business:orderspage.ordersInTotal", { value1: total }),
-          }}
-          scroll={{ x: 1000 }}
-        />
+        {groupedByDate.length === 0 ? (
+          <p className={styles.emptyState}>{t("business:orderspage.noOrdersMatchTheFilters")}</p>
+        ) : (
+          <div className="admin-orders-date-groups" style={{ padding: 0 }}>
+            {groupedByDate.map(([dateKey, dayOrders]) => {
+              const dayCompleted = dayOrders.filter((o) => o.status === "COMPLETED").length;
+              const dayRevenue = dayOrders
+                .filter((o) => o.status !== "CANCELLED" && ["PAID", "COLLECTED"].includes(o.paymentStatus))
+                .reduce((sum, o) => sum + o.total, 0);
+              return (
+                <section key={dateKey} className="admin-orders-date-group">
+                  <div className="admin-orders-date-group-header">
+                    <div className="admin-orders-date-group-title">
+                      <Calendar size={15} />
+                      <strong>
+                        {dateKey === todayVn ? t("business:dateFilter.todayPrefix") : ""}
+                        {formatDateLabelVn(dateKey, locale)}
+                      </strong>
+                      <Tag color="red">{t("business:dateFilter.ordersFullUnit", { count: dayOrders.length })}</Tag>
+                      <Tag color="green">{t("business:dateFilter.completedCountTag", { count: dayCompleted })}</Tag>
+                    </div>
+                    <div className="admin-orders-date-group-actions">
+                      <span className="admin-orders-date-group-revenue">
+                        {t("business:dateFilter.dailyNetRevenue")} <strong>{money(dayRevenue)}</strong>
+                      </span>
+                      <Button
+                        size="small"
+                        icon={<Download size={13} />}
+                        onClick={() => handleExportExcel(dayOrders, dateKey)}
+                      >
+                        {t("business:dateFilter.exportExcelDay", { date: dateKey.split("-").reverse().join("/") })}
+                      </Button>
+                    </div>
+                  </div>
+                  <Table
+                    loading={false}
+                    columns={columns}
+                    dataSource={dayOrders}
+                    rowKey="id"
+                    pagination={false}
+                    scroll={{ x: 1000 }}
+                  />
+                </section>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Order Detail Drawer */}
@@ -492,6 +659,19 @@ export const OrdersPage: React.FC = () => {
         onClose={() => setRefundModalOpen(false)}
         onConfirmRefund={handleConfirmRefund}
       />
+
+      {financeOrderId !== null && (
+        <FinanceModal
+          key={`order-finance:${financeOrderId}`}
+          orderId={financeOrderId}
+          stores={stores}
+          onClose={() => {
+            setFinanceOrderId(null);
+            void refreshOrders();
+          }}
+          onChanged={() => void refreshOrders()}
+        />
+      )}
     </div>
   );
 };

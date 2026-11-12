@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Select } from "antd";
 import {
   ArrowLeft,
   Store,
@@ -8,17 +9,20 @@ import {
   CheckCircle2,
   Clock3,
   Search,
-  Printer,
   Landmark,
   X,
-  FileCheck,
   AlertCircle,
   RefreshCw,
   Trash2,
   Receipt,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  FileSpreadsheet,
 } from "lucide-react";
 import { message } from "../../components/feedback";
 import { useAuth } from "../../context/AuthContext";
+import { useOrders } from "../../context/OrderContext";
 import {
   type BankTransactionItem,
 } from "../../mocks/mockPosCatalog";
@@ -29,6 +33,12 @@ import {
   type ShiftSummaryData,
   getErrorMessage,
 } from "../../lib/api";
+import {
+  exportCashLedgerExcel,
+  formatDateLabelVn,
+  shiftDateYmd,
+} from "../../utils/orderExcelExport";
+import "../Orders/admin-orders.css";
 import styles from "./incoming-transfers.module.css";
 
 const formatVnd = (val: number) => {
@@ -53,14 +63,41 @@ export function fromBackendBankTxToItem(
     status: b.matchedOrderCode ? "RECONCILED" : "UNASSIGNED",
     orderCode: b.matchedOrderCode || undefined,
     storeId: storeId || "1",
-    storeName: storeName || "Store #01 - Cầu Giấy",
+    storeName: storeName || "Clucky",
   };
 }
 
 export const IncomingTransfersPage: React.FC = () => {
-  const { t } = useTranslation();
-  const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const { user, isAdmin } = useAuth();
+  const { stores, currentStore } = useOrders();
   const navigate = useNavigate();
+
+  // Admin can inspect any branch; Store Manager is locked to their own store
+  const [selectedStoreId, setSelectedStoreId] = useState<number>(() =>
+    user?.storeId ? Number(user.storeId) : currentStore?.id || 1
+  );
+
+  useEffect(() => {
+    if (!isAdmin && user?.storeId) {
+      setSelectedStoreId(Number(user.storeId));
+    } else if (isAdmin && stores.length > 0 && !stores.some((s) => Number(s.id) === Number(selectedStoreId))) {
+      setSelectedStoreId(Number(stores[0].id));
+    }
+  }, [isAdmin, user?.storeId, stores, selectedStoreId]);
+
+  const activeStore = useMemo(
+    () =>
+      stores.find((s) => Number(s.id) === Number(selectedStoreId)) ||
+      currentStore ||
+      stores[0] ||
+      null,
+    [stores, selectedStoreId, currentStore]
+  );
+
+  const activeStoreName =
+    activeStore?.name || user?.storeName || `Chi nhánh #${selectedStoreId}`;
+  const activeStoreAddress = activeStore?.address;
 
   // Transactions & Receipts state
   const [transactions, setTransactions] = useState<BankTransactionItem[]>([]);
@@ -84,7 +121,7 @@ export const IncomingTransfersPage: React.FC = () => {
     const revision = ++loadRevisionRef.current;
     setIsLoading(true);
     try {
-      const storeIdNum = user?.storeId ? Number(user.storeId) : 1;
+      const storeIdNum = isAdmin ? selectedStoreId : (user?.storeId ? Number(user.storeId) : 1);
       const [txList, rcList, summary] = await Promise.all([
         paymentsApi.listBankTransactions(storeIdNum, selectedDate).catch(() => null),
         paymentsApi.listReceipts(storeIdNum).catch(() => null),
@@ -96,8 +133,8 @@ export const IncomingTransfersPage: React.FC = () => {
         const converted = txList.map((tx) =>
           fromBackendBankTxToItem(
             tx,
-            user?.storeId ? String(user.storeId) : "1",
-            user?.storeName || "Store #01 - Cầu Giấy",
+            String(storeIdNum),
+            activeStoreName,
           ),
         );
         setTransactions(converted.filter(tx => businessDate(new Date(tx.transactionDate)) === selectedDate));
@@ -120,7 +157,7 @@ export const IncomingTransfersPage: React.FC = () => {
     } finally {
       if (revision === loadRevisionRef.current) setIsLoading(false);
     }
-  }, [user?.storeId, user?.storeName, selectedDate]);
+  }, [isAdmin, selectedStoreId, user?.storeId, activeStoreName, selectedDate]);
 
   useEffect(() => {
     loadPaymentData();
@@ -233,9 +270,22 @@ export const IncomingTransfersPage: React.FC = () => {
     }
   };
 
-  // Shift handover print simulation
-  const handlePrintHandover = () => {
-    window.print();
+  // Export Excel Cash Ledger & Shift Drawer Report
+  const handleExportExcel = () => {
+    exportCashLedgerExcel({
+      date: selectedDate,
+      storeName: activeStoreName,
+      storeAddress: activeStoreAddress,
+      staffName: user?.fullName || "Manager",
+      netCashInDrawer: shiftSummary?.netCashInDrawer ?? shiftCashStats.netCashInDrawer,
+      totalCashCollected: shiftSummary?.totalCashCollected ?? shiftCashStats.totalCashCollected,
+      totalCashChangeGiven: shiftSummary?.totalCashChangeGiven ?? shiftCashStats.totalCashChangeGiven,
+      totalBankReconciled: shiftSummary?.totalBankReconciled ?? shiftCashStats.totalBankReconciled,
+      totalBankPending: shiftSummary?.totalBankPending ?? shiftCashStats.totalBankPending,
+      receipts,
+      transactions,
+    });
+    message.success(t("business:transfers.exportLedgerSuccess", { date: selectedDate }));
   };
 
   return (
@@ -261,33 +311,128 @@ export const IncomingTransfersPage: React.FC = () => {
         </div>
 
         <div className={styles.headerActions}>
+          {isAdmin && stores.length > 0 && (
+            <Select
+              aria-label={t("business:transfers.selectStore")}
+              value={selectedStoreId}
+              style={{ minWidth: 220 }}
+              options={stores.map((s) => ({
+                value: Number(s.id),
+                label: s.name,
+              }))}
+              onChange={(val) => setSelectedStoreId(Number(val))}
+            />
+          )}
+
           <div className={styles.branchChip}>
             <Store size={18} color="#8f1216" />
             <div>
-              <div className={styles.branchName}>
-                {user?.storeName || "Store #01 - Cầu Giấy"}
-              </div>
-              <div className={styles.branchStatus}>{selectedDate}</div>
+              <div className={styles.branchName}>{activeStoreName}</div>
+              {activeStoreAddress ? (
+                <div className={styles.branchStatus}>{activeStoreAddress}</div>
+              ) : (
+                <div className={styles.branchStatus}>{selectedDate}</div>
+              )}
             </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Date Filter Card (Matches Quản lý đơn hàng UI + Export Excel) */}
+      <section className="admin-orders-date-card" aria-label={t("business:dateFilter.ariaLabel")}>
+        <div className="admin-orders-date-left">
+          <div className="admin-orders-date-icon">
+            <Calendar size={18} />
+          </div>
+          <div className="admin-orders-date-meta">
+            <span className="admin-orders-date-eyebrow">
+              {t("business:transfers.ledgerEyebrow")}
+            </span>
+            <strong className="admin-orders-date-title">
+              {selectedDate === businessDate() ? t("business:dateFilter.todayPrefix") : ""}
+              {formatDateLabelVn(selectedDate, i18n.language)}
+            </strong>
+          </div>
+        </div>
+
+        <div className="admin-orders-date-controls">
+          <div className="admin-orders-date-stepper">
+            <button
+              type="button"
+              className="admin-orders-date-step-btn"
+              title={t("business:dateFilter.prevDay")}
+              onClick={() => setSelectedDate((d) => shiftDateYmd(d, -1))}
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <input
+              id="ledger-date"
+              type="date"
+              aria-label={t("business:dateFilter.pickDateAria")}
+              value={selectedDate}
+              max={businessDate()}
+              onChange={(event) => {
+                if (event.target.value) setSelectedDate(event.target.value);
+              }}
+              className="admin-orders-date-input"
+            />
+            <button
+              type="button"
+              className="admin-orders-date-step-btn"
+              title={t("business:dateFilter.nextDay")}
+              disabled={selectedDate >= businessDate()}
+              onClick={() => setSelectedDate((d) => shiftDateYmd(d, 1))}
+            >
+              <ChevronRight size={15} />
+            </button>
           </div>
 
           <button
             type="button"
-            className={styles.printHandoverBtn}
-            onClick={handlePrintHandover}
-            title={t("business:transfers.printHandover")}
+            className="admin-orders-date-step-btn"
+            style={{ width: "auto", padding: "0 12px", fontWeight: 700, fontSize: 13 }}
+            onClick={() => setSelectedDate(businessDate())}
           >
-            <Printer size={16} />
-            <span>{t("business:transfers.printHandover")}</span>
+            {t("business:dateFilter.today")}
+          </button>
+
+          <button
+            type="button"
+            className="admin-orders-date-step-btn"
+            style={{ width: "auto", padding: "0 12px", gap: 6, fontWeight: 700, fontSize: 13 }}
+            onClick={() => void loadPaymentData()}
+            disabled={isLoading}
+          >
+            <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+            <span>{t("business:dateFilter.refresh")}</span>
+          </button>
+
+          <button
+            type="button"
+            className={styles.printHandoverBtn}
+            onClick={handleExportExcel}
+            title={t("business:transfers.exportLedgerExcel")}
+          >
+            <FileSpreadsheet size={16} />
+            <span>{t("business:transfers.exportLedgerExcel")}</span>
           </button>
         </div>
-      </header>
-      <div className={styles.toolbar}>
-        <label htmlFor="ledger-date">{t("business:stafforderspage.filterOrderDate")}</label>
-        <input id="ledger-date" type="date" value={selectedDate} max={businessDate()}
-          onChange={event => { if (event.target.value) setSelectedDate(event.target.value); }} />
-        <button type="button" onClick={() => setSelectedDate(businessDate())}>{t("business:stafforderspage.today")}</button>
-      </div>
+
+        <div className="admin-orders-date-kpis">
+          <div className="admin-orders-kpi-pill">
+            <span>{t("business:transfers.receipts")}:</span>
+            <strong>{receipts.length}</strong>
+          </div>
+          <div className="admin-orders-kpi-pill">
+            <span>{t("business:transfers.bankTransactions")}:</span>
+            <strong>{transactions.length}</strong>
+          </div>
+          <div className="admin-orders-kpi-pill admin-orders-kpi-highlight">
+            <span>{t("business:transfers.cashDrawer")}:</span>
+            <strong>{formatVnd(shiftSummary?.netCashInDrawer ?? shiftCashStats.netCashInDrawer)}</strong>
+          </div>
+        </div>
+      </section>
 
       {/* Cảnh báo lỗi kết nối backend */}
       {fetchError && (

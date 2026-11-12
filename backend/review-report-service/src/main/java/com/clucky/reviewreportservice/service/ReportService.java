@@ -190,7 +190,7 @@ public class ReportService {
                 .map(DomainMapper::toResponse)
                 .toList();
 
-        boolean projectionActive = !"false".equalsIgnoreCase(revenueEventPolicy);
+        boolean projectionActive = java.util.Set.of("order.completed", "payment.confirmed").contains(revenueEventPolicy);
 
         return new RevenueReportResponse(
                 effectiveStoreId,

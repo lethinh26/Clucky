@@ -38,6 +38,9 @@ interface Props {
     reason?: string,
   ) => Promise<boolean> | boolean;
   onOpenRefundModal?: (order: AdminOrder) => void;
+  onOpenFinance?: (order: AdminOrder) => void;
+  onCollectCounter?: (order: AdminOrder) => void;
+  onChanged?: () => void;
 }
 
 export function OrderDetailDrawer({
@@ -46,12 +49,15 @@ export function OrderDetailDrawer({
   onClose,
   onStatusChange,
   onOpenRefundModal,
+  onOpenFinance,
+  onCollectCounter,
+  onChanged,
 }: Props) {
   const { t } = useTranslation();
 
 
   const { locale, money: money } = useLocaleTools();
-  const { actionError, createRefund } = useOrders();
+  const { stores, actionError, createRefund } = useOrders();
   const { isStaff } = useAuth();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -160,7 +166,17 @@ export function OrderDetailDrawer({
             </div>
             <div>
               <dt>{t("business:party.store")}</dt>
-              <dd>{order.storeName}</dd>
+              <dd>
+                {(() => {
+                  const s = stores.find((item) => Number(item.id) === Number(order.storeId));
+                  return (
+                    <>
+                      <div>{s?.name || order.storeName}</div>
+                      {s?.address && <small style={{ color: "#6b6259" }}>{s.address}</small>}
+                    </>
+                  );
+                })()}
+              </dd>
             </div>
             {order.deliveryAddress && (
               <div className={styles.wideField}>
@@ -215,9 +231,11 @@ export function OrderDetailDrawer({
             <div>
               <dt>{t("business:orderdetaildrawer.method")}</dt>
               <dd>
-                {order.paymentMethod === "COD"
-                  ? t("business:orderdetaildrawer.cashCod")
-                  : t("business:id.bankTransfer")}
+                {onOpenFinance
+                  ? (order.paymentMethod || "UNKNOWN")
+                  : (order.paymentMethod === "COD" || (order.paymentMethod as string) === "CASH")
+                    ? t("business:orderdetaildrawer.cashCod")
+                    : t("business:id.bankTransfer")}
               </dd>
             </div>
             <div>
@@ -250,6 +268,7 @@ export function OrderDetailDrawer({
           <h2 className={styles.drawerHeading}>{t("business:orderdetaildrawer.orderActions")}</h2>
           <p className={styles.actionHint}> {t("business:orderdetaildrawer.actionsDependOnTheCurrentStatusAndYourDemoRole")} </p>
           <div className={styles.drawerActions}>
+            {onOpenFinance && <Button icon={<Wallet size={16} />} onClick={() => onOpenFinance(order)}>{t("admin:ui.financeCollectionRefunds")}</Button>}
             {order.status === "CONFIRMED" && (order.orderType !== "PICKUP" || ["PAID", "COLLECTED"].includes(order.paymentStatus)) && (
               <Button
                 type="primary"
@@ -264,11 +283,21 @@ export function OrderDetailDrawer({
                 onClick={() => onStatusChange(order.id, "READY")}
               > {t("business:orderdetaildrawer.mealReady")} </Button>
             )}
-            {order.paymentMethod === "COD" &&
-              order.paymentStatus === "PENDING" &&
-              !["CANCELLED", "COMPLETED"].includes(order.status) && (
-                order.orderType === "PICKUP" && ["CONFIRMED", "PREPARING", "READY"].includes(order.status) &&
-                <CodEvidencePanel orderId={order.id} onCollect={() => onStatusChange(order.id, order.status, "COLLECT_COD")} />
+            {!onOpenFinance && order.paymentStatus === "PENDING" &&
+              !["CANCELLED", "COMPLETED", "PENDING_PAYMENT"].includes(order.status) && (
+                onCollectCounter ? (
+                  <Button
+                    type="primary"
+                    icon={<Wallet size={16} />}
+                    onClick={() => onCollectCounter(order)}
+                  >
+                    {t("business:staffcard.collectCounter")} (Tiền mặt / QR / Kết hợp)
+                  </Button>
+                ) : (
+                  order.paymentMethod === "COD" &&
+                  order.orderType === "PICKUP" && ["CONFIRMED", "PREPARING", "READY"].includes(order.status) &&
+                  <CodEvidencePanel orderId={order.id} onCollect={() => onStatusChange(order.id, order.status, "COLLECT_COD")} />
+                )
               )}
             {["READY", "SHIPPING"].includes(order.status) && (
               <Button
@@ -341,6 +370,7 @@ export function OrderDetailDrawer({
           setSubmittingRefund(false);
           if (ok) {
             setCreateRefundOpen(false);
+            onChanged?.();
             message.success(t("business:orderdetaildrawer.refundRequestSuccess"));
           }
         }}

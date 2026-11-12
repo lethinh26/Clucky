@@ -43,9 +43,47 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class CheckoutRegressionTest {
     @Test
+    void checkoutTracksReservationBeforeCallingPromotionWithExactVoucherDiscount() {
+        var orders = mock(OrderRepository.class);
+        var carts = mock(CartService.class);
+        var catalog = mock(CatalogClient.class);
+        var promotion = mock(PromotionClient.class);
+        var shipping = mock(ShippingClient.class);
+        var loyalty = mock(LoyaltyClient.class);
+        var recovery = mock(VoucherCheckoutRecovery.class);
+        var profiles = mock(CustomerProfileClient.class);
+        var item = new CartItemDto(1L, null, "Chicken", 1, BigDecimal.valueOf(100), List.of(), List.of(), null, 1L);
+        when(carts.getCart(anyString())).thenReturn(CartDto.of(List.of(item)));
+        when(catalog.validateItems(anyLong(), anyList())).thenReturn(new CatalogClient.CatalogValidationResponse(true, true, null,
+                BigDecimal.valueOf(100), List.of()));
+        when(shipping.calculateShippingFee(anyString(), anyLong(), any(), any())).thenReturn(
+                new ShippingClient.ShippingFeeResult(true, BigDecimal.ZERO, "PICKUP", null, null, null));
+        when(promotion.validateVoucher(anyString(), anyLong(), any())).thenReturn(new PromotionClient.VoucherResult(true, null, BigDecimal.TEN));
+        when(loyalty.preview(any(), any())).thenReturn(new LoyaltyClient.Quote(1, 0, 0, BigDecimal.ZERO, 0, "MEMBER", BigDecimal.valueOf(5)));
+        when(orders.save(any())).thenAnswer(call -> {
+            com.clucky.cartorderservice.entity.Order order = call.getArgument(0); order.setId(8L); return order;
+        });
+        doThrow(new ApiException(ErrorCode.RESOURCE_CONFLICT)).when(loyalty).reserveVoucher(8, 1, 1, "SAVE", BigDecimal.valueOf(100), BigDecimal.TEN);
+        var service = new OrderService(orders, mock(OrderItemRepository.class), mock(OrderStatusHistoryRepository.class), carts,
+                new AccessGuard(), new ObjectMapper(), mock(OrderEventPublisher.class), catalog, promotion, shipping, loyalty, recovery, profiles);
+        var jwt = Jwt.withTokenValue("test").header("alg", "HS256").subject("1").claim("role", "CUSTOMER").build();
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt, List.of()));
+        try {
+            var request = new CreateOrderRequest(1L, "PICKUP", "Customer", "0900000000", null, null, "BANK_TRANSFER", "SAVE", 0, null, null, null, null, null);
+            assertEquals(ErrorCode.RESOURCE_CONFLICT, assertThrows(ApiException.class, () -> service.createOrder(request)).getCode());
+            var sequence = inOrder(recovery, loyalty);
+            sequence.verify(loyalty).preview(0, BigDecimal.valueOf(90));
+            sequence.verify(recovery).lock(8);
+            sequence.verify(recovery).track(8);
+            sequence.verify(loyalty).reserveVoucher(8, 1, 1, "SAVE", BigDecimal.valueOf(100), BigDecimal.TEN);
+            verify(carts, never()).clearCart(anyString());
+            verify(loyalty, never()).reserve(anyLong(), anyLong(), any(), any());
+        } finally { SecurityContextHolder.clearContext(); }
+    }
+    @Test
     void guestCheckoutCannotRedeemPointsWithoutAnAuthenticatedOwner() {
         org.springframework.security.core.context.SecurityContextHolder.clearContext();
-        var client = new LoyaltyClient(RestClient.builder().build(), "http://promotion", "service-test-token");
+        var client = new LoyaltyClient(RestClient.builder().build(), "http://promotion", mock(InternalServiceCredential.class));
         assertEquals(ErrorCode.UNAUTHENTICATED,
                 assertThrows(ApiException.class, () -> client.preview(100, new BigDecimal("200000"))).getCode());
         assertEquals(0, client.preview(0, new BigDecimal("200000")).pointsUsed());
@@ -54,7 +92,7 @@ class CheckoutRegressionTest {
     void voucherUsesOrderAmountAndDoesNotHideDependencyFailures() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        PromotionClient client = new PromotionClient(builder.build(), "http://promotion", "service-test-token");
+        PromotionClient client = new PromotionClient(builder.build(), "http://promotion");
         server.expect(requestTo("http://promotion/api/promotions/vouchers/validate"))
                 .andExpect(content().json("{\"code\":\"SAVE\",\"storeId\":1,\"orderAmount\":100000}", true))
                 .andRespond(withSuccess("{\"valid\":true,\"discountAmount\":20000}", MediaType.APPLICATION_JSON));
@@ -75,7 +113,7 @@ class CheckoutRegressionTest {
     void catalogUsesServiceCredentialAndRejectsIncompleteSnapshots() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        CatalogCredential credential = mock(CatalogCredential.class);
+        InternalServiceCredential credential = mock(InternalServiceCredential.class);
         when(credential.token()).thenReturn("test-service-token");
         CatalogClient client = new CatalogClient(builder.build(), "http://catalog", credential);
         CartItemDto item = new CartItemDto(1L, null, "Client name", 1, BigDecimal.ONE, List.of(11L), List.of(22L), null, 1L);
@@ -86,7 +124,7 @@ class CheckoutRegressionTest {
                 .andRespond(withSuccess("{\"valid\":true,\"subtotal\":100,\"items\":[]}", MediaType.APPLICATION_JSON));
         assertEquals(ErrorCode.UPSTREAM_ERROR, assertThrows(ApiException.class, () -> client.validateItems(1L, List.of(item))).getCode());
         server.verify();
-        CatalogClient missingCredential = new CatalogClient(builder.build(), "http://catalog", mock(CatalogCredential.class));
+        CatalogClient missingCredential = new CatalogClient(builder.build(), "http://catalog", mock(InternalServiceCredential.class));
         assertEquals(ErrorCode.DEPENDENCY_UNAVAILABLE,
                 assertThrows(ApiException.class, () -> missingCredential.validateItems(1L, List.of(item))).getCode());
     }
@@ -107,7 +145,8 @@ class CheckoutRegressionTest {
         when(promotion.validateVoucher(anyString(), anyLong(), any()))
                 .thenReturn(new PromotionClient.VoucherResult(false, "Expired", BigDecimal.ZERO));
         OrderService service = new OrderService(orders, mock(OrderItemRepository.class), mock(OrderStatusHistoryRepository.class),
-                carts, mock(AccessGuard.class), new ObjectMapper(), mock(OrderEventPublisher.class), catalog, promotion, shipping, mock(LoyaltyClient.class));
+                carts, mock(AccessGuard.class), new ObjectMapper(), mock(OrderEventPublisher.class), catalog, promotion, shipping, mock(LoyaltyClient.class),
+                mock(VoucherCheckoutRecovery.class), mock(CustomerProfileClient.class));
         Jwt jwt = Jwt.withTokenValue("test").header("alg", "HS256").subject("1").claim("role", "CUSTOMER").build();
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt, List.of()));
         try {

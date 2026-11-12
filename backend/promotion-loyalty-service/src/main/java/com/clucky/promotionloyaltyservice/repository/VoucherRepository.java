@@ -28,6 +28,13 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long>, JpaSpec
 
     Optional<Voucher> findByCodeIgnoreCase(String code);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM Voucher v WHERE UPPER(v.code) = :code")
+    Optional<Voucher> findByCodeWithLock(@Param("code") String code);
+
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM promotion_service.voucher_reservations WHERE voucher_id = :id)", nativeQuery = true)
+    boolean hasReservations(@Param("id") Long id);
+
     boolean existsByCodeIgnoreCase(String code);
 
     boolean existsByCodeIgnoreCaseAndIdNot(String code, Long id);
@@ -40,7 +47,7 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long>, JpaSpec
         WHERE v.status = 'ACTIVE'
           AND v.startAt <= :now
           AND v.endAt >= :now
-          AND (v.totalLimit IS NULL OR v.totalLimit <= 0 OR v.usedCount < v.totalLimit)
+          AND (v.totalLimit IS NULL OR v.totalLimit <= 0 OR v.usedCount + v.reservedCount < v.totalLimit)
           AND (
                (:storeId IS NOT NULL AND (v.scope = 'ALL' OR (v.scope = 'STORE' AND v.storeId = :storeId)))
             OR (:storeId IS NULL AND v.scope = 'ALL')

@@ -202,7 +202,8 @@ public class OrderPaymentService {
         if (com.clucky.cartorderservice.config.CurrentActor.require().role() != com.clucky.cartorderservice.dto.Role.INTERNAL_SERVICE) {
             throw new org.springframework.security.access.AccessDeniedException("Payment service credential required");
         }
-        if (!"COUNTER".equals(order.getOrderSource()) || !java.util.Set.of("CONFIRMED", "PREPARING", "READY").contains(order.getStatus())) {
+        if (!java.util.Set.of("COUNTER", "WEB").contains(order.getOrderSource())
+                || !java.util.Set.of("CONFIRMED", "PREPARING", "READY", "SHIPPING").contains(order.getStatus())) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Đơn hàng không cho phép cập nhật thu tiền quầy");
         }
         if ("COLLECTED".equalsIgnoreCase(paymentStatus)) {

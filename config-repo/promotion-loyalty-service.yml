@@ -27,5 +27,4 @@ cloudinary:
 
 clucky:
   loyalty:
-    internal-token: ${LOYALTY_INTERNAL_TOKEN:}
     order-url: ${ORDER_SERVICE_URL:http://cart-order-service}

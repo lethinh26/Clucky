@@ -92,6 +92,8 @@
     "continueShopping": "← Tiếp tục chọn thêm món"
   },
   "checkout": {
+    "storeClosedTempBanner": "Chi nhánh \"{storeName}\" hiện đang tạm đóng cửa (Giờ mở cửa: {openTime} - {closeTime}). Các thao tác đặt hàng đang tạm khóa.",
+    "storeClosedHoursBanner": "Cửa hàng \"{storeName}\" hiện chưa mở cửa (Giờ phục vụ: {openTime} - {closeTime}). Các thao tác đặt hàng đang tạm khóa.",
     "theDiscountHasBeenApplied": "Áp dụng mã giảm 20.000đ thành công!",
     "freeDeliveryApplied": "Miễn phí vận chuyển thành công!",
     "theVoucherIsInvalidOrHasReachedItsUsageLimit": "Mã giảm giá không hợp lệ hoặc đã hết lượt.",
@@ -159,7 +161,20 @@
     "thereAreNoOrdersInThisSectionOrYourSearchDidNot": "Bạn chưa có đơn hàng nào trong mục này hoặc từ khóa tìm kiếm không khớp.",
     "reorderThisMeal": "Đặt lại đơn này",
     "viewDetails": "Xem chi tiết →",
-    "goToCart": "Đến giỏ hàng →"
+    "goToCart": "Đến giỏ hàng →",
+    "filterByDate": "Lọc theo ngày:",
+    "allDates": "Tất cả ngày",
+    "today": "Hôm nay",
+    "filterPayment": "Thanh toán:",
+    "allPaymentMethods": "Tất cả PTTT",
+    "paymentVietQr": "Chuyển khoản (VietQR)",
+    "paymentCod": "Tiền mặt (COD)",
+    "sortBy": "Sắp xếp:",
+    "sortNewest": "Mới nhất trước",
+    "sortOldest": "Cũ nhất trước",
+    "sortTotalDesc": "Giá trị cao → thấp",
+    "sortTotalAsc": "Giá trị thấp → cao",
+    "resetFilters": "Đặt lại bộ lọc"
   },
   "id": {
     "orderNotFound": "Không tìm thấy đơn hàng",

@@ -92,6 +92,8 @@
     "continueShopping": "← Continue shopping"
   },
   "checkout": {
+    "storeClosedTempBanner": "Branch \"{storeName}\" is temporarily closed (Opening hours: {openTime} - {closeTime}). Ordering actions are temporarily locked.",
+    "storeClosedHoursBanner": "Store \"{storeName}\" is currently outside service hours ({openTime} - {closeTime}). Ordering actions are temporarily locked.",
     "theDiscountHasBeenApplied": "The ₫20,000 discount has been applied!",
     "freeDeliveryApplied": "Free delivery applied!",
     "theVoucherIsInvalidOrHasReachedItsUsageLimit": "The voucher is invalid or has reached its usage limit.",
@@ -159,7 +161,20 @@
     "thereAreNoOrdersInThisSectionOrYourSearchDidNot": "There are no orders in this section, or your search did not match.",
     "reorderThisMeal": "Reorder this meal",
     "viewDetails": "View details →",
-    "goToCart": "Go to cart →"
+    "goToCart": "Go to cart →",
+    "filterByDate": "Filter by date:",
+    "allDates": "All dates",
+    "today": "Today",
+    "filterPayment": "Payment:",
+    "allPaymentMethods": "All methods",
+    "paymentVietQr": "Bank transfer (VietQR)",
+    "paymentCod": "Cash (COD)",
+    "sortBy": "Sort by:",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "sortTotalDesc": "Total: High to Low",
+    "sortTotalAsc": "Total: Low to High",
+    "resetFilters": "Reset filters"
   },
   "id": {
     "orderNotFound": "Order not found",

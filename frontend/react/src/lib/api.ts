@@ -1,7 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { signIn, endSession, loadSession, refreshSession, expireSession, getSessionState, type SessionUser } from './session';
-import { getBrowserLocale, getErrorMessage as resolveError } from '../i18n/core';
-import { getTranslator } from '../i18n/translator';
+import { getBrowserLocale, getErrorMessage as resolveError, getTranslator } from '../i18n/core';
 import type { StoreStatus } from '../types/store';
 import type { AdminVoucher, VoucherPayload } from '../types/promotion';
 
@@ -19,6 +18,8 @@ export interface ProductTopping {
 }
 
 export interface Product {
+  version?: number;
+  imagePublicId?: string | null;
   id: number;
   slug: string;
   name: string;
@@ -40,6 +41,8 @@ export interface Product {
 }
 
 export interface Combo {
+  version?: number;
+  imagePublicId?: string | null;
   id: number;
   name: string;
   slug: string;
@@ -49,13 +52,13 @@ export interface Combo {
   startAt?: string | null;
   endAt?: string | null;
   isActive: boolean;
-  items: { productId: number; productName: string; quantity: number; optionId?: number }[];
+  items: { id?: number; productId: number; productName: string; quantity: number; optionId?: number | null }[];
 }
 
 export interface Store {
   deliveryRadiusKm?: number | null;
   version?: number;
-  accountReadiness?: 'LEGACY' | 'PENDING' | 'PROVISIONED' | 'READY';
+  accountReadiness?: 'UNPROVISIONED' | 'PENDING' | 'PROVISIONED' | 'READY';
   recoveryEmail?: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -76,6 +79,8 @@ export interface Store {
 }
 
 export interface InventoryItem {
+  version: number;
+  availabilityVersion: number;
   storeId: number;
   productId: number;
   productName: string;
@@ -89,6 +94,7 @@ export interface InventoryItem {
 }
 
 export interface CatalogCategory {
+  version?: number;
   id: number;
   name: string;
   imageUrl?: string;
@@ -332,6 +338,7 @@ export const ordersApi = {
 
 /* ---------- Refunds ---------- */
 export interface BackendRefundAttempt {
+  createdBy?: number;
   id: number;
   refundRequestId: number;
   attemptNumber: number;
@@ -350,6 +357,8 @@ export interface BackendRefundAttempt {
 }
 
 export interface BackendRefund {
+  paymentOperation?: 'RESERVE' | 'CONFIRM' | 'RELEASE' | null;
+  paymentError?: string | null;
   id: number;
   orderId: number;
   orderCode?: string;
@@ -417,17 +426,18 @@ export const refundsApi = {
   },
   claimProcessing: (id: string | number, signal?: AbortSignal) =>
     api.put<BackendRefund>(`/api/refund-requests/${id}/claim-processing`, {}, { signal }).then((r) => r.data),
-  requestBankDetails: (id: string | number, reason: string, signal?: AbortSignal) =>
-    api.put<BackendRefund>(`/api/refund-requests/${id}/request-bank-details`, { reason }, { signal }).then((r) => r.data),
+  requestBankDetails: (id: string | number, reason: string, transferNotCompleted = false, signal?: AbortSignal) =>
+    api.put<BackendRefund>(`/api/refund-requests/${id}/request-bank-details`, { reason, transferNotCompleted }, { signal }).then((r) => r.data),
   updateBankDetails: (
     id: string | number,
-    data: { bankName: string; bankAccountNo?: string; accountNumber?: string; bankAccountName?: string; accountHolderName?: string },
+    data: { bankName: string; bankAccountNo?: string; accountNumber?: string; bankAccountName?: string; accountHolderName?: string; expectedBankDetailsVersion?: number },
     signal?: AbortSignal
   ) =>
     api.put<BackendRefund>(`/api/refund-requests/${id}/bank-details`, {
       bankName: data.bankName,
-      accountNumber: data.accountNumber ?? data.bankAccountNo,
-      accountHolderName: data.accountHolderName ?? data.bankAccountName,
+      bankAccountNo: data.accountNumber ?? data.bankAccountNo,
+      bankAccountName: data.accountHolderName ?? data.bankAccountName,
+      expectedBankDetailsVersion: data.expectedBankDetailsVersion,
     }, { signal }).then((r) => r.data),
   uploadEvidence: (id: string | number, file: File, signal?: AbortSignal) => {
     const formData = new FormData();
@@ -612,11 +622,11 @@ export const storesApi = {
 export const inventoryApi = {
   getStoreInventory: (storeId: number) =>
     api.get<InventoryItem[]>(`/api/stores/${storeId}/inventory`).then((r) => r.data),
-  updateInventory: (storeId: number, productId: number, data: { quantityAvailable?: number; isSoldOut?: boolean }) =>
+  updateInventory: (storeId: number, productId: number, data: { quantityAvailable?: number; isSoldOut?: boolean; expectedVersion?: number }) =>
     api.put<InventoryItem>(`/api/stores/${storeId}/inventory/${productId}`, data).then((r) => r.data),
-  updateStoreThreshold: (storeId: number, threshold: number) =>
-    api.put<{ storeId: number; lowStockThreshold: number; threshold: number }>(`/api/stores/${storeId}/threshold`, { threshold, lowStockThreshold: threshold }).then((r) => r.data),
-  updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean }) =>
+  updateStoreThreshold: (storeId: number, threshold: number, expectedVersion?: number) =>
+    api.put<{ storeId: number; lowStockThreshold: number; threshold: number; version: number }>(`/api/stores/${storeId}/threshold`, { threshold, lowStockThreshold: threshold, expectedVersion }).then((r) => r.data),
+  updateAvailability: (storeId: number, productId: number, data: { isAvailable?: boolean; isSoldOut?: boolean; storePrice?: number | null; clearStorePrice?: boolean; expectedVersion?: number }) =>
     api.put(`/api/stores/${storeId}/products/${productId}/availability`, data).then((r) => r.data),
 };
 

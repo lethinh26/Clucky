@@ -13,6 +13,8 @@ import {
   Loader2,
   Check,
   Flame,
+  Lock,
+  Clock,
 } from "lucide-react";
 import {
   MOCK_POS_PRODUCTS,
@@ -23,10 +25,12 @@ import {
 } from "../../../mocks/mockPosCatalog";
 import type { DiningOption, PaymentMethod, StaffOrder } from "../../../mocks/mockStaffOrders";
 import { useAuth } from "../../../context/AuthContext";
+import { useOrders } from "../../../context/OrderContext";
 import { message } from "../../../components/feedback";
 import {
   catalogApi,
   ordersApi,
+  paymentsApi,
   type CounterOrderItemPayload,
   type CreateCounterOrderPayload,
 } from "../../../lib/api";
@@ -36,7 +40,7 @@ interface CounterOrderModalProps {
   open: boolean;
   onClose: () => void;
   onSubmitOrder?: (order: Partial<StaffOrder>) => Promise<void> | void;
-  onSuccess?: () => void;
+  onSuccess?: (created?: any) => Promise<void> | void;
   existingOrderCount?: number;
 }
 
@@ -53,6 +57,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { currentStore, storeOpenState } = useOrders();
   // 1. Filter states
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -64,6 +69,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isCashCollected, setIsCashCollected] = useState<boolean>(true);
+  const [cashTenderedInput, setCashTenderedInput] = useState<number>(0);
   const [showQrPreview, setShowQrPreview] = useState<boolean>(false);
 
   // 3. Option Customization Modal state
@@ -83,8 +89,9 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
 
     const loadBackendCatalog = async () => {
       try {
+        const effectiveStoreId = user?.storeId ? Number(user.storeId) : currentStore?.id || 1;
         const [productsData, combosData] = await Promise.all([
-          catalogApi.listProducts({ activeOnly: true }),
+          catalogApi.listProducts({ storeId: effectiveStoreId, activeOnly: true }),
           catalogApi.listCombos(true),
         ]);
 
@@ -92,9 +99,20 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
 
         const convertedProducts: PosProduct[] = [];
 
+        const rawProducts = Array.isArray(productsData)
+          ? productsData
+          : Array.isArray((productsData as any)?.content)
+            ? (productsData as any).content
+            : [];
+        const rawCombos = Array.isArray(combosData)
+          ? combosData
+          : Array.isArray((combosData as any)?.content)
+            ? (combosData as any).content
+            : [];
+
         // Chuyển đổi sản phẩm đơn từ backend
-        if (Array.isArray(productsData) && productsData.length > 0) {
-          productsData.forEach((p) => {
+        if (rawProducts.length > 0) {
+          rawProducts.forEach((p: any) => {
             let category: PosProduct["category"] = "CHICKEN";
             const nameLower = (p.name || "").toLowerCase();
             const catNameLower = (p.categoryName || "").toLowerCase();
@@ -134,11 +152,11 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
               description: p.description,
               optionGroups:
                 p.options && p.options.length > 0
-                  ? p.options.map((opt) => ({
+                  ? p.options.map((opt: any) => ({
                       id: opt.id,
                       name: opt.name,
                       required: opt.required,
-                      choices: opt.choices.map((c) => ({
+                      choices: opt.choices.map((c: any) => ({
                         id: c.id,
                         name: c.name,
                         extraPrice: c.priceAdjustment || 0,
@@ -150,8 +168,8 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
         }
 
         // Chuyển đổi Combo từ backend
-        if (Array.isArray(combosData) && combosData.length > 0) {
-          combosData.forEach((c) => {
+        if (rawCombos.length > 0) {
+          rawCombos.forEach((c: any) => {
             convertedProducts.push({
               id: `combo-${c.id}`,
               name: c.name,
@@ -164,7 +182,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
               badge: "Combo Tiết Kiệm",
               description:
                 c.description ||
-                c.items?.map((it) => `${it.quantity}x ${it.productName}`).join(" + "),
+                c.items?.map((it: any) => `${it.quantity}x ${it.productName}`).join(" + "),
             });
           });
         }
@@ -181,7 +199,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
     return () => {
       active = false;
     };
-  }, [open]);
+  }, [open, user?.storeId, currentStore?.id]);
 
   // Reset cart when modal reopens
   useEffect(() => {
@@ -190,6 +208,8 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
       setOrderNote("");
       setDiningOption("DINE_IN");
       setPaymentMethod("CASH");
+      setIsCashCollected(true);
+      setCashTenderedInput(0);
       setIsSubmitting(false);
       setCustomizingProduct(null);
       setTimeout(() => {
@@ -200,7 +220,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
 
   // Handle open options modal for a product
   const handleOpenCustomizer = (product: PosProduct) => {
-    if (!product.inStock) return;
+    if (!product.inStock || !storeOpenState.isOpen) return;
 
     if (!product.optionGroups || product.optionGroups.length === 0) {
       // Add directly to cart
@@ -324,10 +344,16 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
   }, [cartItems]);
   const discount = 0;
   const totalAmount = subtotal - discount;
+  const effectiveCashTendered = cashTenderedInput >= totalAmount ? cashTenderedInput : totalAmount;
+  const effectiveCashChange = Math.max(0, effectiveCashTendered - totalAmount);
+
+  useEffect(() => {
+    setCashTenderedInput((prev) => (prev < totalAmount ? totalAmount : prev));
+  }, [totalAmount]);
 
   // Submit order handler
   const handleSubmit = async () => {
-    if (cartItems.length === 0 || isSubmitting) return;
+    if (cartItems.length === 0 || isSubmitting || !storeOpenState.isOpen) return;
 
     setIsSubmitting(true);
     try {
@@ -345,7 +371,8 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
         const optionIds: number[] = [];
         if (Array.isArray(ci.options)) {
           for (const opt of ci.options) {
-            const num = Number(opt.choiceId);
+            const rawId = String(opt.choiceId ?? "").replace(/^opt-/i, "");
+            const num = Number(rawId);
             if (!Number.isNaN(num) && num > 0) {
               optionIds.push(num);
             }
@@ -361,16 +388,38 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
         };
       });
 
-      const effectiveStoreId = user?.storeId ? Number(user.storeId) : 1;
+      const effectiveStoreId = user?.storeId ? Number(user.storeId) : currentStore?.id || 1;
       const payload: CreateCounterOrderPayload = {
         storeId: effectiveStoreId,
         diningOption,
-        paymentMethod: paymentMethod === "CASH" ? "CASH" : "BANK_TRANSFER",
+        paymentMethod: paymentMethod,
         note: orderNote.trim() || undefined,
         items,
       };
 
       const created = await ordersApi.createCounterOrder(payload);
+
+      let latestCreated: any = created;
+      if (paymentMethod === "CASH" && isCashCollected && created.id && created.orderCode) {
+        try {
+          await paymentsApi.collectCounter({
+            orderId: Number(created.id),
+            orderCode: created.orderCode,
+            queueNumber: created.queueNumber ?? Number(created.id),
+            storeId: Number(created.storeId || effectiveStoreId),
+            totalDue: Number(created.totalAmount ?? totalAmount),
+            method: "CASH",
+            cashAmount: Number(created.totalAmount ?? totalAmount),
+            cashTendered: effectiveCashTendered,
+            bankAmount: 0,
+            manualAcceptance: false,
+            staffNotes: "Thu tiền mặt trực tiếp khi tạo đơn tại quầy POS",
+          });
+          latestCreated = { ...created, paymentStatus: "COLLECTED" };
+        } catch (payErr) {
+          console.warn("Auto counter collection warning:", payErr);
+        }
+      }
 
       const qNum = created.queueNumber ?? (created.id || 1);
       const formattedQueue = `#${String(qNum).padStart(3, "0")}`;
@@ -381,9 +430,9 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
       onClose();
 
       if (onSuccess) {
-        onSuccess();
+        await onSuccess(latestCreated);
       } else if (onSubmitOrder) {
-        await onSubmitOrder(created as any);
+        await onSubmitOrder(latestCreated as any);
       }
     } catch (err: any) {
       console.error("counter order creation failed:", err);
@@ -411,7 +460,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
         // If Enter pressed while not focusing on textarea or inside options modal
         const target = e.target as HTMLElement;
         const isTextArea = target.tagName === "TEXTAREA";
-        if (!isTextArea && !customizingProduct && cartItems.length > 0) {
+        if (!isTextArea && !customizingProduct && cartItems.length > 0 && storeOpenState.isOpen) {
           e.preventDefault();
           handleSubmit();
         }
@@ -422,7 +471,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, customizingProduct, cartItems.length, onClose]);
+  }, [open, customizingProduct, cartItems.length, onClose, storeOpenState.isOpen]);
 
   // Filter products by category and search
   const visibleProducts = useMemo(() => {
@@ -454,7 +503,8 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
               <span>Giao Diện Nhập Đơn Quầy Fast-Food (POS)</span>
             </div>
             <span className={styles.posSubtitle}>
-              Tối ưu thao tác thu ngân · Bàn phím & Cảm ứng
+              {currentStore?.name || user?.storeName || `Chi nhánh #${user?.storeId || 1}`}
+              {currentStore?.address ? ` · ${currentStore.address}` : " · Tối ưu thao tác thu ngân · Bàn phím & Cảm ứng"}
             </span>
           </div>
 
@@ -475,6 +525,50 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
             </button>
           </div>
         </div>
+
+        {!storeOpenState.isOpen && (
+          <div
+            role="status"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 14,
+              padding: "12px 24px",
+              backgroundColor: "#FEF2F2",
+              borderBottom: "1px solid #FECACA",
+              color: "#991B1B",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Clock size={18} color="#B42318" />
+              <div>
+                <strong style={{ fontSize: 13, display: "block" }}>
+                  {storeOpenState.bannerTitle}
+                </strong>
+                <span style={{ fontSize: 12, color: "#7F1D1D" }}>
+                  {storeOpenState.bannerDescription}
+                </span>
+              </div>
+            </div>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 10px",
+                borderRadius: 999,
+                backgroundColor: "#B42318",
+                color: "#FFF",
+                fontSize: 11,
+                fontWeight: 800,
+              }}
+            >
+              <Lock size={12} /> {t("business:storeStatus.lockedActionBadge")}
+            </span>
+          </div>
+        )}
 
         {/* 2-Column Body */}
         <div className={styles.modalBody}>
@@ -528,7 +622,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
             <div className={styles.productGridScroll}>
               <div className={styles.productGrid}>
                 {visibleProducts.map((product) => {
-                  const isSoldOut = !product.inStock;
+                  const isSoldOut = !product.inStock || !storeOpenState.isOpen;
                   return (
                     <button
                       key={product.id}
@@ -539,7 +633,9 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
                       }`}
                       onClick={() => handleOpenCustomizer(product)}
                       title={
-                        isSoldOut
+                        !storeOpenState.isOpen
+                          ? storeOpenState.bannerTitle
+                          : isSoldOut
                           ? product.name + " (Tạm hết hàng)"
                           : "Chọn món " + product.name
                       }
@@ -720,34 +816,120 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "center",
+                    flexDirection: "column",
                     gap: 8,
                     fontSize: 13,
                     color: "#16100D",
                     backgroundColor: "#FBF8F3",
-                    padding: "8px 12px",
-                    borderRadius: 8,
+                    padding: "10px 12px",
+                    borderRadius: 10,
                     border: "1px solid #EDE8E1",
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    id="cashCollectedCheck"
-                    checked={isCashCollected}
-                    onChange={(e) => setIsCashCollected(e.target.checked)}
-                    style={{
-                      cursor: "pointer",
-                      width: 16,
-                      height: 16,
-                      accentColor: "#8F1216",
-                    }}
-                  />
-                  <label
-                    htmlFor="cashCollectedCheck"
-                    style={{ cursor: "pointer", fontWeight: 600 }}
-                  >
-                    Nhân viên xác nhận đã thu đủ tiền mặt (không cần bằng chứng)
-                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      id="cashCollectedCheck"
+                      checked={isCashCollected}
+                      onChange={(e) => setIsCashCollected(e.target.checked)}
+                      style={{
+                        cursor: "pointer",
+                        width: 16,
+                        height: 16,
+                        accentColor: "#8F1216",
+                      }}
+                    />
+                    <label
+                      htmlFor="cashCollectedCheck"
+                      style={{ cursor: "pointer", fontWeight: 700 }}
+                    >
+                      Nhân viên xác nhận thu tiền mặt ngay tại quầy
+                    </label>
+                  </div>
+
+                  {isCashCollected && totalAmount > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                        paddingTop: 6,
+                        borderTop: "1px dashed #E2D9CC",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: 12, color: "#6B6259", fontWeight: 600 }}>
+                          Tiền khách đưa:
+                        </span>
+                        <input
+                          type="number"
+                          min={totalAmount}
+                          step={1000}
+                          value={cashTenderedInput || totalAmount}
+                          onChange={(e) => setCashTenderedInput(Number(e.target.value) || 0)}
+                          style={{
+                            width: 135,
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "1px solid #D6C9B9",
+                            fontWeight: 700,
+                            fontSize: 13,
+                            textAlign: "right",
+                            backgroundColor: "#FFF",
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {[totalAmount, 100000, 200000, 500000]
+                          .filter((v, idx, arr) => v >= totalAmount && arr.indexOf(v) === idx)
+                          .map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setCashTenderedInput(preset)}
+                              style={{
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                border:
+                                  effectiveCashTendered === preset
+                                    ? "1px solid #8F1216"
+                                    : "1px solid #E2D9CC",
+                                backgroundColor:
+                                  effectiveCashTendered === preset ? "#FBE9E9" : "#FFF",
+                                color: effectiveCashTendered === preset ? "#8F1216" : "#4B443C",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              {preset === totalAmount ? "Đủ tiền" : formatVnd(preset)}
+                            </button>
+                          ))}
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: effectiveCashChange > 0 ? "#1E7A46" : "#6B6259",
+                        }}
+                      >
+                        <span>Tiền thối lại khách:</span>
+                        <strong style={{ fontSize: 14 }}>
+                          {formatVnd(effectiveCashChange)}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -853,11 +1035,18 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
               {/* Nút Tạo đơn quầy */}
               <button
                 type="button"
-                disabled={cartItems.length === 0 || isSubmitting}
+                disabled={cartItems.length === 0 || isSubmitting || !storeOpenState.isOpen}
                 className={styles.submitOrderBtn}
                 onClick={handleSubmit}
               >
-                {isSubmitting ? (
+                {!storeOpenState.isOpen ? (
+                  <>
+                    <Lock size={16} />
+                    <span>
+                      {t("business:storeStatus.closedNowChip")} ({storeOpenState.openTime} - {storeOpenState.closeTime})
+                    </span>
+                  </>
+                ) : isSubmitting ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
                     <span>Đang tạo đơn...</span>

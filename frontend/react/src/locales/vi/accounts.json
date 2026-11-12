@@ -8,11 +8,8 @@
   "recovery": "Email khôi phục chung", "changeRecovery": "Đổi email khôi phục", "currentPassword": "Mật khẩu hiện tại của bạn", "newEmail": "Email khôi phục mới",
   "target": "Tài khoản đích", "purpose": "Mục đích", "lock": "Khóa", "unlock": "Mở khóa", "lockConfirm": "Thay đổi trạng thái và thu hồi toàn bộ phiên của tài khoản này?",
   "account": "Tài khoản", "role": "Vai trò", "status": "Trạng thái", "activated": "Đã kích hoạt", "current": "Tài khoản hiện hành", "yes": "Có", "no": "Không",
-  "inventory": "Kiểm kê dữ liệu cũ", "migration": "Duyệt chuyển đổi", "manager": "Chọn Manager giữ lại", "staff": "Chọn Staff giữ lại", "backup": "Tham chiếu backup được operator xác nhận",
-  "migrationWarning": "Không tự chọn tài khoản. Chuyển đổi giữ nguyên ID; khóa tài khoản dư, thu hồi phiên, đóng quán và yêu cầu kích hoạt lại cặp giữ. Không tự mở bán.",
-  "migrationDisabled": "Chuyển đổi đang khóa. Operator phải backup và cấu hình BRANCH_MIGRATION_BACKUP_REFERENCE trước.", "migrationConfirm": "Xác nhận đúng cặp tài khoản và email này? Tài khoản dư sẽ bị khóa; tất cả phiên chi nhánh sẽ bị thu hồi.",
   "report": "Báo cáo trước / sau", "audit": "Audit tài khoản / phiên", "auditNotice": "Tài khoản dùng chung và session không xác định danh tính nhân viên. Manager chỉ xem hành động Staff tại quán mình.",
-  "action": "Thao tác", "session": "Phiên", "time": "Thời gian", "result": "Kết quả", "legacy": "Chưa có cặp hiện hành. Kiểm kê và duyệt chuyển đổi; không coi dữ liệu cũ là đã hoàn tất.",
+  "action": "Thao tác", "session": "Phiên", "time": "Thời gian", "result": "Kết quả", "unprovisioned": "Chi nhánh chưa có tài khoản quản lý và tác nghiệp.", "recoveryMissing": "Chưa thiết lập; liên hệ Admin để bổ sung email khôi phục.",
   "adminHelp": "Hỗ trợ Admin: OTP chính gửi tới email Admin đã lưu. Đổi recovery cần cả OTP email mới.", "managerHelp": "Đổi recovery cần mật khẩu hiện tại và OTP tại cả email cũ lẫn email mới.",
   "manageSent": "Đã tạo challenge. Kiểm tra email đúng người nhận; challenge gắn với phiên hiện tại.", "readiness": "Sẵn sàng tài khoản", "next": "Trang tiếp"
 }
