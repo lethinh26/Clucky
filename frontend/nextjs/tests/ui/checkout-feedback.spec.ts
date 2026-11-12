@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('saved address stays selected and a failed quote explains the blocked submit', async ({ page }) => {
-  await page.clock.setFixedTime(new Date('2026-11-12T05:00:00Z'));
+  await page.clock.setFixedTime(new Date('2026-11-12T12:00:00+07:00'));
   await page.addInitScript(() => sessionStorage.setItem('clucky_location_prompt', 'seen'));
   await page.route('**/api/auth/session', route => route.fulfill({ json: { userId: 7, role: 'CUSTOMER', fullName: 'Customer', email: 'customer@example.com' } }));
   await page.route('**/api/orders/my?*', route => route.fulfill({ json: { content: [] } }));

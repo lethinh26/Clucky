@@ -165,7 +165,7 @@ jobs:
           if-no-files-found: error
 
   images:
-    name: Package / ${{ matrix.service }}
+    name: Package image / ${{ matrix.build }}
     needs: preflight
     if: needs.preflight.outputs.builds != '[]'
     runs-on: ubuntu-latest
@@ -178,7 +178,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        include: ${{ fromJSON(needs.preflight.outputs.builds) }}
+        build: ${{ fromJSON(needs.preflight.outputs.builds) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -186,17 +186,22 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: release-plan-${{ needs.preflight.outputs.release_id }}
+      - name: Select image from release plan
+        id: image
+        env:
+          BUILD_INDEX: ${{ matrix.build }}
+        run: python3 deploy/images.py select "$BUILD_INDEX"
       - uses: actions/setup-java@v4
-        if: matrix.context == 'backend'
+        if: steps.image.outputs.context == 'backend'
         with:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-        if: matrix.context == 'backend'
+        if: steps.image.outputs.context == 'backend'
       - name: Build only the selected Java service
-        if: matrix.context == 'backend'
+        if: steps.image.outputs.context == 'backend'
         env:
-          SERVICE: ${{ matrix.service }}
+          SERVICE: ${{ steps.image.outputs.service }}
         run: |
           set -euo pipefail
           cd backend
@@ -212,27 +217,27 @@ jobs:
       - name: Prepare public build arguments
         id: args
         env:
-          SERVICE: ${{ matrix.service }}
+          SERVICE: ${{ steps.image.outputs.service }}
         run: python3 deploy/images.py args "$SERVICE"
       - name: Build cached image
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context == 'backend' && 'image-context' || matrix.context }}
-          file: ${{ matrix.dockerfile }}
+          context: ${{ steps.image.outputs.context == 'backend' && 'image-context' || steps.image.outputs.context }}
+          file: ${{ steps.image.outputs.dockerfile }}
           platforms: linux/amd64
           pull: true
           load: true
-          tags: ${{ matrix.image }}
+          tags: ${{ steps.image.outputs.image }}
           build-args: ${{ steps.args.outputs.args }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,scope=${{ matrix.service }},mode=max
+          cache-from: type=gha,scope=${{ steps.image.outputs.service }}
+          cache-to: type=gha,scope=${{ steps.image.outputs.service }},mode=max
       - name: Check frontend container health before publishing
-        if: matrix.context != 'backend'
+        if: steps.image.outputs.context != 'backend'
         env:
-          IMAGE: ${{ matrix.image }}
+          IMAGE: ${{ steps.image.outputs.image }}
         run: |
           set -euo pipefail
           trap 'docker rm -f frontend-smoke >/dev/null 2>&1 || true' EXIT
@@ -247,7 +252,7 @@ jobs:
           exit 1
       - name: Publish immutable input image
         env:
-          IMAGE: ${{ matrix.image }}
+          IMAGE: ${{ steps.image.outputs.image }}
         run: docker push "$IMAGE"
 
   deploy:
