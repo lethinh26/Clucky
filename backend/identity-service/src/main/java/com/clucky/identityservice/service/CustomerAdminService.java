@@ -28,11 +28,18 @@ public class CustomerAdminService {
     private final UserRepository users;
     private final RefreshTokenService refreshTokens;
     private final OutboxEventRepository outbox;
-    private final ObjectMapper mapper;
+    private final OrderHistoryClient orderHistoryClient;
 
     public CustomerAdminService(UserRepository users, RefreshTokenService refreshTokens,
-            OutboxEventRepository outbox, ObjectMapper mapper) {
+            OutboxEventRepository outbox, ObjectMapper mapper, OrderHistoryClient orderHistoryClient) {
         this.users = users; this.refreshTokens = refreshTokens; this.outbox = outbox; this.mapper = mapper;
+        this.orderHistoryClient = orderHistoryClient;
+    }
+
+    public com.fasterxml.jackson.databind.JsonNode orderHistory(Long customerId, int page, int size) {
+        customer(customerId); // validates target exists and has CUSTOMER role
+        if (page < 0 || size < 1 || size > 200) throw new ApiException(ErrorCode.INVALID_REQUEST);
+        return orderHistoryClient.getCustomerOrders(customerId, page, size);
     }
 
     public CustomerPageResponse list(String search, String status, int page, int size, String sort) {
