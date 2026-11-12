@@ -50,6 +50,36 @@ class PaymentOperationsTest {
         verifyNoInteractions(jdbc);
     }
 
+    @Test void counterQrUsesTheAssignedBankAndCanonicalOrderReference() {
+        actor("STAFF", 2L);
+        when(flow.context(10L)).thenReturn(new PaymentFlow.Context(10L, "CLU-20261112-W27G", null, 2L,
+                new BigDecimal("10000"), "CONFIRMED", "CASH", "PENDING", null, Instant.now(), "COUNTER", "PICKUP"));
+        when(jdbc.queryForList(startsWith("SELECT bank_name,bank_code,account_no,account_name FROM payment_service.store_bank_accounts"), eq(2L)))
+                .thenReturn(List.of(Map.of("bank_name", "Configured Bank", "bank_code", "970422", "account_no", "00123456789", "account_name", "CLUCKY STORE")));
+        var result = service.read(10L);
+        assertEquals("CLU20261112W27G", result.path("reference").asText());
+        assertEquals("00123456789", result.path("bankInfo").path("accountNo").asText());
+        assertEquals("CLUCKY STORE", result.path("bankInfo").path("accountName").asText());
+        verify(jdbc, never()).update(anyString(), any(Object[].class));
+    }
+
+    @Test void onlineQrKeepsThePaymentReferenceInsteadOfReplacingItWithTheOrderCode() {
+        actor("STAFF", 2L);
+        when(jdbc.queryForList(startsWith("SELECT bank_name,bank_code,account_no,account_name,transfer_content"), eq(10L)))
+                .thenReturn(List.of(Map.of("bank_name", "Configured Bank", "bank_code", "970422", "account_no", "00123456789",
+                        "account_name", "CLUCKY STORE", "transfer_content", "CLUCKY002X1234ABCDX")));
+        assertEquals("CLUCKY002X1234ABCDX", service.read(10L).path("reference").asText());
+    }
+
+    @Test void missingBankConfigurationDoesNotInventTransferInstructions() {
+        actor("STAFF", 2L);
+        when(flow.context(10L)).thenReturn(new PaymentFlow.Context(10L, "ORD-10", null, 2L,
+                new BigDecimal("10000"), "CONFIRMED", "CASH", "PENDING", null, Instant.now(), "COUNTER", "PICKUP"));
+        var result = service.read(10L);
+        assertFalse(result.has("bankInfo"));
+        assertFalse(result.has("reference"));
+    }
+
     private Map<String,Object> collection() {
         return new HashMap<>(Map.ofEntries(Map.entry("id",collectionId),Map.entry("order_id",10L),Map.entry("order_code","ORD-10"),
                 Map.entry("customer_id",1L),Map.entry("store_id",2L),Map.entry("version",0L),Map.entry("status","ACCEPTED"),

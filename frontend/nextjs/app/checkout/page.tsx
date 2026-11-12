@@ -39,6 +39,9 @@ import {
   Check,
   CircleAlert,
   RefreshCw,
+  TicketPercent,
+  Coins,
+  X,
 } from "lucide-react";
 
 export default function CheckoutPage() {
@@ -725,9 +728,16 @@ export default function CheckoutPage() {
                   </h2>
                 </div>
 
-                <div className={styles.promoBlock}>
+                <div className={styles.voucherCard}>
+                  <label htmlFor="checkout-voucher" className={styles.voucherLabel}>
+                    <TicketPercent size={20} aria-hidden="true" />
+                    {t("business.checkout.promoCode")}
+                  </label>
+                  <div className={styles.promoBlock}>
                   <input
-                    aria-label={t("business.checkout.promoCode")}
+                    id="checkout-voucher"
+                    aria-describedby={voucherMsg ? "checkout-voucher-feedback" : undefined}
+                    aria-invalid={Boolean(voucherMsg && !appliedVoucher)}
                     type="text"
                     value={voucherInput}
                     onChange={(e) => setVoucherInput(e.target.value)}
@@ -743,60 +753,93 @@ export default function CheckoutPage() {
                   >
                     {t("business.checkout.apply")}
                   </button>
-                </div>
+                  </div>
 
                 {voucherMsg && (
                   <p
-                    style={{
-                      fontSize: 13,
-                      marginTop: 8,
-                      fontWeight: 600,
-                      color: appliedVoucher ? "#1e7a46" : "#b42318",
-                    }}
+                    id="checkout-voucher-feedback"
+                    role="status"
+                    className={styles.voucherFeedback}
+                    data-success={Boolean(appliedVoucher)}
                   >
                     {t.has(voucherMsg) ? t(voucherMsg) : voucherMsg}
                   </p>
                 )}
                 {appliedVoucher && (
+                  <div className={styles.appliedVoucher}>
+                    <span><Check size={16} aria-hidden="true" />{appliedVoucher.code}</span>
                   <button
                     type="button"
+                    className={styles.removeVoucher}
+                    aria-label={t("business.checkout.removeVoucher", { code: appliedVoucher.code })}
+                    title={t("business.checkout.removeVoucher", { code: appliedVoucher.code })}
                     onClick={() => {
                       setAppliedVoucher(null);
                       setVoucherInput("");
                       setVoucherMsg("");
                     }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#b42318",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      textDecoration: "underline",
-                      marginTop: "4px",
-                      display: "block",
-                    }}
                   >
-                    {t("business.checkout.removeVoucher", { code: appliedVoucher.code })}
+                    <X size={17} aria-hidden="true" />
                   </button>
+                  </div>
                 )}
+                </div>
 
-                <div className={styles.loyaltyBox}>
-                  <label className={styles.loyaltyLabel}>
+                <div className={styles.loyaltyBox} data-active={usePoints}>
+                  <div className={styles.loyaltyHeader}>
+                    <span className={styles.loyaltyIcon}><Coins size={22} aria-hidden="true" /></span>
+                    <div className={styles.loyaltyCopy}>
+                      <label id="clucky-points-label" htmlFor="use-clucky-points" className={styles.loyaltyLabel}>
+                        {loyaltyText("usePoints")}
+                      </label>
+                      <p id="clucky-points-balance" className={styles.loyaltyPoints} aria-live="polite">
+                        {availablePoints !== undefined ? loyaltyText("availableCheckout", { points: availablePoints }) : loyaltyError ? loyaltyText("error") : loyaltyText("loading")}
+                      </p>
+                    </div>
+                  <label className={styles.pointsToggle}>
                     <input
+                      id="use-clucky-points"
                       type="checkbox"
+                      role="switch"
+                      aria-labelledby="clucky-points-label"
+                      aria-describedby="clucky-points-balance"
                       checked={usePoints}
                       disabled={!availablePoints || loyaltyError}
                       onChange={(e) => { setUsePoints(e.target.checked); setRequestedPoints(availablePoints ?? 0); }}
-                      style={{ width: 18, height: 18, accentColor: "#8f1216" }}
                     />
-                    <span>{loyaltyText("usePoints")}</span>
+                    <span aria-hidden="true" />
                   </label>
-                  <span className={styles.loyaltyPoints}>
-                    {availablePoints !== undefined ? loyaltyText("availableCheckout", { points: availablePoints }) : loyaltyError ? loyaltyText("error") : loyaltyText("loading")}
-                  </span>
+                  </div>
+                  {loyaltyError && <button type="button" className={styles.loyaltyRetry} onClick={() => setLoyaltyReload(value => value + 1)}><RefreshCw size={15} aria-hidden="true" />{loyaltyText("retry")}</button>}
+                  {usePoints && (
+                    <div className={styles.pointsDetails}>
+                      <div className={styles.pointsRow}>
+                        <label htmlFor="points-to-use">{loyaltyText("pointsInput")}</label>
+                        <div className={styles.pointsInput}>
+                          <input
+                            id="points-to-use"
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            max={availablePoints ?? 0}
+                            step={1}
+                            value={requestedPoints}
+                            aria-describedby="checkout-points-hint"
+                            onChange={event => setRequestedPoints(Math.min(availablePoints ?? 0, Math.max(0, Math.floor(Number(event.target.value) || 0))))}
+                          />
+                          <span aria-hidden="true">{loyaltyText("points")}</span>
+                        </div>
+                      </div>
+                      <p id="checkout-points-hint" className={styles.pointsHint}>{loyaltyText("checkoutHint")}</p>
+                      {previewData && (
+                        <div className={styles.pointsApplied} role="status">
+                          <span><Check size={16} aria-hidden="true" />{loyaltyText("applied", { points: previewData.pointsUsed ?? 0 })}</span>
+                          {(previewData.pointsAmount ?? 0) > 0 && <strong>−{formatPrice(previewData.pointsAmount ?? 0)}</strong>}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {loyaltyError && <button type="button" className="btn-secondary" onClick={() => setLoyaltyReload(value => value + 1)}>{loyaltyText("retry")}</button>}
-                {usePoints && <div><label htmlFor="points-to-use">{loyaltyText("pointsInput")}</label><input id="points-to-use" type="number" min={0} max={availablePoints ?? 0} step={1} value={requestedPoints} onChange={event => setRequestedPoints(Math.min(availablePoints ?? 0, Math.max(0, Math.floor(Number(event.target.value) || 0))))} className={styles.input} /><p>{loyaltyText("checkoutHint")}</p>{previewData && <p>{loyaltyText("applied", { points: previewData.pointsUsed ?? 0 })}</p>}</div>}
               </section>
 
               {/* Section 3: Payment Method */}

@@ -21,7 +21,7 @@ spring:
         - id: orders
           uri: lb://CART-ORDER-SERVICE
           predicates:
-            - Path=/api/cart/**,/api/orders/**,/api/party-orders/**,/api/refund-requests/**
+            - Path=/api/cart/**,/api/orders/**,/api/refund-requests/**
         - id: payments
           uri: lb://PAYMENT-SERVICE
           predicates:

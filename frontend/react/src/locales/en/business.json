@@ -31,13 +31,8 @@
     "keepOrder": "Keep order",
     "confirmCancellation": "Confirm cancellation"
   },
-  "party": {
-    "custom": "Custom",
-    "people": "people",
-    "time": "Time",
-    "store": "Store"
-  },
   "stores": {
+    "store": "Store",
     "searchByStoreNameStreetDistrict": "Search by store name, street, district...",
     "allStores": "All stores",
     "temporarilyClosed": "Temporarily closed",
@@ -1069,6 +1064,8 @@
     "accountNoShort": "Acct:",
     "transferContentCodeLabel": "Transfer reference:",
     "copyBtn": "Copy",
+    "copyAccount": "Copy account number",
+    "copyTransferReference": "Copy transfer reference",
     "copiedTransferRef": "Copied transfer reference: {{ref}}",
     "expandedBadge": "VIETQR ORDER PAYMENT CODE",
     "amountToCollect": "Amount to collect",
@@ -1091,9 +1088,13 @@
     "confirmCashAtCounter": "Cashier confirms cash collected immediately at counter",
     "cashTenderedLabel": "Cash tendered:",
     "exactCash": "Exact amount",
-    "cashChangeLabel": "Change to return:"
+    "cashChangeLabel": "Change to return:",
+    "qrAfterCreation": "Create the order first to get its transfer reference. The QR code and branch bank account will appear in the collection step."
   },
   "counterPayment": {
+    "loadingBank": "Loading the branch receiving account…",
+    "bankUnavailable": "No valid QR is available. Check the branch bank configuration, connection and order status. Do not transfer without a valid QR.",
+    "onlineTransferOnly": "Online bank transfers are confirmed only after matching a bank transaction.",
     "codEvidenceTitle": "COD cash collection proof photo (≤ 2MB)",
     "codEvidenceHint": "Supports JPEG, PNG, or WebP up to 2MB for online COD cash verification",
     "changeImageBtn": "Change photo (≤ 2MB)",

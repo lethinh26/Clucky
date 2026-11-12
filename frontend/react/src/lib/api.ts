@@ -128,9 +128,12 @@ api.interceptors.response.use(response => {
   return response;
 }, async (error: AxiosError) => {
   const config = error.config as (NonNullable<AxiosError['config']> & { retried?: boolean; sessionRevision?: number }) | undefined;
-  if (error.response?.status !== 401 || !config || config.url?.startsWith('/api/auth/')) throw error;
+  if (![401, 403].includes(error.response?.status ?? 0) || !config || config.url?.startsWith('/api/auth/')) throw error;
   if (config.sessionRevision !== getSessionState().revision) throw new axios.CanceledError('Session changed');
-  if (config.retried) { expireSession(); throw error; }
+  if (config.retried) {
+    if (error.response?.status === 401) expireSession();
+    throw error;
+  }
   config.retried = true;
   const userId = getSessionState().user?.userId;
   const user = await refreshSession();
@@ -470,80 +473,6 @@ export const vietQrApi = {
     api.get<VietQrBank[]>('/api/payments/banks', { signal }).then((r) => r.data),
 };
 
-/* ---------- Party Orders ---------- */
-export interface BackendPartyOrder {
-  id: number;
-  customerId: number;
-  storeId: number;
-  contactName: string;
-  phone: string;
-  contactEmail: string;
-  expectedDate: string;
-  expectedTime: string;
-  guestCount: number;
-  packageCode: string;
-  content: string;
-  status: 'NEW' | 'CONTACTED' | 'QUOTED' | 'CONFIRMED' | 'CLOSED' | 'CANCELLED';
-  quoteAmount: number | null;
-  paymentMethod: 'BANK_TRANSFER' | 'CASH' | null;
-  consultationNote: string | null;
-  updatedAt: string;
-}
-
-export const partyOrdersApi = {
-  list: (
-    params?: { storeId?: number; status?: string; page?: number; size?: number },
-    signal?: AbortSignal
-  ) =>
-    api
-      .get<any>('/api/party-orders', { params, signal })
-      .then((r) => {
-        if (r.data && Array.isArray(r.data.content)) {
-          return { content: r.data.content as BackendPartyOrder[], totalPages: Number(r.data.totalPages) || 0 };
-        }
-        return { content: Array.isArray(r.data) ? (r.data as BackendPartyOrder[]) : [], totalPages: 1 };
-      }),
-  getById: (id: string | number, signal?: AbortSignal) =>
-    api
-      .get<BackendPartyOrder>(`/api/party-orders/${id}`, { signal })
-      .then((r) => r.data),
-  updateStatus: (
-    id: string | number,
-    status: string,
-    note?: string,
-    quoteAmount?: number,
-    paymentMethod?: 'BANK_TRANSFER' | 'CASH',
-    signal?: AbortSignal
-  ) =>
-    api
-      .put<BackendPartyOrder>(
-        `/api/party-orders/${id}/status`,
-        { status, note, quoteAmount, paymentMethod },
-        { signal }
-      )
-      .then((r) => r.data),
-  confirm: (
-    id: string | number,
-    depositAmount?: number,
-    note?: string,
-    signal?: AbortSignal
-  ) =>
-    api
-      .put<BackendPartyOrder>(
-        `/api/party-orders/${id}/status`,
-        { status: 'CONFIRMED', note },
-        { signal }
-      )
-      .then((r) => r.data),
-  reject: (id: string | number, reason: string, signal?: AbortSignal) =>
-    api
-      .put<BackendPartyOrder>(
-        `/api/party-orders/${id}/status`,
-        { status: 'CANCELLED', note: reason },
-        { signal }
-      )
-      .then((r) => r.data),
-};
 
 /* ---------- Promotions & Vouchers ---------- */
 export const promotionsApi = {

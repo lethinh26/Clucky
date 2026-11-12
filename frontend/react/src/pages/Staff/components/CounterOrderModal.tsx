@@ -8,7 +8,6 @@ import {
   Trash2,
   Plus,
   Minus,
-  QrCode,
   Sparkles,
   Loader2,
   Check,
@@ -70,7 +69,6 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isCashCollected, setIsCashCollected] = useState<boolean>(true);
   const [cashTenderedInput, setCashTenderedInput] = useState<number>(0);
-  const [showQrPreview, setShowQrPreview] = useState<boolean>(false);
 
   // 3. Option Customization Modal state
   const [customizingProduct, setCustomizingProduct] = useState<PosProduct | null>(null);
@@ -933,85 +931,10 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
                 </div>
               )}
 
-              {paymentMethod === "BANK_TRANSFER" && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setShowQrPreview((prev) => !prev)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      border: "1px solid #1E7A46",
-                      backgroundColor: showQrPreview ? "#EBF7EE" : "#FFFFFF",
-                      color: "#1E7A46",
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <QrCode size={16} />
-                    <span>
-                      {showQrPreview
-                        ? "Ẩn mã QR VietQR"
-                        : "Hiển thị mã QR thanh toán"}
-                    </span>
-                  </button>
-                  {showQrPreview && (
-                    <div
-                      style={{
-                        padding: 12,
-                        backgroundColor: "#F9F9F9",
-                        border: "1px dashed #DDD",
-                        borderRadius: 8,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <img
-                        src={`https://img.vietqr.io/image/mbbank-0387654321-compact2.png?amount=${totalAmount}&addInfo=${encodeURIComponent(
-                          `CLU-POS-${existingOrderCount + 15}`,
-                        )}&accountName=CLUCKY%20FAST%20FOOD`}
-                        alt="VietQR MBBank Clucky"
-                        style={{
-                          width: 180,
-                          height: 180,
-                          objectFit: "contain",
-                          borderRadius: 6,
-                          backgroundColor: "#FFF",
-                        }}
-                      />
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "#555",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div>
-                          <strong>MBBank:</strong> 0387654321
-                        </div>
-                        <div>
-                          <strong>Chủ TK:</strong> CLUCKY FAST FOOD
-                        </div>
-                        <div>
-                          <strong>Số tiền:</strong> {formatVnd(totalAmount)}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+              {(paymentMethod === "BANK_TRANSFER" || paymentMethod === "SPLIT") && (
+                <p role="note" style={{ fontSize: 13, color: "#6B6259", margin: 0 }}>
+                  {t("business:counterPos.qrAfterCreation")}
+                </p>
               )}
 
               {/* Tổng kết tiền */}

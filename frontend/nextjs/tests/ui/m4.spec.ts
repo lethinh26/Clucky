@@ -332,7 +332,7 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toHaveCount(0);
   await expect(qr).toBeVisible();
   const qrUrl = new URL((await qr.getAttribute("src"))!);
-  expect(qrUrl.origin + qrUrl.pathname).toBe(`https://img.vietqr.io/image/${bankInfo.bankCode}-${bankInfo.accountNo}-compact2.png`);
+  expect(qrUrl.origin + qrUrl.pathname).toBe(`https://img.vietqr.io/image/${bankInfo.bankCode}-${bankInfo.accountNo}-qr_only.svg`);
   expect(qrUrl.searchParams.get("amount")).toBe("262000");
   expect(qrUrl.searchParams.get("addInfo")).toBe(paymentReference);
   expect(qrUrl.searchParams.get("accountName")).toBe(bankInfo.accountName);

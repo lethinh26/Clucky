@@ -156,7 +156,7 @@ export default function AuditLogPage() {
     { title: t('admin:ui.timeVietnam'), dataIndex: 'occurredAt', width: 205, render: (value: string, entry) => <div className="audit-time"><DownOutlined aria-hidden className={expandedId === entry.eventId ? 'audit-chevron is-open' : 'audit-chevron'} /><span>{formatTime(value)}</span></div> },
     { title: t('accounts:action'), dataIndex: 'action', width: 235, render: (value: string, entry) => <div className="audit-action"><Typography.Text strong>{value}</Typography.Text><Typography.Text type="secondary">{auditDomains.find(domain => domain.value === entry.sourceService)?.label ?? entry.sourceService}</Typography.Text></div> },
     { title: t('admin:ui.actingAccount'), width: 180, render: (_, entry) => <div className="audit-action"><Typography.Text strong>#{entry.actorId}</Typography.Text><Tag>{t(`admin:audit.roles.${entry.actorRole}`, { defaultValue: entry.actorRole })}</Tag></div> },
-    { title: t('business:party.store'), width: 200, dataIndex: 'storeId', render: (value: number | null) => value == null ? <Typography.Text type="secondary">{t('admin:ui.allBranchesNoBranchAssigned')}</Typography.Text> : stores.find(store => store.id === value)?.name ?? `#${value}` },
+    { title: t('business:stores.store'), width: 200, dataIndex: 'storeId', render: (value: number | null) => value == null ? <Typography.Text type="secondary">{t('admin:ui.allBranchesNoBranchAssigned')}</Typography.Text> : stores.find(store => store.id === value)?.name ?? `#${value}` },
     { title: t('admin:ui.target'), width: 180, render: (_, entry) => <div className="audit-action"><Typography.Text>{entry.targetType}</Typography.Text><Typography.Text type="secondary">#{entry.targetId}</Typography.Text></div> },
   ];
 
@@ -179,7 +179,7 @@ export default function AuditLogPage() {
             <Form.Item name="actorId" label={t("admin:ui.accountId")} rules={[{ type: 'integer', min: 1, max: Number.MAX_SAFE_INTEGER, message: t("admin:ui.enterAPositiveIntegerId") }]}>
               <InputNumber min={1} max={Number.MAX_SAFE_INTEGER} />
             </Form.Item>
-            <Form.Item name="storeId" label={t("business:party.store")}>
+            <Form.Item name="storeId" label={t("business:stores.store")}>
               <Select allowClear showSearch optionFilterProp="label" placeholder={t("business:dashboard.scopeChain")}
                 options={stores.map(store => ({ value: store.id, label: store.name }))} />
             </Form.Item>

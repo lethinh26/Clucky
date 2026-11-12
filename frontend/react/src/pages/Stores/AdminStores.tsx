@@ -38,7 +38,7 @@ export function AdminStores({ stores, loading, busy, onCreate, onEdit, onLocatio
   const hasFilters = Boolean(search || status !== 'ALL' || location !== 'ALL');
   const blocked = busy || loading;
   const columns: TableColumnsType<Store> = [
-    { title: t("business:party.store"), key: 'name', width: 275, sorter: (first, second) => first.name.localeCompare(second.name, 'vi'), render: (_, store) => <div className="stores-identity">
+    { title: t("business:stores.store"), key: 'name', width: 275, sorter: (first, second) => first.name.localeCompare(second.name, 'vi'), render: (_, store) => <div className="stores-identity">
       <span className="stores-avatar"><ShopOutlined /></span><div><button type="button" className="stores-name" aria-expanded={expandedStoreIds.includes(store.id)} aria-controls={expandedStoreIds.includes(store.id) ? `store-details-${store.id}` : undefined}>{store.name}</button>
         <span className="stores-meta">{t("admin:ui.branchId")}{store.id}</span><a className="stores-phone" href={`tel:${store.phone}`} onClick={event => event.stopPropagation()}><PhoneOutlined />{store.phone}</a>
       </div></div> },

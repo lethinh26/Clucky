@@ -41,6 +41,8 @@ services:
       args:
         SERVICE_NAME: discovery-server
   identity-service:
+    environment:
+      AUTH_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:5173,http://127.0.0.1:5173
     build:
       <<: *java-build
       args:
@@ -88,6 +90,9 @@ services:
       args:
         SERVICE_NAME: audit-service
   api-gateway:
+    environment:
+      AUTH_CUSTOMER_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      AUTH_ADMIN_ORIGINS: http://localhost:3001,http://127.0.0.1:3001,http://localhost:5173,http://127.0.0.1:5173
     build:
       <<: *java-build
       args:
@@ -102,7 +107,7 @@ services:
         NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:?Set Firebase web config in frontend/nextjs/.env}
         NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:?Set Firebase web config in frontend/nextjs/.env}
         NEXT_PUBLIC_M3_DEMO_ENABLED: "false"
-        NEXT_PUBLIC_PAYMENT_SIMULATION_ENABLED: "true"
+        NEXT_PUBLIC_PAYMENT_SIMULATION_ENABLED: "false"
     depends_on:
       api-gateway:
         condition: service_healthy

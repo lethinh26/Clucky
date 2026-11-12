@@ -309,7 +309,7 @@ export const UsersPage: React.FC = () => {
       ),
     },
     {
-      title: t("business:party.store"),
+      title: t("business:stores.store"),
       dataIndex: "storeName",
       key: "store",
       render: (_, u) =>
@@ -589,7 +589,7 @@ export const UsersPage: React.FC = () => {
               fontSize: 14,
               color: "#16100D",
             }}
-          > {t("business:party.store")} </label>
+          > {t("business:stores.store")} </label>
           <Select
             id="assign-store-select"
             value={assignStoreId}

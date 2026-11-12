@@ -67,9 +67,10 @@ async function send<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
-export function isSessionExpired(error: unknown): boolean {
+export function isSessionExpired(error: unknown, sessionEndpoint = false): boolean {
   const failure = error as { status?: number; code?: string } | null;
-  return failure?.status === 401 || failure?.code === "ACCOUNT_LOCKED";
+  return failure?.status === 401 || failure?.code === "ACCOUNT_LOCKED"
+    || (sessionEndpoint && failure?.status === 403);
 }
 
 export function refreshSession(): Promise<SessionUser> {
@@ -80,13 +81,13 @@ export function refreshSession(): Promise<SessionUser> {
         try {
           user = await send<SessionUser>("/api/auth/session");
         } catch (error) {
-          if ((error as { status?: number }).status !== 401) throw error;
+          if (!isSessionExpired(error, true)) throw error;
           user = await send<SessionUser>("/api/auth/refresh", { method: "POST" });
         }
         publish(user);
         return user;
       } catch (error) {
-        if (isSessionExpired(error)) expireSession();
+        if (isSessionExpired(error, true)) expireSession();
         throw error;
       }
     }).finally(() => { refreshFlight = null; });
@@ -103,7 +104,7 @@ export async function sessionRequest<T>(path: string, options: RequestInit = {})
     if (revision !== state.revision && path !== "/api/auth/session" && !publicRead) throw new DOMException("Session changed", "AbortError");
     return result;
   } catch (error) {
-    if ((error as { status?: number }).status !== 401
+    if (![401, 403].includes((error as { status?: number }).status ?? 0)
         || (path.startsWith("/api/auth/") && path !== "/api/auth/session")) throw error;
     await refreshSession();
     if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
@@ -130,7 +131,7 @@ export function loadSession(force = false): Promise<SessionUser | null> {
       return user;
     }).catch(error => {
       if (revision !== state.revision && state.ready) return state.user;
-      if (isSessionExpired(error)) { publish(null); return null; }
+      if (isSessionExpired(error, true)) { publish(null); return null; }
       state = { ...state, ready: true, error };
       listeners.forEach(listener => listener());
       throw error;

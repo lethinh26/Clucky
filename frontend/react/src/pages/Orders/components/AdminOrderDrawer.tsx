@@ -104,7 +104,7 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
           <Descriptions size="small" column={{ xs: 1, sm: 2 }} layout="vertical" colon={false} items={[
             { key: 'customer', label: t("admin:nav.customers"), children: order.receiverName || t("business:reviews.customerLabel", { value1: order.customerId }) },
             { key: 'phone', label: t("business:orderdetaildrawer.phone"), children: order.receiverPhone ? <a href={`tel:${order.receiverPhone}`}>{order.receiverPhone}</a> : t("admin:ui.notProvided") },
-            { key: 'store', label: t("business:party.store"), children: storeName || t("business:reviews.storeNumber", { value1: order.storeId }), span: 2 },
+            { key: 'store', label: t("business:stores.store"), children: storeName || t("business:reviews.storeNumber", { value1: order.storeId }), span: 2 },
             ...(order.type === 'DELIVERY' ? [{ key: 'address', label: t("admin:ui.deliveryAddress"), children: order.deliveryAddress || t("admin:ui.noAddressProvided"), span: 2 }] : []),
           ]} />
         </section>

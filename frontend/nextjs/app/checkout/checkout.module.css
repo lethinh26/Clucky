@@ -227,23 +227,47 @@
   letter-spacing: 0.04em;
 }
 
-/* Voucher & Loyalty Slots (Contract M5) */
+.voucherCard {
+  padding: 18px;
+  border: 1px solid #e8e2d9;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.voucherLabel {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.voucherLabel svg { color: #8f1216; }
+
 .promoBlock {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .promoInput {
   flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  border-radius: 10px;
+  background: #fffaf3;
+  padding: 12px;
 }
 
 .applyBtn {
-  padding: 0 24px;
-  background: #16100d;
+  flex-shrink: 0;
+  min-height: 46px;
+  padding: 0 20px;
+  background: #8f1216;
   color: #fff;
   border: none;
-  border-radius: 14px;
-  font-family: "Quicksand", sans-serif;
+  border-radius: 10px;
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -251,33 +275,243 @@
 }
 
 .applyBtn:hover {
-  background: #8f1216;
+  background: #701015;
 }
 
-.loyaltyBox {
-  margin-top: 16px;
-  padding: 14px 16px;
-  background: rgba(201, 162, 39, 0.12);
-  border-radius: 14px;
+.applyBtn:focus-visible,
+.removeVoucher:focus-visible,
+.loyaltyRetry:focus-visible {
+  outline: 2px solid #8f1216;
+  outline-offset: 3px;
+}
+
+.voucherFeedback {
+  margin: 10px 0 0;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.voucherFeedback[data-success="true"] { color: #1e7a46; }
+
+.appliedVoucher {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding-left: 12px;
+  background: #f0f7f1;
+  border: 1px dashed #99bca2;
+  border-radius: 10px;
+  color: #1e7a46;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.appliedVoucher > span,
+.pointsApplied > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.appliedVoucher svg,
+.pointsApplied svg { flex-shrink: 0; }
+
+.removeVoucher {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #1e7a46;
+  cursor: pointer;
+}
+
+.loyaltyBox {
+  margin-top: 12px;
+  padding: 18px;
+  background: #fffcf5;
+  border: 1px solid #e8e2d9;
+  border-radius: 16px;
+}
+
+.loyaltyBox[data-active="true"] { border-color: #d9c58e; }
+
+.loyaltyHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.loyaltyIcon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: #f5ebce;
+  color: #856514;
+}
+
+.loyaltyCopy {
+  flex: 1;
+  min-width: 0;
 }
 
 .loyaltyLabel {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: block;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.5;
   color: #16100d;
   cursor: pointer;
 }
 
 .loyaltyPoints {
-  color: #8c6e0d;
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #735a00;
+  font-weight: 600;
+}
+
+.pointsToggle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 44px;
+}
+
+.pointsToggle input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pointsToggle > span {
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #b8afa4;
+  pointer-events: none;
+}
+
+.pointsToggle > span::after {
+  content: "";
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px #16100d20;
+}
+
+.pointsToggle input:checked + span { background: #8f1216; }
+.pointsToggle input:checked + span::after { transform: translateX(18px); }
+.pointsToggle input:focus-visible + span { outline: 2px solid #8f1216; outline-offset: 3px; }
+.pointsToggle input:disabled { cursor: not-allowed; }
+.pointsToggle input:disabled + span { opacity: 0.45; }
+
+.loyaltyRetry {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid #e8e2d9;
+  border-radius: 10px;
+  background: #fff;
+  color: #8f1216;
+  font: 700 13px var(--font-body);
+  cursor: pointer;
+}
+
+.pointsDetails {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eadfc5;
+}
+
+.pointsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pointsInput {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 148px;
+  max-width: 100%;
+  padding: 0 12px;
+  border: 1px solid #d9c58e;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.pointsInput:focus-within {
+  outline: 2px solid #8f1216;
+  outline-offset: 2px;
+}
+
+.pointsInput input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #8f1216;
+  font: 700 16px var(--font-body);
+}
+
+.pointsInput > span { color: #6b6259; font-size: 12px; }
+
+.pointsHint {
+  margin: 12px 0 0;
+  color: #6b6259;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.pointsApplied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f0f7f1;
+  color: #1e7a46;
+  font-size: 12px;
   font-weight: 700;
 }
+
+.pointsApplied strong { font-size: 16px; white-space: nowrap; }
 
 /* Order Summary Box */
 .summaryBox {
@@ -596,18 +830,6 @@
 .totalPrice {
   white-space: nowrap;
 }
-.loyaltyBox {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-}
-.loyaltyPoints {
-  font-size: 12px;
-  color: #735a00;
-}
-.promoInput {
-  min-width: 0;
-}
 .paymentRadio {
   flex-shrink: 0;
 }
@@ -670,5 +892,11 @@
   .applyBtn {
     padding: 0 14px;
   }
+  .voucherCard,
+  .loyaltyBox {
+    padding: 14px;
+  }
+  .loyaltyHeader { gap: 10px; }
+  .loyaltyIcon { width: 36px; height: 36px; }
 }
 .pickupHint { display:flex; align-items:center; gap:8px; padding:14px; margin:0 0 16px; background:var(--cream); border-radius:12px; color:var(--wine); font-size:13px; font-weight:600; }

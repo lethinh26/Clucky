@@ -141,24 +141,4 @@ public final class DomainMapper {
         );
     }
 
-    public static PartyOrderResponse toResponse(PartyOrder entity) {
-        return new PartyOrderResponse(
-                entity.getId(),
-                entity.getCustomerId(),
-                entity.getStoreId(),
-                entity.getContactName(),
-                entity.getPhone(),
-                entity.getContactEmail(),
-                entity.getExpectedDate(),
-                entity.getExpectedTime(),
-                entity.getGuestCount(),
-                entity.getPackageCode(),
-                entity.getContent(),
-                entity.getStatus(),
-                entity.getQuoteAmount(),
-                entity.getPaymentMethod(),
-                entity.getConsultationNote(),
-                entity.getUpdatedAt()
-        );
-    }
 }

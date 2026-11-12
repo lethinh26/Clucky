@@ -186,7 +186,7 @@ export function OrderDetailDrawer({
               </dd>
             </div>
             <div>
-              <dt>{t("business:party.store")}</dt>
+              <dt>{t("business:stores.store")}</dt>
               <dd>
                 {(() => {
                   const s = stores.find((item) => Number(item.id) === Number(order.storeId));
