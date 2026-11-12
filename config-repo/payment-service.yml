@@ -3,9 +3,15 @@ server:
 payment:
   sepay:
     api-key: ${SEPAY_API_KEY:}
+  local-simulation:
+    enabled: ${PAYMENT_LOCAL_SIMULATION_ENABLED:false}
 spring:
   application:
     name: payment-service
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 3MB
   datasource:
     hikari:
       schema: payment_service
@@ -20,3 +26,4 @@ spring:
     schemas: payment_service
     create-schemas: true
     baseline-on-migrate: false
+    out-of-order: true

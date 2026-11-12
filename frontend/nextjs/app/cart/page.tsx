@@ -1,6 +1,9 @@
 "use client";
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
+import { useEffect, useState } from "react";
+import { useSession } from "@/components/auth/use-session";
+import { partyOrderApi, type PartyOrderResult } from "@/lib/api";
 
 
 import Link from "@/components/ui-loader/navigation-link";
@@ -20,6 +23,17 @@ import styles from "./cart.module.css";
 
 export default function CartPage() {
   const t = useTranslations();
+  const session = useSession();
+  const userId = session.user?.userId;
+  const [partyRequests, setPartyRequests] = useState<PartyOrderResult[]>([]);
+  useEffect(() => {
+    if (!userId) { setPartyRequests([]); return; }
+    let active = true;
+    partyOrderApi.getMyPartyOrders(0, 20).then(result => {
+      if (active) setPartyRequests(result.content.filter(request => request.status !== "CANCELLED" && request.status !== "CLOSED"));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [userId]);
 
   const { money: formatPrice } = useLocaleTools();
   const {
@@ -197,6 +211,20 @@ export default function CartPage() {
               <Link href="/menu" className={styles.continueShopping}> {t("business.cart.continueShopping")} </Link>
             </aside>
           </div>
+        )}
+        {partyRequests.length > 0 && (
+          <section className={styles.partyRequests} aria-label={t("business.party.partyRequests")}>
+            <h2>{t("business.party.partyRequests")}</h2>
+            {partyRequests.map(request => (
+              <article key={request.id} className={styles.partyRequest}>
+                <strong>#{request.id} · {request.packageCode?.replace("pkg-", "") || t("business.party.partyRequests")}</strong>
+                <span>{request.expectedDate} · {request.expectedTime} · {request.guestCount} {t("business.party.people")}</span>
+                <span>{request.contactName} · {request.phone}</span>
+                <span>{request.quoteAmount ? formatPrice(request.quoteAmount) : t("business.party.quotePending")}</span>
+                <span>{request.status}</span>
+              </article>
+            ))}
+          </section>
         )}
       </main>
           </>

@@ -21,8 +21,10 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  BankOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../context/AuthContext";
+import { useOrders } from "../context/OrderContext";
 import { getErrorMessage } from "../lib/api";
 import { roleHome } from "../lib/role-home";
 import { AdminFooter } from "../components/AdminFooter";
@@ -37,6 +39,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/stores": "admin:nav.stores",
   "/admin/inventory": "admin:nav.inventory",
   "/admin/orders": "admin:nav.orders",
+  "/admin/party-orders": "admin:nav.partyOrders",
   "/admin/staff/orders": "admin:nav.shiftOrders",
   "/admin/reviews": "admin:nav.reviews",
   "/admin/users": "admin:nav.users",
@@ -46,6 +49,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/reports": "admin:nav.reports",
   "/admin/payments": "admin:nav.payments",
   "/admin/promotions": "admin:nav.promotions",
+  "/admin/transfers": "admin:nav.transfers",
 };
 
 export const AdminLayout: React.FC = () => {
@@ -55,6 +59,7 @@ export const AdminLayout: React.FC = () => {
   const screens = Grid.useBreakpoint();
   const isMobile = screens.lg === false;
   const { user, logout } = useAuth();
+  const { currentStore, storeOpenState } = useOrders();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -65,6 +70,7 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/stores")) selectedKey = "stores";
   else if (pathname.includes("/inventory")) selectedKey = "inventory";
   else if (pathname.includes("/staff/orders")) selectedKey = "staff-orders";
+  else if (pathname.includes("/party-orders")) selectedKey = "party-orders";
   else if (pathname.includes("/orders")) selectedKey = "orders";
   else if (pathname.includes("/users")) selectedKey = "users";
   else if (pathname.includes("/customers")) selectedKey = "customers";
@@ -74,6 +80,7 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/reports")) selectedKey = "reports";
   else if (pathname.includes("/payments")) selectedKey = "payments";
   else if (pathname.includes("/promotions")) selectedKey = "promotions";
+  else if (pathname.includes("/transfers")) selectedKey = "transfers";
 
   const roleNavPermissions: Record<
     "ADMIN" | "STORE_MANAGER" | "STAFF",
@@ -85,10 +92,12 @@ export const AdminLayout: React.FC = () => {
       "stores",
       "inventory",
       "orders",
+      "party-orders",
       "users",
       "reviews",
       "reports",
       "payments",
+      "transfers",
       "promotions",
       "customers",
       "email-logs",
@@ -99,12 +108,14 @@ export const AdminLayout: React.FC = () => {
       "stores",
       "inventory",
       "orders",
+      "party-orders",
       "users",
       "reviews",
       "reports",
       "payments",
+      "transfers",
     ],
-    STAFF: ["inventory", "orders", "reviews", "payments"],
+    STAFF: ["inventory", "orders", "party-orders", "reviews", "payments"],
   };
 
   const navItems: MenuProps["items"] = [
@@ -137,6 +148,18 @@ export const AdminLayout: React.FC = () => {
       icon: <FileTextOutlined />,
       label: t("admin:nav.orders"),
       onClick: () => navigate("/admin/orders"),
+    },
+    {
+      key: "party-orders",
+      icon: <FileTextOutlined />,
+      label: t("admin:nav.partyOrders"),
+      onClick: () => navigate("/admin/party-orders"),
+    },
+    {
+      key: "transfers",
+      icon: <BankOutlined />,
+      label: t("admin:nav.transfers"),
+      onClick: () => navigate("/admin/transfers"),
     },
     {
       key: "staff-orders",
@@ -283,7 +306,7 @@ export const AdminLayout: React.FC = () => {
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span
                 style={{
-                  fontFamily: "Baloo 2, sans-serif",
+                  fontFamily: "Fredoka, Quicksand, sans-serif",
                   fontWeight: 700,
                   fontSize: 22,
                   color: "#FFFAF3",
@@ -360,7 +383,7 @@ export const AdminLayout: React.FC = () => {
               {t("admin:currentRole")}{" "}</div>
             <div
               style={{
-                fontFamily: "Baloo 2, sans-serif",
+                fontFamily: "Fredoka, Quicksand, sans-serif",
                 color: "#C9A227",
                 fontWeight: 600,
                 fontSize: 13,
@@ -452,9 +475,9 @@ export const AdminLayout: React.FC = () => {
               <Tag
                 className="admin-header-store"
                 style={{
-                  backgroundColor: "#FEF9C3",
-                  border: "1px solid #FDE047",
-                  color: "#946C00",
+                  backgroundColor: storeOpenState.isOpen ? "#FEF9C3" : "#FEF2F2",
+                  border: storeOpenState.isOpen ? "1px solid #FDE047" : "1px solid #FECACA",
+                  color: storeOpenState.isOpen ? "#946C00" : "#B42318",
                   borderRadius: 999,
                   padding: "4px 12px",
                   fontFamily: "Quicksand, sans-serif",
@@ -466,7 +489,19 @@ export const AdminLayout: React.FC = () => {
               >
                 <ShopOutlined />
                 <span>
-                  {t("admin:storeLabel")}{" "}{user.storeName || (user.storeId ? `#${user.storeId}` : t('errors:FORBIDDEN'))}
+                  {currentStore?.name || user.storeName || (user.storeId ? `${t("admin:storeLabel")} #${user.storeId}` : t('errors:FORBIDDEN'))}
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: "1px 8px",
+                    borderRadius: 999,
+                    backgroundColor: storeOpenState.isOpen ? "#DCFCE7" : "#FEE2E2",
+                    color: storeOpenState.isOpen ? "#166534" : "#991B1B",
+                    fontWeight: 800,
+                  }}
+                >
+                  {storeOpenState.isOpen ? t("business:storeStatus.openNowChip") : t("business:storeStatus.closedNowChip")}
                 </span>
               </Tag>
             )}
@@ -495,7 +530,7 @@ export const AdminLayout: React.FC = () => {
                   size={34}
                   style={{
                     backgroundColor: "#8F1216",
-                    fontFamily: "Baloo 2, sans-serif",
+                    fontFamily: "Fredoka, Quicksand, sans-serif",
                     fontWeight: 700,
                     color: "#FFFAF3",
                   }}

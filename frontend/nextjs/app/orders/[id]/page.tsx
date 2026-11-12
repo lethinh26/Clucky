@@ -39,7 +39,8 @@ import {
   OrderItemCard,
   OrderSummaryCard,
 } from "@/components/order";
-import { orderApi, catalogApi, refundApi, type ProductItem, type RefundResult } from "@/lib/api";
+import { orderApi, catalogApi, refundApi, type ProductItem, type StoreItem, type RefundResult } from "@/lib/api";
+import { stores as FALLBACK_STORES } from "@/lib/products";
 import { fillOrderImages } from "@/lib/order-images";
 import { OrderItemReviews } from "@/components/reviews/order-item-reviews";
 import type { Order } from "@/lib/types/order";
@@ -63,9 +64,11 @@ export default function OrderTrackingPage({
   );
   const [serverOrder, setServerOrder] = useState<Order | null>(null);
   const [imageCatalog, setImageCatalog] = useState<ProductItem[]>([]);
+  const [storesList, setStoresList] = useState<Pick<StoreItem, "id" | "name" | "address">[]>(FALLBACK_STORES);
   useEffect(() => {
     let active = true;
     catalogApi.getProducts().then(products => { if (active) setImageCatalog(products); }).catch(() => {});
+    catalogApi.getStores(false).then(stores => { if (active && Array.isArray(stores) && stores.length > 0) setStoresList(stores); }).catch(() => {});
     return () => { active = false; };
   }, []);
   const [isPolling, setIsPolling] = useState(false);
@@ -123,7 +126,18 @@ export default function OrderTrackingPage({
   }, [id]);
 
   const sourceOrder = serverOrder || localOrder;
-  const order = sourceOrder ? fillOrderImages([sourceOrder], imageCatalog)[0] : undefined;
+  const matchedStore = sourceOrder
+    ? (storesList.find(s => Number(s.id) === Number(sourceOrder.storeId)) ??
+       FALLBACK_STORES.find(s => Number(s.id) === Number(sourceOrder.storeId)))
+    : undefined;
+  const enrichedSourceOrder = sourceOrder
+    ? {
+        ...sourceOrder,
+        storeName: matchedStore?.name || sourceOrder.storeName,
+        storeAddress: matchedStore?.address || sourceOrder.storeAddress,
+      }
+    : undefined;
+  const order = enrichedSourceOrder ? fillOrderImages([enrichedSourceOrder], imageCatalog)[0] : undefined;
 
   useEffect(() => {
     if (!order?.id) return;
@@ -224,7 +238,11 @@ export default function OrderTrackingPage({
       message: t("business.id.thePaymentSessionHasExpiredPleaseCheckYourOrderBeforePaying"),
       icon: Clock3,
     },
-  }[order.paymentStatus];
+  }[order.paymentStatus] ?? {
+    label: t("business.id.orderValue"),
+    message: t("business.id.payInCashWhenYouReceiveYourMeal"),
+    icon: Wallet,
+  };
   const PaymentIcon = paymentCopy.icon;
 
   const handleCancel = async () => {
@@ -289,6 +307,7 @@ export default function OrderTrackingPage({
               {displayOrderTime(order.createdAt, locale)}
               <span>·</span>
               {order.storeName}
+              {order.storeAddress ? ` — ${order.storeAddress}` : ""}
             </p>
           </div>
           <OrderStatusChip status={order.status} type={order.type} />
@@ -358,6 +377,8 @@ export default function OrderTrackingPage({
           orderCode={order.orderCode}
           status={order.status}
           type={order.type}
+          paymentStatus={order.paymentStatus}
+          paymentMethod={order.paymentMethod}
           updatedAt={order.updatedAt ?? order.createdAt}
           history={order.timeline}
         />
@@ -426,7 +447,7 @@ export default function OrderTrackingPage({
                   className={`${styles.primaryButton} ${styles.exploreAction}`}
                   onClick={async () => {
                     await reorder(order);
-                    router.push("/cart");
+                    router.push(`/checkout?storeId=${encodeURIComponent(order.storeId)}`);
                   }}
                 >
                   <RotateCcw size={17} /> {t("business.id.reorderTheseItems")}
@@ -453,7 +474,7 @@ export default function OrderTrackingPage({
                   {t("business.id.cancelThisOrder")}
                 </button>
               )}
-              {!refund?.status && !order.refundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER" && (
+              {!refund?.status && !order.refundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER" && order.paymentStatus === "PAID" && (
                 <button
                   type="button"
                   className={styles.outlineButton}
@@ -651,7 +672,7 @@ export default function OrderTrackingPage({
                     </p>
                   );
                 }
-                if (!activeRefundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER") {
+                if (!activeRefundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER" && order.paymentStatus === "PAID") {
                   return (
                     <div style={{ background: "#fffaf3", border: "1px solid #e8e2d9", borderRadius: "14px", padding: "14px 18px", marginTop: "14px" }}>
                       <p style={{ margin: "0 0 10px", color: "#8f1216", fontSize: "14px", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
@@ -679,6 +700,7 @@ export default function OrderTrackingPage({
               receiverPhone={order.receiverPhone}
               address={order.deliveryAddress}
               storeName={order.storeName}
+              storeAddress={order.storeAddress}
               orderType={order.type}
               status={order.shipmentStatus}
             />

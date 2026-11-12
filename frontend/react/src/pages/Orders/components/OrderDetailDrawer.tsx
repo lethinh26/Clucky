@@ -23,10 +23,12 @@ import { OrderProgress } from "../../../components/ui/OrderProgress";
 import { OrderStatusBadge } from "../../../components/ui/OrderStatusBadge";
 import { FoodImage } from "../../../components/ui/FoodImage";
 import { displayOrderTime } from "../../../lib/order-demo";
+import { formatQueueWithDate } from "../../../utils/orderExcelExport";
 import { useOrders } from "../../../context/OrderContext";
 import { useAuth } from "../../../context/AuthContext";
 import { getErrorMessage, vietQrApi, type VietQrBank } from "../../../lib/api";
 import styles from "../orders.module.css";
+import { CodEvidencePanel } from "./CodEvidencePanel";
 
 interface Props {
   order: AdminOrder | null;
@@ -39,6 +41,7 @@ interface Props {
   ) => Promise<boolean> | boolean;
   onOpenRefundModal?: (order: AdminOrder) => void;
   onOpenFinance?: (order: AdminOrder) => void;
+  onCollectCounter?: (order: AdminOrder) => void;
   onChanged?: () => void;
 }
 
@@ -49,13 +52,14 @@ export function OrderDetailDrawer({
   onStatusChange,
   onOpenRefundModal,
   onOpenFinance,
+  onCollectCounter,
   onChanged,
 }: Props) {
   const { t } = useTranslation();
 
 
   const { locale, money: money } = useLocaleTools();
-  const { actionError, createRefund } = useOrders();
+  const { stores, actionError, createRefund } = useOrders();
   const { isStaff } = useAuth();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -87,7 +91,10 @@ export function OrderDetailDrawer({
       <Drawer
         title={
           <div className={styles.drawerTitle}>
-            <span>{t("business:orderdetaildrawer.details")} {order.orderCode}</span>
+            <span>
+              {t("business:orderdetaildrawer.details")} {order.orderCode}
+              {order.queueNumber ? ` · ${formatQueueWithDate(order.queueNumber, order.createdAt).combinedLabel}` : ""}
+            </span>
             <OrderStatusBadge status={order.status} />
           </div>
         }
@@ -180,7 +187,17 @@ export function OrderDetailDrawer({
             </div>
             <div>
               <dt>{t("business:party.store")}</dt>
-              <dd>{order.storeName}</dd>
+              <dd>
+                {(() => {
+                  const s = stores.find((item) => Number(item.id) === Number(order.storeId));
+                  return (
+                    <>
+                      <div>{s?.name || order.storeName}</div>
+                      {s?.address && <small style={{ color: "#6b6259" }}>{s.address}</small>}
+                    </>
+                  );
+                })()}
+              </dd>
             </div>
             {order.deliveryAddress && (
               <div className={styles.wideField}>
@@ -235,9 +252,11 @@ export function OrderDetailDrawer({
             <div>
               <dt>{t("business:orderdetaildrawer.method")}</dt>
               <dd>
-                {onOpenFinance ? (order.paymentMethod || "UNKNOWN") : order.paymentMethod === "COD"
-                  ? t("business:orderdetaildrawer.cashCod")
-                  : t("business:id.bankTransfer")}
+                {onOpenFinance
+                  ? (order.paymentMethod || "UNKNOWN")
+                  : (order.paymentMethod === "COD" || (order.paymentMethod as string) === "CASH")
+                    ? t("business:orderdetaildrawer.cashCod")
+                    : t("business:id.bankTransfer")}
               </dd>
             </div>
             <div>
@@ -271,7 +290,7 @@ export function OrderDetailDrawer({
           <p className={styles.actionHint}> {t("business:orderdetaildrawer.actionsDependOnTheCurrentStatusAndYourDemoRole")} </p>
           <div className={styles.drawerActions}>
             {onOpenFinance && <Button icon={<Wallet size={16} />} onClick={() => onOpenFinance(order)}>{t("admin:ui.financeCollectionRefunds")}</Button>}
-            {order.status === "CONFIRMED" && (
+            {order.status === "CONFIRMED" && (order.orderType !== "PICKUP" || ["PAID", "COLLECTED"].includes(order.paymentStatus)) && (
               <Button
                 type="primary"
                 icon={<ChefHat size={16} />}
@@ -285,11 +304,21 @@ export function OrderDetailDrawer({
                 onClick={() => onStatusChange(order.id, "READY")}
               > {t("business:orderdetaildrawer.mealReady")} </Button>
             )}
-            {!onOpenFinance && order.paymentMethod === "COD" &&
-              order.paymentStatus === "PENDING" &&
-              !["CANCELLED", "COMPLETED"].includes(order.status) && (
-                <div><Button disabled icon={<Wallet size={16} />}>{t("business:orderdetaildrawer.confirmCodCollection")}</Button>
-                  <p>{t('admin:collectionUnavailable')}</p></div>
+            {!onOpenFinance && order.paymentStatus === "PENDING" &&
+              !["CANCELLED", "COMPLETED", "PENDING_PAYMENT"].includes(order.status) && (
+                onCollectCounter ? (
+                  <Button
+                    type="primary"
+                    icon={<Wallet size={16} />}
+                    onClick={() => onCollectCounter(order)}
+                  >
+                    {t("business:staffcard.collectCounterWithMethods")}
+                  </Button>
+                ) : (
+                  order.paymentMethod === "COD" &&
+                  order.orderType === "PICKUP" && ["CONFIRMED", "PREPARING", "READY"].includes(order.status) &&
+                  <CodEvidencePanel orderId={order.id} onCollect={() => onStatusChange(order.id, order.status, "COLLECT_COD")} />
+                )
               )}
             {["READY", "SHIPPING"].includes(order.status) && (
               <Button
@@ -311,6 +340,7 @@ export function OrderDetailDrawer({
             )}
             {order.status === "CANCELLED" &&
               order.paymentMethod === "BANK_TRANSFER" &&
+              order.paymentStatus === "PAID" &&
               !order.hasRefundRequest &&
               !order.refundStatus &&
               !isStaff && (
@@ -430,8 +460,11 @@ export function OrderDetailDrawer({
         cancelText={t("business:id.keepOrder")}
         okButtonProps={{ danger: true, disabled: !reason.trim() }}
         onOk={async () => {
-          if (await onStatusChange(order.id, "CANCELLED", reason.trim()))
+          const success = await onStatusChange(order.id, "CANCELLED", reason.trim());
+          if (success) {
             setCancelOpen(false);
+            onClose();
+          }
         }}
       >
         <p> {t("business:orderdetaildrawer.enterACancellationReasonPaidOrdersWillCreateARefundRequestIn")} </p>

@@ -9,6 +9,7 @@ import { AdminModal } from '../../../components/ui/AdminModal';
 import { message } from '../../../components/feedback';
 import { CatalogImage } from '../../Catalog/ImageField';
 import { actorLabel, catalogItemPath, historyReason, orderDate, orderLabels, paymentColor, paymentLabels, paymentMethodLabel, snapshotLabels } from '../presentation';
+import { formatQueueWithDate } from '../../../utils/orderExcelExport';
 
 interface ActionFields { reason: string }
 const requiredText = (max: number) => [{ required: true, whitespace: true, max, pattern: /^[^\x00]*$/, get message() { return i18n.t("admin:ui.enterValidContentUpToCharacters", { value1: max }); } }];
@@ -73,7 +74,7 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
   return <>
     <Drawer open className="admin-order-drawer" size="min(760px, 100vw)" onClose={() => { if (!lock.current && !covered) onClose(); }}
       closable={!busy && !covered} maskClosable={!busy && !covered} keyboard={!busy && !covered} autoFocus={!covered}
-      title={<div className="order-drawer-title"><div><small>{t("admin:ui.orderDetails")}</small><strong>{order?.orderCode ?? t("admin:ui.loadingOrder")}</strong></div>
+      title={<div className="order-drawer-title"><div><small>{t("admin:ui.orderDetails")}{order?.queueNumber ? ` · ${formatQueueWithDate(order.queueNumber, order.createdAt).combinedLabel}` : ""}</small><strong>{order?.orderCode ?? t("admin:ui.loadingOrder")}</strong></div>
         {status && <Tag color={status === 'CANCELLED' ? 'error' : status === 'COMPLETED' ? 'success' : 'processing'}>{orderLabels[status] ?? status}</Tag>}</div>}
       footer={order && <div className="order-footer"><Button icon={<WalletOutlined />} disabled={busy} onClick={onFinance}>{t("admin:ui.financeRefunds")}</Button><Space wrap>
         {['PENDING_PAYMENT', 'CONFIRMED'].includes(status ?? '') && <Button danger disabled={disabled} onClick={beginCancellation}>{t("admin:ui.cancelOrder")}</Button>}
