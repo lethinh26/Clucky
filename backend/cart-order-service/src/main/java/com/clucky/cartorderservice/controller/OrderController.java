@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -110,9 +111,11 @@ public class OrderController {
             @PathVariable("id") @Positive Long id,
             @Valid @RequestBody CreateRefundRequest request) {
         CreateRefundRequest effective = new CreateRefundRequest(
-                id, request.reason(), request.bankName(), request.bankAccountNo(), request.bankAccountName()
+                id, request.reason(), request.bankBin(), request.bankName(),
+                request.bankAccountNo(), request.bankAccountName()
         );
         var result = refundRequestService.createRefundRequest(effective);
-        return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK).body(result.refund());
+        return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
+                .cacheControl(CacheControl.noStore()).body(result.refund());
     }
 }

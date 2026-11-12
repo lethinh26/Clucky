@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../../i18n/hooks";
-import { useState } from "react";
-import { Drawer, Button, Modal, Input, Space, Tag } from "antd";
+import { useEffect, useRef, useState } from "react";
+import { Drawer, Button, Modal, Input, Space, Tag, Select, Alert } from "antd";
 import { message } from "../../../components/feedback";
 import {
   Clock3,
@@ -25,6 +25,7 @@ import { FoodImage } from "../../../components/ui/FoodImage";
 import { displayOrderTime } from "../../../lib/order-demo";
 import { useOrders } from "../../../context/OrderContext";
 import { useAuth } from "../../../context/AuthContext";
+import { getErrorMessage, vietQrApi, type VietQrBank } from "../../../lib/api";
 import styles from "../orders.module.css";
 
 interface Props {
@@ -60,10 +61,26 @@ export function OrderDetailDrawer({
   const [reason, setReason] = useState("");
   const [createRefundOpen, setCreateRefundOpen] = useState(false);
   const [refundReason, setRefundReason] = useState("");
+  const [bankBin, setBankBin] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNo, setAccountNo] = useState("");
   const [accountName, setAccountName] = useState("");
   const [submittingRefund, setSubmittingRefund] = useState(false);
+  const [banks, setBanks] = useState<VietQrBank[]>([]);
+  const [banksLoading, setBanksLoading] = useState(false);
+  const [banksError, setBanksError] = useState("");
+
+  useEffect(() => {
+    if (!createRefundOpen || banks.length > 0) return;
+    let active = true;
+    setBanksLoading(true);
+    setBanksError("");
+    vietQrApi.banks()
+      .then(items => { if (active) setBanks(items); })
+      .catch(error => { if (active) setBanksError(getErrorMessage(error)); })
+      .finally(() => { if (active) setBanksLoading(false); });
+    return () => { active = false; };
+  }, [createRefundOpen, banks.length]);
   if (!order) return null;
   return (
     <>
@@ -302,9 +319,10 @@ export function OrderDetailDrawer({
                   type="primary"
                   onClick={() => {
                     setRefundReason(t("business:orderdetaildrawer.eligibleRefundNotice"));
+                    setBankBin("");
                     setBankName("");
                     setAccountNo("");
-                    setAccountName(order.customerName || "");
+                    setAccountName("");
                     setCreateRefundOpen(true);
                   }}
                 >
@@ -330,14 +348,15 @@ export function OrderDetailDrawer({
         confirmLoading={submittingRefund}
         okButtonProps={{
           danger: true,
-          disabled: !refundReason.trim() || !bankName.trim() || !accountNo.trim() || !accountName.trim(),
+          disabled: !refundReason.trim() || !bankBin || !/^\d{1,80}$/.test(accountNo.trim()) || !accountName.trim(),
         }}
         onOk={async () => {
           setSubmittingRefund(true);
           const ok = await createRefund({
             orderId: Number(order.id),
             reason: refundReason.trim(),
-            bankName: bankName.trim(),
+            bankBin,
+            bankName,
             bankAccountNo: accountNo.trim(),
             bankAccountName: accountName.trim(),
           });
@@ -354,31 +373,46 @@ export function OrderDetailDrawer({
         </p>
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.bankLabel")}</label>
-            <Input
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              placeholder="Vietcombank, MB Bank, v.v."
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.bankLabel")} *</label>
+            <Select
+              showSearch
+              loading={banksLoading}
+              value={bankBin || undefined}
+              placeholder={t("business:refundmodal.searchAndChooseBank")}
+              optionFilterProp="label"
+              options={banks.map(bank => ({
+                value: bank.bin,
+                label: `${bank.shortName || bank.name || bank.bin} (${bank.bin})`,
+              }))}
+              onChange={(value: string) => {
+                setBankBin(value);
+                const selected = banks.find(b => b.bin === value);
+                setBankName(selected ? (selected.shortName || selected.name || selected.bin) : "");
+              }}
             />
+            {banksError && <Alert type="error" showIcon message={banksError} />}
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNoLabel")}</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNoLabel")} *</label>
             <Input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
               value={accountNo}
-              onChange={(e) => setAccountNo(e.target.value)}
+              onChange={(e) => setAccountNo(e.target.value.replace(/\s+/g, ""))}
               placeholder="123456789..."
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNameLabel")}</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNameLabel")} *</label>
             <Input
               value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
+              onChange={(e) => setAccountName(e.target.value.toUpperCase())}
               placeholder="NGUYEN VAN A"
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.refundReasonLabel")}</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.refundReasonLabel")} *</label>
             <Input.TextArea
               value={refundReason}
               onChange={(e) => setRefundReason(e.target.value)}

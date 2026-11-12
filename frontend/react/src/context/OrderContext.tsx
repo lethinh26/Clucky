@@ -114,7 +114,14 @@ interface OrderWorkspace {
     action: "APPROVED" | "REJECTED",
     note: string,
   ) => Promise<boolean>;
-  createRefund: (data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string }) => Promise<boolean>;
+  createRefund: (data: {
+    orderId: number;
+    reason: string;
+    bankBin: string;
+    bankName?: string;
+    bankAccountNo: string;
+    bankAccountName: string;
+  }) => Promise<boolean>;
   refreshOrders: () => Promise<void>;
 }
 
@@ -264,7 +271,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   );
 
   const createRefund = useCallback(
-    async (data: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string }) => {
+    async (data: { orderId: number; reason: string; bankBin: string; bankName?: string; bankAccountNo: string; bankAccountName: string }) => {
       try {
         await refundsApi.create(data);
         await refreshOrders();

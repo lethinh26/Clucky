@@ -2,9 +2,9 @@ import { message } from "../../../components/feedback";
 import { useLocaleTools } from "../../../i18n/hooks";
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Modal, Input, Radio, Typography, Space, Tag, Button, Alert, Spin, Upload, Checkbox } from "antd";
+import { Modal, Input, Radio, Typography, Space, Tag, Button, Alert, Spin, Upload, Checkbox, Select } from "antd";
 import { AdminOrder } from "../../../types/order";
-import { refundsApi, getErrorMessage, type BackendRefund } from "../../../lib/api";
+import { refundsApi, vietQrApi, getErrorMessage, type BackendRefund, type VietQrBank } from "../../../lib/api";
 import { useOrders } from "../../../context/OrderContext";
 import { useAuth } from "../../../context/AuthContext";
 
@@ -65,9 +65,13 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   const [transferNotCompleted, setTransferNotCompleted] = useState(false);
 
   const [bankModalOpen, setBankModalOpen] = useState(false);
+  const [bankBin, setBankBin] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [accountHolderName, setAccountHolderName] = useState("");
+  const [banks, setBanks] = useState<VietQrBank[]>([]);
+  const [banksLoading, setBanksLoading] = useState(false);
+  const [banksError, setBanksError] = useState("");
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmNote, setConfirmNote] = useState("");
@@ -90,6 +94,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
       loadedStatus.current = state;
       setRefund(data);
       setConfirmationPending(!!data.paymentOperation);
+      setBankBin(data.bankBin || "");
       setBankName(data.bankName || "");
       setAccountNumber(data.accountNumber || data.bankAccountNo || "");
       setAccountHolderName(data.accountHolderName || data.bankAccountName || "");
@@ -113,6 +118,18 @@ export const RefundModal: React.FC<RefundModalProps> = ({
     }
     return () => { detailRequest.current?.abort(); activeRefund.current = undefined; };
   }, [open, order?.refundRequestId, fetchRefundDetails]);
+
+  useEffect(() => {
+    if (!bankModalOpen || banks.length > 0) return;
+    let active = true;
+    setBanksLoading(true);
+    setBanksError("");
+    vietQrApi.banks()
+      .then(items => { if (active) setBanks(items); })
+      .catch(error => { if (active) setBanksError(getErrorMessage(error)); })
+      .finally(() => { if (active) setBanksLoading(false); });
+    return () => { active = false; };
+  }, [bankModalOpen, banks.length]);
 
   useEffect(() => {
     if (!open || !order?.refundRequestId || submitting || uploadingEvidence || loading || bankModalOpen || invalidModalOpen || confirmModalOpen) return;
@@ -202,7 +219,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   // 4. Update bank details for WAITING_BANK_DETAILS / APPROVED
   const handleUpdateBankDetails = async () => {
     if (operationLock.current) return;
-    if (!order.refundRequestId || !bankName.trim() || !accountNumber.trim() || !accountHolderName.trim()) {
+    if (!order.refundRequestId || !bankBin || !/^\d{1,80}$/.test(accountNumber) || !accountHolderName.trim()) {
       message.warning(t("business:stores.pleaseCheckTheStoreInformationFields"));
       return;
     }
@@ -210,9 +227,10 @@ export const RefundModal: React.FC<RefundModalProps> = ({
     try {
       setSubmitting(true);
       const updated = await refundsApi.updateBankDetails(order.refundRequestId, {
-        bankName: bankName.trim(),
-        accountNumber: accountNumber.trim(),
-        accountHolderName: accountHolderName.trim(),
+        bankBin,
+        bankName,
+        bankAccountNo: accountNumber.trim(),
+        bankAccountName: accountHolderName.trim(),
         expectedBankDetailsVersion: refund?.bankDetailsVersion,
       });
       syncParent();
@@ -227,6 +245,14 @@ export const RefundModal: React.FC<RefundModalProps> = ({
       operationLock.current = false;
       setSubmitting(false);
     }
+  };
+
+  const openBankDetailsModal = () => {
+    setBankBin(refund?.bankBin || "");
+    setBankName(refund?.bankName || "");
+    setAccountNumber(refund?.accountNumber || refund?.bankAccountNo || "");
+    setAccountHolderName(refund?.accountHolderName || refund?.bankAccountName || "");
+    setBankModalOpen(true);
   };
 
   // 5. Upload evidence for PROCESSING
@@ -364,6 +390,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 <div>
                   <span style={{ color: "#888" }}>{t("business:refundmodal.bankName")}:</span>{" "}
                   <strong>{refund?.bankName || t("business:refundmodal.noBankInfo")}</strong>
+                  {refund?.bankBin && <span style={{ color: "#888", marginLeft: 4 }}>({refund.bankBin})</span>}
                 </div>
                 <div>
                   <span style={{ color: "#888" }}>{t("business:refundmodal.accountNumber")}:</span>{" "}
@@ -376,7 +403,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
               </div>
               {!refund?.paymentOperation && ["PENDING", "WAITING_BANK_DETAILS"].includes(currentStatus) && (
                 <div style={{ marginTop: 8 }}>
-                  <Button size="small" onClick={() => setBankModalOpen(true)}>
+                  <Button size="small" onClick={openBankDetailsModal}>
                     {t("business:refundmodal.updateBankDetails")}
                   </Button>
                 </div>
@@ -589,7 +616,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                 <Button onClick={onClose}>{t("account:cancel")}</Button>
                 <Button
                   type="primary"
-                  onClick={() => setBankModalOpen(true)}
+                  onClick={openBankDetailsModal}
                 >
                   {t("business:refundmodal.updateBankDetails")}
                 </Button>
@@ -685,7 +712,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
         onCancel={() => setBankModalOpen(false)}
         onOk={handleUpdateBankDetails}
         okButtonProps={{
-          disabled: !bankName.trim() || !accountNumber.trim() || !accountHolderName.trim(),
+          disabled: !bankBin || !/^\d{1,80}$/.test(accountNumber.trim()) || !accountHolderName.trim(),
           loading: submitting,
         }}
         okText={t("business:account.saveChanges")}
@@ -695,19 +722,34 @@ export const RefundModal: React.FC<RefundModalProps> = ({
             <label style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>
               {t("business:refundmodal.bankName")} *
             </label>
-            <Input
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              placeholder={t("business:refundmodal.bankNamePlaceholder")}
+            <Select
+              showSearch
+              loading={banksLoading}
+              value={bankBin || undefined}
+              placeholder={t("business:refundmodal.searchAndChooseBank")}
+              optionFilterProp="label"
+              options={banks.map(bank => ({
+                value: bank.bin,
+                label: `${bank.shortName || bank.name || bank.bin} (${bank.bin})`,
+              }))}
+              onChange={(value: string) => {
+                setBankBin(value);
+                const selected = banks.find(b => b.bin === value);
+                setBankName(selected ? (selected.shortName || selected.name || selected.bin) : "");
+              }}
             />
+            {banksError && <Alert type="error" showIcon message={banksError} style={{ marginTop: 8 }} />}
           </div>
           <div>
             <label style={{ display: "block", marginBottom: 4, fontWeight: 600 }}>
               {t("business:refundmodal.accountNumber")} *
             </label>
             <Input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
               value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value)}
+              onChange={(e) => setAccountNumber(e.target.value.replace(/\s+/g, ""))}
               placeholder={t("business:refundmodal.accountNumberPlaceholder")}
             />
           </div>
@@ -717,8 +759,8 @@ export const RefundModal: React.FC<RefundModalProps> = ({
             </label>
             <Input
               value={accountHolderName}
-              onChange={(e) => setAccountHolderName(e.target.value)}
-              placeholder={t("business:refundmodal.accountHolderPlaceholder")}
+              onChange={(e) => setAccountHolderName(e.target.value.toUpperCase())}
+              placeholder="NGUYEN VAN A"
             />
           </div>
         </div>
@@ -755,4 +797,3 @@ export const RefundModal: React.FC<RefundModalProps> = ({
     </>
   );
 };
-
