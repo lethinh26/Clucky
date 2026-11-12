@@ -22,8 +22,12 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -32,8 +36,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -53,8 +59,10 @@ public class OrderService {
     private final PromotionClient promotionClient;
     private final LoyaltyClient loyaltyClient;
     private final ShippingClient shippingClient;
+    private final StringRedisTemplate redisTemplate;
     private final VoucherCheckoutRecovery voucherRecovery;
     private final CustomerProfileClient customerProfiles;
+    private final JdbcTemplate jdbc;
     private final Random random = new SecureRandom();
 
     public OrderService(
@@ -72,6 +80,29 @@ public class OrderService {
             VoucherCheckoutRecovery voucherRecovery,
             CustomerProfileClient customerProfiles
     ) {
+        this(orderRepository, orderItemRepository, orderStatusHistoryRepository, cartService,
+                accessGuard, objectMapper, orderEventPublisher, catalogClient, promotionClient,
+                shippingClient, loyaltyClient, null, voucherRecovery, customerProfiles, null);
+    }
+
+    @Autowired
+    public OrderService(
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            OrderStatusHistoryRepository orderStatusHistoryRepository,
+            CartService cartService,
+            AccessGuard accessGuard,
+            ObjectMapper objectMapper,
+            OrderEventPublisher orderEventPublisher,
+            CatalogClient catalogClient,
+            PromotionClient promotionClient,
+            ShippingClient shippingClient,
+            LoyaltyClient loyaltyClient,
+            StringRedisTemplate redisTemplate,
+            VoucherCheckoutRecovery voucherRecovery,
+            CustomerProfileClient customerProfiles,
+            JdbcTemplate jdbc
+    ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
@@ -83,8 +114,10 @@ public class OrderService {
         this.promotionClient = promotionClient;
         this.shippingClient = shippingClient;
         this.loyaltyClient = loyaltyClient;
+        this.redisTemplate = redisTemplate;
         this.voucherRecovery = voucherRecovery;
         this.customerProfiles = customerProfiles;
+        this.jdbc = jdbc;
     }
 
     public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
@@ -183,11 +216,12 @@ public class OrderService {
         Long customerId = CurrentActor.require().userId();
 
         String userCartKey = RedisConfig.key("cart", customerId.toString());
-        CartDto cart = cartService.getCart(userCartKey);
-
-        List<CartItemDto> items = (cart != null && cart.getItems() != null) ? cart.getItems() : List.of();
-        if (items.isEmpty() && request.items() != null && !request.items().isEmpty()) {
-            items = request.items();
+        List<CartItemDto> items = (request.items() != null && !request.items().isEmpty())
+                ? request.items()
+                : List.of();
+        if (items.isEmpty()) {
+            CartDto cart = cartService.getCart(userCartKey);
+            items = (cart != null && cart.getItems() != null) ? cart.getItems() : List.of();
         }
         if (items.isEmpty()) {
             LOG.warn("event=order_create_failed reason=cart_empty customerId={}", customerId);
@@ -198,19 +232,21 @@ public class OrderService {
             if (it.getStoreId() != null && !it.getStoreId().equals(request.storeId())) {
                 LOG.warn("event=order_create_failed reason=store_mismatch itemStoreId={} requestStoreId={}",
                         it.getStoreId(), request.storeId());
-                throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Món trong giỏ thuộc chi nhánh khác (" + it.getStoreId() + "). Vui lòng chọn đúng chi nhánh.");
             }
         }
 
         // Validate items with Catalog Service (P1-01: Client price is NEVER trusted)
         CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(request.storeId(), items);
         if (!catalogValidation.valid()) {
-            LOG.warn("event=order_create_failed reason=catalog_items_invalid message={}", catalogValidation.message());
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : ErrorCode.RESOURCE_CONFLICT.message();
+            LOG.warn("event=order_create_failed reason=catalog_items_invalid message={}", msg);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, msg);
         }
         if (!catalogValidation.storeOpen()) {
-            LOG.warn("event=order_create_failed reason=store_closed message={}", catalogValidation.message());
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : "Chi nhánh hiện đang ngoài giờ phục vụ";
+            LOG.warn("event=order_create_failed reason=store_closed message={}", msg);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, msg);
         }
 
         BigDecimal subtotal = catalogValidation.subtotal();
@@ -270,6 +306,7 @@ public class OrderService {
         order.setCustomerEmail(customerProfiles.currentCustomerEmail(customerId));
         order.setCustomerEmailVerified(true);
         order.setStoreId(request.storeId());
+        order.setQueueNumber(generateDailyQueueNumber(request.storeId()));
         order.setType(type);
         order.setStatus(initialStatus);
         order.setSubtotal(subtotal);
@@ -315,8 +352,20 @@ public class OrderService {
             item.setNote(it.getNote());
             item.setLineTotal(unitPrice.add(extraPrice).multiply(BigDecimal.valueOf(it.getQuantity())));
 
-            item.setOptionsSnapshot(objectMapper.valueToTree(validated.optionsSnapshot()));
-            item.setToppingsSnapshot(objectMapper.valueToTree(validated.toppingsSnapshot()));
+            if (validated.optionsSnapshot() != null && !validated.optionsSnapshot().isEmpty()) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(validated.optionsSnapshot()));
+            } else if (it.getOptionsSnapshot() != null) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(it.getOptionsSnapshot()));
+            } else if (it.getOptionIds() != null && !it.getOptionIds().isEmpty()) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(it.getOptionIds()));
+            }
+            if (validated.toppingsSnapshot() != null && !validated.toppingsSnapshot().isEmpty()) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(validated.toppingsSnapshot()));
+            } else if (it.getToppingsSnapshot() != null) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(it.getToppingsSnapshot()));
+            } else if (it.getToppingIds() != null && !it.getToppingIds().isEmpty()) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(it.getToppingIds()));
+            }
             savedItems.add(orderItemRepository.save(item));
         }
 
@@ -338,6 +387,173 @@ public class OrderService {
 
         // Transactional Outbox: Saves outbox event in the same DB transaction
         orderEventPublisher.publishOrderCreated(order, savedItems);
+
+        return DomainMapper.toResponse(order, savedItems, List.of(history));
+    }
+
+    @Transactional(timeout = 60)
+    public OrderResponse createCounterOrder(CreateCounterOrderRequest request, String idempotencyKey) {
+        accessGuard.requireCounterStaff();
+        CurrentActor actor = CurrentActor.require();
+
+        Long effectiveStoreId;
+        if (actor.role() == Role.ADMIN) {
+            if (request.storeId() == null) {
+                throw new ApiException(ErrorCode.VALIDATION_ERROR, "storeId is required for ADMIN");
+            }
+            effectiveStoreId = request.storeId();
+        } else {
+            if (actor.storeId() == null) {
+                throw new AccessDeniedException("Store ID missing in staff token");
+            }
+            effectiveStoreId = actor.storeId();
+        }
+
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.indexOf('\0') >= 0 || idempotencyKey.trim().length() > 128) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Idempotency-Key is required");
+        }
+
+        String payloadHash;
+        try {
+            payloadHash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(objectMapper.writeValueAsBytes(request)));
+        } catch (java.security.NoSuchAlgorithmException | com.fasterxml.jackson.core.JsonProcessingException failure) {
+            throw new IllegalStateException("Cannot encode counter order", failure);
+        }
+
+        if (jdbc == null) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        int inserted = jdbc.update("INSERT INTO order_service.counter_order_operations(idempotency_key,store_id,payload_hash) VALUES (?,?,?) ON CONFLICT DO NOTHING",
+                idempotencyKey.trim(), effectiveStoreId, payloadHash);
+        if (inserted == 0) {
+            var existing = jdbc.queryForList("SELECT payload_hash,order_id FROM order_service.counter_order_operations WHERE store_id=? AND idempotency_key=?", effectiveStoreId, idempotencyKey.trim());
+            if (existing.isEmpty() || !Objects.equals(payloadHash, existing.getFirst().get("payload_hash"))) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            Object orderId = existing.getFirst().get("order_id");
+            if (orderId == null) throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Request đang được xử lý, vui lòng thử lại");
+            Order existingOrder = orderRepository.findById(((Number) orderId).longValue()).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+            if (!effectiveStoreId.equals(existingOrder.getStoreId())) throw new ApiException(ErrorCode.FORBIDDEN);
+            return DomainMapper.toResponse(existingOrder, orderItemRepository.findByOrderIdOrderByIdAsc(existingOrder.getId()), orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(existingOrder.getId()));
+        }
+
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Danh sách món không được để trống");
+        }
+
+        List<CartItemDto> items = new ArrayList<>();
+        for (CounterOrderItemRequest it : request.items()) {
+            CartItemDto itemDto = new CartItemDto();
+            itemDto.setProductId(it.productId());
+            itemDto.setComboId(it.comboId());
+            itemDto.setQuantity(it.quantity() != null && it.quantity() > 0 ? it.quantity() : 1);
+            itemDto.setOptionIds(it.resolveOptionIds());
+            itemDto.setToppingIds(it.toppingIds() != null ? it.toppingIds() : List.of());
+            itemDto.setNote(it.note());
+            itemDto.setStoreId(effectiveStoreId);
+            items.add(itemDto);
+        }
+
+        // Validate items with Catalog Service (server-side verification of item, options, store availability & inventory)
+        CatalogClient.CatalogValidationResponse catalogValidation = catalogClient.validateItems(effectiveStoreId, items);
+        if (!catalogValidation.valid()) {
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : "Sản phẩm không hợp lệ";
+            boolean isInventoryIssue = false;
+            if (catalogValidation.items() != null) {
+                for (CatalogClient.ValidatedCatalogItem vi : catalogValidation.items()) {
+                    if (!vi.available() && vi.reason() != null &&
+                            (vi.reason().toLowerCase().contains("tồn kho") || vi.reason().toLowerCase().contains("hết hàng"))) {
+                        isInventoryIssue = true;
+                        msg = vi.reason();
+                        break;
+                    }
+                }
+            }
+            if (isInventoryIssue || msg.toLowerCase().contains("tồn kho") || msg.toLowerCase().contains("hết hàng")) {
+                throw new ApiException(ErrorCode.INSUFFICIENT_INVENTORY, msg);
+            }
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, msg);
+        }
+
+        if (!catalogValidation.storeOpen()) {
+            String msg = catalogValidation.message() != null ? catalogValidation.message() : "Chi nhánh hiện đang ngoài giờ phục vụ";
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, msg);
+        }
+
+        BigDecimal subtotal = catalogValidation.subtotal();
+
+        // Generate daily queueNumber (1-999) per store
+        int queueNumber = generateDailyQueueNumber(effectiveStoreId);
+
+        String diningOption = "DINE_IN".equalsIgnoreCase(request.diningOption()) ? "DINE_IN" : "TAKE_AWAY";
+        String paymentMethod = (request.paymentMethod() != null && !request.paymentMethod().isBlank())
+                ? request.paymentMethod().trim().toUpperCase() : "CASH";
+
+        Order order = new Order();
+        order.setOrderCode(generateOrderCode());
+        order.setCustomerId(null);
+        order.setStoreId(effectiveStoreId);
+        order.setOrderSource("COUNTER");
+        order.setDiningOption(diningOption);
+        order.setQueueNumber(queueNumber);
+        order.setType("PICKUP");
+        order.setStatus("CONFIRMED");
+        order.setPaymentStatus("PENDING");
+        order.setPaymentMethod(paymentMethod);
+        order.setSubtotal(subtotal);
+        order.setDiscountAmount(BigDecimal.ZERO);
+        order.setPointsUsed(0);
+        order.setPointsAmount(BigDecimal.ZERO);
+        order.setShippingFee(BigDecimal.ZERO);
+        order.setTotalAmount(subtotal);
+        order.setReceiverName("Khách tại quầy #" + String.format("%03d", queueNumber));
+        order.setReceiverPhone("Tại quầy");
+        order.setDeliveryAddress("Tại quầy");
+        order.setNote(request.note());
+        order.setVersion(0L);
+
+        order = orderRepository.save(order);
+        jdbc.update("UPDATE order_service.counter_order_operations SET order_id=? WHERE store_id=? AND idempotency_key=?", order.getId(), effectiveStoreId, idempotencyKey.trim());
+
+        List<OrderItem> savedItems = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            CartItemDto it = items.get(i);
+            CatalogClient.ValidatedCatalogItem validated = catalogValidation.items().get(i);
+            BigDecimal unitPrice = validated.unitPrice();
+            BigDecimal extraPrice = validated.extraPrice() != null ? validated.extraPrice() : BigDecimal.ZERO;
+            BigDecimal effectiveUnitPrice = unitPrice.add(extraPrice);
+
+            OrderItem item = new OrderItem();
+            item.setOrderId(order.getId());
+            item.setItemType(it.getProductId() != null ? "PRODUCT" : "COMBO");
+            item.setProductId(it.getProductId());
+            item.setComboId(it.getComboId());
+            item.setItemName(validated.name());
+            item.setUnitPrice(effectiveUnitPrice);
+            item.setQuantity(it.getQuantity());
+            item.setNote(it.getNote());
+            item.setLineTotal(effectiveUnitPrice.multiply(BigDecimal.valueOf(it.getQuantity())));
+
+            if (validated.optionsSnapshot() != null && !validated.optionsSnapshot().isEmpty()) {
+                item.setOptionsSnapshot(objectMapper.valueToTree(validated.optionsSnapshot()));
+            }
+            if (validated.toppingsSnapshot() != null && !validated.toppingsSnapshot().isEmpty()) {
+                item.setToppingsSnapshot(objectMapper.valueToTree(validated.toppingsSnapshot()));
+            }
+            savedItems.add(orderItemRepository.save(item));
+        }
+
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrderId(order.getId());
+        history.setFromStatus(null);
+        history.setToStatus("CONFIRMED");
+        history.setChangedBy(actor.userId());
+        history.setChangedRole(actor.role() != null ? actor.role().name() : "STAFF");
+        history.setReason("Tạo đơn quầy #" + queueNumber);
+        history.setCreatedAt(Instant.now());
+        orderStatusHistoryRepository.save(history);
+
+        // Transactional Outbox
+        orderEventPublisher.publishOrderCreated(order, savedItems);
+
+        LOG.info("event=counter_order_created orderId={} orderCode={} queueNumber={} storeId={} total={}",
+                order.getId(), order.getOrderCode(), queueNumber, effectiveStoreId, order.getTotalAmount());
 
         return DomainMapper.toResponse(order, savedItems, List.of(history));
     }
@@ -428,17 +644,43 @@ public class OrderService {
 
         accessGuard.requireStore(order.getStoreId());
 
+        if (request.version() != null && !Objects.equals(request.version(), order.getVersion())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Dữ liệu đơn hàng đã bị thay đổi, vui lòng tải lại.");
+        }
+
         String current = order.getStatus().toUpperCase();
         String target = request.status().trim().toUpperCase();
         if ("CANCELLED".equals(target)) {
+            if (Set.of("PREPARING", "READY").contains(current)) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Không thể hủy đơn hàng đã chế biến");
+            }
             cancellationReason(order, request.note());
         }
-        if (("COMPLETED".equals(target) || ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)))
-                && (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()))) {
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+
+        // A status action is not proof of collection or settlement. Payment state is
+        // changed only by the payment integration, never by a staff-supplied field.
+        if (request.paymentStatus() != null) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Không thể cập nhật trạng thái thanh toán qua API trạng thái đơn hàng");
+        }
+
+        if ("COMPLETED".equals(target)) {
+            if (order.getPaymentStatus() == null || "PENDING".equalsIgnoreCase(order.getPaymentStatus())
+                    || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Đơn hàng chưa được thanh toán đầy đủ trước khi bàn giao.");
+            }
+        }
+        if ("PREPARING".equals(target) && "PICKUP".equalsIgnoreCase(order.getType())
+                && !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+            throw new ApiException(ErrorCode.PAYMENT_REQUIRED_BEFORE_HANDOVER, "Cần xác nhận thanh toán trước khi chế biến đơn lấy tại quầy.");
+        }
+        if ("PENDING_PAYMENT".equals(current) && "CONFIRMED".equals(target)) {
+            if (order.getPaymentStatus() == null || !Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus())) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            }
         }
 
         if (current.equals(target)) {
+            order = orderRepository.save(order);
             List<OrderItem> items = orderItemRepository.findByOrderIdOrderByIdAsc(order.getId());
             List<OrderStatusHistory> histories = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(order.getId());
             return DomainMapper.toResponse(order, items, histories);
@@ -446,8 +688,10 @@ public class OrderService {
 
         boolean valid = switch (current) {
             case "PENDING_PAYMENT" -> "CONFIRMED".equals(target) || "CANCELLED".equals(target);
-            case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target);
-            case "PREPARING" -> "READY".equals(target);
+            case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target)
+                    || ("COMPLETED".equals(target) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
+            case "PREPARING" -> "READY".equals(target)
+                    || ("COMPLETED".equals(target) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
             case "READY" -> "SHIPPING".equals(target) || "COMPLETED".equals(target);
             case "SHIPPING" -> "COMPLETED".equals(target);
             default -> false;
@@ -567,31 +811,51 @@ public class OrderService {
         }
 
         String cartKey = RedisConfig.key("cart", order.getCustomerId().toString());
+        // Keep cart bound cleanly to the reordered order's store to prevent cross-branch conflicts
+        CartDto currentCart = cartService.getCart(cartKey);
+        if (currentCart != null && currentCart.getItems() != null) {
+            boolean hasOtherStoreItem = currentCart.getItems().stream()
+                    .anyMatch(existing -> existing.getStoreId() == null || !Objects.equals(existing.getStoreId(), order.getStoreId()));
+            if (hasOtherStoreItem) {
+                cartService.clearCart(cartKey);
+            }
+        }
 
         for (OrderItem it : items) {
+            if (it.getProductId() == null && it.getComboId() == null) {
+                continue;
+            }
             List<Long> optionIds = new ArrayList<>();
             if (it.getOptionsSnapshot() != null && it.getOptionsSnapshot().isArray()) {
                 for (JsonNode n : it.getOptionsSnapshot()) {
-                    optionIds.add(n.isObject() ? n.path("id").asLong() : n.asLong());
+                    long optId = n.isObject() ? n.path("id").asLong() : n.asLong();
+                    if (optId > 0) {
+                        optionIds.add(optId);
+                    }
                 }
             }
             List<Long> toppingIds = new ArrayList<>();
             if (it.getToppingsSnapshot() != null && it.getToppingsSnapshot().isArray()) {
                 for (JsonNode n : it.getToppingsSnapshot()) {
-                    toppingIds.add(n.isObject() ? n.path("id").asLong() : n.asLong());
+                    long topId = n.isObject() ? n.path("id").asLong() : n.asLong();
+                    if (topId > 0) {
+                        toppingIds.add(topId);
+                    }
                 }
             }
             CartItemDto cartItem = new CartItemDto(
                     it.getProductId(),
                     it.getComboId(),
                     it.getItemName(),
-                    it.getQuantity(),
+                    it.getQuantity() != null && it.getQuantity() > 0 ? it.getQuantity() : 1,
                     it.getUnitPrice(),
                     optionIds,
                     toppingIds,
                     it.getNote(),
                     order.getStoreId()
             );
+            cartItem.setOptionsSnapshot(it.getOptionsSnapshot());
+            cartItem.setToppingsSnapshot(it.getToppingsSnapshot());
             cartService.addItem(cartKey, cartItem, CartService.CUSTOMER_CART_TTL);
         }
 
@@ -607,15 +871,66 @@ public class OrderService {
         return mapToOrderResponsePage(orderPage);
     }
 
+    public PageResponse<OrderResponse> getOrders(Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+        return getOrders(null, requestedStoreId, status, null, null, null, orderCode, pageable);
+    }
+
     public PageResponse<OrderResponse> getOrders(Long customerId, Long requestedStoreId, String status, String orderCode, Pageable pageable) {
+        return getOrders(customerId, requestedStoreId, status, null, null, null, orderCode, pageable);
+    }
+
+    public PageResponse<OrderResponse> getOrders(
+            Long customerId,
+            Long requestedStoreId,
+            String status,
+            String paymentStatus,
+            String orderSource,
+            String date,
+            String orderCode,
+            Pageable pageable
+    ) {
+        return getOrders(customerId, requestedStoreId, status, paymentStatus, orderSource, date, orderCode, null, pageable);
+    }
+
+    public PageResponse<OrderResponse> getOrders(
+            Long customerId,
+            Long requestedStoreId,
+            String status,
+            String paymentStatus,
+            String orderSource,
+            String date,
+            String orderCode,
+            Integer queueNumber,
+            Pageable pageable
+    ) {
         CurrentActor actor = CurrentActor.require();
-        if (customerId != null && actor.role() != Role.ADMIN) throw new com.clucky.cartorderservice.exception.ApiException(com.clucky.cartorderservice.exception.ErrorCode.FORBIDDEN);
-        if (customerId != null && customerId <= 0 || requestedStoreId != null && requestedStoreId <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        if (customerId != null && actor.role() != Role.ADMIN) throw new ApiException(ErrorCode.FORBIDDEN);
+        if (customerId != null && customerId <= 0 || requestedStoreId != null && requestedStoreId <= 0
+                || queueNumber != null && queueNumber <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
         Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
         if (cleanStatus != null && Arrays.stream(OrderStatus.values()).noneMatch(value -> value.name().equals(cleanStatus))) throw new ApiException(ErrorCode.VALIDATION_ERROR);
-        String orderCodePattern = (orderCode != null && !orderCode.isBlank()) ? "%" + orderCode.trim().toLowerCase() + "%" : null;
-        Page<Order> orderPage = orderRepository.findOrders(customerId, effectiveStoreId, cleanStatus, orderCodePattern, pageable);
+        String cleanPaymentStatus = (paymentStatus != null && !paymentStatus.isBlank()) ? paymentStatus.trim().toUpperCase() : null;
+        String cleanOrderSource = (orderSource != null && !orderSource.isBlank()) ? orderSource.trim().toUpperCase() : null;
+        String orderCodePattern = (orderCode != null && !orderCode.isBlank())
+                ? "%" + orderCode.trim().toLowerCase() + "%"
+                : "%";
+
+        Instant createdFrom = null;
+        Instant createdTo = null;
+        if (date != null && !date.isBlank()) {
+            try {
+                LocalDate localDate = LocalDate.parse(date.trim());
+                createdFrom = localDate.atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+                createdTo = localDate.plusDays(1).atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+            } catch (Exception e) {
+                throw new ApiException(ErrorCode.VALIDATION_ERROR);
+            }
+        }
+
+        Page<Order> orderPage = orderRepository.findOrdersFiltered(
+                customerId, effectiveStoreId, cleanStatus, cleanPaymentStatus, cleanOrderSource,
+                createdFrom, createdTo, orderCodePattern, queueNumber, pageable);
         return mapToOrderResponsePage(orderPage);
     }
 
@@ -708,6 +1023,9 @@ public class OrderService {
     }
 
     private String cancellationReason(Order order, String reason) {
+        if (Set.of("PREPARING", "READY").contains(order.getStatus())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Không thể hủy đơn hàng đã chế biến");
+        }
         if (!Set.of("PENDING_PAYMENT", "CONFIRMED").contains(order.getStatus())) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
@@ -718,7 +1036,8 @@ public class OrderService {
     }
 
     private String generateOrderCode() {
-        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDate.now());
+        ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDate.now(vnZone));
         String chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         for (int attempt = 0; attempt < 20; attempt++) {
             StringBuilder sb = new StringBuilder(4);
@@ -731,6 +1050,36 @@ public class OrderService {
             }
         }
         return "CLU-" + dateStr + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 4).toUpperCase();
+    }
+
+    private int generateDailyQueueNumber(Long storeId) {
+        ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate todayVn = LocalDate.now(vnZone);
+        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(todayVn);
+        Instant startOfDay = todayVn.atStartOfDay(vnZone).toInstant();
+        Instant endOfDay = todayVn.plusDays(1).atStartOfDay(vnZone).toInstant();
+        Integer maxQueue = orderRepository.findMaxQueueNumberForStoreAndDate(storeId, startOfDay, endOfDay);
+        int dbBase = maxQueue != null ? maxQueue : 0;
+
+        String queueKey = "queue:store:" + storeId + ":" + dateStr;
+        if (redisTemplate != null) {
+            try {
+                Long seq = redisTemplate.opsForValue().increment(queueKey);
+                if (seq != null) {
+                    if (seq <= dbBase) {
+                        seq = (long) (dbBase + 1);
+                        redisTemplate.opsForValue().set(queueKey, String.valueOf(seq), Duration.ofDays(2));
+                    } else if (seq == 1L) {
+                        redisTemplate.expire(queueKey, Duration.ofDays(2));
+                    }
+                    return (int) (((seq - 1) % 999) + 1);
+                }
+            } catch (Exception e) {
+                LOG.warn("Failed to generate queue number with redis for store {}: {}", storeId, e.getMessage());
+            }
+        }
+        int next = dbBase + 1;
+        return ((next - 1) % 999) + 1;
     }
 }
 

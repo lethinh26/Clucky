@@ -19,6 +19,7 @@ spring:
     schemas: order_service
     create-schemas: true
     baseline-on-migrate: false
+    out-of-order: true
   session:
     timeout: 24h
     redis:

@@ -110,6 +110,12 @@ export const errorCatalog = {
   },
   "PRODUCT_OUT_OF_STOCK": {
     "httpStatus": 409
+  },
+  "PAYMENT_REQUIRED_BEFORE_HANDOVER": {
+    "httpStatus": 409
+  },
+  "INSUFFICIENT_INVENTORY": {
+    "httpStatus": 400
   }
 } as const;
 export type ErrorCode = keyof typeof errorCatalog;

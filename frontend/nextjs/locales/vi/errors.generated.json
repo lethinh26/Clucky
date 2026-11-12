@@ -35,5 +35,7 @@
   "EVIDENCE_REQUIRED": "Bắt buộc phải có bằng chứng hoàn tiền hợp lệ.",
   "EVIDENCE_DELIVERY_UNAVAILABLE": "Hệ thống lưu trữ bằng chứng riêng tư tạm thời không khả dụng.",
   "INVALID_THRESHOLD": "Ngưỡng cảnh báo tồn kho không hợp lệ.",
-  "PRODUCT_OUT_OF_STOCK": "Sản phẩm đã hết hàng, không thể bật bán."
+  "PRODUCT_OUT_OF_STOCK": "Sản phẩm đã hết hàng, không thể bật bán.",
+  "PAYMENT_REQUIRED_BEFORE_HANDOVER": "Đơn hàng chưa được thanh toán đầy đủ trước khi bàn giao.",
+  "INSUFFICIENT_INVENTORY": "Một hoặc nhiều món không đủ số lượng tồn kho tại chi nhánh."
 }

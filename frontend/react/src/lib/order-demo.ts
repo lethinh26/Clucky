@@ -44,7 +44,7 @@ export function applyAdminDemoAction(
         order,
         message: t("business:orderdemo.invalidStatusTransition"),
       };
-    if (action.status === "COMPLETED" && order.paymentStatus !== "PAID")
+    if (action.status === "COMPLETED" && !["PAID", "COLLECTED"].includes(order.paymentStatus))
       return {
         ok: false,
         order,
@@ -76,7 +76,7 @@ export function applyAdminDemoAction(
         order,
         message: t("business:orderdemo.thereIsNoCodPaymentToConfirmForThisOrder"),
       };
-    next.paymentStatus = "PAID";
+    next.paymentStatus = "COLLECTED";
     description = t("business:orderdemo.codCollectionConfirmed");
   } else {
     if (

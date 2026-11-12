@@ -29,7 +29,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         <div>
           <div
             style={{
-              fontFamily: 'Baloo 2, sans-serif',
+              fontFamily: 'Fredoka, Quicksand, sans-serif',
               fontWeight: 700,
               fontSize: 20,
               color: '#16100D',
@@ -160,7 +160,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         />
         <h3
           style={{
-            fontFamily: 'Baloo 2, sans-serif',
+            fontFamily: 'Fredoka, Quicksand, sans-serif',
             fontSize: 20,
             fontWeight: 700,
             color: '#16100D',

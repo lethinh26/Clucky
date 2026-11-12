@@ -29,8 +29,8 @@ function StoreMap({ value, onChange }: { value?: StorePoint; onChange?: (point: 
     instance.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
     instance.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
     instance.on('load', () => setError(''));
-    instance.on('error', event => { const status = (event.error as Error & { status?: number }).status; setError(status === 401 || status === 403 ? 'mapTokenInvalid' : 'mapError'); });
-    instance.on('click', event => { const point = event.lngLat.wrap(); update.current?.({ latitude: point.lat, longitude: point.lng }); });
+    instance.on('error', (event: any) => { const status = (event.error as Error & { status?: number }).status; setError(status === 401 || status === 403 ? 'mapTokenInvalid' : 'mapError'); });
+    instance.on('click', (event: any) => { const point = event.lngLat.wrap(); update.current?.({ latitude: point.lat, longitude: point.lng }); });
     const observer = new ResizeObserver(() => instance.resize()); observer.observe(container.current);
     setMap(instance);
     return () => { observer.disconnect(); instance.remove(); };

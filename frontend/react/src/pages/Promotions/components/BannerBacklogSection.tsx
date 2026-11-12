@@ -83,7 +83,7 @@ export const BannerBacklogSection: React.FC = () => {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <Title level={5} style={{ margin: 0, fontFamily: 'Baloo 2, sans-serif' }}>
+          <Title level={5} style={{ margin: 0, fontFamily: 'Fredoka, Quicksand, sans-serif' }}>
             Danh sách Banner hiện tại
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
@@ -140,7 +140,7 @@ export const BannerBacklogSection: React.FC = () => {
             >
               <div style={{ marginBottom: 10 }}>{getPositionTag(banner.position)}</div>
 
-              <Title level={5} style={{ fontSize: 15, margin: '0 0 8px 0', fontFamily: 'Baloo 2, sans-serif' }}>
+              <Title level={5} style={{ fontSize: 15, margin: '0 0 8px 0', fontFamily: 'Fredoka, Quicksand, sans-serif' }}>
                 {banner.title}
               </Title>
 

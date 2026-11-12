@@ -38,7 +38,9 @@ public enum ErrorCode {
     EVIDENCE_REQUIRED(400, "Valid refund evidence is required."),
     EVIDENCE_DELIVERY_UNAVAILABLE(503, "Private evidence delivery is currently unavailable."),
     INVALID_THRESHOLD(400, "Invalid stock threshold."),
-    PRODUCT_OUT_OF_STOCK(409, "Product is out of stock and cannot be put on sale.");
+    PRODUCT_OUT_OF_STOCK(409, "Product is out of stock and cannot be put on sale."),
+    PAYMENT_REQUIRED_BEFORE_HANDOVER(409, "Payment is required before completing handover."),
+    INSUFFICIENT_INVENTORY(400, "One or more items have insufficient inventory.");
 
     private final int httpStatus;
     private final String message;

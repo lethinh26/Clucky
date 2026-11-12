@@ -37,7 +37,7 @@ public class KafkaConfig {
                         if(original.path(name).isTextual()) event.set(name,original.get(name));
                     }
                     var payload=event.putObject("payload");
-                    for(String name:List.of("orderId","orderCode","customerId","storeId","paymentId","collectionId","operationType","actorId","actorRole",
+                    for(String name:List.of("orderId","orderCode","orderSource","customerId","storeId","paymentId","collectionId","operationType","actorId","actorRole",
                             "orderVersion","amount","receivedAmount","totalAmount","cashAmount","declaredTransfer","expiresAt","status","previousStatus","paymentStatus",
                             "decision","reason","paymentExpired","orderDecisionFinal","outcome","type","method","paymentMethod","shippingFee",
                             "receiverName","receiverPhone","deliveryAddress","latitude","longitude","customerName","customerEmail","email","statDate")) {

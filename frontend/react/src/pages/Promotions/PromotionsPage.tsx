@@ -340,7 +340,7 @@ export const PromotionsPage: React.FC = () => {
         <div style={{ maxWidth: 280 }}>
           <div
             style={{
-              fontFamily: 'Baloo 2, sans-serif',
+              fontFamily: 'Fredoka, Quicksand, sans-serif',
               fontWeight: 700,
               fontSize: 15,
               color: '#16100D',
@@ -479,7 +479,7 @@ export const PromotionsPage: React.FC = () => {
         return (
           <div style={{ width: '100%', maxWidth: 125 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-              <span style={{ fontWeight: 800, color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 14 }}>
+              <span style={{ fontWeight: 800, color: '#8F1216', fontFamily: 'Fredoka, Quicksand, sans-serif', fontSize: 14 }}>
                 {record.usedCount}
               </span>
               <span style={{ color: '#6B6259', fontWeight: 600 }}>

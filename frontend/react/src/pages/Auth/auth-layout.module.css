@@ -19,7 +19,7 @@
   align-items: center;
   gap: 8px;
   font:
-    700 30px/0.9 "Baloo 2",
+    700 30px/0.9 "Fredoka",
     sans-serif;
   color: #8f1216;
   text-decoration: none;
@@ -79,7 +79,7 @@
 .story h2 {
   margin: 28px 0 16px;
   font:
-    600 42px/1.15 "Baloo 2",
+    600 42px/1.15 "Fredoka",
     sans-serif;
   letter-spacing: -0.035em;
 }
@@ -145,7 +145,7 @@
 }
 .roleNumber {
   font:
-    500 20px "Baloo 2",
+    500 20px "Fredoka",
     sans-serif;
   color: #92785f;
 }
@@ -167,7 +167,7 @@
 }
 .storyFooter span {
   font:
-    500 18px/1.2 "Baloo 2",
+    500 18px/1.2 "Fredoka",
     sans-serif;
 }
 .storyFooter svg {
@@ -197,7 +197,7 @@
 .formPanel h1 {
   margin: 0 0 9px;
   font:
-    600 33px/1.15 "Baloo 2",
+    600 33px/1.15 "Fredoka",
     sans-serif;
   letter-spacing: -0.035em;
 }

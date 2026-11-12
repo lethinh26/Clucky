@@ -2,7 +2,7 @@ import i18n from "../i18n/index.ts";
 import { api, type BackendOrder, type BackendRefund, type PageResponse } from "./api";
 import type { AdminOrder } from "../types/order";
 
-export interface OrderQuery { page: number; size: number; storeId?: number; status?: string; orderCode?: string; customerId?: number }
+export interface OrderQuery { page: number; size: number; storeId?: number; status?: string; orderCode?: string; queueNumber?: number; customerId?: number; date?: string }
 export interface RefundQuery { page: number; size: number; storeId?: number; status?: string; orderId?: number }
 export interface ReceiptQuery { page: number; size: number; storeId?: number; status?: string; search?: string; bank?: string; conflictsOnly?: boolean; unclassifiedOnly?: boolean; from?: string; to?: string }
 export interface Receipt {
@@ -13,7 +13,7 @@ export interface Receipt {
   assignedBy: number | null; assignedAt: string | null; assignmentReason: string | null;
 }
 export interface ReceiptConflict { amount: number; bank: string; maskedAccount: string; content: string; direction: string; bankTime: string; sameAccount: boolean; subAccount: boolean; lastSeenAt: string; occurrences: number }
-export interface Payment { id: number; method: string; status: string; amount: number; received_amount: number; expires_at: string | null; live_payment: boolean; version: number; legacy_adopted: boolean }
+export interface Payment { id: number; method: string; status: string; amount: number; received_amount: number; expires_at: string | null; live_payment: boolean; version: number; legacy_adopted: boolean; transfer_content?: string | null; bank_name?: string | null; bank_code?: string | null; account_no?: string | null; account_name?: string | null }
 export interface Collection {
   id: string; status: string; version: number; amount: number; cash_amount: number; transfer_amount: number;
   cash_tendered: number; cash_change: number; reason: string; actor_id: number; actor_role: string;
@@ -99,7 +99,7 @@ export function reconciliationBody(receipt: Receipt, snapshot: PaymentSnapshot, 
 
 export function orderForAdmin(order: BackendOrder, refund?: BackendRefund): AdminOrder {
   const status = order.status === "DELIVERED" ? "COMPLETED" : order.status as AdminOrder["status"];
-  return { id: String(order.id), orderCode: order.orderCode, customerName: order.receiverName || `#${order.customerId}`,
+  return { id: String(order.id), orderCode: order.orderCode, queueNumber: order.queueNumber ?? undefined, customerName: order.receiverName || `#${order.customerId}`,
     customerPhone: order.receiverPhone || "", storeId: String(order.storeId), storeName: `Clucky #${order.storeId}`,
     orderType: order.type || "DELIVERY", status, paymentMethod: order.paymentMethod as AdminOrder["paymentMethod"],
     paymentStatus: (order.paymentStatus || "UNKNOWN") as AdminOrder["paymentStatus"],
