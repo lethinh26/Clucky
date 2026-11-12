@@ -89,14 +89,28 @@ def plan():
         digest = image_digest(image)
         images[service] = {"image": image, "digest": digest, "arguments": arguments}
         if digest is None:
-            context = "backend" if service in BACKEND else f"frontend/{FRONTEND[service]}"
-            dockerfile = "deploy/backend/runtime.Dockerfile" if service in BACKEND else f"{context}/Dockerfile"
-            builds.append({"service": service, "context": context, "dockerfile": dockerfile, "image": image})
+            builds.append(service)
         print(f"{service}: {'reuse' if digest else 'build'}")
-    Path("release-plan.json").write_text(json.dumps({"images": images, "configuration": configuration}) + "\n")
+    Path("release-plan.json").write_text(json.dumps({"images": images, "configuration": configuration, "builds": builds}) + "\n")
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-        output.write(f"builds={json.dumps(builds)}\n")
+        output.write(f"builds={json.dumps(list(range(len(builds))))}\n")
         output.write(f"release_id={os.environ['RELEASE_ID']}\n")
+
+def select_build(index):
+    release = json.loads(Path("release-plan.json").read_text())
+    if not index.isdecimal() or int(index) >= len(release["builds"]):
+        raise ValueError("Invalid build index")
+    service = release["builds"][int(index)]
+    if service not in (*BACKEND, *FRONTEND):
+        raise ValueError("Unknown image service")
+    image = release["images"][service]["image"]
+    if not re.fullmatch(IMAGE_PATTERN, image):
+        raise ValueError("Invalid registry image reference")
+    context = "backend" if service in BACKEND else f"frontend/{FRONTEND[service]}"
+    dockerfile = "deploy/backend/runtime.Dockerfile" if service in BACKEND else f"{context}/Dockerfile"
+    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+        for name, value in {"service": service, "context": context, "dockerfile": dockerfile, "image": image}.items():
+            output.write(f"{name}={value}\n")
 
 
 def bundle():
@@ -131,6 +145,8 @@ if __name__ == "__main__":
         plan()
     elif sys.argv[1:] == ["bundle"]:
         bundle()
+    elif len(sys.argv) == 3 and sys.argv[1] == "select":
+        select_build(sys.argv[2])
     elif len(sys.argv) == 3 and sys.argv[1] == "args":
         service = sys.argv[2]
         arguments = json.loads(Path("release-plan.json").read_text())["images"][service]["arguments"]
@@ -144,4 +160,4 @@ if __name__ == "__main__":
             output.write("\n".join(f"{name}={value}" for name, value in arguments.items()))
             output.write("\nCLUCKY_BUILD_ARGS\n")
     else:
-        sys.exit("Usage: images.py plan | bundle | args SERVICE")
+        sys.exit("Usage: images.py plan | bundle | select INDEX | args SERVICE")
