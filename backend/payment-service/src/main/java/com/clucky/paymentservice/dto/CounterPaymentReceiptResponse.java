@@ -2,6 +2,7 @@ package com.clucky.paymentservice.dto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 public record CounterPaymentReceiptResponse(
     Long id,
@@ -20,6 +21,8 @@ public record CounterPaymentReceiptResponse(
     BigDecimal bankAmountReconciled,
     String bankRefCode,
     String bankTxId,
+    UUID collectionId,
+    String collectionStatus,
     String status,
     Boolean manualAcceptance,
     BigDecimal discrepancyAmount,

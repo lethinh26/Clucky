@@ -643,9 +643,10 @@ export function StaffOrdersPage() {
 
     // Pha 1 thành công (HTTP 201)
     setPaymentModalOrder(null);
+    const collectionAccepted = receipt.collectionStatus === "ACCEPTED";
     const collectedOrder: StaffOrder = {
       ...order,
-      paymentStatus: "COLLECTED",
+      paymentStatus: collectionAccepted ? "COLLECTED" : order.paymentStatus,
       paymentMethod: data.method,
       receiptId: receipt.id,
       receiptCode: receipt.receiptCode,
@@ -659,7 +660,7 @@ export function StaffOrdersPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    // Cập nhật đơn trong danh sách cục bộ để hiển thị ngay Badge "ĐÃ THU TẠI QUẦY"
+    // Chỉ hiển thị đã thu khi Order Service đã chấp nhận collection qua event.
     setOrders((prev) =>
       prev.map((o) => (o.id === order.id ? collectedOrder : o)),
     );
@@ -668,55 +669,24 @@ export function StaffOrdersPage() {
     setReceiptModalOrder(collectedOrder);
     setReceiptInitialMode("RECEIPT");
 
-    // Pha 2: Nếu là đơn khách đặt online (WEB) đã thu tiền mặt / COD hoặc đơn đang ở READY / SHIPPING,
-    // chuyển thẳng sang COMPLETED (Tra cứu đã xong) để không còn kẹt ở trạng thái chờ bàn giao.
-    const shouldAutoComplete =
-      order.orderSource === "WEB" ||
-      order.status === "READY" ||
-      order.status === "SHIPPING";
+    if (receipt.collectionStatus === "PENDING") {
+      message.info(t("business:staffactions.collectionRecordedForOrder", {
+        queue: String(order.queueNumber).padStart(3, "0"),
+      }));
+      await fetchOrders(true);
+      return;
+    }
 
-    if (!shouldAutoComplete) {
+    if (collectionAccepted) {
       message.success(
         t("business:staffactions.collectionRecordedForOrder", {
           queue: String(order.queueNumber).padStart(3, "0"),
         }),
       );
-      await fetchOrders(true);
-      return;
+    } else {
+      message.warning(t("business:staffactions.orderChanged"));
     }
-
-    try {
-      const updatedBackend = await ordersApi.updateStatus(numericId, {
-        status: "COMPLETED",
-        note: data.manualReason || t("business:staffactions.collectedAndHandedOver"),
-      });
-
-      const completedOrder: StaffOrder = {
-        ...collectedOrder,
-        status: "COMPLETED",
-        version: updatedBackend.version ?? ((order.version ?? 0) + 1),
-      };
-
-      setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? completedOrder : o)),
-      );
-      setActiveTab("COMPLETED");
-      message.success(t("business:staffactions.orderHandedOver", { queue: String(order.queueNumber).padStart(3, "0") }));
-    } catch (err: any) {
-      if (
-        err?.response?.status === 409 ||
-        err?.response?.data?.code === "RESOURCE_CONFLICT" ||
-        err?.response?.data?.code === "CONCURRENCY_CONFLICT"
-      ) {
-        message.warning(t("business:staffactions.orderChanged"));
-        await fetchOrders(false);
-        return;
-      }
-
-      console.warn("order handover failed:", err);
-      // Giữ nguyên đơn tại tab READY, cập nhật Badge tiền thành "ĐÃ THU TẠI QUẦY", đổi nút thành "Thử lại bàn giao"
-      message.error(t("business:staffactions.handoverFailed"));
-    }
+    await fetchOrders(true);
   };
 
   // Mở in lại hóa đơn

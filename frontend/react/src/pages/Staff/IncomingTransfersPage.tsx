@@ -197,7 +197,7 @@ export const IncomingTransfersPage: React.FC = () => {
       );
     }
 
-    const netCashInDrawer = totalCashCollected - totalCashChangeGiven;
+    const netCashInDrawer = totalCashCollected;
 
     const reconciledSum = transactions
       .filter((tx) => tx.status === "RECONCILED")

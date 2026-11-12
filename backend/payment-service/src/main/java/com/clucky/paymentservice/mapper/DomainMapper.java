@@ -76,6 +76,8 @@ public final class DomainMapper {
                 entity.getBankAmountReconciled(),
                 entity.getBankRefCode(),
                 entity.getBankTxId(),
+                entity.getCollectionId(),
+                entity.getCollectionStatus(),
                 entity.getStatus(),
                 entity.getManualAcceptance(),
                 entity.getDiscrepancyAmount(),

@@ -415,7 +415,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
             manualAcceptance: false,
             staffNotes: t("business:counterPos.autoCollectStaffNote"),
           });
-          latestCreated = { ...created, paymentStatus: "COLLECTED" };
+          latestCreated = { ...created };
         } catch (payErr) {
           console.warn("Auto counter collection warning:", payErr);
         }

@@ -100,11 +100,6 @@ public class PaymentFlow {
         var banks = jdbc.query("SELECT account.* FROM payment_service.store_bank_accounts assignment JOIN payment_service.bank_accounts_config account "
                 + "ON account.id=assignment.bank_account_id WHERE assignment.store_id=? AND account.is_active AND account.bank_code IS NOT NULL",
                 (row, index) -> new Bank(row.getString("bank_name"), row.getString("bank_code"), row.getString("account_no"), row.getString("account_name")), session.storeId());
-        if (banks.isEmpty()) {
-            banks = jdbc.query("SELECT bank_name, bank_code, account_no, account_name FROM payment_service.bank_accounts_config "
-                    + "WHERE is_active AND bank_code IS NOT NULL ORDER BY id LIMIT 1",
-                    (row, index) -> new Bank(row.getString("bank_name"), row.getString("bank_code"), row.getString("account_no"), row.getString("account_name")));
-        }
         if (banks.isEmpty()) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         Bank bank = banks.getFirst();
         Session opened = orderSession(orderId, true);
@@ -278,6 +273,9 @@ public class PaymentFlow {
         if(!java.util.Objects.equals(collection.get("account_no"),receipt.get("bank_account")) || collection.get("account_no")==null
                 || ((BigDecimal)collection.get("transfer_amount")).compareTo((BigDecimal)receipt.get("amount"))!=0)return;
         jdbc.update("UPDATE payment_service.bank_transactions SET collection_id=?,reason='COLLECTION_EVIDENCE' WHERE id=?",collection.get("id"),receipt.get("id"));
+        jdbc.update("UPDATE payment_service.counter_payment_receipts SET bank_tx_id=?,bank_amount_reconciled=?,status='RECONCILED',"
+                + "discrepancy_amount=0,version=version+1,updated_at=now() WHERE collection_id=? AND status='PENDING_RECONCILIATION' AND bank_tx_id IS NULL",
+                receipt.get("bank_tx_id"), receipt.get("amount"), collection.get("id"));
         jdbc.update("UPDATE payment_service.collections SET version=version+1 WHERE id=?",collection.get("id"));
     }
 

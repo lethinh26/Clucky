@@ -46,6 +46,48 @@ public class PaymentOperations {
     private final PaymentFlow flow;
     public PaymentOperations(JdbcTemplate jdbc, ObjectMapper mapper, PaymentFlow flow) { this.jdbc=jdbc; this.mapper=mapper; this.flow=flow; }
 
+    @Transactional
+    public UUID createCounterCollection(long orderId, PaymentFlow.Context order, CurrentActor actor,
+            BigDecimal cashAmount, BigDecimal transferAmount, BigDecimal cashTendered, BigDecimal cashChange,
+            String reason, UUID key) {
+        if (!"COUNTER".equals(order.orderSource()) && !"WEB".equals(order.orderSource())) conflict();
+        if ("WEB".equals(order.orderSource())) {
+            return UUID.fromString(collect(orderId, new CollectionRequest(order.version(), cashAmount,
+                    transferAmount, cashTendered, cashChange, reason), key).path("id").asText());
+        }
+        if (!Set.of("CONFIRMED", "PREPARING", "READY", "SHIPPING").contains(order.status())
+                || !"PENDING".equals(order.paymentStatus()) || order.amount().signum() <= 0) conflict();
+        if (order.customerId() == null && !"COUNTER".equals(order.orderSource())) conflict();
+        validateCash(cashAmount, transferAmount, cashTendered, cashChange);
+        if (cashAmount.add(transferAmount).signum() == 0) conflict();
+        lock(actor, key, orderId);
+        var existing = jdbc.queryForList("SELECT request_hash,response::text FROM payment_service.operations WHERE actor_id=? AND operation_key=?", actor.userId(), key);
+        String requestHash = hash("counter-collect:" + orderId, List.of(order.version(), cashAmount, transferAmount, cashTendered, cashChange, reason));
+        if (!existing.isEmpty()) {
+            if (!requestHash.equals(existing.getFirst().get("request_hash"))) conflict();
+            try { return UUID.fromString(mapper.readTree(existing.getFirst().get("response").toString()).path("collectionId").asText()); }
+            catch (IOException | IllegalArgumentException failure) { throw new IllegalStateException("Invalid stored collection operation", failure); }
+        }
+        if (!jdbc.queryForList("SELECT id FROM payment_service.collections WHERE order_id=? AND status IN ('PENDING','ACCEPTED')", UUID.class, orderId).isEmpty()) conflict();
+        var bank = bankSnapshot(orderId, order.storeId(), transferAmount.signum() > 0);
+        UUID collectionId = UUID.randomUUID();
+        jdbc.update("INSERT INTO payment_service.collections(id,order_id,order_code,customer_id,store_id,order_version,amount,cash_amount,transfer_amount,cash_tendered,cash_change,reason,actor_id,actor_role,bank_name,bank_code,account_no) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                collectionId, orderId, order.orderCode(), order.customerId(), order.storeId(), Timestamp.from(order.version()), order.amount(),
+                cashAmount, transferAmount, cashTendered, cashChange, reason.strip(), actor.userId(), actor.role().name(),
+                bank.get("bank_name"), bank.get("bank_code"), bank.get("account_no"));
+        ObjectNode event = mapper.createObjectNode().put("operationType", "COLLECTION")
+                .put("collectionId", collectionId.toString()).put("orderId", orderId).put("orderCode", order.orderCode())
+                .put("storeId", order.storeId()).put("amount", order.amount()).put("cashAmount", cashAmount)
+                .put("declaredTransfer", transferAmount).put("orderVersion", order.version().toString())
+                .put("actorId", actor.userId()).put("actorRole", actor.role().name());
+        if (order.customerId() == null) event.putNull("customerId");
+        else event.put("customerId", order.customerId());
+        flow.enqueue("payment.received", orderId, event);
+        jdbc.update("INSERT INTO payment_service.operations(actor_id,operation_key,request_hash,response) VALUES (?,?,?,?::jsonb)",
+                actor.userId(), key, requestHash, mapper.createObjectNode().put("collectionId", collectionId.toString()).toString());
+        return collectionId;
+    }
+
     @Transactional(readOnly=true)
     public ObjectNode read(long orderId) {
         CurrentActor actor = staff();
@@ -154,7 +196,7 @@ public class PaymentOperations {
         // The manual collection operation is reserved for online COD and counter orders.
         if ("WEB".equals(order.orderSource()) && !"COD".equals(order.paymentMethod())) conflict();
         if (!order.version().equals(request.orderVersion()) || !"PENDING".equals(order.paymentStatus()) || order.amount().signum() <= 0
-                || !Set.of("PENDING_PAYMENT","CONFIRMED","PREPARING","READY").contains(order.status())
+                || !Set.of("PENDING_PAYMENT","CONFIRMED","PREPARING","READY","SHIPPING").contains(order.status())
                 || "PENDING_PAYMENT".equals(order.status()) && order.expiresAt()!=null && !order.expiresAt().isAfter(Instant.now())) conflict();
         validateCash(request.cashAmount(), request.transferAmount(), request.cashTendered(), request.cashChange());
         if(request.cashAmount().add(request.transferAmount()).signum()==0)throw new ApiException(ErrorCode.VALIDATION_ERROR);
@@ -315,19 +357,25 @@ public class PaymentOperations {
         long orderId=payload.path("orderId").asLong();
         jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"payment-order:"+orderId);
         var row=one("SELECT * FROM payment_service.collections WHERE id=? AND order_id=? FOR UPDATE",id,orderId);
-        if(!Objects.equals(row.get("customer_id"),payload.path("customerId").asLong())||!Objects.equals(row.get("store_id"),payload.path("storeId").asLong())
+        Long payloadCustomer = payload.hasNonNull("customerId") ? payload.path("customerId").asLong() : null;
+        if (payload.hasNonNull("customerId") && (!payload.path("customerId").isIntegralNumber()
+                || !payload.path("customerId").canConvertToLong() || payloadCustomer <= 0)) throw new IllegalArgumentException("Invalid collection customer");
+        if(!Objects.equals(row.get("customer_id"),payloadCustomer)||!Objects.equals(row.get("store_id"),payload.path("storeId").asLong())
                 ||!Objects.equals(row.get("order_code"),payload.path("orderCode").asText()))throw new IllegalArgumentException("Collection decision mismatch");
         String decision=payload.path("decision").asText();
         if(!Set.of("ACCEPTED","CANCELLED","EXPIRED","SUPERSEDED","STALE_VERSION").contains(decision))throw new IllegalArgumentException("Invalid collection decision");
         if(!"PENDING".equals(row.get("status")))return;
         jdbc.update("UPDATE payment_service.collections SET status=?,version=version+1,resolved_at=now() WHERE id=?",decision,id);
+        jdbc.update("UPDATE payment_service.counter_payment_receipts SET collection_status=?,version=version+1,updated_at=now() WHERE collection_id=?", decision, id);
         if("ACCEPTED".equals(decision)) {
             jdbc.update("UPDATE payment_service.payments SET status='COLLECTED' WHERE order_id=? AND status IN ('PENDING','EXPIRED','CANCELLED')",orderId);
             flow.linkCollection(orderId);
             BigDecimal cash=(BigDecimal)row.get("cash_amount"),transfer=(BigDecimal)row.get("transfer_amount");
             String method=cash.signum()>0 ? transfer.signum()>0 ? "MIXED":"CASH" : transfer.signum()>0 ? "BANK_TRANSFER":"UNVERIFIED";
-            flow.enqueue("payment.confirmed",orderId,mapper.createObjectNode().put("operationType","COLLECTION").put("collectionId",id.toString())
-                    .put("orderId",orderId).put("orderCode",(String)row.get("order_code")).put("customerId",((Number)row.get("customer_id")).longValue())
+            ObjectNode confirmed = mapper.createObjectNode().put("operationType","COLLECTION").put("collectionId",id.toString())
+                    .put("orderId",orderId).put("orderCode",(String)row.get("order_code"));
+            if (row.get("customer_id") != null) confirmed.put("customerId", ((Number)row.get("customer_id")).longValue());
+            flow.enqueue("payment.confirmed", orderId, confirmed
                     .put("storeId",((Number)row.get("store_id")).longValue()).put("amount",(BigDecimal)row.get("amount")).put("totalAmount",(BigDecimal)row.get("amount"))
                     .put("status","COLLECTED").put("outcome","CONFIRMED").put("paymentMethod",method).put("cashAmount",cash).put("declaredTransfer",transfer));
         } else {

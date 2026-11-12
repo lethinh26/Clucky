@@ -18,7 +18,6 @@ import com.clucky.cartorderservice.repository.OrderRepository;
 import com.clucky.cartorderservice.repository.OrderStatusHistoryRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -27,13 +26,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.DigestUtils;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
@@ -63,6 +62,7 @@ public class OrderService {
     private final StringRedisTemplate redisTemplate;
     private final VoucherCheckoutRecovery voucherRecovery;
     private final CustomerProfileClient customerProfiles;
+    private final JdbcTemplate jdbc;
     private final Random random = new SecureRandom();
 
     public OrderService(
@@ -82,7 +82,7 @@ public class OrderService {
     ) {
         this(orderRepository, orderItemRepository, orderStatusHistoryRepository, cartService,
                 accessGuard, objectMapper, orderEventPublisher, catalogClient, promotionClient,
-                shippingClient, loyaltyClient, null, voucherRecovery, customerProfiles);
+                shippingClient, loyaltyClient, null, voucherRecovery, customerProfiles, null);
     }
 
     @Autowired
@@ -100,7 +100,8 @@ public class OrderService {
             LoyaltyClient loyaltyClient,
             StringRedisTemplate redisTemplate,
             VoucherCheckoutRecovery voucherRecovery,
-            CustomerProfileClient customerProfiles
+            CustomerProfileClient customerProfiles,
+            JdbcTemplate jdbc
     ) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -116,6 +117,7 @@ public class OrderService {
         this.redisTemplate = redisTemplate;
         this.voucherRecovery = voucherRecovery;
         this.customerProfiles = customerProfiles;
+        this.jdbc = jdbc;
     }
 
     public OrderPreviewResponse previewOrder(OrderPreviewRequest request, HttpServletRequest httpRequest) {
@@ -407,38 +409,28 @@ public class OrderService {
             effectiveStoreId = actor.storeId();
         }
 
-        // Idempotency check with Redis
-        String idempotencyRedisKey = null;
-        String payloadHash = null;
-        if (idempotencyKey != null && !idempotencyKey.isBlank() && redisTemplate != null) {
-            idempotencyRedisKey = "idempotency:counter-order:" + effectiveStoreId + ":" + idempotencyKey.trim();
-            try {
-                payloadHash = DigestUtils.md5DigestAsHex(objectMapper.writeValueAsBytes(request));
-            } catch (Exception e) {
-                payloadHash = Integer.toHexString(request.hashCode());
-            }
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.indexOf('\0') >= 0 || idempotencyKey.trim().length() > 128) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Idempotency-Key is required");
+        }
 
-            String cachedJson = redisTemplate.opsForValue().get(idempotencyRedisKey);
-            if (cachedJson != null && !cachedJson.isBlank()) {
-                try {
-                    JsonNode node = objectMapper.readTree(cachedJson);
-                    String cachedHash = node.path("hash").asText();
-                    long cachedOrderId = node.path("orderId").asLong();
-                    if (Objects.equals(payloadHash, cachedHash)) {
-                        Order existing = orderRepository.findById(cachedOrderId)
-                                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
-                        List<OrderItem> existingItems = orderItemRepository.findByOrderIdOrderByIdAsc(existing.getId());
-                        List<OrderStatusHistory> existingHistory = orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(existing.getId());
-                        return DomainMapper.toResponse(existing, existingItems, existingHistory);
-                    } else {
-                        throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Idempotency-Key already used with different payload");
-                    }
-                } catch (ApiException e) {
-                    throw e;
-                } catch (Exception e) {
-                    LOG.warn("Error parsing idempotency record: {}", e.getMessage());
-                }
-            }
+        String payloadHash;
+        try {
+            payloadHash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(objectMapper.writeValueAsBytes(request)));
+        } catch (java.security.NoSuchAlgorithmException | com.fasterxml.jackson.core.JsonProcessingException failure) {
+            throw new IllegalStateException("Cannot encode counter order", failure);
+        }
+
+        if (jdbc == null) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        int inserted = jdbc.update("INSERT INTO order_service.counter_order_operations(idempotency_key,store_id,payload_hash) VALUES (?,?,?) ON CONFLICT DO NOTHING",
+                idempotencyKey.trim(), effectiveStoreId, payloadHash);
+        if (inserted == 0) {
+            var existing = jdbc.queryForList("SELECT payload_hash,order_id FROM order_service.counter_order_operations WHERE store_id=? AND idempotency_key=?", effectiveStoreId, idempotencyKey.trim());
+            if (existing.isEmpty() || !Objects.equals(payloadHash, existing.getFirst().get("payload_hash"))) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            Object orderId = existing.getFirst().get("order_id");
+            if (orderId == null) throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Request đang được xử lý, vui lòng thử lại");
+            Order existingOrder = orderRepository.findById(((Number) orderId).longValue()).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
+            if (!effectiveStoreId.equals(existingOrder.getStoreId())) throw new ApiException(ErrorCode.FORBIDDEN);
+            return DomainMapper.toResponse(existingOrder, orderItemRepository.findByOrderIdOrderByIdAsc(existingOrder.getId()), orderStatusHistoryRepository.findByOrderIdOrderByCreatedAtAsc(existingOrder.getId()));
         }
 
         if (request.items() == null || request.items().isEmpty()) {
@@ -517,6 +509,7 @@ public class OrderService {
         order.setVersion(0L);
 
         order = orderRepository.save(order);
+        jdbc.update("UPDATE order_service.counter_order_operations SET order_id=? WHERE store_id=? AND idempotency_key=?", order.getId(), effectiveStoreId, idempotencyKey.trim());
 
         List<OrderItem> savedItems = new ArrayList<>();
         for (int i = 0; i < items.size(); i++) {
@@ -558,18 +551,6 @@ public class OrderService {
 
         // Transactional Outbox
         orderEventPublisher.publishOrderCreated(order, savedItems);
-
-        // Cache Idempotency key if present
-        if (idempotencyRedisKey != null && payloadHash != null && redisTemplate != null) {
-            try {
-                ObjectNode cacheNode = objectMapper.createObjectNode();
-                cacheNode.put("hash", payloadHash);
-                cacheNode.put("orderId", order.getId());
-                redisTemplate.opsForValue().set(idempotencyRedisKey, objectMapper.writeValueAsString(cacheNode), Duration.ofHours(24));
-            } catch (Exception e) {
-                LOG.warn("Failed to cache idempotency key: {}", e.getMessage());
-            }
-        }
 
         LOG.info("event=counter_order_created orderId={} orderCode={} queueNumber={} storeId={} total={}",
                 order.getId(), order.getOrderCode(), queueNumber, effectiveStoreId, order.getTotalAmount());

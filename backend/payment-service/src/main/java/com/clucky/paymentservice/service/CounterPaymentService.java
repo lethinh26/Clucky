@@ -10,23 +10,21 @@ import com.clucky.paymentservice.repository.CounterPaymentReceiptRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class CounterPaymentService {
@@ -34,33 +32,27 @@ public class CounterPaymentService {
 
     private final CounterPaymentReceiptRepository receiptRepository;
     private final PaymentFlow flow;
-    private final DiscoveryClient discovery;
-    private final RestClient restClient;
     private final ObjectMapper mapper;
     private final JdbcTemplate jdbc;
-    private final OrderCredential orderCredential;
+    private final PaymentOperations operations;
 
     public CounterPaymentService(
             CounterPaymentReceiptRepository receiptRepository,
             PaymentFlow flow,
-            DiscoveryClient discovery,
-            RestClient.Builder restClientBuilder,
             ObjectMapper mapper,
             JdbcTemplate jdbc,
-            OrderCredential orderCredential
+            PaymentOperations operations
     ) {
         this.receiptRepository = receiptRepository;
         this.flow = flow;
-        this.discovery = discovery;
-        this.restClient = restClientBuilder.build();
         this.mapper = mapper;
         this.jdbc = jdbc;
-        this.orderCredential = orderCredential;
+        this.operations = operations;
     }
 
     @Transactional
     public CounterPaymentReceiptResponse collect(CounterCollectionRequest request, String idempotencyKey) {
-        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.trim().length() > 128) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.indexOf('\0') >= 0 || idempotencyKey.trim().length() > 128) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "Header Idempotency-Key là bắt buộc");
         }
 
@@ -224,31 +216,13 @@ public class CounterPaymentService {
 
         receipt = receiptRepository.save(receipt);
 
-        // Update Order via REST
-        updateOrderPaymentStatus(receipt.getOrderId(), "COLLECTED");
-
-        // Enqueue Outbox / Kafka event payment.collected
-        try {
-            var payload = mapper.createObjectNode()
-                    .put("receiptId", receipt.getId())
-                    .put("receiptCode", receipt.getReceiptCode())
-                    .put("orderId", receipt.getOrderId())
-                    .put("orderCode", receipt.getOrderCode())
-                    .put("storeId", receipt.getStoreId())
-                    .put("method", receipt.getMethod())
-                    .put("totalDue", receipt.getTotalDue())
-                    .put("cashAmount", receipt.getCashAmount())
-                    .put("cashChange", receipt.getCashChange())
-                    .put("bankAmountDeclared", receipt.getBankAmountDeclared())
-                    .put("bankAmountReconciled", receipt.getBankAmountReconciled())
-                    .put("status", receipt.getStatus())
-                    .put("manualAcceptance", receipt.getManualAcceptance())
-                    .put("staffId", receipt.getStaffId())
-                    .put("staffName", receipt.getStaffName());
-            flow.enqueue("payment.collected", receipt.getOrderId(), payload);
-        } catch (Exception ex) {
-            LOG.warn("Failed to enqueue payment.collected outbox event: {}", ex.getMessage());
-        }
+        UUID operationKey = UUID.nameUUIDFromBytes(idempotencyKey.trim().getBytes(StandardCharsets.UTF_8));
+        UUID collectionId = operations.createCounterCollection(request.orderId(), order, actor,
+                cashAmount, bankAmountDeclared, cashTendered, cashChange,
+                exceptionReason != null ? exceptionReason : "Thu tiền tại quầy", operationKey);
+        receipt.setCollectionId(collectionId);
+        receipt.setCollectionStatus("PENDING");
+        receipt = receiptRepository.save(receipt);
 
         return DomainMapper.toCounterReceiptResponse(receipt);
     }
@@ -265,6 +239,8 @@ public class CounterPaymentService {
         if (actor.role() != Role.ADMIN && (actor.storeId() == null || !actor.storeId().equals(receipt.getStoreId()))) {
             throw new ApiException(ErrorCode.FORBIDDEN, "Không thể hủy biên lai của chi nhánh khác");
         }
+        jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", Object.class,
+                "payment-order:" + receipt.getOrderId());
 
         if ("VOIDED".equals(receipt.getStatus())) {
             return DomainMapper.toCounterReceiptResponse(receipt);
@@ -274,9 +250,13 @@ public class CounterPaymentService {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Chuyển khoản đã đối soát cần xử lý hoàn tiền riêng, không thể hủy biên lai");
         }
 
-        // Verify order is not COMPLETED
+        if (receipt.getCollectionId() == null || !List.of("CANCELLED", "EXPIRED", "SUPERSEDED", "STALE_VERSION").contains(receipt.getCollectionStatus())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Chỉ hủy biên lai sau khi Order từ chối thu tiền; giao dịch đang xử lý hoặc đã thu không thể hủy trực tiếp");
+        }
+
+        // Verify order is still awaiting collection
         PaymentFlow.Context ctx = flow.context(receipt.getOrderId());
-        if ("COMPLETED".equalsIgnoreCase(ctx.status()) || !"COLLECTED".equals(ctx.paymentStatus())
+        if ("COMPLETED".equalsIgnoreCase(ctx.status()) || !"PENDING".equals(ctx.paymentStatus())
                 || !receipt.getStoreId().equals(ctx.storeId()) || !receipt.getOrderCode().equals(ctx.orderCode())) {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Trạng thái đơn hàng không cho phép hủy biên lai");
         }
@@ -288,9 +268,6 @@ public class CounterPaymentService {
                 ? receipt.getExceptionReason() + " | Void: " + voidReason : "Void: " + voidReason);
         receipt.setUpdatedAt(Instant.now());
         receipt = receiptRepository.save(receipt);
-
-        // Update Order back to PENDING
-        updateOrderPaymentStatus(receipt.getOrderId(), "PENDING");
 
         return DomainMapper.toCounterReceiptResponse(receipt);
     }
@@ -343,7 +320,7 @@ public class CounterPaymentService {
         long transactionCount = 0;
 
         for (CounterPaymentReceipt r : receipts) {
-            if ("VOIDED".equals(r.getStatus())) continue;
+            if ("VOIDED".equals(r.getStatus()) || !List.of("ACCEPTED", "LEGACY").contains(r.getCollectionStatus())) continue;
             transactionCount++;
             if (r.getCashAmount() != null) totalCashCollected = totalCashCollected.add(r.getCashAmount());
             if (r.getCashChange() != null) totalCashChangeGiven = totalCashChangeGiven.add(r.getCashChange());
@@ -394,7 +371,7 @@ public class CounterPaymentService {
             transactionCount++;
         }
 
-        BigDecimal netCashInDrawer = totalCashCollected.subtract(totalCashChangeGiven);
+        BigDecimal netCashInDrawer = totalCashCollected;
 
         return new ShiftSummaryResponse(
                 effectiveStoreId,
@@ -407,27 +384,6 @@ public class CounterPaymentService {
                 totalDiscrepancy,
                 transactionCount
         );
-    }
-
-    private void updateOrderPaymentStatus(Long orderId, String paymentStatus) {
-        try {
-            var instances = discovery.getInstances("cart-order-service");
-            if (instances.isEmpty()) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
-            URI baseUri = instances.getFirst().getUri();
-            restClient.put()
-                    .uri(baseUri.resolve("/api/orders/" + orderId + "/payment-status"))
-                    .headers(headers -> {
-                        headers.setBearerAuth(orderCredential.token());
-                    })
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("paymentStatus", paymentStatus))
-                    .retrieve()
-                    .toBodilessEntity();
-            LOG.info("Updated order {} paymentStatus to {}", orderId, paymentStatus);
-        } catch (Exception ex) {
-            LOG.warn("Failed to update order {} payment status via REST: {}", orderId, ex.getMessage());
-            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE, "Không thể đồng bộ trạng thái thanh toán đơn hàng");
-        }
     }
 
     private boolean sameCollection(CounterPaymentReceipt receipt, CounterCollectionRequest request) {

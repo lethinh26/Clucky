@@ -31,7 +31,7 @@ public class SepayWebhookSecurity {
     @Order(1)
     SecurityFilterChain sepaySecurity(HttpSecurity http, ObjectMapper mapper,
             @Value("${payment.sepay.api-key:}") String key) throws Exception {
-        return http.securityMatcher(new AntPathRequestMatcher("/api/payments/webhook/**", "POST"))
+        return http.securityMatcher(new AntPathRequestMatcher(PATH, "POST"))
                 .csrf(csrf -> csrf.disable()).httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable()).logout(logout -> logout.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -58,6 +58,12 @@ public class CounterPaymentReceipt {
     @Column(name = "bank_tx_id", length = 160)
     private String bankTxId;
 
+    @Column(name = "collection_id")
+    private java.util.UUID collectionId;
+
+    @Column(name = "collection_status", nullable = false, length = 30)
+    private String collectionStatus = "LEGACY";
+
     @Column(name = "status", nullable = false, length = 30)
     private String status;
 
@@ -154,6 +160,12 @@ public class CounterPaymentReceipt {
 
     public String getBankTxId() { return bankTxId; }
     public void setBankTxId(String bankTxId) { this.bankTxId = bankTxId; }
+
+    public java.util.UUID getCollectionId() { return collectionId; }
+    public void setCollectionId(java.util.UUID collectionId) { this.collectionId = collectionId; }
+
+    public String getCollectionStatus() { return collectionStatus; }
+    public void setCollectionStatus(String collectionStatus) { this.collectionStatus = collectionStatus; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

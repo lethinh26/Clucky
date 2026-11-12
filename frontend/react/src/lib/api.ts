@@ -658,6 +658,8 @@ export interface BackendCounterReceipt {
   bankAmountReconciled: number;
   bankRefCode?: string;
   bankTxId?: string;
+  collectionId?: string;
+  collectionStatus: 'PENDING' | 'ACCEPTED' | 'CANCELLED' | 'EXPIRED' | 'SUPERSEDED' | 'STALE_VERSION' | 'LEGACY';
   status: 'PENDING_RECONCILIATION' | 'RECONCILED' | 'DISCREPANCY' | 'VOIDED';
   manualAcceptance: boolean;
   exceptionReason?: string;
