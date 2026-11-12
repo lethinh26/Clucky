@@ -452,9 +452,11 @@ public class RefundRequestService {
         var refund = new RefundRequest(); refund.setOrderId(orderId); refund.setCustomerId(order.getCustomerId());
         refund.setAmount(order.getTotalAmount()); refund.setReason(cancelled.getReason());
         refund.setCancellationReasonSnapshot(cancelled.getReason()); refund.setCancellationStatusSnapshot(cancelled.getFromStatus());
+        refund.setStatus("WAITING_BANK_DETAILS");
         refund.setCreatedAt(Instant.now()); refund.setUpdatedAt(Instant.now());
         refund.setBankDetailsVersion(1); refund.setAttemptCount(0);
         refund = refunds.saveAndFlush(refund);
+        events.publishRefundEvent("refund.waiting-bank-details", refund, order, cancelled.getReason());
         events.auditRefund(order, refund, "REFUND_REQUESTED", cancelled.getChangedBy(), cancelled.getChangedRole());
         return true;
     }

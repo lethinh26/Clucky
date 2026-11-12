@@ -242,7 +242,7 @@ class RefundRoleGuardsTest {
         actor("CUSTOMER", 100L);
         Order order = order(1L, 10L, "CANCELLED");
         order.setCustomerEmailVerified(true);
-        var refund = refund(order, "PENDING");
+        var refund = refund(order, "WAITING_BANK_DETAILS");
         refund.setBankAccountNo(null);
         refund.setBankBin(null);
         cancellation();
@@ -256,7 +256,29 @@ class RefundRoleGuardsTest {
         assertEquals("970422", result.refund().bankBin());
         assertEquals("0924517780", result.refund().bankAccountNo());
         assertEquals("NDQN", result.refund().bankAccountName());
+        assertEquals("APPROVED", result.refund().status());
         verify(refundRepo).saveAndFlush(refund);
+    }
+
+    @Test
+    void automaticRefundCreatesRefundInWaitingBankDetailsState() {
+        Order order = order(1L, 10L, "CANCELLED");
+        cancellation();
+        when(orderRepo.lockById(1L)).thenReturn(Optional.of(order));
+        when(refundRepo.findAllByOrderId(1L)).thenReturn(List.of());
+        when(paymentClient.getEligibleRefund(eq(1L), any())).thenReturn(
+                new com.clucky.cartorderservice.service.PaymentClient.EligibleRefundResponse(
+                        true, new java.math.BigDecimal("100000"), new java.math.BigDecimal("100000"), "PAID"
+                )
+        );
+        when(refundRepo.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boolean created = service.automaticRefund(1L);
+
+        assertTrue(created);
+        var captor = org.mockito.ArgumentCaptor.forClass(RefundRequest.class);
+        verify(refundRepo).saveAndFlush(captor.capture());
+        assertEquals("WAITING_BANK_DETAILS", captor.getValue().getStatus());
     }
 
     @Test
