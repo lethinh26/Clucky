@@ -23,10 +23,12 @@ public class AccountAuditConsumer {
     
     private final ObjectMapper mapper;
     private final JdbcTemplate jdbc;
+    private final AuditMapper auditMapper;
     
-    public AccountAuditConsumer(ObjectMapper mapper, JdbcTemplate jdbc) { 
-        this.mapper = mapper; 
-        this.jdbc = jdbc; 
+    public AccountAuditConsumer(ObjectMapper mapper, JdbcTemplate jdbc, AuditMapper auditMapper) {
+        this.mapper = mapper;
+        this.jdbc = jdbc;
+        this.auditMapper = auditMapper;
     }
     
     @KafkaListener(topics = "audit.recorded", groupId = "clucky-account-audit-v1")
@@ -35,10 +37,10 @@ public class AccountAuditConsumer {
             var event = mapper.reader()
                     .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION).readTree(json);
+            if (event == null || !event.isObject()) throw new IllegalArgumentException("Invalid audit envelope");
             String source = event.path("sourceService").asText();
             if (!ALLOWED_SOURCES.contains(source)) {
-                acknowledgment.acknowledge(); 
-                return;
+                throw new IllegalArgumentException("Untrusted audit source");
             }
             var payload = event.path("payload");
             if (!event.path("eventId").asText().matches("[A-Za-z0-9._-]{1,160}")
@@ -63,10 +65,13 @@ public class AccountAuditConsumer {
                     payload.path("action").asText(), 
                     payload.path("targetType").asText(), 
                     payload.path("targetId").asLong(),
-                    new AuditMapper().safeDetail(payload.hasNonNull("detail") ? payload.path("detail") : payload).toString(),
+                    auditMapper.safeDetail(payload.hasNonNull("detail") ? payload.path("detail") : payload).toString(),
                     Timestamp.from(Instant.parse(event.path("occurredAt").asText())));
             acknowledgment.acknowledge();
-        } catch (Exception failure) { 
+        } catch (com.fasterxml.jackson.core.JsonProcessingException | IllegalArgumentException
+                | java.time.format.DateTimeParseException invalid) {
+            throw new IllegalArgumentException("Invalid audit event");
+        } catch (Exception failure) {
             throw new IllegalStateException("Audit persistence pending"); 
         }
     }
