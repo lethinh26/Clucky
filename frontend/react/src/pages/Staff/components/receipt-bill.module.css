@@ -1,0 +1,458 @@
+/* receipt-bill.module.css - Thermal Receipt 80mm & KOT Ticket */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(22, 16, 13, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modalWindow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-height: 92vh;
+  width: 100%;
+  max-width: 440px;
+  gap: 14px;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(24px) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Actions Toolbar above/below the receipt */
+.actionsToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.actionBtn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.printBtn {
+  background-color: #8f1216;
+  color: #ffffff;
+}
+
+.printBtn:hover {
+  background-color: #750e12;
+}
+
+.kotBtn {
+  background-color: #22577a;
+  color: #ffffff;
+}
+
+.kotBtn:hover {
+  background-color: #1a435e;
+}
+
+.modeToggleBtn {
+  background-color: #f5ede0;
+  color: #16100d;
+}
+
+.modeToggleBtn:hover {
+  background-color: #e8e2d9;
+}
+
+.closeBtn {
+  background-color: transparent;
+  color: #6b6259;
+  border: 1px solid #e8e2d9;
+}
+
+.closeBtn:hover {
+  background-color: #f5ede0;
+  color: #8f1216;
+}
+
+/* Paper Container with scroll if needed */
+.paperScrollContainer {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  max-height: calc(90vh - 80px);
+  width: 100%;
+  padding: 10px 14px 40px 14px;
+  box-sizing: border-box;
+}
+
+/* K80 Thermal Receipt Paper (Width 380px) */
+.receiptPaper {
+  width: 380px;
+  max-width: 100%;
+  margin: 0 auto;
+  background-color: #ffffff;
+  color: #111111;
+  font-family: "Quicksand", "Segoe UI", -apple-system, sans-serif;
+  font-size: 13px;
+  padding: 24px 20px 32px 20px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  position: relative;
+  display: block;
+  border-radius: 4px 4px 0 0;
+  transition: transform 0.4s ease-out;
+  box-sizing: border-box;
+  height: auto;
+  min-height: min-content;
+}
+
+/* Paper Feed animation simulation */
+.paperFeeding {
+  animation: paperFeedAnim 0.6s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+@keyframes paperFeedAnim {
+  0% {
+    transform: translateY(-20px);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(6px);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Zigzag bottom cut */
+.zigzagBottom {
+  position: absolute;
+  bottom: -12px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  background: radial-gradient(circle, transparent, transparent 50%, #ffffff 50%, #ffffff 100%);
+  background-size: 14px 14px;
+  background-position: bottom left;
+  transform: rotate(180deg);
+  pointer-events: none;
+}
+
+/* Reprint Watermark Banner */
+.reprintWatermark {
+  border: 2px dashed #b42318;
+  color: #b42318;
+  padding: 6px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+  background-color: #fef3f2;
+}
+
+/* Receipt Header */
+.receiptHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.logoImage {
+  height: 48px;
+  object-fit: contain;
+  margin-bottom: 6px;
+}
+
+.brandName {
+  font-family: "Fredoka", "Quicksand", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: #8f1216;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.brandSlogan {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4b443c;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.storeInfo {
+  font-size: 11px;
+  color: #444444;
+  line-height: 1.4;
+}
+
+/* Divider */
+.dashedDivider {
+  border-top: 1px dashed #777777;
+  margin: 10px 0;
+}
+
+.doubleDivider {
+  border-top: 2px solid #111111;
+  margin: 12px 0;
+}
+
+/* Queue Callout Box */
+.queueCallout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: #f7f7f7;
+  border: 1px solid #dddddd;
+  border-radius: 6px;
+  margin: 6px 0;
+}
+
+.queueCalloutLeft {
+  display: flex;
+  flex-direction: column;
+}
+
+.queueTitle {
+  font-size: 10px;
+  color: #666666;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.queueNumberLarge {
+  font-family: "Fredoka", "Quicksand", sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: #8f1216;
+  line-height: 1;
+}
+
+.diningOptionTag {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border: 1px solid #111111;
+  border-radius: 4px;
+}
+
+/* Metadata Rows */
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: #333333;
+  margin: 2px 0;
+}
+
+/* Items Table */
+.itemsTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+}
+
+.itemsTable th {
+  text-align: left;
+  padding: 4px 0;
+  font-size: 11px;
+  font-weight: 800;
+  border-bottom: 1px solid #222222;
+}
+
+.itemsTable td {
+  padding: 5px 0;
+  vertical-align: top;
+}
+
+.itemColName {
+  width: 52%;
+}
+
+.itemColQty {
+  width: 12%;
+  text-align: center;
+}
+
+.itemColPrice {
+  width: 18%;
+  text-align: right;
+}
+
+.itemColTotal {
+  width: 18%;
+  text-align: right;
+  font-weight: 700;
+}
+
+.itemOptionsText {
+  font-size: 10.5px;
+  color: #555555;
+  padding-left: 6px;
+  font-style: italic;
+  line-height: 1.3;
+}
+
+/* Total Section */
+.totalSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #333333;
+}
+
+.grandTotalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  font-weight: 800;
+  color: #111111;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #222222;
+}
+
+.grandTotalAmount {
+  font-size: 17px;
+  font-family: "Fredoka", "Quicksand", sans-serif;
+  font-weight: 800;
+}
+
+/* Payment Breakdown */
+.paymentSection {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 6px 0;
+  font-size: 11.5px;
+  color: #444444;
+}
+
+/* Receipt Footer */
+.receiptFooter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 12px;
+  gap: 4px;
+}
+
+.thankYouText {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.wifiText {
+  font-size: 11px;
+  color: #555555;
+}
+
+.reprintFooterNotice {
+  font-size: 10px;
+  color: #777777;
+  margin-top: 6px;
+  font-style: italic;
+}
+
+/* KOT Specific Styles */
+.kotHeader {
+  text-align: center;
+  border-bottom: 2px dashed #111111;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.kotTitle {
+  font-family: "Fredoka", "Quicksand", sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.kotNoteBox {
+  background-color: #f7f7f7;
+  border: 1px dashed #111111;
+  padding: 8px;
+  font-size: 12px;
+  margin-top: 10px;
+  font-weight: 700;
+}
+
+/* @media print styles for physical/virtual thermal printer */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .receiptPaper,
+  .receiptPaper * {
+    visibility: visible;
+  }
+
+  .receiptPaper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    padding: 2mm !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+
+  .actionsToolbar,
+  .zigzagBottom,
+  .modalOverlay {
+    display: none !important;
+    background: transparent !important;
+  }
+}

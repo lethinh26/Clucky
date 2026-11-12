@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/party-orders")
-@org.springframework.security.access.prepost.PreAuthorize("denyAll()")
 public class PartyOrderController {
     private final PartyOrderService partyOrderService;
 
@@ -24,12 +23,14 @@ public class PartyOrderController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<PartyOrderResponse> createPartyOrder(@Valid @RequestBody CreatePartyOrderRequest request) {
         PartyOrderResponse response = partyOrderService.createPartyOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/my")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<PageResponse<PartyOrderResponse>> getMyPartyOrders(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size
@@ -43,6 +44,7 @@ public class PartyOrderController {
     }
 
     @GetMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('STAFF','STORE_MANAGER','ADMIN')")
     public ResponseEntity<PageResponse<PartyOrderResponse>> getPartyOrders(
             @RequestParam(value = "storeId", required = false) Long storeId,
             @RequestParam(value = "status", required = false) String status,
@@ -58,12 +60,14 @@ public class PartyOrderController {
     }
 
     @GetMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('CUSTOMER','STAFF','STORE_MANAGER','ADMIN')")
     public ResponseEntity<PartyOrderResponse> getPartyOrderById(@PathVariable("id") @Positive Long id) {
         PartyOrderResponse response = partyOrderService.getPartyOrderById(id);
         return ResponseEntity.ok(response);
     }
 
     @PutMapping("/{id}/status")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('STAFF','STORE_MANAGER','ADMIN')")
     public ResponseEntity<PartyOrderResponse> updateStatus(
             @PathVariable("id") @Positive Long id,
             @Valid @RequestBody UpdatePartyOrderStatusRequest request

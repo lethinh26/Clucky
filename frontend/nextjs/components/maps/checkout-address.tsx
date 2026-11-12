@@ -1,6 +1,6 @@
 "use client";
 import { useFeedback } from "@/components/feedback";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { MapPin, ChevronDown, Check, Plus, RefreshCw } from "lucide-react";
 import { Select } from "@base-ui/react/select";
@@ -9,6 +9,10 @@ import { profileApi, formatAddress, type Address } from "@/lib/locations";
 import { AddressDialog } from "./address-dialog";
 import styles from "./checkout-address.module.css";
 export function CheckoutAddress({ value, onSelect }: { value: Address; onSelect: (address: Address) => void }) {
+  const currentValue = useRef(value);
+  currentValue.current = value;
+  const selectAddress = useRef(onSelect);
+  selectAddress.current = onSelect;
   const t = useTranslations("maps");
   const { user } = useSession();
   const userId = user?.userId;
@@ -23,7 +27,12 @@ export function CheckoutAddress({ value, onSelect }: { value: Address; onSelect:
   useEffect(() => {
     let active = true;
     setLoaded(null); setFailed(false); setLoading(Boolean(userId));
-    if (userId) profileApi.addresses().then(result => { if (active) setLoaded({ userId, addresses: result }); })
+    if (userId) profileApi.addresses().then(result => {
+      if (!active) return;
+      setLoaded({ userId, addresses: result });
+      const preferred = result.find(address => address.isDefault) ?? result[0];
+      if (!currentValue.current.detail.trim() && preferred) selectAddress.current(preferred);
+    })
       .catch(() => { if (active) setFailed(true); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [userId, reload]);

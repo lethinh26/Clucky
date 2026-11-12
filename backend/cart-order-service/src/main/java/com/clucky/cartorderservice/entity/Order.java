@@ -15,8 +15,17 @@ public class Order {
     @Column(name = "order_code", nullable = false, length = 40, unique = true)
     private String orderCode;
 
-    @Column(name = "customer_id", nullable = false)
+    @Column(name = "customer_id")
     private Long customerId;
+
+    @Column(name = "order_source", nullable = false, length = 20)
+    private String orderSource = "WEB";
+
+    @Column(name = "dining_option", nullable = false, length = 20)
+    private String diningOption = "TAKE_AWAY";
+
+    @Column(name = "queue_number")
+    private Integer queueNumber;
 
     @Column(name = "customer_email", length = 255)
     private String customerEmail;
@@ -100,9 +109,15 @@ public class Order {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
-    @Version
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 
     private Double latitude;
     private Double longitude;
@@ -119,6 +134,15 @@ public class Order {
 
     public Long getCustomerId() { return customerId; }
     public void setCustomerId(Long customerId) { this.customerId = customerId; }
+
+    public String getOrderSource() { return orderSource; }
+    public void setOrderSource(String orderSource) { this.orderSource = orderSource; }
+
+    public String getDiningOption() { return diningOption; }
+    public void setDiningOption(String diningOption) { this.diningOption = diningOption; }
+
+    public Integer getQueueNumber() { return queueNumber; }
+    public void setQueueNumber(Integer queueNumber) { this.queueNumber = queueNumber; }
 
     public Long getStoreId() { return storeId; }
     public void setStoreId(Long storeId) { this.storeId = storeId; }

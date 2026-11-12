@@ -375,3 +375,27 @@
   align-items: center;
   gap: 5px;
 }
+.partyRequests {
+  margin-top: 28px;
+  display: grid;
+  gap: 12px;
+}
+
+.partyRequests h2 {
+  font-family: var(--font-heading);
+  margin: 0 0 4px;
+}
+
+.partyRequest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  align-items: center;
+  padding: 18px 22px;
+  background: #fffaf3;
+  border: 1px solid #e8e2d9;
+  border-radius: 18px;
+}
+
+.partyRequest strong { color: #8f1216; }
+.partyRequest span:last-child { margin-left: auto; font-weight: 700; }

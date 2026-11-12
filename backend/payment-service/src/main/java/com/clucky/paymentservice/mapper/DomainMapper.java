@@ -56,4 +56,37 @@ public final class DomainMapper {
                 entity.getIsActive()
         );
     }
+
+    public static CounterPaymentReceiptResponse toCounterReceiptResponse(CounterPaymentReceipt entity) {
+        if (entity == null) return null;
+        return new CounterPaymentReceiptResponse(
+                entity.getId(),
+                entity.getReceiptCode(),
+                entity.getOrderId(),
+                entity.getOrderCode(),
+                entity.getQueueNumber(),
+                entity.getStoreId(),
+                entity.getMethod(),
+                entity.getTotalDue(),
+                entity.getCashAmount(),
+                entity.getCashTendered(),
+                entity.getCashChange(),
+                entity.getRoundingDifference(),
+                entity.getBankAmountDeclared(),
+                entity.getBankAmountReconciled(),
+                entity.getBankRefCode(),
+                entity.getBankTxId(),
+                entity.getCollectionId(),
+                entity.getCollectionStatus(),
+                entity.getStatus(),
+                entity.getManualAcceptance(),
+                entity.getDiscrepancyAmount(),
+                entity.getExceptionReason(),
+                entity.getStaffId(),
+                entity.getStaffName(),
+                entity.getPrintCount(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
+        );
+    }
 }

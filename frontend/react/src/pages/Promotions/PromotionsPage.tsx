@@ -1,7 +1,7 @@
 import { message } from "../../components/feedback";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Space, Tag, Select, Popconfirm, Tabs, Badge, Typography, Tooltip } from "antd";
+import { Alert, Button, Space, Tag, Select, Popconfirm, Tabs, Badge, Typography, Tooltip, Progress } from "antd";
 import { TableColumnsType } from "antd";
 import dayjs from 'dayjs';
 import {
@@ -526,6 +526,40 @@ export const PromotionsPage: React.FC = () => {
           </div>
         </div>
       ),
+    },
+    {
+      title: 'Lượt sử dụng',
+      key: 'usage',
+      width: 145,
+      render: (_, record) => {
+        const percent = record.totalLimit
+          ? Math.min(100, Math.round((record.usedCount / record.totalLimit) * 100))
+          : null;
+        return (
+          <div style={{ width: '100%', maxWidth: 125 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+              <span style={{ fontWeight: 800, color: '#8F1216', fontFamily: 'Fredoka, Quicksand, sans-serif', fontSize: 14 }}>
+                {record.usedCount}
+              </span>
+              <span style={{ color: '#6B6259', fontWeight: 600 }}>
+                / {record.totalLimit ? record.totalLimit : '∞'}
+              </span>
+            </div>
+            <Text type="secondary" style={{ fontSize: 11 }}>{t("admin:ui.reserved")} {record.reservedCount ?? 0}</Text>
+            {percent !== null ? (
+              <Progress
+                percent={percent}
+                size={['100%', 5]}
+                showInfo={false}
+                strokeColor="#8F1216"
+                trailColor="#E8E2D9"
+              />
+            ) : (
+              <div style={{ fontSize: 11, color: '#6B6259', fontStyle: 'italic' }}>{t("admin:ui.unlimited")}</div>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: t("accounts:status"),

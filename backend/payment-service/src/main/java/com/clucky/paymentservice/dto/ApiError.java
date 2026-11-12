@@ -10,6 +10,11 @@ public record ApiError(Instant timestamp, int status, String error, String code,
         return new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code.name(), code.message(), path);
     }
 
+    public static ApiError of(ErrorCode code, String message, String path) {
+        HttpStatus status = HttpStatus.valueOf(code.httpStatus());
+        return new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code.name(), message != null ? message : code.message(), path);
+    }
+
     public static ApiError of(HttpStatus status, String path) {
         return of(ErrorCode.fromStatus(status.value()), path);
     }

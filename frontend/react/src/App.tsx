@@ -17,12 +17,14 @@ import { StaffInventoryPage } from "./pages/Staff/Inventory";
 import { OrdersPage } from "./pages/Orders";
 import { AdminOrdersPage } from "./pages/Orders/AdminOrdersPage";
 import { StaffOrdersPage } from "./pages/Staff/StaffOrdersPage";
+import { IncomingTransfersPage } from "./pages/Staff/IncomingTransfersPage";
 import { PromotionsPage } from "./pages/Promotions";
 import { ReviewsPage } from "./pages/Reviews";
 import { LoginPage } from "./pages/Auth/LoginPage";
 import { BranchAccessPage } from "./pages/Auth/BranchAccessPage";
 import { BranchAccountsPage } from "./pages/Users/BranchAccountsPage";
 import { PaymentsPage } from "./pages/Payments";
+import { PartyOrdersPage } from "./pages/PartyOrders/PartyOrdersPage";
 import { AdminPaymentsPage } from "./pages/Payments/AdminPaymentsPage";
 import { CustomersPage } from "./pages/Customers";
 import { EmailLogsPage } from "./pages/EmailLogs";
@@ -118,6 +120,10 @@ export const App: React.FC = () => {
                     path="/reset-password"
                     element={<BranchAccessPage />}
                   />
+                  <Route
+                    path="/staff/transfers"
+                    element={<Navigate to="/admin/transfers" replace />}
+                  />
 
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}><AdminLayout /></ProtectedRoute>}>
                     <Route
@@ -191,6 +197,10 @@ export const App: React.FC = () => {
                       }
                     />
                     <Route
+                      path="party-orders"
+                      element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}><PartyOrdersPage /></ProtectedRoute>}
+                    />
+                    <Route
                       path="users"
                       element={
                         <ProtectedRoute
@@ -236,6 +246,22 @@ export const App: React.FC = () => {
                       path="staff/orders"
                       element={
                         <Navigate to="/admin/orders" replace />
+                      }
+                    />
+                    <Route
+                      path="transfers"
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "STORE_MANAGER"]}
+                        >
+                          <IncomingTransfersPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="staff/transfers"
+                      element={
+                        <Navigate to="/admin/transfers" replace />
                       }
                     />
                     <Route

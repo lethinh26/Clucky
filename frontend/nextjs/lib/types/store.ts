@@ -72,4 +72,7 @@ export interface Store {
   deliveryArea: string;
   managerName?: string;
   isOpenNow?: boolean;
+  latitude?: number;
+  longitude?: number;
+  deliveryRadiusKm?: number;
 }

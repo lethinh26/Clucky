@@ -79,14 +79,18 @@
     "audit": "Administration audit",
     "reports": "Reports & statistics",
     "payments": "Payments & reconciliation",
-    "promotions": "Promotions & Vouchers"
+    "promotions": "Promotions & Vouchers",
+    "partyOrders": "Party requests",
+    "transfers": "Cash Drawer & Transfers"
   },
   "breadcrumb": {
     "catalog": "Menu & combos",
     "stores": "Stores",
     "reviews": "Reviews & replies",
     "users": "Branch accounts",
-    "promotions": "Promotions & Vouchers"
+    "promotions": "Promotions & Vouchers",
+    "orders": "Order Management",
+    "transfers": "Cash Drawer & Transfers"
   },
   "roles": {
     "hqAdmin": "HQ administrator",
@@ -438,6 +442,8 @@
     "theOrderIdInTheUrlIsInvalid": "The order ID in the URL is invalid.",
     "searchOrderId": "Search order ID",
     "searchByOrderId": "Search by order ID",
+    "searchQueueNumber": "Daily queue # (e.g. 1 or #001)",
+    "queueNumberCol": "Daily Queue # (Date)",
     "filterOrderStatus": "Filter order status",
     "noOrdersMatchYourFilters": "No orders match your filters",
     "noPhoneNumberProvided": "No phone number provided",
@@ -839,5 +845,37 @@
     "accountStatusChangedButTheUpdatedDataCould": "Account status changed, but the updated data could not be loaded: {{value1}}",
     "allLoginSessionsForThisAccountWillBe": "All login sessions for this account will be revoked.",
     "thisChangeOnlyAffectsTheSelectedAccountUnlocking": "This change only affects the selected account. Unlocking does not replace activation or automatically reopen branch sales."
+  },
+  "party": {
+    "title": "Party requests",
+    "storeId": "Store",
+    "guests": "guests",
+    "package": "Package",
+    "request": "Request",
+    "call": "Call",
+    "email": "Email",
+    "quote": "Quote",
+    "cash": "Cash",
+    "transfer": "Bank transfer",
+    "lastNote": "Consultation note",
+    "nextStatus": "Next step",
+    "note": "Contact or consultation note",
+    "payment": "Payment method",
+    "save": "Save update",
+    "saved": "Request updated",
+    "refresh": "Refresh",
+    "loadMore": "Load more requests",
+    "empty": "No party requests yet",
+    "noteRequired": "Add a contact note or reason",
+    "quoteRequired": "Enter a quote and payment method"
+  },
+  "system": {
+    "notConnected": "Not connected to backend system",
+    "retry": "Retry",
+    "emptyOrders": "No orders found for this branch",
+    "soundEnabled": "Notification sound: ON",
+    "soundDisabled": "Notification sound: OFF",
+    "refresh": "Refresh data",
+    "refreshed": "Synchronized latest data"
   }
 }

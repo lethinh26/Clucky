@@ -157,6 +157,7 @@ export interface BackendCartItem {
   itemKey: string;
   productId?: number;
   comboId?: number;
+  storeId?: number;
   itemName: string;
   unitPrice: number;
   quantity: number;
@@ -368,13 +369,12 @@ export interface CreatePartyOrderPayload {
   storeId: number;
   contactName: string;
   phone: string;
-  contactPhone?: string;
-  contactEmail?: string;
+  contactEmail: string;
   expectedDate: string;
-  expectedTime?: string;
+  expectedTime: string;
   guestCount: number;
+  packageCode: string;
   content: string;
-  notes?: string;
 }
 
 export interface PartyOrderResult {
@@ -383,10 +383,16 @@ export interface PartyOrderResult {
   storeId: number;
   contactName: string;
   phone: string;
+  contactEmail: string;
   expectedDate: string;
+  expectedTime: string;
   guestCount: number;
+  packageCode: string;
   content: string;
   status: string;
+  quoteAmount?: number | null;
+  paymentMethod?: string | null;
+  consultationNote?: string | null;
 }
 
 export type BackendPartyOrder = PartyOrderResult;

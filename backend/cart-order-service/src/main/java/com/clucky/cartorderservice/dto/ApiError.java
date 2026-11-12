@@ -6,8 +6,13 @@ import org.springframework.http.HttpStatus;
 
 public record ApiError(Instant timestamp, int status, String error, String code, String message, String path) {
     public static ApiError of(ErrorCode code, String path) {
+        return of(code, null, path);
+    }
+
+    public static ApiError of(ErrorCode code, String customMessage, String path) {
         HttpStatus status = HttpStatus.valueOf(code.httpStatus());
-        return new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code.name(), code.message(), path);
+        String msg = (customMessage != null && !customMessage.isBlank()) ? customMessage : code.message();
+        return new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code.name(), msg, path);
     }
 
     public static ApiError of(HttpStatus status, String path) {

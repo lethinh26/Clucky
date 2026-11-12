@@ -39,7 +39,19 @@ public class PaymentFlow {
     public record Session(Long orderId, String orderCode, Long customerId, Long storeId,
             BigDecimal amount, String status, String paymentMethod, Instant expiresAt) {}
     public record Context(long orderId, String orderCode, Long customerId, Long storeId, BigDecimal amount,
-            String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version) {}
+            String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version,
+            String orderSource, String orderType) {
+        public Context(long orderId, String orderCode, Long customerId, Long storeId, BigDecimal amount,
+                String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version,
+                String orderSource) {
+            this(orderId, orderCode, customerId, storeId, amount, status, paymentMethod, paymentStatus,
+                    expiresAt, version, orderSource, null);
+        }
+        public Context(long orderId, String orderCode, Long customerId, Long storeId, BigDecimal amount,
+                String status, String paymentMethod, String paymentStatus, Instant expiresAt, Instant version) {
+            this(orderId, orderCode, customerId, storeId, amount, status, paymentMethod, paymentStatus, expiresAt, version, null, null);
+        }
+    }
     private record Payment(long id, long orderId, String orderCode, long customerId, long storeId, BigDecimal amount,
             BigDecimal received, String status, Instant expiresAt, String reference, Bank bank, boolean proposed, String closedReason) {}
     private static final RowMapper<Payment> PAYMENT = (row, index) -> new Payment(row.getLong("id"), row.getLong("order_id"),
@@ -88,7 +100,7 @@ public class PaymentFlow {
         var banks = jdbc.query("SELECT account.* FROM payment_service.store_bank_accounts assignment JOIN payment_service.bank_accounts_config account "
                 + "ON account.id=assignment.bank_account_id WHERE assignment.store_id=? AND account.is_active AND account.bank_code IS NOT NULL",
                 (row, index) -> new Bank(row.getString("bank_name"), row.getString("bank_code"), row.getString("account_no"), row.getString("account_name")), session.storeId());
-        if (banks.size() != 1) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        if (banks.isEmpty()) throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         Bank bank = banks.getFirst();
         Session opened = orderSession(orderId, true);
         if (opened == null || !session.orderId().equals(opened.orderId()) || !session.customerId().equals(opened.customerId())
@@ -161,7 +173,8 @@ public class PaymentFlow {
                     .uri(instances.getFirst().getUri().resolve("/api/orders/" + orderId + "/payment-context"))
                     .headers(headers -> headers.setBearerAuth(token.getToken().getTokenValue()));
             Context result = request.retrieve().body(Context.class);
-            if (result == null || result.orderId() != orderId || result.storeId() == null || result.customerId() == null
+            if (result == null || result.orderId() != orderId || result.storeId() == null
+                    || result.customerId() == null && !"COUNTER".equals(result.orderSource())
                     || result.version() == null || result.amount() == null) throw new ApiException(ErrorCode.UPSTREAM_ERROR);
             return result;
         } catch (RestClientResponseException failure) {
@@ -260,12 +273,15 @@ public class PaymentFlow {
         if(!java.util.Objects.equals(collection.get("account_no"),receipt.get("bank_account")) || collection.get("account_no")==null
                 || ((BigDecimal)collection.get("transfer_amount")).compareTo((BigDecimal)receipt.get("amount"))!=0)return;
         jdbc.update("UPDATE payment_service.bank_transactions SET collection_id=?,reason='COLLECTION_EVIDENCE' WHERE id=?",collection.get("id"),receipt.get("id"));
+        jdbc.update("UPDATE payment_service.counter_payment_receipts SET bank_tx_id=?,bank_amount_reconciled=?,status='RECONCILED',"
+                + "discrepancy_amount=0,version=version+1,updated_at=now() WHERE collection_id=? AND status='PENDING_RECONCILIATION' AND bank_tx_id IS NULL",
+                receipt.get("bank_tx_id"), receipt.get("amount"), collection.get("id"));
         jdbc.update("UPDATE payment_service.collections SET version=version+1 WHERE id=?",collection.get("id"));
     }
 
     private void lockOrder(long orderId) { jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", Object.class, "payment-order:" + orderId); }
 
-    void enqueue(String topic, long orderId, com.fasterxml.jackson.databind.node.ObjectNode payload) {
+    public void enqueue(String topic, long orderId, com.fasterxml.jackson.databind.node.ObjectNode payload) {
         String eventId = UUID.randomUUID().toString();
         String correlation = MDC.get("correlationId");
         if (correlation == null || !correlation.matches("[A-Za-z0-9._-]{1,128}")) correlation = eventId;

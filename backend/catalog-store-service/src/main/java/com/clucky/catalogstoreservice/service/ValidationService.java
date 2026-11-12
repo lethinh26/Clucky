@@ -337,7 +337,14 @@ public class ValidationService {
         response.setSubtotal(totalSubtotal);
         response.setItems(resultItems);
         if (!response.isValid() && response.getMessage() == null) {
-            response.setMessage("Một số món trong giỏ hàng không khả dụng tại chi nhánh đã chọn.");
+            String firstReason = resultItems.stream()
+                    .filter(it -> !it.isAvailable() && it.getReason() != null && !it.getReason().isBlank())
+                    .map(it -> (it.getName() != null ? "[" + it.getName() + "] " : "") + it.getReason())
+                    .findFirst()
+                    .orElse(null);
+            response.setMessage(firstReason != null
+                    ? firstReason
+                    : "Một số món trong giỏ hàng không khả dụng tại chi nhánh đã chọn.");
         } else if (response.isValid()) {
             response.setMessage("Toàn bộ món ăn hợp lệ và sẵn sàng phục vụ.");
         }
