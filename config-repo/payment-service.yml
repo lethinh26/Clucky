@@ -27,3 +27,4 @@ spring:
     create-schemas: true
     baseline-on-migrate: false
     out-of-order: true
+

@@ -17,6 +17,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VietQrServiceTest {
 
+    @Test
+    void springSelectsTheConfiguredConstructorWithoutCallingTheUpstream() {
+        try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+            context.registerBean(RestClient.Builder.class, () -> RestClient.builder());
+            context.register(VietQrService.class);
+            context.refresh();
+            assertNotNull(context.getBean(VietQrService.class));
+        }
+    }
+
     private static final String SAMPLE_JSON = """
             {
               "code": "00",
