@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from images import BACKEND, FRONTEND, build_args, bundle, fingerprint, image_digest
+from images import BACKEND, FRONTEND, build_args, bundle, fingerprint, image_digest, plan, select_build
 
 
 class ImageInputsTest(unittest.TestCase):
@@ -48,6 +48,40 @@ class ImageInputsTest(unittest.TestCase):
     def test_runtime_configuration_does_not_rebuild_image(self):
         changed = {**self.files, "config-repo/application.yml": "new"}
         self.assertEqual(fingerprint("identity-service", self.files, {}), fingerprint("identity-service", changed, {}))
+
+    def test_matrix_exports_indices_and_loads_image_details_from_artifact(self):
+        previous = Path.cwd()
+        for digest in (None, "sha256:" + "b" * 64):
+            with self.subTest(digest=digest), tempfile.TemporaryDirectory() as temporary:
+                try:
+                    os.chdir(temporary)
+                    environment = {
+                        "GITHUB_REPOSITORY": "owner/clucky", "BACKEND_ENV_JSON": "{}",
+                        "GITHUB_OUTPUT": str(Path(temporary) / "outputs"),
+                        "RELEASE_ID": "a" * 40 + "-100-1",
+                        "FIREBASE_API_KEY": "public-key", "FIREBASE_AUTH_DOMAIN": "app.test",
+                        "FIREBASE_PROJECT_ID": "project-test",
+                    }
+                    public = {"NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "pk.customer", "VITE_MAPBOX_ACCESS_TOKEN": "pk.admin"}
+                    with patch.dict(os.environ, environment), patch("images.validate_environment", return_value=public), \
+                            patch("images.image_digest", return_value=digest), \
+                            patch("images.subprocess.check_output", side_effect=[b"", "c" * 40]):
+                        plan()
+                        outputs = dict(line.split("=", 1) for line in Path("outputs").read_text().splitlines())
+                        count = len(BACKEND) + len(FRONTEND) if digest is None else 0
+                        self.assertEqual(json.loads(outputs["builds"]), list(range(count)))
+                        self.assertNotIn("ghcr.io", outputs["builds"])
+                        if count:
+                            select_build("0")
+                            selected = dict(line.split("=", 1) for line in Path("outputs").read_text().splitlines())
+                            self.assertEqual(selected["service"], "customer")
+                            self.assertEqual(selected["context"], "frontend/nextjs")
+                            self.assertTrue(selected["image"].startswith("ghcr.io/owner/clucky/customer:input-"))
+                        for invalid in ("-1", str(count), "not-an-index"):
+                            with self.assertRaises(ValueError):
+                                select_build(invalid)
+                finally:
+                    os.chdir(previous)
 
     def test_public_arguments_are_scoped_to_the_frontend(self):
         environment = {"FIREBASE_API_KEY": "public-key", "PUBLIC_API_URL": "/api"}
