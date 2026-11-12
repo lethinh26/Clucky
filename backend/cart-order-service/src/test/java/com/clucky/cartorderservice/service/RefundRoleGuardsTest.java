@@ -238,6 +238,28 @@ class RefundRoleGuardsTest {
     }
 
     @Test
+    void customerSubmittingBankDetailsUpdatesAutoCreatedRefund() {
+        actor("CUSTOMER", 100L);
+        Order order = order(1L, 10L, "CANCELLED");
+        order.setCustomerEmailVerified(true);
+        var refund = refund(order, "PENDING");
+        refund.setBankAccountNo(null);
+        refund.setBankBin(null);
+        cancellation();
+        when(refundRepo.findAllByOrderId(1L)).thenReturn(List.of(refund));
+        when(refundRepo.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var request = new CreateRefundRequest(1L, "Reason", "970422", "MBBank", "0924517780", "NDQN");
+        var result = service.createRefundRequest(request);
+
+        assertTrue(result.created());
+        assertEquals("970422", result.refund().bankBin());
+        assertEquals("0924517780", result.refund().bankAccountNo());
+        assertEquals("NDQN", result.refund().bankAccountName());
+        verify(refundRepo).saveAndFlush(refund);
+    }
+
+    @Test
     void managerCannotApproveOtherStoreRefund() {
         actor("STORE_MANAGER", 20L);
         Order order = order(1L, 10L, "CANCELLED");
