@@ -1,3 +1,21 @@
+.inboxPage { max-width: 880px; margin: 36px auto 72px; padding: 0 20px; font-family: var(--font-quicksand), sans-serif; }
+.pageHeading { display: flex; align-items: center; gap: 18px; margin-bottom: 24px; }
+.pageHeading h1 { margin: 0 0 6px; font: 600 clamp(26px, 4vw, 36px)/1.2 var(--font-heading), "Fredoka", sans-serif; color: #16100d; }
+.pageHeading p { color: #6b6259; margin: 0; line-height: 1.6; }
+.pageIcon { display: grid; place-items: center; width: 58px; height: 58px; flex-shrink: 0; border-radius: 18px; color: #8f1216; background: #f5ede0; border: 1px solid #e8e2d9; }
+.inboxPanel { background: #fffaf3; border: 1px solid #e8e2d9; border-radius: 20px; overflow: hidden; }
+.inboxToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid #e8e2d9; }
+.filterButtons { display: flex; gap: 4px; flex: 1; }
+.filterButtons button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; border: 0; border-radius: 10px; padding: 8px 12px; background: transparent; color: #6b6259; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.filterButtons button[aria-pressed="true"] { background: #8f1216; color: #fff; }
+.filterButtons span { font-size: 11px; padding: 1px 5px; border-radius: 6px; background: #ffffff26; }
+.typeSelect { min-height: 38px; border-radius: 10px; border: 1px solid #e8e2d9; background: #fff; padding: 6px 10px; font: inherit; font-size: 13px; color: #16100d; }
+.inboxPagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 18px; border-top: 1px solid #e8e2d9; font-size: 13px; }
+.inboxPagination button { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #e8e2d9; background: #fff; color: #8f1216; border-radius: 9px; cursor: pointer; }
+.inboxPage button:disabled, .container button:disabled { opacity: .5; cursor: not-allowed; }
+.notice { padding: 12px 18px; font-size: 13px; color: #6b6259; }
+@media (max-width: 480px) { .inboxPage { padding: 0 12px; margin-top: 24px; } .pageHeading { gap: 12px; } .pageHeading p { font-size: 13px; } .typeSelect { width: 100%; } }
+
 /* Notification Popover Styles - Clucky Customer App */
 
 .container {

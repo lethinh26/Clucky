@@ -9,7 +9,7 @@ function load(handler) {
   const requests = [];
   const user = { userId: 7, role: 'ADMIN', email: 'admin@example.com', fullName: 'Admin' };
   const context = {
-    Headers, DOMException, AbortController,
+    Headers, DOMException, AbortController, FormData,
     window: { addEventListener() {} },
     localStorage: { getItem: () => 'legacy-token', removeItem() {}, setItem() {} },
     fetch: async (url, options) => {
@@ -36,6 +36,19 @@ function load(handler) {
   });
   return { ...exports, requests, session };
 }
+
+test('COD evidence preserves the image as multipart instead of serializing FormData to JSON', async () => {
+  const app = load();
+  const file = new File([new Uint8Array([137, 80, 78, 71])], 'receipt.png', { type: 'image/png' });
+  app.api.defaults.adapter = async config => {
+    assert.ok(config.data instanceof FormData);
+    assert.equal(config.data.get('file').name, 'receipt.png');
+    assert.equal(config.data.get('file').type, 'image/png');
+    assert.match(config.headers.getContentType(), /multipart\/form-data/);
+    return { data: { status: 'PENDING' }, status: 200, statusText: 'OK', headers: {}, config };
+  };
+  assert.equal((await app.paymentsApi.uploadCodEvidence(17, file)).status, 'PENDING');
+});
 
 test('concurrent admin 401s refresh once and replay with cookies, never bearer tokens', async () => {
   let refreshed = false;

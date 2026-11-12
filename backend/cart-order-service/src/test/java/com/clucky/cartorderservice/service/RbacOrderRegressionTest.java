@@ -104,6 +104,23 @@ class RbacOrderRegressionTest {
     }
 
     @Test
+    void pickupPreparesBeforeCollectionButRequiresReadyAndPaymentBeforeHandover() {
+        actor("STAFF", 10L);
+        Order pickup = order("CONFIRMED");
+        pickup.setType("PICKUP");
+        pickup.setPaymentStatus("PENDING");
+        assertEquals("PREPARING", service.updateStatus(1L, new UpdateOrderStatusRequest("PREPARING", null)).status());
+        pickup.setPaymentStatus("PAID");
+        assertThrows(ApiException.class, () -> service.updateStatus(1L, new UpdateOrderStatusRequest("COMPLETED", null)));
+        pickup.setPaymentStatus("PENDING");
+        assertEquals("READY", service.updateStatus(1L, new UpdateOrderStatusRequest("READY", null)).status());
+        assertThrows(ApiException.class, () -> service.updateStatus(1L, new UpdateOrderStatusRequest("COMPLETED", null)));
+        assertThrows(ApiException.class, () -> service.updateStatus(1L, new UpdateOrderStatusRequest("SHIPPING", null)));
+        pickup.setPaymentStatus("COLLECTED");
+        assertEquals("COMPLETED", service.updateStatus(1L, new UpdateOrderStatusRequest("COMPLETED", null)).status());
+    }
+
+    @Test
     void missingOrForeignStoreCannotMutateAndAdminCannotInventPayment() {
         Order order = order("READY");
         for (Long storeId : new Long[] { null, 20L }) {

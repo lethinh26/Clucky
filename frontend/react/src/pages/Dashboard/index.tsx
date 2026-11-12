@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -369,6 +369,11 @@ export default function Dashboard({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reloadNonce, setReloadNonce] = useState(0);
+  const loadedScope = useRef('');
+  useEffect(() => {
+    const timer = window.setInterval(() => { if (!document.hidden) setReloadNonce(value => value + 1); }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (isManager && managerStoreId) {
@@ -417,9 +422,10 @@ export default function Dashboard({
     const controller = new AbortController();
     setLoading(true);
     setLoadError('');
-    setDashboard(null);
-    setRevenueReport(null);
-    setStores([]); setStoreError('');
+    const scope = `${user.id}:${user.role}:${effectiveStoreId}:${fromIso}:${toIso}`;
+    if (loadedScope.current !== scope) { setDashboard(null); setRevenueReport(null); setStores([]); }
+    loadedScope.current = scope;
+    setStoreError('');
 
     const reportParams = {
       storeId: effectiveStoreId,
@@ -454,7 +460,7 @@ export default function Dashboard({
       });
 
     return () => controller.abort();
-  }, [effectiveStoreId, fromIso, toIso, isStaff, managerMissingStore, reloadNonce, user.id, user.role]);
+  }, [effectiveStoreId, fromIso, toIso, isAdmin, isStaff, managerMissingStore, reloadNonce, user.id, user.role]);
 
   useEffect(() => {
     setOrderSnapshot(null);
@@ -493,6 +499,7 @@ export default function Dashboard({
   const activeKitchenCount = orderSnapshot?.activeKitchenCount;
 
   const chartSeries = useMemo(() => {
+    if (!revenueReport) return [];
     const items: DailyStoreStatsItem[] = revenueReport?.items ?? [];
     const byDate = new Map<string, { revenue: number; orders: number }>();
     for (const item of items) {
@@ -502,8 +509,12 @@ export default function Dashboard({
         orders: existing.orders + Number(item.orderCount || 0),
       });
     }
-    const sortedDates = [...byDate.keys()].sort();
-    const visibleDates = sortedDates.slice(-10);
+    const visibleDates: string[] = [];
+    for (const day = new Date(`${fromIso}T00:00:00Z`); day.toISOString().slice(0, 10) <= toIso; day.setUTCDate(day.getUTCDate() + 1)) {
+      const iso = day.toISOString().slice(0, 10);
+      visibleDates.push(iso);
+      if (!byDate.has(iso)) byDate.set(iso, { revenue: 0, orders: 0 });
+    }
     const maxRevenue = Math.max(1, ...visibleDates.map((d) => byDate.get(d)?.revenue ?? 0));
     return visibleDates.map((iso) => {
       const point = byDate.get(iso)!;
@@ -517,7 +528,7 @@ export default function Dashboard({
         heightPct,
       };
     });
-  }, [revenueReport]);
+  }, [revenueReport, fromIso, toIso]);
 
   const storeStatsByStore = useMemo(() => {
     const grouped = new Map<number, { orders: number; revenue: number }>();
@@ -668,12 +679,6 @@ export default function Dashboard({
         />
       )}
 
-      {dashboard && (
-        <Alert type="warning" showIcon style={{ marginBottom: 16 }}
-          message={t("admin:ui.figuresComeFromTheStoredProjectionNotBank")}
-          description={t("admin:ui.policyEnablingAPolicyDoesNotGuaranteeComplete", { value1: dashboard.revenueEventPolicy ?? 'false', value2: lastUpdatedLabel })} />
-      )}
-
       {loading && !dashboard ? (
         <Card style={{ marginBottom: 16 }}>
           <Skeleton active paragraph={{ rows: 4 }} />
@@ -683,7 +688,7 @@ export default function Dashboard({
           <Col xs={24} sm={12} xl={6}>
             <MetricCard
               title={t('business:dashboard.todaySOrders')}
-              value={dashboard ? number(Number(dashboard.todayOrderCount)) : '—'}
+              value={orderSnapshot ? number(orderSnapshot.todayOrderCount) : '—'}
               suffix={t('business:dashboard.orders')}
               trend={t('business:dashboard.periodOrdersSummary', {
                 value1: number(Number(dashboard?.periodOrderCount ?? 0)),

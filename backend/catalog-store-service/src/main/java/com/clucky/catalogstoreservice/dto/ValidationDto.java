@@ -92,6 +92,10 @@ public class ValidationDto {
         private String message;
         private BigDecimal subtotal = BigDecimal.ZERO;
         private List<ValidatedItem> items = new ArrayList<>();
+        private java.util.Map<Long, Long> stockQuantities = java.util.Map.of();
+
+        public java.util.Map<Long, Long> getStockQuantities() { return stockQuantities; }
+        public void setStockQuantities(java.util.Map<Long, Long> quantities) { stockQuantities = java.util.Map.copyOf(quantities); }
 
         public boolean isValid() { return valid; }
         public void setValid(boolean valid) { this.valid = valid; }

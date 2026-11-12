@@ -1,7 +1,7 @@
 import { message } from "../../components/feedback";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useTranslation } from "react-i18next";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Table, Tabs, Input, Select, Button, Tag, Space, Typography, Badge, Alert, Radio } from "antd";
 import { TableColumnsType } from "antd";
 
@@ -46,6 +46,8 @@ import {
 import styles from "./orders.module.css";
 import "./admin-orders.css";
 import { usePageLoading } from "../../components/ui-loader/page-loading";
+import { useOrderAlerts } from "../../hooks/useOrderAlerts";
+import { OrderSoundButton } from "../../components/ui/OrderSoundButton";
 
 export const OrdersPage: React.FC = () => {
   const { t } = useTranslation();
@@ -66,7 +68,21 @@ export const OrdersPage: React.FC = () => {
     refreshOrders,
   } = useOrders();
   usePageLoading(loading);
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const alerts = useOrderAlerts();
+  const { observe } = alerts;
+  useEffect(() => {
+    if (!loading && !storageError) observe(orders, String(user?.storeId ?? "all"));
+  }, [orders, loading, storageError, user?.storeId, observe]);
+  useEffect(() => {
+    let polling = false;
+    const timer = window.setInterval(async () => {
+      if (document.hidden || polling || loading) return;
+      polling = true;
+      try { await refreshOrders(); } finally { polling = false; }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [refreshOrders, loading]);
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [refundSubFilter, setRefundSubFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -98,12 +114,7 @@ export const OrdersPage: React.FC = () => {
     if (reason === "COLLECT_COD") {
       ok = await confirmCOD(orderId);
       if (ok) {
-        try {
-          await updateStatus(orderId, "COMPLETED", "COLLECT_COD");
-        } catch {
-          // Ignore if already completed
-        }
-        message.success(t("business:staffactions.codCompletedSuccess"));
+        message.success(t("business:pickupFlow.collectionRecorded"));
         return true;
       }
     } else {
@@ -438,6 +449,7 @@ export const OrdersPage: React.FC = () => {
           <h1>{t("business:orderspage.ordersAtYourFingertips")}</h1>
           <p>{t("business:orderspage.trackPreparationPaymentsAndRefundRequestsInOnePlace")}</p>
         </div>
+        <OrderSoundButton alerts={alerts} />
       </div>
 
       <section className="admin-orders-date-card" style={{ marginBottom: 16 }} aria-label={t("business:dateFilter.ariaLabel")}>

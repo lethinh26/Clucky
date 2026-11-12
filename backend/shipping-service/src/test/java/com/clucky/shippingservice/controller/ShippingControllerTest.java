@@ -33,6 +33,11 @@ class ShippingControllerTest {
         assertEquals("RADIUS_NOT_CONFIGURED", quote(configured, new Store(1, 0.0, 0.0, null), pin).reason());
         assertEquals("STORE_LOCATION_MISSING", quote(configured, new Store(1, null, null, BigDecimal.TEN), pin).reason());
         assertEquals("LOCATION_REQUIRED", quote(configured, store, new QuoteRequest(1L, null, null)).reason());
+        assertEquals("LOCATION_REQUIRED", quote(configured, store, new QuoteRequest(1L, 0.0, null)).reason());
+        assertEquals("LOCATION_REQUIRED", quote(configured, store, new QuoteRequest(1L, Double.NaN, 0.0)).reason());
+        assertEquals("FEE_NOT_CONFIGURED", quote(null, store, pin).reason());
+        assertEquals("FEE_NOT_CONFIGURED", quote(new Policy(BigDecimal.ZERO, 0), store, pin).reason());
+        assertEquals("RADIUS_NOT_CONFIGURED", quote(configured, new Store(1, 0.0, 0.0, BigDecimal.ZERO), pin).reason());
     }
 
     @Test

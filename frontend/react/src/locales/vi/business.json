@@ -1,4 +1,41 @@
 {
+  "reportLive": { "basis": "Doanh thu đơn hoàn thành · Chưa trừ hoàn tiền" },
+  "codUpload": {
+    "submit": "Tải ảnh lên",
+    "drop": "Kéo thả ảnh vào đây hoặc bấm để chọn ảnh",
+    "formats": "Hỗ trợ JPG, PNG, WebP • Tối đa 2 MB • 1 ảnh chứng từ",
+    "preview": "Ảnh chứng từ đã chọn"
+  },
+  "posUi": {
+    "options": "Có lựa chọn món",
+    "noBranch": "Chưa xác định được chi nhánh để tải thực đơn.",
+    "loading": "Đang tải thực đơn chi nhánh…",
+    "empty": "Không có món phù hợp. Thử tìm kiếm hoặc nhóm món khác."
+  },
+  "posAvailability": {
+    "inactive": "Món đã ngừng kinh doanh",
+    "soldOut": "Đã hết món tại chi nhánh",
+    "branchDisabled": "Chi nhánh đang tạm ngừng bán món này",
+    "notStarted": "Chưa đến thời gian mở bán",
+    "expired": "Đã hết thời gian mở bán",
+    "comboUnavailable": "Có món trong combo hiện không bán được"
+  },
+  "orderAlerts": {
+    "blocked": "Chưa thể phát âm thanh. Hãy cho phép âm thanh của trang và bấm bật chuông lại.",
+    "newOrders": "Có {{count}} đơn mới · {{code}}",
+    "on": "Chuông đang bật",
+    "allow": "Bấm để cho phép chuông",
+    "off": "Chuông đang tắt"
+  },
+  "pickupFlow": {
+    "choose": "Chọn món",
+    "steps": "Chọn món → Xác nhận → Chế biến → Chờ khách đến lấy → Thanh toán → Đã nhận tại quán",
+    "completed": "Đã nhận tại quán",
+    "collect": "Thu tiền đơn {{code}}",
+    "handover": "Xác nhận khách đã nhận",
+    "ready": "Chờ khách đến lấy",
+    "collectionRecorded": "Đã ghi nhận thu tiền. Xác nhận bàn giao riêng khi khách nhận món."
+  },
   "account": {
     "saveChanges": "Lưu thay đổi",
     "default": "Mặc định",
@@ -304,7 +341,7 @@
     "monthToDate": "Từ đầu tháng",
     "todayRecognizedRevenue": "Doanh thu hôm nay",
     "periodRecognizedSummary": "Trong kỳ: {{value1}} · Không gồm tiền dư/hết hạn",
-    "periodOrdersSummary": "Trong kỳ: {{value1}} đơn · COD: {{value2}}",
+    "periodOrdersSummary": "Trong kỳ: {{value1}} đơn hoàn thành · Tiền mặt hôm nay: {{value2}}",
     "pendingReconciliationKpi": "Chờ đối soát chuyển khoản",
     "pendingReconciliationSub": "Tiền dư: {{value1}} · Hết hạn: {{value2}}",
     "pendingReconciliationTooltip": "Khoản chuyển khoản đã ghi nhận nhưng chưa xác nhận ngân hàng; không gắn nhãn đã nhận.",
@@ -554,7 +591,7 @@
     "exportExcelXlsx": "Xuất Excel (.xlsx)",
     "exportPdfPdf": "Xuất PDF (.pdf)",
     "fromThePreviousPeriod": "+11.4% so với kỳ trước",
-    "totalOrders": "Tổng đơn hàng",
+    "totalOrders": "Đơn hoàn thành",
     "completedOrders": "+8.2% đơn hoàn thành",
     "averageOrderValueAov": "Giá trị đơn trung bình (AOV)",
     "averagePerSuccessfulTransaction": "Trung bình mỗi giao dịch thành công",
@@ -581,7 +618,7 @@
     "subtitle": "Theo dõi doanh thu ghi nhận, tách riêng tiền chờ đối soát ngân hàng, tiền dư, đơn hết hạn và xuất báo cáo chuẩn.",
     "recognizedRevenue": "Doanh thu ghi nhận",
     "recognizedRevenueHint": "COD + chuyển khoản hợp lệ (tối đa theo giá trị đơn)",
-    "totalOrdersHint": "Chỉ đếm đơn hợp lệ; không đếm đơn hết hạn",
+    "totalOrdersHint": "Đã hoàn thành trong kỳ báo cáo",
     "pendingAndNonRevenue": "Chờ đối soát & Ngoài doanh thu",
     "pendingAndNonRevenueHint": "Tiền dư: {{value1}} · Hết hạn: {{value2}} (không tính DT)",
     "pendingReconciliationShort": "Chờ đối soát (chưa XN NH)",
@@ -745,7 +782,7 @@
     "collectionFailed": "Lỗi thu tiền tại quầy: {{detail}}",
     "cashier": "Thu ngân",
     "collectedAndHandedOver": "Đã thu tiền tại quầy và bàn giao",
-    "collectionRecordedForOrder": "Đã xác nhận thu tiền cho đơn #{{queue}}! Có thể tiếp tục chế biến.",
+    "collectionRecordedForOrder": "Đã ghi nhận thu tiền cho đơn #{{queue}}. Bàn giao được xác nhận riêng khi khách nhận món.",
     "handoverFailed": "Đã thu tiền nhưng chưa cập nhật được bàn giao. Vui lòng thử lại."
   },
   "staffcard": {

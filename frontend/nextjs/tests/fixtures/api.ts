@@ -9,6 +9,7 @@ export async function seedApi(page: Page) {
     email: "test@example.com", fullName: "Test User",
   } }));
   await page.route("**/api/cart", route => route.fulfill({ json: { items: [], subtotal: 0, itemCount: 0 } }));
+  await page.route("**/api/notifications/my?*", route => route.fulfill({ json: { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, unreadCount: 0 } }));
   await page.route("**/api/users/me", route => route.fulfill({ json: { fullName: "Test User", email: "test@example.com", phone: "0901234567" } }));
   await page.route("**/api/users/me/addresses", route => route.fulfill({ json: [] }));
   await page.route(/\/api\/stores(?:\?.*)?$/, route => route.fulfill({ json: [testStore] }));

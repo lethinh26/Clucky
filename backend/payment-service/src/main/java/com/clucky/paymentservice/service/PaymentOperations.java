@@ -101,7 +101,8 @@ public class PaymentOperations {
         var transfer = jdbc.queryForList("SELECT bank_name,bank_code,account_no,account_name,transfer_content FROM payment_service.payments "
                 + "WHERE order_id=? AND live_payment ORDER BY id DESC LIMIT 1", orderId);
         Map<String, Object> bank = transfer.isEmpty()
-                ? "COUNTER".equals(order.orderSource()) ? bankSnapshot(orderId, order.storeId(), true) : Map.of()
+                ? "COUNTER".equals(order.orderSource()) || "WEB".equals(order.orderSource()) && "COD".equals(order.paymentMethod()) && "PICKUP".equals(order.orderType())
+                    ? bankSnapshot(orderId, order.storeId(), true) : Map.of()
                 : transfer.getFirst();
         if (!bank.isEmpty()) {
             result.set("bankInfo", mapper.valueToTree(new PaymentFlow.Bank((String) bank.get("bank_name"),
@@ -212,7 +213,10 @@ public class PaymentOperations {
         if(request.cashAmount().add(request.transferAmount()).signum()==0)throw new ApiException(ErrorCode.VALIDATION_ERROR);
         if("WEB".equals(order.orderSource()) && "COD".equals(order.paymentMethod())) {
             requireCollectableCod(order);
-            if(request.cashAmount().compareTo(order.amount())!=0 || request.transferAmount().signum()!=0)conflict();
+            if (request.cashAmount().add(request.transferAmount()).compareTo(order.amount()) != 0) conflict();
+            if (request.transferAmount().signum() > 0 && !"PICKUP".equals(order.orderType())) conflict();
+        }
+        if ("WEB".equals(order.orderSource()) && "COD".equals(order.paymentMethod()) && request.cashAmount().signum() > 0) {
             var proof=jdbc.queryForList("SELECT status,order_code,store_id FROM payment_service.cod_collection_evidence WHERE order_id=? FOR UPDATE",orderId);
             if(proof.size()!=1 || !"APPROVED".equals(proof.getFirst().get("status"))
                     || !Objects.equals(proof.getFirst().get("store_id"),order.storeId())
@@ -220,6 +224,7 @@ public class PaymentOperations {
         }
         if (!jdbc.queryForList("SELECT id FROM payment_service.collections WHERE order_id=? AND status IN ('PENDING','ACCEPTED')",UUID.class,orderId).isEmpty()) conflict();
         var bank = bankSnapshot(orderId, order.storeId(), request.transferAmount().signum()>0);
+        if (request.transferAmount().signum() > 0 && bank.isEmpty()) conflict();
         if(!jdbc.queryForList("SELECT id FROM payment_service.payments WHERE order_id=? AND expires_at<=now() AND status IN ('PENDING','EXPIRED','CANCELLED')",Long.class,orderId).isEmpty())conflict();
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO payment_service.collections(id,order_id,order_code,customer_id,store_id,order_version,amount,cash_amount,transfer_amount,"

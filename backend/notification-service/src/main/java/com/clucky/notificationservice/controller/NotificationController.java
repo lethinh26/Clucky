@@ -3,8 +3,7 @@ package com.clucky.notificationservice.controller;
 import com.clucky.notificationservice.config.CurrentActor;
 import com.clucky.notificationservice.dto.NotificationReadAllResponse;
 import com.clucky.notificationservice.dto.NotificationReadResponse;
-import com.clucky.notificationservice.dto.NotificationResponse;
-import com.clucky.notificationservice.dto.PageResponse;
+import com.clucky.notificationservice.dto.NotificationInboxResponse;
 import com.clucky.notificationservice.service.NotificationService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -31,9 +30,11 @@ public class NotificationController {
      * GET /api/notifications/my?page=0&size=20
      */
     @GetMapping("/my")
-    public ResponseEntity<PageResponse<NotificationResponse>> myNotifications(
+    public ResponseEntity<NotificationInboxResponse> myNotifications(
             @RequestParam(name = "page", defaultValue = "0") @Min(0) int page,
-            @RequestParam(name = "size", defaultValue = "20") @Min(1) @Max(200) int size
+            @RequestParam(name = "size", defaultValue = "20") @Min(1) @Max(200) int size,
+            @RequestParam(name = "unread", defaultValue = "false") boolean unread,
+            @RequestParam(name = "type", required = false) String type
     ) {
         CurrentActor actor = CurrentActor.require();
         PageRequest pageRequest = PageRequest.of(
@@ -41,7 +42,7 @@ public class NotificationController {
                 size,
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))
         );
-        PageResponse<NotificationResponse> response = notificationService.myNotifications(actor.userId(), pageRequest);
+        NotificationInboxResponse response = notificationService.inbox(actor.userId(), pageRequest, unread, type);
         return ResponseEntity.ok(response);
     }
 

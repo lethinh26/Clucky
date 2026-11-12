@@ -1,6 +1,6 @@
 # Full-stack deployment
 
-Pipeline source: `.github/workflows/frontend-ci.yml`, display name **Clucky full-stack CI/CD**. Runs on merge/push main or manual Run workflow on main. PR frontend checks remain unchanged; deployment is never run for PRs. No workflows or checks were executed while adding this configuration.
+Pipeline source: `.github/workflows/frontend-ci.yml`, display name **Clucky full-stack CI/CD**. Runs on merge/push main or manual Run workflow on main. PR checks cover frontend lint/tests/builds, Playwright, backend tests with disposable PostgreSQL, and deployment configuration. Deployment is never run for PRs.
 
 ## Scope and startup order
 
@@ -40,9 +40,11 @@ Secrets:
 }
 ```
 
-FRONTEND_CUSTOMER_URL and FRONTEND_ADMIN_URL may be omitted or empty. The workflow passes the configured VPS_HOST to preflight, frontend configuration extraction and the remote backend environment writer; they derive `http://<VPS_HOST>` and `http://<VPS_HOST>:8081`, matching the repository's Nginx example. VPS_HOST must be a hostname or IPv4 address without a scheme, port or path; VPS_PORT is only the SSH port and never becomes a browser port. Updating VPS_HOST and redeploying updates the derived origins and email links, without editing the JSON.
+FRONTEND_CUSTOMER_URL and FRONTEND_ADMIN_URL may be omitted or empty. The workflow passes the configured VPS_HOST to preflight, frontend configuration extraction and the remote backend environment writer; they derive `https://<VPS_HOST>` and `https://<VPS_HOST>:8081`. Configure Nginx with a trusted TLS certificate for both origins. VPS_HOST must be a hostname or IPv4 address without a scheme, port or path; VPS_PORT is only the SSH port and never becomes a browser port. Updating VPS_HOST and redeploying updates the derived origins and email links, without editing the JSON.
 
-Explicit frontend URLs take precedence, so remove old IP-valued entries to enable automatic defaults. For HTTPS domains or different public ports, supply the desired URLs explicitly. Google popup login on a public HTTP IP is not a supported production setup: use an authorized HTTPS domain for Firebase. AUTH_COOKIE_SECURE defaults true when both resolved origins use HTTPS, false otherwise; remove a stale explicit cookie flag when changing schemes or update it accordingly. No trailing slash/path/wildcard in origins. CORS/CSRF still use the exact resolved values, not a wildcard or a request-supplied Host header. This does not configure Nginx/TLS, DNS, Firebase authorized domains or Mapbox URL restrictions for you.
+Explicit frontend URLs take precedence, so remove old IP-valued entries to enable automatic defaults. For different domains or public ports, supply the desired URLs explicitly. Google popup login requires a Firebase-authorized origin. AUTH_COOKIE_SECURE defaults true when both resolved origins use HTTPS, false otherwise; secure cookies with an HTTP origin are rejected during preflight. Explicit HTTP origins require insecure cookies and are for non-TLS environments only. No trailing slash/path/wildcard in origins. CORS/CSRF still use the exact resolved values, not a wildcard or a request-supplied Host header. This does not configure Nginx/TLS, DNS, Firebase authorized domains or Mapbox URL restrictions for you.
+
+After both applications deploy, `smoke.py` checks the public login pages, Gateway catalog routes, allowed-origin validation and untrusted-origin rejection over the configured public URLs. It does not create accounts or orders. A container health check alone cannot catch a browser origin mismatch.
 
 Do not use the documented sample passwords as database/JWT credentials. These infrastructure secrets are separate from user account passwords, which are preserved as requested. Use cryptographically random values, e.g. locally generate with `openssl rand -hex 32` and paste directly into the GitHub Secret, not into chat/Git.
 
@@ -56,7 +58,7 @@ Optional BACKEND_ENV_JSON keys:
 - SEPAY_WEBHOOK_SECRET: passed only to Payment; webhook business implementation is still its separate task.
 - CLOUDINARY_ENABLED / CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET: supplied only to Catalog; enabled requires the three credentials.
 - MAIL_SENDER_ENABLED / MAIL_SENDER_USERNAME / MAIL_SENDER_APP_PASSWORD: supplied only to Notification; enabled requires both credentials. This remains the system mailbox/App Password, not customer Google credentials.
-- REPORT_REVENUE_EVENT: supplied only to Review/Report; defaults to `false` (listener disabled). Enable `order.completed` or `payment.confirmed` only after the INT-45 revenue/refund policy, producer contract and projection baseline are approved; see `backend/review-report-service/README.md`.
+- REPORT_REVENUE_EVENT: supplied only to Review/Report; defaults to `order.completed` (completed-order revenue before refunds). `false` pauses the listener. Inspect the projection baseline before changing an existing deployment; see `backend/review-report-service/README.md`.
 
 Values must be strings with no newline/control character/single quote; JSON standard quoting is required. Dollar signs, hashes, equals signs and double quotes are preserved as literal Compose env values. Unknown keys are rejected rather than silently injecting arbitrary process options.
 
@@ -75,7 +77,7 @@ Firebase JSON never goes into images/artifacts. It is transmitted over pinned SS
 ```
 
 2. The image job validates the JSON, masks the two public token values in logs and exports only those two fields as frontend build arguments. Database/JWT/SMTP credentials and the server geocoding token are never forwarded to frontend builds. The backend runtime file excludes the two frontend fields. The browser fields can share one public token if it allows both application origins; public tokens remain visible in the shipped JavaScript even when stored in a GitHub Secret. Use the repository Secret consistently; an environment override would not be available to the image packaging job.
-3. Browser tokens should allow the actual Customer and Admin URLs in Mapbox. With the automatic defaults and repository Nginx example, these are `http://<VPS_HOST>` and `http://<VPS_HOST>:8081`; update restrictions when changing VPS_HOST or moving to HTTPS domains. Server geocoding requests have no browser Referer, so do not reuse a URL-restricted browser token for the backend.
+3. Browser tokens should allow the actual Customer and Admin URLs in Mapbox. With the automatic defaults, these are `https://<VPS_HOST>` and `https://<VPS_HOST>:8081`; update restrictions when changing VPS_HOST or public URLs. Server geocoding requests have no browser Referer, so do not reuse a URL-restricted browser token for the backend.
 4. Publish the workflow changes to main before deploying. Changing the GitHub Secret or a VPS runtime env alone cannot update tokens already embedded in JavaScript: build a new Customer/Admin image release. Local equivalents are already wired in `compose.local.yml` and `.env.docker`; local env values are not copied to GitHub automatically. `.env.docker` remains a `KEY=VALUE` file, not JSON.
 
 Mapbox guidance: [token security](https://docs.mapbox.com/help/dive-deeper/how-to-use-mapbox-securely/) and [token URL restrictions](https://docs.mapbox.com/api/accounts/tokens/#url-restrictions).

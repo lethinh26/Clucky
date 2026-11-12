@@ -14,6 +14,10 @@ public interface StoreInventoryRepository extends JpaRepository<StoreInventory, 
 
     Optional<StoreInventory> findByStoreIdAndProductId(Long storeId, Long productId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT si FROM StoreInventory si WHERE si.store.id = :storeId AND si.product.id = :productId")
+    Optional<StoreInventory> lockByStoreAndProduct(@Param("storeId") Long storeId, @Param("productId") Long productId);
+
     @Query("SELECT si FROM StoreInventory si JOIN FETCH si.product p JOIN FETCH p.category WHERE si.store.id = :storeId")
     List<StoreInventory> findByStoreIdWithProductAndCategory(@Param("storeId") Long storeId);
 

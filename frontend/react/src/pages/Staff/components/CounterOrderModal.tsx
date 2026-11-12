@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import React, { memo, useDeferredValue, useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   X,
@@ -16,7 +16,6 @@ import {
   Clock,
 } from "lucide-react";
 import {
-  MOCK_POS_PRODUCTS,
   POS_CATEGORIES,
   type PosProduct,
   type PosCartItem,
@@ -28,12 +27,15 @@ import { useOrders } from "../../../context/OrderContext";
 import { message } from "../../../components/feedback";
 import {
   catalogApi,
+  getErrorMessage,
   ordersApi,
   paymentsApi,
   type CounterOrderItemPayload,
   type CreateCounterOrderPayload,
 } from "../../../lib/api";
 import styles from "./counter-order.module.css";
+import { FoodImage } from "../../../components/ui/FoodImage";
+import { posUnavailableReason } from "../../../lib/pos-availability";
 
 interface CounterOrderModalProps {
   open: boolean;
@@ -43,9 +45,30 @@ interface CounterOrderModalProps {
   existingOrderCount?: number;
 }
 
+const currencyFormatter = new Intl.NumberFormat("vi-VN");
 const formatVnd = (val: number) => {
-  return new Intl.NumberFormat("vi-VN").format(val) + " đ";
+  return currencyFormatter.format(val) + " đ";
 };
+
+const CounterProductCard = memo(function CounterProductCard({ product, storeReason, onSelect }: {
+  product: PosProduct; storeReason?: string; onSelect: (product: PosProduct) => void;
+}) {
+  const { t } = useTranslation();
+  const reason = storeReason || (product.unavailableReason ? t(`business:posAvailability.${product.unavailableReason}`) : undefined);
+  const disabled = !product.inStock || !!storeReason;
+  return <button type="button" disabled={disabled} className={`${styles.productCard} ${disabled ? styles.productCardSoldOut : ''}`}
+    onClick={() => onSelect(product)} title={reason || product.name}>
+    <div className={styles.imageContainer}>
+      <FoodImage src={product.image} alt={product.name} className={styles.productImage} />
+      {product.badge && !disabled && <span className={`${styles.productBadge} ${styles.badgeHot}`}>{product.badge}</span>}
+    </div>
+    <div className={styles.productCardBody}>
+      <div className={styles.productName}>{product.name}</div><div className={styles.productPrice}>{formatVnd(product.price)}</div>
+      {disabled ? <span className={styles.unavailableReason}><Lock size={12} />{reason || t('business:posAvailability.branchDisabled')}</span>
+        : !!product.optionGroups?.length && <div className={styles.customizableHint}>{t('business:posUi.options')}</div>}
+    </div>
+  </button>;
+});
 
 export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
   open,
@@ -60,6 +83,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
   // 1. Filter states
   const [activeCategory, setActiveCategory] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const deferredSearch = useDeferredValue(searchQuery);
 
   // 2. Cart states
   const [diningOption, setDiningOption] = useState<DiningOption>("DINE_IN");
@@ -79,18 +103,24 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Danh mục sản phẩm POS lấy từ backend catalog-store-service
-  const [posProducts, setPosProducts] = useState<PosProduct[]>(MOCK_POS_PRODUCTS);
+  const [posProducts, setPosProducts] = useState<PosProduct[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogRevision, setCatalogRevision] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
+    const controller = new AbortController();
+    setCatalogLoading(true); setCatalogError(''); setPosProducts([]);
 
     const loadBackendCatalog = async () => {
       try {
-        const effectiveStoreId = user?.storeId ? Number(user.storeId) : currentStore?.id || 1;
+        const effectiveStoreId = user?.storeId ? Number(user.storeId) : currentStore?.id;
+        if (!effectiveStoreId) throw new Error(t('business:posUi.noBranch'));
         const [productsData, combosData] = await Promise.all([
-          catalogApi.listProducts({ storeId: effectiveStoreId, activeOnly: true }),
-          catalogApi.listCombos(true),
+          catalogApi.listProducts({ storeId: effectiveStoreId, activeOnly: true }, controller.signal),
+          catalogApi.listCombos(true, controller.signal),
         ]);
 
         if (!active) return;
@@ -142,10 +172,9 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
               name: p.name,
               category,
               price: p.basePrice,
-              image:
-                p.imageUrl ||
-                "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500&auto=format&fit=crop&q=80",
-              inStock: p.isAvailable !== false && p.isSoldOut !== true,
+              image: p.imageUrl || '',
+              inStock: !posUnavailableReason(p),
+              unavailableReason: posUnavailableReason(p),
               badge: p.isBestSeller ? "Bán chạy" : undefined,
               description: p.description,
               optionGroups:
@@ -167,16 +196,17 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
 
         // Chuyển đổi Combo từ backend
         if (rawCombos.length > 0) {
+          const availableProducts = new Set(convertedProducts.filter(product => product.inStock).map(product => product.id));
           rawCombos.forEach((c: any) => {
+            const unavailableReason = posUnavailableReason(c) || (!c.items?.length || c.items.some((item: { productId: number }) => !availableProducts.has(String(item.productId))) ? 'comboUnavailable' : undefined);
             convertedProducts.push({
               id: `combo-${c.id}`,
               name: c.name,
               category: "COMBO",
               price: c.comboPrice,
-              image:
-                c.imageUrl ||
-                "https://images.unsplash.com/photo-1513639776629-7b61b0ac49cb?w=500&auto=format&fit=crop&q=80",
-              inStock: true,
+              image: c.imageUrl || '',
+              inStock: !unavailableReason,
+              unavailableReason,
               badge: "Combo Tiết Kiệm",
               description:
                 c.description ||
@@ -185,19 +215,20 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
           });
         }
 
-        if (convertedProducts.length > 0) {
-          setPosProducts(convertedProducts);
-        }
+        setPosProducts(convertedProducts);
       } catch (err) {
-        console.warn("Chưa tải được catalog từ backend, giữ danh mục mặc định:", err);
+        if (active) { setPosProducts([]); setCatalogError(getErrorMessage(err)); }
+      } finally {
+        if (active) setCatalogLoading(false);
       }
     };
 
     loadBackendCatalog();
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [open, user?.storeId, currentStore?.id]);
+  }, [open, user?.storeId, currentStore?.id, catalogRevision, t]);
 
   // Reset cart when modal reopens
   useEffect(() => {
@@ -210,72 +241,14 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
       setCashTenderedInput(0);
       setIsSubmitting(false);
       setCustomizingProduct(null);
-      setTimeout(() => {
+      const timer = window.setTimeout(() => {
         searchInputRef.current?.focus();
       }, 100);
+      return () => window.clearTimeout(timer);
     }
-  }, [open]);
+  }, [open, user?.storeId, currentStore?.id]);
 
-  // Handle open options modal for a product
-  const handleOpenCustomizer = (product: PosProduct) => {
-    if (!product.inStock || !storeOpenState.isOpen) return;
-
-    if (!product.optionGroups || product.optionGroups.length === 0) {
-      // Add directly to cart
-      addItemToCart(product, [], "", 1);
-      return;
-    }
-
-    // Initialize default choices
-    const initialChoices: Record<string, string> = {};
-    product.optionGroups.forEach((g) => {
-      const defaultChoice = g.choices.find((c) => c.isDefault) || g.choices[0];
-      if (defaultChoice) {
-        initialChoices[g.id] = defaultChoice.id;
-      }
-    });
-
-    setCustomizingProduct(product);
-    setSelectedChoices(initialChoices);
-    setCustomizingQty(1);
-  };
-
-  // Confirm custom options and add to cart
-  const handleConfirmCustomOptions = () => {
-    if (!customizingProduct) return;
-
-    const chosenOptions: PosCartItemOption[] = [];
-    let summaryParts: string[] = [];
-
-    customizingProduct.optionGroups?.forEach((g) => {
-      const chosenChoiceId = selectedChoices[g.id];
-      const choice = g.choices.find((c) => c.id === chosenChoiceId);
-      if (choice) {
-        chosenOptions.push({
-          groupId: g.id,
-          groupName: g.name,
-          choiceId: choice.id,
-          choiceName: choice.name,
-          extraPrice: choice.extraPrice,
-        });
-        summaryParts.push(
-          choice.extraPrice > 0
-            ? `${choice.name} (+${formatVnd(choice.extraPrice)})`
-            : choice.name,
-        );
-      }
-    });
-
-    addItemToCart(
-      customizingProduct,
-      chosenOptions,
-      summaryParts.join(" · "),
-      customizingQty,
-    );
-    setCustomizingProduct(null);
-  };
-
-  const addItemToCart = (
+  const addItemToCart = useCallback((
     product: PosProduct,
     options: PosCartItemOption[],
     optionsSummary: string,
@@ -312,7 +285,67 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
         },
       ];
     });
+  }, []);
+
+  // Handle open options modal for a product
+  const handleOpenCustomizer = useCallback((product: PosProduct) => {
+    if (!product.inStock || !storeOpenState.isOpen) return;
+
+    if (!product.optionGroups || product.optionGroups.length === 0) {
+      // Add directly to cart
+      addItemToCart(product, [], "", 1);
+      return;
+    }
+
+    // Initialize default choices
+    const initialChoices: Record<string, string> = {};
+    product.optionGroups.forEach((g) => {
+      const defaultChoice = g.choices.find((c) => c.isDefault) || g.choices[0];
+      if (defaultChoice) {
+        initialChoices[g.id] = defaultChoice.id;
+      }
+    });
+
+    setCustomizingProduct(product);
+    setSelectedChoices(initialChoices);
+    setCustomizingQty(1);
+  }, [addItemToCart, storeOpenState.isOpen]);
+
+  // Confirm custom options and add to cart
+  const handleConfirmCustomOptions = () => {
+    if (!customizingProduct) return;
+
+    const chosenOptions: PosCartItemOption[] = [];
+    let summaryParts: string[] = [];
+
+    customizingProduct.optionGroups?.forEach((g) => {
+      const chosenChoiceId = selectedChoices[g.id];
+      const choice = g.choices.find((c) => c.id === chosenChoiceId);
+      if (choice) {
+        chosenOptions.push({
+          groupId: g.id,
+          groupName: g.name,
+          choiceId: choice.id,
+          choiceName: choice.name,
+          extraPrice: choice.extraPrice,
+        });
+        summaryParts.push(
+          choice.extraPrice > 0
+            ? `${choice.name} (+${formatVnd(choice.extraPrice)})`
+            : choice.name,
+        );
+      }
+    });
+
+    addItemToCart(
+      customizingProduct,
+      chosenOptions,
+      summaryParts.join(" · "),
+      customizingQty,
+    );
+    setCustomizingProduct(null);
   };
+
 
   // Quantity updates in cart
   const handleUpdateQty = (cartItemId: string, delta: number) => {
@@ -442,6 +475,9 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
     }
   };
 
+  const submitRef = useRef(handleSubmit);
+  submitRef.current = handleSubmit;
+
   // Hotkey listener: Esc to close, Enter to submit
   useEffect(() => {
     if (!open) return;
@@ -457,10 +493,10 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
       } else if (e.key === "Enter") {
         // If Enter pressed while not focusing on textarea or inside options modal
         const target = e.target as HTMLElement;
-        const isTextArea = target.tagName === "TEXTAREA";
-        if (!isTextArea && !customizingProduct && cartItems.length > 0 && storeOpenState.isOpen) {
+        const isEditing = target.closest('input, textarea, select, button, [contenteditable="true"]');
+        if (!e.repeat && !isEditing && !customizingProduct && cartItems.length > 0 && storeOpenState.isOpen) {
           e.preventDefault();
-          handleSubmit();
+          void submitRef.current();
         }
       }
     };
@@ -477,8 +513,8 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
       if (activeCategory !== "ALL" && p.category !== activeCategory) {
         return false;
       }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
+      if (deferredSearch.trim()) {
+        const q = deferredSearch.toLowerCase().trim();
         return (
           p.name.toLowerCase().includes(q) ||
           (p.description || "").toLowerCase().includes(q)
@@ -486,7 +522,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
       }
       return true;
     });
-  }, [posProducts, activeCategory, searchQuery]);
+  }, [posProducts, activeCategory, deferredSearch]);
 
   if (!open) return null;
 
@@ -618,64 +654,12 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
 
             {/* Product Grid */}
             <div className={styles.productGridScroll}>
+              {catalogLoading && <p role="status" className={styles.catalogState}><Loader2 size={18} />{t('business:posUi.loading')}</p>}
+              {catalogError && <div role="alert" className={styles.catalogState}><span>{catalogError}</span><button type="button" onClick={() => setCatalogRevision(value => value + 1)}>{t('business:dashboard.retry')}</button></div>}
+              {!catalogLoading && !catalogError && !visibleProducts.length && <p className={styles.catalogState}>{t('business:posUi.empty')}</p>}
               <div className={styles.productGrid}>
-                {visibleProducts.map((product) => {
-                  const isSoldOut = !product.inStock || !storeOpenState.isOpen;
-                  return (
-                    <button
-                      key={product.id}
-                      type="button"
-                      disabled={isSoldOut}
-                      className={`${styles.productCard} ${
-                        isSoldOut ? styles.productCardSoldOut : ""
-                      }`}
-                      onClick={() => handleOpenCustomizer(product)}
-                      title={
-                        !storeOpenState.isOpen
-                          ? storeOpenState.bannerTitle
-                          : isSoldOut
-                          ? product.name + " (Tạm hết hàng)"
-                          : "Chọn món " + product.name
-                      }
-                    >
-                      <div className={styles.imageContainer}>
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className={styles.productImage}
-                        />
-                        {product.badge && (
-                          <span
-                            className={`${styles.productBadge} ${
-                              product.badge === "HOT" || product.badge === "BÁN CHẠY"
-                                ? styles.badgeHot
-                                : product.badge === "HẾT HÀNG"
-                                ? styles.badgeSoldOut
-                                : styles.badgeNew
-                            }`}
-                          >
-                            {product.badge}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className={styles.productCardBody}>
-                        <div>
-                          <div className={styles.productName}>{product.name}</div>
-                          <div className={styles.productPrice}>
-                            {formatVnd(product.price)}
-                          </div>
-                        </div>
-
-                        {product.optionGroups && product.optionGroups.length > 0 && !isSoldOut && (
-                          <div className={styles.customizableHint}>
-                            + Tùy chọn size & vị
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
+                {visibleProducts.map(product => <CounterProductCard key={product.id} product={product}
+                  storeReason={!storeOpenState.isOpen ? storeOpenState.bannerTitle : undefined} onSelect={handleOpenCustomizer} />)}
               </div>
             </div>
           </div>

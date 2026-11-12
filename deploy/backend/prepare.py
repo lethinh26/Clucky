@@ -42,7 +42,7 @@ def validate_environment(raw):
             host = os.environ.get("VPS_HOST", "")
             if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?", host):
                 raise BackendEnvironmentError("VPS_HOST must be a hostname or IPv4 address without scheme, port or path when frontend URLs are omitted")
-            values[key] = f"http://{host}{port}"
+            values[key] = f"https://{host}{port}"
         try:
             origin = urlsplit(values.get(key, ""))
         except ValueError:
@@ -52,6 +52,8 @@ def validate_environment(raw):
     values.setdefault("AUTH_COOKIE_SECURE", "true" if all(values[key].startswith("https://") for key in ("FRONTEND_CUSTOMER_URL", "FRONTEND_ADMIN_URL")) else "false")
     if values["AUTH_COOKIE_SECURE"] not in ("true", "false"):
         raise BackendEnvironmentError('AUTH_COOKIE_SECURE must be the string "true" or "false"')
+    if values["AUTH_COOKIE_SECURE"] == "true" and any(not values[key].startswith("https://") for key in ("FRONTEND_CUSTOMER_URL", "FRONTEND_ADMIN_URL")):
+        raise BackendEnvironmentError("Secure cookies require HTTPS frontend origins; match the public reverse proxy scheme")
     for key, default in (("POSTGRES_USER", "clucky"), ("DB_NAME", "clucky")):
         values.setdefault(key, default)
         if not re.fullmatch(r"[a-z_][a-z0-9_]{0,62}", values[key]):

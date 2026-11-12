@@ -336,6 +336,7 @@ public class ValidationService {
         response.setValid(allValid && response.isStoreOpen());
         response.setSubtotal(totalSubtotal);
         response.setItems(resultItems);
+        response.setStockQuantities(totalDemandedQuantity);
         if (!response.isValid() && response.getMessage() == null) {
             String firstReason = resultItems.stream()
                     .filter(it -> !it.isAvailable() && it.getReason() != null && !it.getReason().isBlank())

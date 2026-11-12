@@ -29,7 +29,6 @@ import {
   DollarOutlined,
   FileExcelOutlined,
   FilePdfOutlined,
-  InfoCircleOutlined,
   PieChartOutlined,
   ReloadOutlined,
   RiseOutlined,
@@ -106,6 +105,11 @@ export const ReportsPage: React.FC = () => {
   const [loadError, setLoadError] = useState('');
   const [exportingFormat, setExportingFormat] = useState<'xlsx' | 'pdf' | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const loadedScope = useRef('');
+  useEffect(() => {
+    const timer = window.setInterval(() => { if (!document.hidden) setReloadNonce(value => value + 1); }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const exportAbortRef = useRef<AbortController | null>(null);
 
@@ -153,7 +157,9 @@ export const ReportsPage: React.FC = () => {
     }
 
     const controller = new AbortController();
-    setLoading(true);
+    const scope = `${user.id}:${user.role}:${effectiveStoreId}:${fromIso}:${toIso}`;
+    if (loadedScope.current !== scope) { setReport(null); setLoading(true); }
+    loadedScope.current = scope;
     setLoadError('');
     setReport(null);
 
@@ -192,7 +198,7 @@ export const ReportsPage: React.FC = () => {
       });
 
     return () => controller.abort();
-  }, [effectiveStoreId, fromIso, isRangeTooLarge, isStaff, managerMissingStore, reloadNonce, t, toIso, user.id, user.role]);
+  }, [effectiveStoreId, fromIso, isAdmin, isRangeTooLarge, isStaff, managerMissingStore, reloadNonce, t, toIso, user.id, user.role]);
 
   const storeNameMap = useMemo(() => {
     const map = new Map<number, string>();
@@ -271,7 +277,7 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
-  const items = report?.items ?? [];
+  const items = useMemo(() => report?.items ?? [], [report]);
   const totalRevenue = Number(report?.totalRevenue ?? 0);
   const totalOrders = Number(report?.totalOrderCount ?? 0);
   const totalCod = Number(report?.totalCodAmount ?? 0);
@@ -609,32 +615,9 @@ export const ReportsPage: React.FC = () => {
         />
       )}
 
-      <Alert
-        type="info"
-        showIcon
-        icon={<InfoCircleOutlined style={{ color: '#22577A' }} />}
-        style={{
-          marginBottom: 16,
-          borderRadius: 14,
-          background: '#FFFAF3',
-          borderColor: '#E8E2D9',
-        }}
-        message={t('business:reports.honestAccountingNotice')}
-        description={
-          report?.lastUpdatedAt
-            ? t('business:dashboard.lastUpdatedAt', {
-                value1: date(report.lastUpdatedAt, { hour: '2-digit', minute: '2-digit' }),
-              })
-            : t('business:dashboard.notUpdatedYet')
-        }
-      />
-
       {storeError && <Alert type="warning" showIcon message={t("admin:ui.unableToLoadTheBranchList")} description={storeError} style={{ marginBottom: 16 }} />}
-      {report && (
-        <Alert type="warning" showIcon style={{ marginBottom: 16 }}
-          message={report.projectionActive ? t("admin:ui.reportsUpdateAsynchronouslyAndMayBeDelayed") : t("admin:ui.newRevenueRecognitionIsPausedOnlyStoredHistorical")}
-          description={t("admin:ui.theseFiguresDoNotDeductRefundsReconcileActual")} />
-      )}
+      {report && !report.projectionActive && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message={t("admin:ui.newRevenueRecognitionIsPausedOnlyStoredHistorical")} />}
+      {report && <Typography.Paragraph type="secondary">{t('business:reportLive.basis')} · {report.lastUpdatedAt ? date(report.lastUpdatedAt, { hour: '2-digit', minute: '2-digit' }) : '—'}</Typography.Paragraph>}
 
       {loading ? (
         <Card style={{ marginBottom: 20 }}>

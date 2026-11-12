@@ -31,6 +31,8 @@ import { AdminOrderDrawer } from "./components/AdminOrderDrawer";
 import { FinanceModal } from "../Payments/FinanceDrawer";
 import { orderDate, paymentColor, paymentMethodLabel } from "./presentation";
 import "./admin-orders.css";
+import { useOrderAlerts } from "../../hooks/useOrderAlerts";
+import { OrderSoundButton } from "../../components/ui/OrderSoundButton";
 
 export function AdminOrdersPage() {
   const { t } = useTranslation();
@@ -58,6 +60,8 @@ export function AdminOrdersPage() {
   const [detailError, setDetailError] = useState("");
   const [financeId, setFinanceId] = useState<number | null>(null);
   const loadedScope = useRef("");
+  const alerts = useOrderAlerts();
+  const { observe } = alerts;
   const refresh = useCallback(() => setRevision(value => value + 1), []);
 
   useEffect(() => { setQuery(current => ({ ...current, page: 0, customerId })); setSelectedId(null); }, [customerId, customer]);
@@ -78,11 +82,13 @@ export function AdminOrdersPage() {
     void adminFinance.orders({ ...query, customerId }, controller.signal).then(page => {
       if (controller.signal.aborted) return;
       if (query.page > 0 && page.content.length === 0) { setQuery(current => ({ ...current, page: Math.max(0, page.totalPages - 1) })); return; }
-      setOrders(page.content.map(order => orderForAdmin(order))); setTotal(page.totalElements);
+      const next = page.content.map(order => orderForAdmin(order));
+      observe(next, scope, query.page === 0);
+      setOrders(next); setTotal(page.totalElements);
     }).catch(failure => { if (!controller.signal.aborted) setError(getErrorMessage(failure)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [query, customerId, invalidCustomer, invalidOrderCode, revision]);
+  }, [query, customerId, invalidCustomer, invalidOrderCode, revision, observe]);
   useEffect(() => {
     if (selectedId !== null || financeId !== null) return;
     const timer = window.setInterval(() => { if (!document.hidden) refresh(); }, 15000);
@@ -246,6 +252,7 @@ export function AdminOrdersPage() {
           </Button>
         )}
 
+        <OrderSoundButton alerts={alerts} />
         <Button size="middle" icon={<ReloadOutlined />} onClick={refresh}>
           {t("business:dateFilter.refresh")}
         </Button>

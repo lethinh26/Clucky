@@ -79,9 +79,10 @@ public class OtpService {
         entity.setIdentifier(identifier);
         entity.setCodeHash(verifier(rawCode));
         entity.setPurpose(purpose);
-        entity.setExpiresAt(Instant.now().plus(authProperties.otpTtl()));
+        Instant createdAt = Instant.now();
+        entity.setExpiresAt(createdAt.plus(authProperties.otpTtl()));
         entity.setUsed(false);
-        entity.setCreatedAt(Instant.now());
+        entity.setCreatedAt(createdAt);
 
         otpCodeRepository.save(entity);
 

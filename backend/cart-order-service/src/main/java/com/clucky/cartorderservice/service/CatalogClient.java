@@ -65,7 +65,8 @@ public class CatalogClient {
             boolean storeOpen,
             String message,
             BigDecimal subtotal,
-            List<ValidatedCatalogItem> items
+            List<ValidatedCatalogItem> items,
+            java.util.Map<Long, Long> stockQuantities
     ) {}
 
     public CatalogValidationResponse validateItems(Long storeId, List<CartItemDto> items) {
@@ -105,6 +106,11 @@ public class CatalogClient {
             }
 
             if (response.valid()) {
+                if (response.stockQuantities() == null || response.stockQuantities().isEmpty()
+                        || response.stockQuantities().entrySet().stream().anyMatch(entry -> entry.getKey() == null || entry.getKey() <= 0
+                            || entry.getValue() == null || entry.getValue() <= 0 || entry.getValue() > Integer.MAX_VALUE)) {
+                    throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+                }
                 if (response.subtotal() == null || response.items() == null || response.items().size() != items.size()) {
                     throw new ApiException(ErrorCode.UPSTREAM_ERROR);
                 }

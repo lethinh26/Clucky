@@ -1,4 +1,22 @@
 {
+  "managerUi": {
+    "subtitle": "Quản lý tài khoản tác nghiệp, email khôi phục và lịch sử truy cập tại chi nhánh của bạn.",
+    "noBranch": "Tài khoản chưa được gắn với chi nhánh. Vui lòng liên hệ Admin.",
+    "protected": "Thay đổi được xác thực bằng mật khẩu hiện tại và mã OTP."
+  },
+  "directory": {
+    "scope": "Mỗi chi nhánh có một tài khoản quản lý và một tài khoản tác nghiệp dùng chung.",
+    "current": "Chi nhánh đang quản lý",
+    "selectHint": "Xem trạng thái, khóa/mở, hỗ trợ khôi phục và kiểm tra lịch sử truy cập.",
+    "subtitle": "Quản lý tài khoản, bảo mật và lịch sử truy cập của từng chi nhánh.",
+    "eyebrow": "QUẢN TRỊ TRUY CẬP",
+    "search": "Tìm tên, mã hoặc địa chỉ chi nhánh",
+    "branches": "Danh sách chi nhánh",
+    "empty": "Không tìm thấy chi nhánh",
+    "count": "{{count}} chi nhánh",
+    "select": "Chọn chi nhánh để quản lý",
+    "refresh": "Làm mới chi nhánh"
+  },
   "title": "Tài khoản chi nhánh", "login": "Định danh nội bộ hoặc email Admin", "access": "Kích hoạt / khôi phục tài khoản",
   "activation": "Kích hoạt", "reset": "Đặt lại mật khẩu", "request": "Gửi mã", "challenge": "Mã challenge (từ email)", "otp": "OTP 8 chữ số",
   "newOtp": "OTP tại email mới", "password": "Mật khẩu mới (8–72 ký tự, có chữ hoa, chữ thường và số)", "confirm": "Xác nhận",
