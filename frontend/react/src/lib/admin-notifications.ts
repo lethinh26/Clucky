@@ -39,6 +39,7 @@ export interface AdminNotification {
 export interface EmailLogFilters {
   recipient?: string;
   status?: EmailStatus;
+  template?: string;
   from?: string;
   to?: string;
 }
@@ -46,6 +47,8 @@ export interface EmailLogFilters {
 export const adminNotificationsApi = {
   emailLogs: async (page: number, size: number, filters: EmailLogFilters, signal?: AbortSignal) =>
     (await api.get<NotificationPage<EmailLog>>('/api/notifications/email-logs', { params: { page, size, ...filters }, signal })).data,
+  retryEmail: async (id: number) =>
+    (await api.post<EmailLog>(`/api/notifications/email-logs/${id}/retry`)).data,
   inbox: async (page: number, size: number, signal?: AbortSignal) =>
     (await api.get<NotificationPage<AdminNotification>>('/api/notifications/admin', { params: { page, size }, signal })).data,
   unreadCount: async (signal?: AbortSignal) =>

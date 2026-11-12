@@ -36,9 +36,15 @@ public class AdminNotificationController {
             @RequestParam(name = "size", defaultValue = "20") @Min(1) @Max(100) int size,
             @RequestParam(name = "recipient", required = false) @Size(max = 255) String recipient,
             @RequestParam(name = "status", required = false) @Size(max = 20) String status,
+            @RequestParam(name = "template", required = false) @Size(max = 100) String template,
             @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(name = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
-        return service.emailLogs(page, size, recipient, status, from, to);
+        return service.emailLogs(page, size, recipient, status, template, from, to);
+    }
+
+    @PostMapping("/email-logs/{id}/retry")
+    public AdminNotificationService.EmailLogView retryEmail(@PathVariable(name = "id") @Positive long id) {
+        return service.retryEmail(id);
     }
 
     @GetMapping("/admin")

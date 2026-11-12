@@ -36,9 +36,15 @@ public class AdminNotificationService {
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResponse<EmailLogView> emailLogs(int page, int size, String recipient, String status, Instant from, Instant to) {
+        return emailLogs(page, size, recipient, status, null, from, to);
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public PageResponse<EmailLogView> emailLogs(int page, int size, String recipient, String status, String template, Instant from, Instant to) {
         requireAdmin();
         validatePage(page, size);
         if (recipient != null && recipient.length() > 255 || status != null && !STATUSES.contains(status)
+                || template != null && template.length() > 100
                 || from != null && to != null && !from.isBefore(to)) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
@@ -51,6 +57,10 @@ public class AdminNotificationService {
         if (status != null) {
             where.append(" AND status = ?");
             parameters.add(status);
+        }
+        if (template != null && !template.isBlank()) {
+            where.append(" AND position(lower(?) in lower(template)) > 0");
+            parameters.add(template.trim());
         }
         if (from != null) {
             where.append(" AND created_at >= ?");
@@ -78,6 +88,68 @@ public class AdminNotificationService {
                             "QUEUED".equals(row.getString("status")) && nextAttempt != null ? nextAttempt.toInstant() : null);
                 }, parameters.toArray());
         return new PageResponse<>(content, page, size, total, (int) ((total + size - 1) / size));
+    }
+
+    @Transactional
+    public EmailLogView retryEmail(long id) {
+        requireAdmin();
+        if (id <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+
+        var existing = jdbc.query("SELECT id, status FROM notification_service.email_logs WHERE id = ?",
+                (rs, rowNum) -> rs.getString("status"), id);
+        if (existing.isEmpty()) {
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        String currentStatus = existing.getFirst();
+        if ("SENT".equals(currentStatus)) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+        if ("SENDING".equals(currentStatus) || "QUEUED".equals(currentStatus)) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+        if (!"FAILED".equals(currentStatus) && !"EXPIRED".equals(currentStatus)) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+
+        int updated = jdbc.update("""
+                UPDATE notification_service.email_logs
+                SET status = 'QUEUED',
+                    next_attempt_at = now(),
+                    retry_count = retry_count + 1,
+                    last_error = NULL
+                WHERE id = ? AND status IN ('FAILED', 'EXPIRED')
+                """, id);
+
+        if (updated == 0) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
+
+        return getEmailLogById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public EmailLogView getEmailLogById(long id) {
+        requireAdmin();
+        var logs = jdbc.query("""
+                SELECT id,to_email,subject,status,template,sent_at,created_at,last_error,retry_count,event_id,correlation_id,next_attempt_at
+                FROM notification_service.email_logs
+                WHERE id = ?
+                """, (row, index) -> {
+            Timestamp sentAt = row.getTimestamp("sent_at");
+            Timestamp nextAttempt = row.getTimestamp("next_attempt_at");
+            String failure = row.getString("last_error");
+            String safeFailure = failure == null ? null : Set.of("SMTP_CONNECT_FAILED", "SMTP_OUTCOME_UNKNOWN", "INVALID_TEMPLATE").contains(failure)
+                    ? failure : "DELIVERY_FAILED";
+            return new EmailLogView(row.getLong("id"), maskEmail(row.getString("to_email")),
+                    maskSubject(row.getString("subject")), row.getString("status"), row.getString("template"),
+                    sentAt == null ? null : sentAt.toInstant(), row.getTimestamp("created_at").toInstant(), safeFailure,
+                    row.getInt("retry_count"), row.getString("event_id"), row.getString("correlation_id"),
+                    "QUEUED".equals(row.getString("status")) && nextAttempt != null ? nextAttempt.toInstant() : null);
+        }, id);
+        if (logs.isEmpty()) {
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+        return logs.getFirst();
     }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)

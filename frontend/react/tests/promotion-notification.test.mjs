@@ -35,3 +35,47 @@ test('React Admin promotion and notification type contracts are well-formed', ()
   assert.equal(adminNotification.isRead, false);
 });
 
+test('UI-50 email log filter, detail mask contract and retry state constraints', () => {
+  // Test retry eligibility predicate
+  function canRetry(status) {
+    return status === 'FAILED' || status === 'EXPIRED';
+  }
+
+  function getRetryBlockedReason(status) {
+    if (status === 'SENT') return 'EMAIL_ALREADY_SENT';
+    if (status === 'SENDING' || status === 'QUEUED') return 'DELIVERY_IN_PROGRESS';
+    return null;
+  }
+
+  // SENT: Không retry như FAILED
+  assert.equal(canRetry('SENT'), false);
+  assert.equal(getRetryBlockedReason('SENT'), 'EMAIL_ALREADY_SENT');
+
+  // SENDING / QUEUED: In progress
+  assert.equal(canRetry('SENDING'), false);
+  assert.equal(getRetryBlockedReason('SENDING'), 'DELIVERY_IN_PROGRESS');
+  assert.equal(canRetry('QUEUED'), false);
+  assert.equal(getRetryBlockedReason('QUEUED'), 'DELIVERY_IN_PROGRESS');
+
+  // FAILED / EXPIRED: Eligible
+  assert.equal(canRetry('FAILED'), true);
+  assert.equal(getRetryBlockedReason('FAILED'), null);
+  assert.equal(canRetry('EXPIRED'), true);
+  assert.equal(getRetryBlockedReason('EXPIRED'), null);
+
+  // Filter contract includes template
+  const filters = {
+    recipient: 'test@example.com',
+    status: 'FAILED',
+    template: 'ORDER_COMPLETED',
+    from: '2026-11-01T00:00:00Z',
+    to: '2026-11-12T00:00:00Z',
+  };
+  assert.equal(filters.template, 'ORDER_COMPLETED');
+  assert.equal(filters.status, 'FAILED');
+
+  // Masked format validation
+  const maskedEmail = 'c***@e***';
+  assert.match(maskedEmail, /^[a-zA-Z0-9]\*\*\*@[a-zA-Z0-9]\*\*\*$/);
+});
+

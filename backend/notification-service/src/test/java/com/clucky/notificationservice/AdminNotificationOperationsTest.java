@@ -45,6 +45,9 @@ class AdminNotificationOperationsTest {
         for (String role : List.of("CUSTOMER", "STAFF", "STORE_MANAGER", "SHIPPER")) {
             actor(role, 7);
             assertThrows(AccessDeniedException.class, () -> service.emailLogs(0, 20, null, null, null, null));
+            assertThrows(AccessDeniedException.class, () -> service.emailLogs(0, 20, null, null, "ORDER_COMPLETED", null, null));
+            assertThrows(AccessDeniedException.class, () -> service.retryEmail(1));
+            assertThrows(AccessDeniedException.class, () -> service.getEmailLogById(1));
             assertThrows(AccessDeniedException.class, () -> service.inbox(0, 20));
             assertThrows(AccessDeniedException.class, service::unreadCount);
             assertThrows(AccessDeniedException.class, () -> service.markRead(1));
@@ -59,9 +62,61 @@ class AdminNotificationOperationsTest {
         var service = new AdminNotificationService(jdbc);
         assertThrows(ApiException.class, () -> service.emailLogs(0, 101, null, null, null, null));
         assertThrows(ApiException.class, () -> service.emailLogs(0, 20, null, "ANY", null, null));
+        assertThrows(ApiException.class, () -> service.emailLogs(0, 20, null, null, "a".repeat(101), null, null));
         assertThrows(ApiException.class, () -> service.emailLogs(0, 20, null, null, Instant.MAX, Instant.MIN));
+        assertThrows(ApiException.class, () -> service.retryEmail(0));
+        assertThrows(ApiException.class, () -> service.retryEmail(-1));
         assertThrows(ApiException.class, () -> service.inbox(-1, 20));
         verifyNoInteractions(jdbc);
+    }
+
+    @Test
+    void retryEmailValidatesStatesAndPreventsDuplicateDelivery() {
+        actor("ADMIN", 9);
+        var service = new AdminNotificationService(jdbc);
+
+        // Not found
+        when(jdbc.query(contains("SELECT id, status"), any(org.springframework.jdbc.core.RowMapper.class), eq(99L)))
+                .thenReturn(List.of());
+        var notFound = assertThrows(ApiException.class, () -> service.retryEmail(99L));
+        assertEquals(com.clucky.notificationservice.exception.ErrorCode.RESOURCE_NOT_FOUND, notFound.getCode());
+
+        // SENT cannot be retried
+        when(jdbc.query(contains("SELECT id, status"), any(org.springframework.jdbc.core.RowMapper.class), eq(1L)))
+                .thenReturn(List.of("SENT"));
+        var sentErr = assertThrows(ApiException.class, () -> service.retryEmail(1L));
+        assertEquals(com.clucky.notificationservice.exception.ErrorCode.RESOURCE_CONFLICT, sentErr.getCode());
+
+        // SENDING or QUEUED cannot be retried
+        when(jdbc.query(contains("SELECT id, status"), any(org.springframework.jdbc.core.RowMapper.class), eq(2L)))
+                .thenReturn(List.of("SENDING"));
+        var sendingErr = assertThrows(ApiException.class, () -> service.retryEmail(2L));
+        assertEquals(com.clucky.notificationservice.exception.ErrorCode.RESOURCE_CONFLICT, sendingErr.getCode());
+
+        when(jdbc.query(contains("SELECT id, status"), any(org.springframework.jdbc.core.RowMapper.class), eq(3L)))
+                .thenReturn(List.of("QUEUED"));
+        var queuedErr = assertThrows(ApiException.class, () -> service.retryEmail(3L));
+        assertEquals(com.clucky.notificationservice.exception.ErrorCode.RESOURCE_CONFLICT, queuedErr.getCode());
+
+        // FAILED success
+        when(jdbc.query(contains("SELECT id, status"), any(org.springframework.jdbc.core.RowMapper.class), eq(4L)))
+                .thenReturn(List.of("FAILED"));
+        when(jdbc.update(contains("UPDATE notification_service.email_logs"), eq(4L))).thenReturn(1);
+        when(jdbc.query(contains("SELECT id,to_email,subject,status"), any(org.springframework.jdbc.core.RowMapper.class), eq(4L)))
+                .thenReturn(List.of(new AdminNotificationService.EmailLogView(4L, "u***@e***", "Subject", "QUEUED",
+                        "ORDER_COMPLETED", null, Instant.now(), null, 1, "evt-4", "trc-4", Instant.now())));
+
+        var retried = service.retryEmail(4L);
+        assertNotNull(retried);
+        assertEquals(4L, retried.id());
+        assertEquals("QUEUED", retried.status());
+
+        // Concurrent retry collision (rows updated = 0)
+        when(jdbc.query(contains("SELECT id, status"), any(org.springframework.jdbc.core.RowMapper.class), eq(5L)))
+                .thenReturn(List.of("FAILED"));
+        when(jdbc.update(contains("UPDATE notification_service.email_logs"), eq(5L))).thenReturn(0);
+        var collisionErr = assertThrows(ApiException.class, () -> service.retryEmail(5L));
+        assertEquals(com.clucky.notificationservice.exception.ErrorCode.RESOURCE_CONFLICT, collisionErr.getCode());
     }
 
     @Test
