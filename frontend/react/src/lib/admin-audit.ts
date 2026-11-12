@@ -52,7 +52,7 @@ export async function exportAuditLogs(params: AuditFilters, signal: AbortSignal)
     const response = await api.get<Blob>('/api/audit-logs/export', {
       params, signal, responseType: 'blob', timeout: 30000,
     });
-    if (!response.data.size || !String(response.headers['content-type']).toLowerCase().startsWith('text/csv')) {
+    if (!response.data.size || String(response.headers['content-type']).split(';')[0].trim().toLowerCase() !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
       throw { code: 'UPSTREAM_ERROR' };
     }
     return response.data;

@@ -11,6 +11,7 @@ Quy ước chung:
 - Base URL qua Gateway: `https://<domain>/api/...` ; mỗi service có tiền tố riêng.
 - Xác thực trình duyệt: HttpOnly cookie, `credentials: include`, header `X-Clucky-Client: customer|admin`. Gateway chuyển access cookie thành Bearer nội bộ; service vẫn xác thực JWT và quyền. Không lưu token phiên trong localStorage/sessionStorage hoặc trả trong JSON.
 - Định dạng: JSON; lỗi trả về `{ timestamp, status, error, code, message, path }`. `code` ổn định từ `contracts/errors.json`; backend giữ message tiếng Anh an toàn, frontend ánh xạ vi/en theo locale, không hiển thị exception thô. HTTP status và bản dịch được sinh từ cùng danh mục; xem `contracts/README.md`.
+- Riêng `POST /api/auth/register`, response `VALIDATION_ERROR` có thêm `fieldErrors` tùy chọn, ví dụ `{"password":"INVALID","phone":"INVALID"}`. Trùng email trả `409 EMAIL_EXISTS`; trùng số điện thoại trả `409 RESOURCE_CONFLICT` kèm `fieldErrors: {"phone":"ALREADY_EXISTS"}`, kể cả khi DB phát hiện đăng ký đồng thời. Không suy đoán mọi lỗi UNIQUE là trùng email. Chỉ cho phép tên trường `fullName`, `email`, `phone`, `password`; không trả giá trị nhập, mật khẩu hoặc exception. Frontend hiển thị lỗi vi/en tại đúng ô, giữ lỗi trùng đến khi sửa giá trị, focus ô lỗi đầu tiên; checklist mật khẩu đổi xanh theo các điều kiện độ dài/chữ hoa/chữ thường/chữ số. Các lỗi khác giữ nguyên envelope cũ.
 - Phân trang: `?page=0&size=20&sort=createdAt,desc`.
 - Mỗi service công bố OpenAPI tại `/swagger-ui.html` (môi trường dev/demo).
 - Frontend Customer (Next.js) và frontend quản trị (React) dùng chung toàn bộ hệ API này; khác biệt chỉ ở giao diện và quyền của role đăng nhập.
@@ -171,6 +172,10 @@ Contract triển khai, vòng đời reservation, error matrix, migration và ran
 | PUT /api/notifications/{id}/read, /read-all | Đã đăng nhập | Đánh dấu đã đọc |
 | (Kafka consumers) | SYS | Nhận order.*, payment.*, promotion.* để tạo in-app notification và gửi email qua Gmail SMTP Mail Sender — không có API public |
 | GET /api/notifications/email-logs | ADM/MGR | Tra cứu trạng thái email transactional, không trả secret |
+| GET /api/notifications/email-logs/{id} | ADM/MGR | Lịch sử từng lần gửi và failure/DLQ; Manager chỉ quán mình, không OTP/global |
+| POST /api/notifications/email-logs/{id}/retry | ADM | `{requestId,expectedGeneration}`; chỉ FAILED an toàn, không OTP/unknown/hết hạn, không sửa recipient/body |
+
+Contract BE-62/BE-63/UI-50 cập nhật 11/11/2026: [Email operations, RBAC, retry và recovery](Email_Operations_2026-11-11.md). Có bộ lọc template; retry kiểm tra nguyên tử, chống request lặp. Đã triển khai không đồng nghĩa đã nghiệm thu.
 
 # 8. REVIEW & REPORT SERVICE — /api/reviews, /api/reports
 | Method & Path | Quyền | Mô tả |
@@ -216,6 +221,7 @@ Contract triển khai, vòng đời reservation, error matrix, migration và ran
 | Method & Path | Quyền | Mô tả |
 |---|---|---|
 | GET /api/audit-logs | MGR/ADM | Phân trang, lọc actorId/actorRole/sourceService/action/targetType/targetId/storeId/from/to; Admin xem mọi role, Manager chỉ xem thao tác Staff trong quán mình theo RBAC |
+| GET /api/audit-logs/export | ADM | Tải `clucky-nhat-ky-quan-tri.xlsx` (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`), cùng bộ lọc danh sách nhưng không giới hạn ở trang hiện tại; tối đa 10.000 bản ghi, vượt trả 413 `REQUEST_TOO_LARGE`. Tiêu đề tiếng Việt, ngày giờ UTC+7, cố định tiêu đề và lọc cột; ID lưu dạng chữ, cột eventId/correlationId ẩn sẵn. Không xuất detail/nội dung tự do/email/thông tin thanh toán; `Cache-Control: no-store` |
 
 Endpoint thuộc Audit Service riêng, frontend gọi qua Gateway, không thuộc `/api/reports`. Backend bắt buộc giới hạn quyền/store trước khi áp dụng bộ lọc. Dữ liệu gồm người/role thực hiện, khâu nghiệp vụ, đối tượng, thay đổi trước–sau đã loại secret và thời gian; không có API cho frontend tạo/sửa/xóa audit. Các backend domain phát sự kiện `audit.recorded` sau thay đổi thành công để Audit Service lưu. Base API đọc đã có mã nguồn trong `backend/audit-service`, chưa kiểm chứng runtime; producer/consumer ghi audit và mở rộng allowlist before/after theo domain vẫn thuộc INT-48. Xem [phạm vi base và kiểm chứng](../../docs/observability.md).
 

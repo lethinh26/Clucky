@@ -22,7 +22,9 @@ import static org.mockito.Mockito.*;
 
 class VoucherProposalSafetyTest {
     private final VoucherRepository repository = mock(VoucherRepository.class);
-    private final VoucherService service = new VoucherService(repository, mock(VoucherAuditOutbox.class), mock(VoucherStoreVerifier.class));
+    private final VoucherAuditOutbox audit = mock(VoucherAuditOutbox.class);
+    private final VoucherStoreVerifier stores = mock(VoucherStoreVerifier.class);
+    private final VoucherService service = new VoucherService(repository, audit, stores);
 
     @AfterEach void clearActor() { SecurityContextHolder.clearContext(); }
 
@@ -63,10 +65,16 @@ class VoucherProposalSafetyTest {
         request.setStoreId(2L);
         request.setStatus(VoucherStatus.ACTIVE);
         when(repository.save(any())).thenAnswer(call -> call.getArgument(0));
+        when(repository.save(any())).thenAnswer(call -> {
+            Voucher saved = call.getArgument(0);
+            saved.setId(13L);
+            return saved;
+        });
         var response = service.createStoreProposal(request, 7L, "STORE_MANAGER", 2L);
         assertEquals(VoucherStatus.PENDING_APPROVAL, response.getStatus());
         assertEquals(VoucherScope.STORE, response.getScope());
         assertEquals(2L, response.getStoreId());
+        verify(audit).record(eq(7L), eq("STORE_MANAGER"), eq(2L), eq("VOUCHER_PROPOSED"), eq("VOUCHER"), anyLong(), anyMap(), anyMap());
     }
 
     @Test
@@ -97,6 +105,8 @@ class VoucherProposalSafetyTest {
     void approvalRequiresAdminAndCannotReviveExpiredPendingProposal() {
         var voucher = new Voucher();
         voucher.setId(1L);
+        voucher.setScope(VoucherScope.STORE);
+        voucher.setStoreId(2L);
         voucher.setStatus(VoucherStatus.PENDING_APPROVAL);
         voucher.setStartAt(Instant.now().minusSeconds(3600));
         voucher.setEndAt(Instant.now().minusSeconds(60));
@@ -109,6 +119,25 @@ class VoucherProposalSafetyTest {
         service.approveVoucher(1L, 9L, "ADMIN");
         assertEquals(1L, voucher.getApprovedBy());
         verify(repository, times(1)).save(voucher);
+        verify(stores).requireExists(2L);
+        verify(audit, times(1)).record(eq(1L), eq("ADMIN"), eq(2L), eq("VOUCHER_APPROVED"), eq("VOUCHER"), eq(1L), anyMap(), anyMap());
+    }
+
+    @Test
+    void proposalCannotBypassApprovalByDisablingThenReactivating() {
+        var voucher = new Voucher();
+        voucher.setId(1L);
+        voucher.setStatus(VoucherStatus.PENDING_APPROVAL);
+        when(repository.findByIdWithLock(1L)).thenReturn(Optional.of(voucher));
+        var request = request();
+        request.setVersion(voucher.getVersion());
+        for (VoucherStatus status : List.of(VoucherStatus.ACTIVE, VoucherStatus.DISABLED)) {
+            request.setStatus(status);
+            assertThrows(com.clucky.promotionloyaltyservice.exception.ConflictException.class,
+                    () -> service.updateVoucher(1L, request, 1L, "ADMIN", null));
+        }
+        verify(repository, never()).save(any());
+        verifyNoInteractions(audit);
     }
 
     @Test
@@ -118,5 +147,66 @@ class VoucherProposalSafetyTest {
             var request = mapper.readValue("{\"code\":\"PROMO\",\"" + field + "\":100000}", ValidateVoucherRequest.class);
             assertEquals(new BigDecimal("100000"), request.getOrderAmount());
         }
+    }
+
+    @Test
+    void rejectionRequiresAdminReasonAndCurrentVersionAndPreservesBranchFeedback() {
+        var voucher = new Voucher();
+        voucher.setId(12L);
+        voucher.setStoreId(2L);
+        voucher.setScope(VoucherScope.STORE);
+        voucher.setCreatedBy(7L);
+        voucher.setStatus(VoucherStatus.PENDING_APPROVAL);
+        voucher.setStartAt(Instant.now().minusSeconds(60));
+        voucher.setEndAt(Instant.now().plusSeconds(3600));
+        var request = new RejectVoucherRequest("  Giảm tối đa vượt ngân sách  ", voucher.getVersion());
+        assertThrows(ApiException.class, () -> service.rejectVoucher(12L, request, 7L, "STORE_MANAGER"));
+        for (String reason : List.of(" ", "x".repeat(501))) {
+            assertThrows(com.clucky.promotionloyaltyservice.exception.BadRequestException.class,
+                    () -> service.rejectVoucher(12L, new RejectVoucherRequest(reason, 0L), 1L, "ADMIN"));
+        }
+        verifyNoInteractions(repository, audit);
+        when(repository.findByIdWithLock(12L)).thenReturn(Optional.of(voucher));
+        when(repository.save(any())).thenAnswer(call -> call.getArgument(0));
+        assertThrows(com.clucky.promotionloyaltyservice.exception.ConflictException.class,
+                () -> service.rejectVoucher(12L, new RejectVoucherRequest("Reason", 99L), 1L, "ADMIN"));
+        var rejected = service.rejectVoucher(12L, request, 1L, "ADMIN");
+        service.rejectVoucher(12L, request, 9L, "ADMIN");
+        assertEquals(VoucherStatus.REJECTED, rejected.getStatus());
+        assertEquals("Giảm tối đa vượt ngân sách", rejected.getRejectionReason());
+        assertEquals(1L, rejected.getRejectedBy());
+        assertNotNull(rejected.getRejectedAt());
+        assertEquals(2L, rejected.getStoreId());
+        assertEquals(7L, rejected.getCreatedBy());
+        verify(repository, times(1)).save(voucher);
+        verify(audit, times(1)).record(eq(1L), eq("ADMIN"), eq(2L), eq("VOUCHER_REJECTED"), eq("VOUCHER"), eq(12L), anyMap(), anyMap());
+        assertThrows(com.clucky.promotionloyaltyservice.exception.ConflictException.class,
+                () -> service.rejectVoucher(12L, new RejectVoucherRequest("Changed reason", 0L), 1L, "ADMIN"));
+        assertThrows(RuntimeException.class, () -> service.approveVoucher(12L, 1L, "ADMIN"));
+        assertThrows(com.clucky.promotionloyaltyservice.exception.ConflictException.class,
+                () -> service.deleteVoucher(12L, 1L, "ADMIN", null));
+        when(repository.findById(12L)).thenReturn(Optional.of(voucher));
+        var controller = new VoucherController(service);
+        actor("STORE_MANAGER", 2L);
+        assertEquals(rejected.getRejectionReason(), controller.getVoucherById(12L).getBody().getRejectionReason());
+        actor("STORE_MANAGER", 3L);
+        assertThrows(ApiException.class, () -> controller.getVoucherById(12L));
+    }
+
+    @Test
+    void approvedVouchersCannotBeRejectedAndPendingHistoryCannotBeDeleted() {
+        var voucher = new Voucher();
+        voucher.setId(12L);
+        voucher.setScope(VoucherScope.STORE);
+        voucher.setStatus(VoucherStatus.ACTIVE);
+        when(repository.findByIdWithLock(12L)).thenReturn(Optional.of(voucher));
+        assertThrows(com.clucky.promotionloyaltyservice.exception.ConflictException.class,
+                () -> service.rejectVoucher(12L, new RejectVoucherRequest("Reason", 0L), 1L, "ADMIN"));
+        voucher.setStatus(VoucherStatus.PENDING_APPROVAL);
+        assertThrows(com.clucky.promotionloyaltyservice.exception.ConflictException.class,
+                () -> service.deleteVoucher(12L, 1L, "ADMIN", null));
+        verify(repository, never()).save(any());
+        verify(repository, never()).delete(any(Voucher.class));
+        verifyNoInteractions(audit);
     }
 }

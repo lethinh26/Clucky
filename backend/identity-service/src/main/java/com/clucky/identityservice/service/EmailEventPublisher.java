@@ -67,6 +67,7 @@ public class EmailEventPublisher {
         }
         variables.put("otp", otp);
         variables.put("expiresMinutes", String.valueOf(authProperties.otpTtl().toMinutes()));
+        variables.put("expiresAt", java.time.Instant.now().plus(authProperties.otpTtl()).toString());
 
         EmailMessage message = new EmailMessage(messageId, eventId, correlationId, recipient, template, variables);
 

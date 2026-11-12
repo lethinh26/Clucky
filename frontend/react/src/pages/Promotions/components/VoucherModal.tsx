@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import {
+  ConfigProvider,
   Form,
   Input,
   InputNumber,
@@ -11,6 +12,8 @@ import {
   Space,
   Alert,
 } from 'antd';
+import { CheckCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { AdminModal } from '../../../components/ui/AdminModal';
@@ -38,6 +41,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
   onSubmit,
 }) => {
   const { user, isAdmin } = useAuth();
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const selectedScope = Form.useWatch('scope', form);
   const selectedType = Form.useWatch('type', form);
@@ -113,20 +117,31 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
   };
 
   return (
+    <ConfigProvider theme={{
+      token: { colorBgContainer: '#FFFFFF', colorBgElevated: '#FFFFFF' },
+      components: { Select: { optionSelectedBg: '#F5F5F5', optionActiveBg: '#FAFAFA' } },
+    }}>
     <AdminModal
       open={open}
-      title={editingVoucher ? 'Chỉnh sửa mã Voucher' : 'Tạo mới mã Voucher'}
+      title={editingVoucher ? 'Chỉnh sửa mã Voucher' : isAdmin ? 'Tạo mới mã Voucher' : t('admin:voucherUi.propose')}
       subtitle={
         editingVoucher
           ? "Cập nhật thông tin voucher #" + editingVoucher.code
           : 'Thiết lập mã ưu đãi, điều kiện áp dụng và thời gian hiệu lực'
       }
       width={720}
-      okText={editingVoucher ? 'Lưu thay đổi' : 'Tạo Voucher'}
+      okText={editingVoucher ? 'Lưu thay đổi' : isAdmin ? 'Tạo Voucher' : t('admin:voucherUi.sendProposal')}
       confirmLoading={loading}
       onOk={() => form.submit()}
       onCancel={onCancel}
+      styles={{
+        container: { background: '#FFFFFF' },
+        header: { background: '#FFFFFF', marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid #EEEEEE' },
+        body: { background: '#FFFFFF', padding: '16px 0' },
+        footer: { background: '#FFFFFF', marginTop: 20, paddingTop: 16, borderTop: '1px solid #EEEEEE' },
+      }}
     >
+      {!isAdmin && <Alert type="info" showIcon title={t('admin:voucherUi.managerHelp')} style={{ marginBottom: 16 }} />}
       <Form
         form={form}
         layout="vertical"
@@ -312,13 +327,14 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
           <Col xs={24} sm={12}>
             <Form.Item
               name="status"
+              hidden={!isAdmin}
               label="Trạng thái kích hoạt"
               rules={[{ required: true, message: 'Vui lòng chọn trạng thái' }]}
             >
               <Select
                 options={[
-                  { value: 'ACTIVE', label: '🟢 Hoạt động (ACTIVE)' },
-                  { value: 'DISABLED', label: '⚪ Tạm vô hiệu hóa (DISABLED)' },
+                  { value: 'ACTIVE', label: <Space size={6}><CheckCircleOutlined style={{ color: '#1E7A46' }} />{t('admin:voucherUi.states.ACTIVE')}</Space> },
+                  { value: 'DISABLED', label: <Space size={6}><StopOutlined style={{ color: '#6B6259' }} />{t('admin:voucherUi.states.DISABLED')}</Space> },
                 ]}
               />
             </Form.Item>
@@ -404,6 +420,7 @@ export const VoucherModal: React.FC<VoucherModalProps> = ({
         </Row>
       </Form>
     </AdminModal>
+    </ConfigProvider>
   );
 };
 

@@ -71,7 +71,7 @@ public class AuthService {
 
         String phone = request.phone() != null && !request.phone().isBlank() ? request.phone().trim() : null;
         if (phone != null && userRepository.existsByPhone(phone)) {
-            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT, Map.of("phone", "ALREADY_EXISTS"));
         }
 
         User user = new User();
@@ -91,7 +91,16 @@ public class AuthService {
             // Flush immediately so the unique constraint decides concurrent duplicates.
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException failure) {
-            throw new ApiException(ErrorCode.EMAIL_EXISTS);
+            var visited = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+            for (Throwable cause = failure; cause != null && visited.add(cause); cause = cause.getCause()) {
+                if (cause instanceof org.hibernate.exception.ConstraintViolationException constraint) {
+                    if ("users_email_key".equals(constraint.getConstraintName())) throw new ApiException(ErrorCode.EMAIL_EXISTS);
+                    if ("users_phone_key".equals(constraint.getConstraintName())) {
+                        throw new ApiException(ErrorCode.RESOURCE_CONFLICT, Map.of("phone", "ALREADY_EXISTS"));
+                    }
+                }
+            }
+            throw failure;
         }
 
         String otp = otpService.generateAndSaveOtp(email, OtpService.PURPOSE_REGISTER);

@@ -31,8 +31,8 @@ public class AuditLogController {
         byte[] file = service.export(query);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.PRAGMA, "no-cache")
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"audit-logs.csv\"")
-                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"clucky-nhat-ky-quan-tri.xlsx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .contentLength(file.length).body(file);
     }
 }

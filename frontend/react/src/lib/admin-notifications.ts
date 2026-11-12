@@ -23,6 +23,21 @@ export interface EmailLog {
   eventId: string | null;
   correlationId: string | null;
   nextAttemptAt: string | null;
+  messageId: string;
+  storeId: number | null;
+  attemptCount: number;
+  generation: number;
+  expiresAt: string | null;
+  canRetry: boolean;
+  retryBlockedReason: string | null;
+  failureDeliveryStatus: 'NONE' | 'PENDING' | 'PUBLISHED';
+}
+
+export interface EmailLogDetail {
+  delivery: EmailLog;
+  attempts: { attemptNumber: number; generation: number; startedAt: string; finishedAt: string | null; outcome: string }[];
+  failures: { id: string; generation: number; attemptNumber: number; failureCode: string; createdAt: string; publishedAt: string | null; publishAttempts: number; nextAttemptAt: string | null }[];
+  retries: { expectedGeneration: number; requestId: string; actorId: number; createdAt: string }[];
 }
 
 export interface AdminNotification {
@@ -39,11 +54,16 @@ export interface AdminNotification {
 export interface EmailLogFilters {
   recipient?: string;
   status?: EmailStatus;
+  template?: string;
   from?: string;
   to?: string;
 }
 
 export const adminNotificationsApi = {
+  emailDetail: async (id: number, signal?: AbortSignal) =>
+    (await api.get<EmailLogDetail>(`/api/notifications/email-logs/${id}`, { signal })).data,
+  retryEmail: async (id: number, expectedGeneration: number, requestId: string) =>
+    (await api.post<{ id: number; generation: number; replayed: boolean }>(`/api/notifications/email-logs/${id}/retry`, { expectedGeneration, requestId })).data,
   emailLogs: async (page: number, size: number, filters: EmailLogFilters, signal?: AbortSignal) =>
     (await api.get<NotificationPage<EmailLog>>('/api/notifications/email-logs', { params: { page, size, ...filters }, signal })).data,
   inbox: async (page: number, size: number, signal?: AbortSignal) =>

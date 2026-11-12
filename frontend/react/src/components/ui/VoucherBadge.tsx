@@ -14,6 +14,8 @@ const statusColorConfig: Record<
   string,
   { color: string; bg: string; border: string; dotColor: string }
 > = {
+  PENDING_APPROVAL: { color: '#92400E', bg: '#FFFBEB', border: '#FDE68A', dotColor: '#D97706' },
+  REJECTED: { color: '#991B1B', bg: '#FEF2F2', border: '#FECACA', dotColor: '#B42318' },
   ACTIVE: {
     color: '#92400E',
     bg: '#FEF3C7',

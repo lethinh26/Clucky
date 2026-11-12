@@ -9,9 +9,15 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties("mail-sender")
 @Validated
 public record MailSenderProperties(boolean enabled, String host, int port, @Email @Size(max = 255) String username,
-        @JsonIgnore String appPassword, String fromName, int timeoutMs, int maxRetries) {
+        @JsonIgnore String appPassword, String fromName, int timeoutMs, int maxRetries,
+        int leaseSeconds, int retentionHours, int maxManualRetries, int retryBaseSeconds,
+        int retryMaxSeconds, String failureTopic) {
     public MailSenderProperties {
-        if (timeoutMs < 1 || maxRetries < 0) {
+        if (timeoutMs < 1 || timeoutMs > 60000 || maxRetries < 1 || maxRetries > 20
+                || leaseSeconds < 60 || leaseSeconds > 3600 || leaseSeconds * 1000L < timeoutMs * 6L
+                || retentionHours < 1 || retentionHours > 168 || maxManualRetries < 0 || maxManualRetries > 5
+                || retryBaseSeconds < 1 || retryMaxSeconds < retryBaseSeconds || retryMaxSeconds > 3600
+                || failureTopic == null || !failureTopic.matches("[a-z][a-z0-9.-]{1,100}")) {
             throw new IllegalArgumentException("Invalid mail timeout/retry settings");
         }
         if (enabled && (!"smtp.gmail.com".equals(host) || port != 587 || username == null

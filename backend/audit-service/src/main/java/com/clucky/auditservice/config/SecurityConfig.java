@@ -75,6 +75,7 @@ public class SecurityConfig {
                         auth.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
                     }
                     auth.requestMatchers(HttpMethod.GET, "/api/audit-logs").hasAnyRole("ADMIN", "STORE_MANAGER");
+                    auth.requestMatchers(HttpMethod.GET, "/api/audit-logs/export").hasRole("ADMIN");
                     auth.anyRequest().denyAll();
                 })
                 .oauth2ResourceServer(resource -> resource.jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
