@@ -10,12 +10,14 @@ import {
   Copy,
   Check,
   ArrowRight,
-  ImagePlus,
-  Trash2,
 } from "lucide-react";
 import { message } from "../../../components/feedback";
 import type { PaymentMethod, StaffOrder } from "../../../mocks/mockStaffOrders";
 import styles from "./counter-payment.module.css";
+import { getErrorMessage } from "../../../lib/api";
+import { adminFinance, type PaymentSnapshot } from "../../../lib/admin-finance";
+import { buildVietQrUrl } from "../../../lib/vietqr";
+import { CodEvidencePanel } from "../../Orders/components/CodEvidencePanel";
 
 interface CounterPaymentModalProps {
   open: boolean;
@@ -29,23 +31,13 @@ interface CounterPaymentModalProps {
     bankDeclaredAmount: number;
     manualReason?: string;
     refCode?: string;
-    codEvidenceFile?: File | null;
-  }) => Promise<void> | void;
+  }) => Promise<boolean>;
 }
 
 const formatVnd = (val: number) => {
   return new Intl.NumberFormat("vi-VN").format(val) + " đ";
 };
 
-// VietQR dynamic QR code image builder
-const getVietQrUrl = (amount: number, memo: string) => {
-  const bank = "mbbank";
-  const acc = "0387654321";
-  const template = "compact2";
-  const accName = encodeURIComponent("CLUCKY FAST FOOD");
-  const addInfo = encodeURIComponent(memo);
-  return `https://img.vietqr.io/image/${bank}-${acc}-${template}.png?amount=${amount}&addInfo=${addInfo}&accountName=${accName}`;
-};
 
 export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
   open,
@@ -66,8 +58,34 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
   // Tab 3: SPLIT state
   const [splitCash, setSplitCash] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [codEvidenceFile, setCodEvidenceFile] = useState<File | null>(null);
-  const [codEvidencePreviewUrl, setCodEvidencePreviewUrl] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<PaymentSnapshot | null>(null);
+  const [bankError, setBankError] = useState("");
+  const [bankLoading, setBankLoading] = useState(false);
+  const [qrFailed, setQrFailed] = useState(false);
+  const orderId = order?.id;
+  const isWebCod = order?.orderSource === "WEB" && order.paymentMethod === "COD";
+  const isWebBank = order?.orderSource === "WEB" && order.paymentMethod === "BANK_TRANSFER";
+
+  useEffect(() => {
+    setSnapshot(null); setBankError(""); setQrFailed(false);
+    if (!open || !orderId) return;
+    const controller = new AbortController();
+    setBankLoading(true);
+    let pending = false;
+    const refresh = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const result = await adminFinance.snapshot(Number(orderId), controller.signal);
+        if (!controller.signal.aborted) { setSnapshot(result); setBankError(""); }
+      } catch (failure) {
+        if (!controller.signal.aborted) setBankError(getErrorMessage(failure));
+      } finally { pending = false; if (!controller.signal.aborted) setBankLoading(false); }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 5000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [open, orderId]);
 
   // Reset when order changes or modal opens
   useEffect(() => {
@@ -77,11 +95,6 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
       setCashTendered(total);
       setSplitCash(Math.floor(total / 2));
       setManualReason("");
-      setCodEvidenceFile(null);
-      setCodEvidencePreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
     }
   }, [open, order]);
 
@@ -93,6 +106,16 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
 
   // SPLIT calculations
   const splitBank = Math.max(0, totalDue - splitCash);
+  const bankInfo = snapshot?.bankInfo;
+  const reference = snapshot?.reference ?? "";
+  const livePayment = snapshot?.payments.find(payment => payment.live_payment && payment.status === "PENDING");
+  const bankAmountDue = isWebBank && livePayment ? Math.max(0, Number(livePayment.amount) - Number(livePayment.received_amount)) : totalDue;
+  const canTransfer = snapshot?.order.orderId === Number(order?.id) && snapshot?.order.paymentStatus === "PENDING"
+    && ["PENDING_PAYMENT", "CONFIRMED", "PREPARING", "READY", "SHIPPING"].includes(snapshot.order.status)
+    && (!isWebBank || Boolean(livePayment?.expires_at && new Date(livePayment.expires_at).getTime() > Date.now()));
+  const transferQr = canTransfer && !bankError ? buildVietQrUrl(bankInfo, activeTab === "SPLIT" ? splitBank : bankAmountDue, reference) : null;
+
+  useEffect(() => { setQrFailed(false); }, [transferQr]);
 
   // Quick cash bill suggestions
   const quickBills = useMemo(() => {
@@ -118,24 +141,29 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
 
   if (!open || !order) return null;
 
-  const handleCopy = (text: string, label: string) => {
-    navigator.clipboard?.writeText(text);
-    setCopiedText(label);
-    message.success("Đã sao chép " + label);
-    setTimeout(() => setCopiedText(""), 2000);
+  const handleCopy = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(label);
+      message.success("Đã sao chép " + label);
+      setTimeout(() => setCopiedText(""), 2000);
+    } catch (failure) { message.error(getErrorMessage(failure)); }
   };
 
   const handleConfirm = async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isWebBank) return false;
+    if (activeTab === "CASH" && !isCashSufficient) return false;
+    if (activeTab !== "CASH" && (!transferQr || bankLoading || bankError)) return false;
+    if (activeTab === "SPLIT" && (splitCash <= 0 || splitBank <= 0)) return false;
     if (activeTab !== "CASH" && !manualReason.trim()) {
       message.error(t("business:orderdemo.manualBankReasonRequired"));
-      return;
+      return false;
     }
     let finalMethod: PaymentMethod = activeTab;
     let finalTendered = 0;
     let finalChange = 0;
     let finalBankDeclared = 0;
-    let refCode = `TXN-${Date.now().toString().slice(-6)}`;
+    const refCode = activeTab === "CASH" ? undefined : reference;
 
     if (activeTab === "CASH") {
       finalTendered = cashTendered;
@@ -153,7 +181,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onConfirmPayment({
+      return await onConfirmPayment({
         orderId: order.id,
         method: finalMethod,
         cashTendered: finalTendered,
@@ -161,7 +189,6 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
         bankDeclaredAmount: finalBankDeclared,
         manualReason: manualReason || undefined,
         refCode,
-        codEvidenceFile,
       });
     } finally {
       setIsSubmitting(false);
@@ -210,6 +237,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
             type="button"
             role="tab"
             aria-selected={activeTab === "CASH"}
+            disabled={isWebBank}
             className={`${styles.tabBtn} ${
               activeTab === "CASH" ? styles.tabBtnActive : ""
             }`}
@@ -223,6 +251,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
             type="button"
             role="tab"
             aria-selected={activeTab === "BANK_TRANSFER"}
+            disabled={isWebCod}
             className={`${styles.tabBtn} ${
               activeTab === "BANK_TRANSFER" ? styles.tabBtnActive : ""
             }`}
@@ -236,6 +265,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
             type="button"
             role="tab"
             aria-selected={activeTab === "SPLIT"}
+            disabled={order.orderSource !== "COUNTER"}
             className={`${styles.tabBtn} ${
               activeTab === "SPLIT" ? styles.tabBtnActive : ""
             }`}
@@ -315,156 +345,42 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                 </div>
               )}
 
-              {/* Import ảnh minh chứng thu tiền COD tối đa 2MB (hỗ trợ đơn khách đặt online / COD) */}
-              <div
-                style={{
-                  marginTop: 14,
-                  padding: 12,
-                  borderRadius: 12,
-                  backgroundColor: "#fffaf3",
-                  border: "1px dashed #c9a227",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <div>
-                    <strong style={{ fontSize: 13, color: "#16100d", display: "block" }}>
-                      {t("business:counterPayment.codEvidenceTitle")}
-                    </strong>
-                    <span style={{ fontSize: 12, color: "#6b6259" }}>
-                      {t("business:counterPayment.codEvidenceHint")}
-                    </span>
-                  </div>
-                  <label
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "7px 12px",
-                      borderRadius: 999,
-                      backgroundColor: "#8f1216",
-                      color: "#fff",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <ImagePlus size={14} />
-                    <span>{codEvidenceFile ? t("business:counterPayment.changeImageBtn") : t("business:counterPayment.uploadImageBtn")}</span>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (!file) return;
-                        if (
-                          file.size === 0 ||
-                          file.size > 2 * 1024 * 1024 ||
-                          !["image/jpeg", "image/png", "image/webp"].includes(file.type)
-                        ) {
-                          message.error(t("business:counterPayment.invalidEvidenceError"));
-                          return;
-                        }
-                        setCodEvidenceFile(file);
-                        setCodEvidencePreviewUrl((prev) => {
-                          if (prev) URL.revokeObjectURL(prev);
-                          return URL.createObjectURL(file);
-                        });
-                        message.success(t("business:counterPayment.evidenceSelectedSuccess", { name: file.name }));
-                      }}
-                    />
-                  </label>
-                </div>
-
-                {codEvidenceFile && codEvidencePreviewUrl && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 10,
-                      padding: 8,
-                      borderRadius: 10,
-                      backgroundColor: "#fff",
-                      border: "1px solid #e8e2d9",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                      <img
-                        src={codEvidencePreviewUrl}
-                        alt={t("business:counterPayment.codEvidenceAlt")}
-                        style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, border: "1px solid #e8e2d9" }}
-                      />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#16100d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {codEvidenceFile.name}
-                        </div>
-                        <div style={{ fontSize: 11, color: "#1e7a46", fontWeight: 600 }}>
-                          {t("business:counterPayment.evidenceReadyKb", { size: (codEvidenceFile.size / 1024).toFixed(1) })}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCodEvidenceFile(null);
-                        setCodEvidencePreviewUrl((prev) => {
-                          if (prev) URL.revokeObjectURL(prev);
-                          return null;
-                        });
-                      }}
-                      style={{
-                        border: "none",
-                        background: "#fef2f2",
-                        color: "#b91c1c",
-                        borderRadius: 8,
-                        padding: "6px 8px",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                      }}
-                      title={t("business:counterPayment.removeImageTitle")}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                )}
-              </div>
+              {isWebCod && <CodEvidencePanel orderId={order.id} onCollect={handleConfirm} />}
             </div>
           )}
 
           {/* TAB 2: CHUYỂN KHOẢN VIETQR */}
           {activeTab === "BANK_TRANSFER" && (
             <div className={styles.bankSection}>
+              {!transferQr || qrFailed ? <p role="alert" className={styles.bankUnavailable}>
+                {bankLoading ? t("business:counterPayment.loadingBank") : bankError || t("business:counterPayment.bankUnavailable")}
+              </p> :
               <div className={styles.qrContainer}>
                 <div className={styles.qrImageFrame}>
                   <img
-                    src={getVietQrUrl(totalDue, order.orderCode)}
+                    src={transferQr}
                     alt="Mã VietQR Thanh Toán"
                     className={styles.qrImg}
-                    onError={(e) => {
-                      // Fallback visually if offline
-                      (e.target as HTMLImageElement).src = "/images/food-placeholder.svg";
-                    }}
+                    onError={() => setQrFailed(true)}
                   />
                 </div>
 
                 <div className={styles.bankDetails}>
                   <div className={styles.bankDetailRow}>
                     <span className={styles.bankDetailLabel}>Ngân hàng thụ hưởng</span>
-                    <span className={styles.bankDetailValue}>MBBank (Quân Đội)</span>
+                    <span className={styles.bankDetailValue}>{bankInfo?.bankName}</span>
+                    <span>{bankInfo?.accountName}</span>
                   </div>
 
                   <div className={styles.bankDetailRow}>
                     <span className={styles.bankDetailLabel}>Số tài khoản quán</span>
                     <div className={styles.bankDetailValue}>
-                      <span>0387654321</span>
+                      <span>{bankInfo?.accountNo}</span>
                       <button
                         type="button"
                         className={styles.copyBtn}
-                        onClick={() => handleCopy("0387654321", "STK")}
+                        aria-label={t("business:financeModal.copyAccount")}
+                        onClick={() => handleCopy(bankInfo?.accountNo ?? "", "STK")}
                       >
                         {copiedText === "STK" ? <Check size={14} color="#1e7a46" /> : <Copy size={14} />}
                       </button>
@@ -474,11 +390,12 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                   <div className={styles.bankDetailRow}>
                     <span className={styles.bankDetailLabel}>Nội dung chuyển khoản</span>
                     <div className={styles.bankDetailValue}>
-                      <span style={{ color: "#8f1216" }}>{order.orderCode}</span>
+                      <span style={{ color: "#8f1216" }}>{reference}</span>
                       <button
                         type="button"
                         className={styles.copyBtn}
-                        onClick={() => handleCopy(order.orderCode, "Nội dung")}
+                        aria-label={t("business:financeModal.copyTransferReference")}
+                        onClick={() => handleCopy(reference, "Nội dung")}
                       >
                         {copiedText === "Nội dung" ? <Check size={14} color="#1e7a46" /> : <Copy size={14} />}
                       </button>
@@ -488,13 +405,14 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                   <div className={styles.bankDetailRow}>
                     <span className={styles.bankDetailLabel}>Số tiền chuyển</span>
                     <span style={{ fontSize: 16, fontWeight: 800, color: "#1e7a46" }}>
-                      {formatVnd(totalDue)}
+                      {formatVnd(bankAmountDue)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Nút ngoại lệ xác nhận thủ công */}
+              }
+              {isWebBank ? <p>{t("business:counterPayment.onlineTransferOnly")}</p> : <>
               <div className={styles.manualSection}>
                 <div className={styles.manualHeader}>
                   <span className={styles.manualTitle}>
@@ -535,10 +453,10 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                   }}
                 />
               </div>
+              </>}
             </div>
           )}
 
-          {/* TAB 3: KẾT HỢP (SPLIT) */}
           {activeTab === "SPLIT" && (
             <div className={styles.splitSection}>
               <div className={styles.splitGrid}>
@@ -580,21 +498,26 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                 </div>
               </div>
 
-              {/* VietQR nhỏ cho số tiền chuyển khoản còn lại */}
-              {splitBank > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 14, backgroundColor: "#ffffff", padding: 12, borderRadius: 12, border: "1px solid #e8e2d9" }}>
+              {splitBank > 0 && (transferQr && !qrFailed ? (
+                <div className={styles.qrContainer}>
+                  <div className={styles.qrImageFrame}>
                   <img
-                    src={getVietQrUrl(splitBank, `${order.orderCode} SPLIT`)}
+                    src={transferQr}
                     alt="VietQR Split"
-                    style={{ width: 80, height: 80, objectFit: "contain" }}
+                    className={styles.qrImg}
+                    onError={() => setQrFailed(true)}
                   />
-                  <div style={{ fontSize: 12, color: "#4b443c", lineHeight: 1.5 }}>
+                  </div>
+                  <div className={styles.bankDetails}>
+                    <strong>{bankInfo?.bankName}</strong>
+                    <span>{bankInfo?.accountName}</span>
+                    <span>{bankInfo?.accountNo}</span>
                     Mã VietQR động cho khoản chuyển: <strong>{formatVnd(splitBank)}</strong>
                     <br />
-                    Nội dung: <code>{order.orderCode}</code>
+                    Nội dung: <code>{reference}</code>
                   </div>
                 </div>
-              )}
+              ) : <p role="alert" className={styles.bankUnavailable}>{bankLoading ? t("business:counterPayment.loadingBank") : bankError || t("business:counterPayment.bankUnavailable")}</p>)}
 
               {/* Xác nhận phần chuyển khoản trong đơn kết hợp */}
               <div className={styles.manualSection}>
@@ -648,22 +571,24 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
               <span>Thu tiền mặt trực tiếp và trả lại tiền thừa cho khách</span>
             )}
             {activeTab === "BANK_TRANSFER" && (
-              <span>Hệ thống tự động liên kết giao dịch MBBank hoặc xác nhận nhanh</span>
+              <span>{t(isWebBank ? "business:counterPayment.onlineTransferOnly" : "business:orderdemo.manualBankReasonRequired")}</span>
             )}
             {activeTab === "SPLIT" && (
               <span>Đơn kết hợp: {formatVnd(splitCash)} mặt + {formatVnd(splitBank)} CK</span>
             )}
           </div>
 
-          <button
+          {!isWebCod && !isWebBank && <button
             type="button"
             className={styles.confirmButton}
-            disabled={(activeTab === "CASH" && !isCashSufficient) || isSubmitting}
-            onClick={handleConfirm}
+            disabled={(activeTab === "CASH" && !isCashSufficient) || isSubmitting
+              || (activeTab !== "CASH" && (!transferQr || bankLoading || Boolean(bankError) || !manualReason.trim()))
+              || (activeTab === "SPLIT" && (splitCash <= 0 || splitBank <= 0))}
+            onClick={() => void handleConfirm().catch(failure => message.error(getErrorMessage(failure)))}
           >
             <span>{t(isSubmitting ? "business:staffactions.processing" : "business:staffactions.confirmCollection")}</span>
             <ArrowRight size={18} />
-          </button>
+          </button>}
         </div>
       </div>
     </div>

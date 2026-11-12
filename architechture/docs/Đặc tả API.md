@@ -3,7 +3,7 @@
 
 ### Hiệu chỉnh F1–F4 ngày 08/11/2026 — đã sửa mã, chưa nghiệm thu
 
-Contract chi tiết và trạng thái tích hợp tại [bàn giao F1–F4](../specs/rbac-branch-operations/F1-F4-handoff.md). Phần này thay các mô tả cũ mâu thuẫn: voucher quản trị chỉ Admin với actor JWT; dashboard/revenue/export không dành cho Staff; kiểm kê quantity/threshold chỉ Manager/Admin, Staff báo hết món qua availability; Manager sửa quán qua allowlist operation. Checkout/preview chỉ Customer. Party đang khóa; Users chưa có runtime API.
+Contract chi tiết và trạng thái tích hợp tại [bàn giao F1–F4](../specs/rbac-branch-operations/F1-F4-handoff.md). Phần này thay các mô tả cũ mâu thuẫn: voucher quản trị chỉ Admin với actor JWT; dashboard/revenue/export không dành cho Staff; kiểm kê quantity/threshold chỉ Manager/Admin, Staff báo hết món qua availability; Manager sửa quán qua allowlist operation. Checkout/preview chỉ Customer. Đặt tiệc đã được gỡ khỏi runtime theo yêu cầu ngày 12/11/2026; Users chưa có runtime API.
 
 Cancel/reject nhận `reason`, status nhận `note` (lý do hủy trim 1–1000 ký tự); chỉ PENDING_PAYMENT/CONFIRMED được hủy. `OrderResponse.paymentStatus` đọc dữ liệu đã lưu (PENDING/PAID/COLLECTED/REFUNDED), độc lập với `status`; không backfill. Hoàn tất và xác nhận đơn chờ trả tiền yêu cầu PAID/COLLECTED, sai state trả 409. Thu COD không được thay bằng cập nhật COMPLETED; APPROVED refund không có nghĩa đã chi hoàn. Giữ error catalog và optimistic version hiện hữu; chưa nghiệm thu concurrency.
 
@@ -103,8 +103,6 @@ Quy ước chung:
 | POST /api/refund-requests | CUS-owner | Tạo yêu cầu refund với `{orderId, reason, bankBin, bankName, bankAccountNo, bankAccountName}` |
 | PUT /api/refund-requests/{id}/bank-details | CUS-owner/MGR/ADM | Cập nhật `{bankBin, bankName, bankAccountNo, bankAccountName, expectedBankDetailsVersion?}` khi state cho phép |
 | PUT /api/refund-requests/{id}/approve, /reject | MGR/ADM | Duyệt/từ chối hoàn tiền |
-| POST /api/party-orders | CUS | Gửi form đặt tiệc/đơn lớn |
-| GET/PUT /api/party-orders | STF/MGR/ADM | Tiếp nhận, báo giá, cập nhật trạng thái đơn tiệc |
 
 # 4. PAYMENT SERVICE — /api/payments
 | Method & Path | Quyền | Mô tả |

@@ -31,13 +31,8 @@
     "keepOrder": "Giữ đơn hàng",
     "confirmCancellation": "Xác nhận hủy"
   },
-  "party": {
-    "custom": "Tùy chọn",
-    "people": "người",
-    "time": "Thời gian",
-    "store": "Chi nhánh"
-  },
   "stores": {
+    "store": "Chi nhánh",
     "searchByStoreNameStreetDistrict": "Tìm theo tên chi nhánh, đường, quận...",
     "allStores": "Tất cả chi nhánh",
     "temporarilyClosed": "Tạm đóng",
@@ -1069,6 +1064,8 @@
     "accountNoShort": "STK:",
     "transferContentCodeLabel": "Mã nội dung CK:",
     "copyBtn": "Sao chép",
+    "copyAccount": "Sao chép số tài khoản",
+    "copyTransferReference": "Sao chép nội dung chuyển khoản",
     "copiedTransferRef": "Đã sao chép mã chuyển khoản: {{ref}}",
     "expandedBadge": "MÃ VIETQR THANH TOÁN ĐƠN HÀNG",
     "amountToCollect": "Số tiền cần thu",
@@ -1091,9 +1088,13 @@
     "confirmCashAtCounter": "Nhân viên xác nhận thu tiền mặt ngay tại quầy",
     "cashTenderedLabel": "Tiền khách đưa:",
     "exactCash": "Đủ tiền",
-    "cashChangeLabel": "Tiền thối lại khách:"
+    "cashChangeLabel": "Tiền thối lại khách:",
+    "qrAfterCreation": "Tạo đơn trước để lấy đúng nội dung chuyển khoản. Mã QR và tài khoản ngân hàng của chi nhánh sẽ hiển thị ở bước thu tiền."
   },
   "counterPayment": {
+    "loadingBank": "Đang tải tài khoản nhận tiền của chi nhánh…",
+    "bankUnavailable": "Chưa có QR hợp lệ. Kiểm tra cấu hình ngân hàng của chi nhánh, kết nối và trạng thái đơn; không chuyển tiền khi chưa có QR chính xác.",
+    "onlineTransferOnly": "Đơn chuyển khoản online chỉ được xác nhận sau khi đối soát giao dịch ngân hàng.",
     "codEvidenceTitle": "Ảnh bằng chứng xác nhận thu tiền COD (≤ 2MB)",
     "codEvidenceHint": "Hỗ trợ JPEG, PNG, WebP tối đa 2MB để lưu đối chiếu thu tiền mặt đơn online",
     "changeImageBtn": "Đổi ảnh (≤ 2MB)",

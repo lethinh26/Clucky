@@ -15,9 +15,6 @@
   "partialReceived": "Received {received} / {total}",
   "scanHint": "Scan with your banking app. Payment updates automatically.",
   "confirming": "Full payment received; waiting for order confirmation. Do not transfer more.",
-  "localSimulationNotice": "Local testing only. This creates a simulated transaction; no real money moves.",
-  "simulateSuccess": "Simulate successful payment",
-  "simulating": "Recording simulated transaction…",
   "deadline": "Keep the reference unchanged. The 15-minute deadline does not reset on reload; do not transfer after expiry.",
   "refundUnavailable": "These funds need store review and have not been automatically refunded. Please contact the store.",
   "statuses": {

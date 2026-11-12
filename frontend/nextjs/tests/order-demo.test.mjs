@@ -142,7 +142,6 @@ test("floating cart only belongs on customer shopping routes", () => {
     "/checkout",
     "/orders",
     "/orders/local-1",
-    "/party",
     "/account",
     "/admin/orders",
     "/stores",

@@ -29,13 +29,5 @@ for (const hasHome of [true, false]) {
     await expect(page.locator("#branch-83")).toContainText("Chưa có tọa độ");
     await expect(page.locator("#branch-83 img")).toHaveCount(1);
 
-    await page.goto("http://127.0.0.1:4174/party");
-    const storeSelect = page.getByRole("combobox", { name: /Chọn chi nhánh Clucky phụ trách/ });
-    await expect(storeSelect.locator(`option[value="${nearId}"]`)).toContainText("~ cách 0 km");
-    await expect(storeSelect.locator(`option[value="${farId}"]`)).toContainText("~ cách 111,2 km");
-    await expect(storeSelect.locator('option[value="83"]')).toContainText("Chưa có tọa độ");
-    await expect(page.locator("#party-distance-origin")).toHaveText(hasHome ? "Từ địa chỉ mặc định" : "Từ vị trí hiện tại");
-    await storeSelect.selectOption(nearId);
-    await expect(storeSelect).toHaveValue(nearId);
   });
 }

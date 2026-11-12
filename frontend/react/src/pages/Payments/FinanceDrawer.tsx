@@ -22,6 +22,7 @@ import { RefundsPanel } from "../Orders/RefundsPanel";
 import { ReceiptPicker } from "./ReceiptPicker";
 import { AdminModal } from "../../components/ui/AdminModal";
 import { orderDate, orderLabels, paymentColor, paymentLabels, paymentMethodLabel } from "../Orders/presentation";
+import { buildVietQrUrl } from "../../lib/vietqr";
 import "../Orders/admin-orders.css";
 
 type Action = "collection" | "reconcile" | "legacy";
@@ -220,18 +221,16 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
           : isPaidOrCollected && !isCashOrder
             ? qrAmountDue
             : 0;
-  const bankCode = bankPayment?.bank_code || "MB";
-  const bankName = bankPayment?.bank_name || t("business:financeModal.defaultBankName");
-  const accountNo = bankPayment?.account_no || "0387654321";
-  const accountName = bankPayment?.account_name || "CLUCKY FAST FOOD";
-  const transferRef =
-    counterReceipt?.bankRefCode ||
-    bankPayment?.transfer_content ||
-    snapshot?.order.orderCode ||
-    "";
-  const qrImageUrl = snapshot
-    ? `https://img.vietqr.io/image/${encodeURIComponent(bankCode)}-${encodeURIComponent(accountNo)}-compact2.png?amount=${qrAmountDue}&addInfo=${encodeURIComponent(transferRef)}&accountName=${encodeURIComponent(accountName)}`
-    : "";
+  const bankCode = snapshot?.bankInfo?.bankCode ?? "";
+  const bankName = snapshot?.bankInfo?.bankName ?? "";
+  const accountNo = snapshot?.bankInfo?.accountNo ?? "";
+  const accountName = snapshot?.bankInfo?.accountName ?? "";
+  const transferRef = snapshot?.reference ?? "";
+  const qrPayable = snapshot?.order.paymentStatus === "PENDING"
+    && ["PENDING_PAYMENT", "CONFIRMED", "PREPARING", "READY", "SHIPPING"].includes(snapshot.order.status)
+    && (!bankPayment || bankPayment.live_payment && bankPayment.status === "PENDING"
+      && Boolean(bankPayment.expires_at && new Date(bankPayment.expires_at).getTime() > Date.now()));
+  const qrImageUrl = qrPayable ? buildVietQrUrl(snapshot?.bankInfo, qrAmountDue, transferRef) : null;
 
   const displayTransactions = snapshot
     ? [
@@ -329,7 +328,7 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
         <div className="finance-summary"><div><small>{t("admin:ui.orderAmountDue")}</small><strong>{money(snapshot.order.amount)}</strong></div>
           <Space wrap><Tag>{orderLabels[snapshot.order.status] ?? snapshot.order.status}</Tag><Tag color={paymentColor(snapshot.order.paymentStatus)}>{paymentLabels[snapshot.order.paymentStatus] ?? snapshot.order.paymentStatus}</Tag></Space></div>
         <Descriptions column={{ xs: 1, sm: 2 }} layout="vertical" size="small" colon={false} items={[
-          { key: "store", label: t("business:party.store"), children: stores.find(store => store.id === snapshot.order.storeId)?.name ?? t("business:reviews.storeNumber", { value1: snapshot.order.storeId }) },
+          { key: "store", label: t("business:stores.store"), children: stores.find(store => store.id === snapshot.order.storeId)?.name ?? t("business:reviews.storeNumber", { value1: snapshot.order.storeId }) },
           { key: "method", label: t("admin:ui.orderPaymentMethod"), children: paymentMethodLabel(counterReceipt?.method || snapshot.order.paymentMethod) },
           ...(snapshot.order.expiresAt ? [{ key: "expiry", label: t("admin:ui.paymentDeadlineVietnamTime"), children: orderDate(snapshot.order.expiresAt, locale) }] : []),
         ]} />
@@ -407,7 +406,8 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
           </section>
         )}
 
-        {isQrOrder && (
+        {isQrOrder && qrPayable && !qrImageUrl && <Alert type="warning" showIcon message={t("business:counterPayment.bankUnavailable")} />}
+        {isQrOrder && qrImageUrl && (
           <section className="order-section finance-method-card">
             <div className="order-section-heading">
               <h3>

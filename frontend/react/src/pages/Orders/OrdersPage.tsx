@@ -272,7 +272,7 @@ export const OrdersPage: React.FC = () => {
       ),
     },
     {
-      title: t("business:party.store"),
+      title: t("business:stores.store"),
       dataIndex: "storeName",
       key: "storeName",
       render: (store) => <Typography.Text>{store}</Typography.Text>,

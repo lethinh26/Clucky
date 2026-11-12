@@ -80,7 +80,6 @@
     "reports": "Reports & statistics",
     "payments": "Payments & reconciliation",
     "promotions": "Promotions & Vouchers",
-    "partyOrders": "Party requests",
     "transfers": "Cash Drawer & Transfers"
   },
   "breadcrumb": {
@@ -920,29 +919,6 @@
     "accountStatusChangedButTheUpdatedDataCould": "Account status changed, but the updated data could not be loaded: {{value1}}",
     "allLoginSessionsForThisAccountWillBe": "All login sessions for this account will be revoked.",
     "thisChangeOnlyAffectsTheSelectedAccountUnlocking": "This change only affects the selected account. Unlocking does not replace activation or automatically reopen branch sales."
-  },
-  "party": {
-    "title": "Party requests",
-    "storeId": "Store",
-    "guests": "guests",
-    "package": "Package",
-    "request": "Request",
-    "call": "Call",
-    "email": "Email",
-    "quote": "Quote",
-    "cash": "Cash",
-    "transfer": "Bank transfer",
-    "lastNote": "Consultation note",
-    "nextStatus": "Next step",
-    "note": "Contact or consultation note",
-    "payment": "Payment method",
-    "save": "Save update",
-    "saved": "Request updated",
-    "refresh": "Refresh",
-    "loadMore": "Load more requests",
-    "empty": "No party requests yet",
-    "noteRequired": "Add a contact note or reason",
-    "quoteRequired": "Enter a quote and payment method"
   },
   "system": {
     "notConnected": "Not connected to backend system",

@@ -166,7 +166,7 @@ test("admin filters and an open form survive language changes", async ({ page })
 });
 
 for (const [origin, routes] of [
-  [customer, ["/", "/menu", "/menu/ga-ran-truyen-thong", "/account", "/cart", "/checkout", "/orders", "/stores", "/party"]],
+  [customer, ["/", "/menu", "/menu/ga-ran-truyen-thong", "/account", "/cart", "/checkout", "/orders", "/stores"]],
   [admin, ["/admin", "/admin/catalog", "/admin/stores", "/admin/inventory", "/admin/orders", "/admin/reviews", "/admin/users", "/admin/reports", "/admin/payments"]],
 ] as const) {
   test(`English route coverage without missing translations (${origin})`, async ({ page, context }) => {
@@ -253,15 +253,6 @@ test("customer header has a compact flag selector and session-aware account link
   await expect(header.getByRole("link", { name: "Account", exact: true })).toBeVisible();
 });
 
-test("party prices follow locale without translating package names", async ({ page }) => {
-  await page.goto(customer + "/party");
-  for (const locale of ["vi", "en"] as const) {
-    await switchLanguage(page, locale);
-    const money = new Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en-US", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(1290000);
-    const card = page.getByRole("button", { name: /Tiệc Sinh Nhật Vui Vẻ/ });
-    await expect(card).toContainText(money);
-  }
-});
 
 test("order timestamps use Vietnam time in both languages without translating customer data", async ({ page, context }) => {
   await seedOrder(page);

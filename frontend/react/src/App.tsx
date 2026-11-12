@@ -24,7 +24,6 @@ import { LoginPage } from "./pages/Auth/LoginPage";
 import { BranchAccessPage } from "./pages/Auth/BranchAccessPage";
 import { BranchAccountsPage } from "./pages/Users/BranchAccountsPage";
 import { PaymentsPage } from "./pages/Payments";
-import { PartyOrdersPage } from "./pages/PartyOrders/PartyOrdersPage";
 import { AdminPaymentsPage } from "./pages/Payments/AdminPaymentsPage";
 import { CustomersPage } from "./pages/Customers";
 import { EmailLogsPage } from "./pages/EmailLogs";
@@ -195,10 +194,6 @@ export const App: React.FC = () => {
                           <OrdersRoute />
                         </ProtectedRoute>
                       }
-                    />
-                    <Route
-                      path="party-orders"
-                      element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER", "STAFF"]}><PartyOrdersPage /></ProtectedRoute>}
                     />
                     <Route
                       path="users"

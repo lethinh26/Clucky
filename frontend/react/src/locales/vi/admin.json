@@ -82,7 +82,6 @@
     "reports": "Báo cáo & Thống kê",
     "payments": "Thanh toán & Đối soát",
     "promotions": "Quản lý Khuyến mãi & Voucher",
-    "partyOrders": "Yêu cầu đặt tiệc",
     "transfers": "Sổ Quỹ & Két Ca Trực"
   },
   "breadcrumb": {
@@ -922,29 +921,6 @@
     "accountStatusChangedButTheUpdatedDataCould": "Đã đổi trạng thái tài khoản, nhưng chưa tải được dữ liệu mới: {{value1}}",
     "allLoginSessionsForThisAccountWillBe": "Toàn bộ phiên đăng nhập của tài khoản sẽ bị thu hồi.",
     "thisChangeOnlyAffectsTheSelectedAccountUnlocking": "Thay đổi chỉ áp dụng cho tài khoản đã chọn. Mở khóa không thay thế việc kích hoạt và không tự mở bán chi nhánh."
-  },
-  "party": {
-    "title": "Yêu cầu đặt tiệc",
-    "storeId": "Chi nhánh",
-    "guests": "khách",
-    "package": "Gói tiệc",
-    "request": "Yêu cầu",
-    "call": "Gọi",
-    "email": "Email",
-    "quote": "Báo giá",
-    "cash": "Tiền mặt",
-    "transfer": "Chuyển khoản",
-    "lastNote": "Ghi chú tư vấn",
-    "nextStatus": "Bước tiếp theo",
-    "note": "Nội dung liên hệ / tư vấn",
-    "payment": "Phương thức thanh toán",
-    "save": "Lưu cập nhật",
-    "saved": "Đã cập nhật yêu cầu",
-    "refresh": "Tải lại",
-    "loadMore": "Xem thêm yêu cầu",
-    "empty": "Chưa có yêu cầu đặt tiệc",
-    "noteRequired": "Cần ghi chú nội dung liên hệ hoặc lý do thay đổi",
-    "quoteRequired": "Cần nhập báo giá và phương thức thanh toán"
   },
   "system": {
     "notConnected": "Chưa kết nối với hệ thống",

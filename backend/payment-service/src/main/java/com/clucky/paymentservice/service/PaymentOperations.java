@@ -98,6 +98,16 @@ public class PaymentOperations {
                 + "FROM payment_service.payments WHERE order_id=? ORDER BY id", orderId)));
         var collections = jdbc.queryForList("SELECT id FROM payment_service.collections WHERE order_id=? ORDER BY created_at DESC LIMIT 1", UUID.class, orderId);
         if (!collections.isEmpty()) result.set("collection", collection(collections.getFirst()));
+        var transfer = jdbc.queryForList("SELECT bank_name,bank_code,account_no,account_name,transfer_content FROM payment_service.payments "
+                + "WHERE order_id=? AND live_payment ORDER BY id DESC LIMIT 1", orderId);
+        Map<String, Object> bank = transfer.isEmpty()
+                ? "COUNTER".equals(order.orderSource()) ? bankSnapshot(orderId, order.storeId(), true) : Map.of()
+                : transfer.getFirst();
+        if (!bank.isEmpty()) {
+            result.set("bankInfo", mapper.valueToTree(new PaymentFlow.Bank((String) bank.get("bank_name"),
+                    (String) bank.get("bank_code"), (String) bank.get("account_no"), (String) bank.get("account_name"))));
+            result.put("reference", TransferReference.normalize(transfer.isEmpty() ? order.orderCode() : (String) bank.get("transfer_content")));
+        }
         return result;
     }
 
@@ -232,11 +242,11 @@ public class PaymentOperations {
     }
 
     private Map<String,Object> bankSnapshot(long orderId,long storeId,boolean required) {
-        var payments=jdbc.queryForList("SELECT bank_name,bank_code,account_no FROM payment_service.payments WHERE order_id=? ORDER BY id DESC",orderId);
+        var payments=jdbc.queryForList("SELECT bank_name,bank_code,account_no,account_name FROM payment_service.payments WHERE order_id=? ORDER BY id DESC",orderId);
         if (payments.size() > 1) conflict();
         if (!payments.isEmpty()) return payments.getFirst();
         if (!required) return Map.of();
-        var bindings=jdbc.queryForList("SELECT bank_name,bank_code,account_no FROM payment_service.store_bank_accounts assignment "
+        var bindings=jdbc.queryForList("SELECT bank_name,bank_code,account_no,account_name FROM payment_service.store_bank_accounts assignment "
                 + "JOIN payment_service.bank_accounts_config bank ON bank.id=assignment.bank_account_id WHERE assignment.store_id=? AND bank.is_active",storeId);
         return bindings.size()==1 ? bindings.getFirst() : Map.of();
     }

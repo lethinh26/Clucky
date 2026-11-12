@@ -62,8 +62,8 @@ class SecurityConfigTest {
             context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("jwt", Map.of(
                     "clucky.security.jwt.secret", SECRET, "clucky.security.jwt.issuer", "clucky-identity",
                     "clucky.security.jwt.audience", "clucky-api",
-                    "clucky.auth.customer-origins", "http://localhost:3000",
-                    "clucky.auth.admin-origins", "http://localhost:3001")));
+                    "clucky.auth.customer-origins", "http://localhost:3000/",
+                    "clucky.auth.admin-origins", "http://localhost:3001/")));
             context.register(WebConfig.class);
             context.refresh();
             WebTestClient client = WebTestClient.bindToApplicationContext(context)
@@ -72,6 +72,24 @@ class SecurityConfigTest {
                 client.post().uri(path).cookie("clucky_customer_refresh", "opaque-refresh-token")
                         .header("X-Clucky-Client", "customer")
                         .header("Origin", "http://localhost:3000").exchange().expectStatus().isOk();
+            }
+            for (String scope : new String[]{"customer", "admin"}) {
+                String origin = "customer".equals(scope) ? "http://localhost:3000" : "http://localhost:3001";
+                for (String path : new String[]{"/api/auth/register", "/api/auth/login", "/api/auth/refresh"}) {
+                    client.post().uri(path).header("X-Clucky-Client", scope)
+                            .cookie("clucky_" + scope + "_access", "expired-token")
+                            .header("Origin", origin).exchange().expectStatus().isOk();
+                    client.post().uri(path).header("X-Clucky-Client", scope)
+                            .cookie("clucky_" + scope + "_access", "expired-token")
+                            .header("Referer", origin + "/login").exchange().expectStatus().isOk();
+                    client.post().uri(path).header("X-Clucky-Client", scope)
+                            .exchange().expectStatus().isForbidden();
+                    client.post().uri(path).header("X-Clucky-Client", scope)
+                            .header("Referer", "https://evil.example/login").exchange().expectStatus().isForbidden();
+                    client.post().uri(path).header("X-Clucky-Client", scope)
+                            .header("Origin", "null").header("Referer", origin + "/login")
+                            .exchange().expectStatus().isForbidden();
+                }
             }
             client.get().uri("/api/orders").exchange().expectStatus().isUnauthorized();
             client.get().uri("/api/orders").header("Origin", "http://localhost:3000")
@@ -117,6 +135,8 @@ class SecurityConfigTest {
         @Bean
         RouterFunction<ServerResponse> routes() {
             return RouterFunctions.route().POST("/api/auth/logout", request -> ServerResponse.ok().build())
+                    .POST("/api/auth/register", request -> ServerResponse.ok().build())
+                    .POST("/api/auth/login", request -> ServerResponse.ok().build())
                     .POST("/api/auth/refresh", request -> ServerResponse.ok().build())
                     .POST("/api/payments/webhook/sepay", request -> ServerResponse.ok().bodyValue(request.headers().firstHeader("Authorization")))
                     .GET("/api/orders", request -> ServerResponse.ok().build()).build();

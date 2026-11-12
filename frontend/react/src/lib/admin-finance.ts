@@ -1,6 +1,7 @@
 import i18n from "../i18n/index.ts";
 import { api, type BackendOrder, type BackendRefund, type PageResponse } from "./api";
 import type { AdminOrder } from "../types/order";
+import type { BankInfo } from "./vietqr";
 
 export interface OrderQuery { page: number; size: number; storeId?: number; status?: string; orderCode?: string; queueNumber?: number; customerId?: number; date?: string }
 export interface RefundQuery { page: number; size: number; storeId?: number; status?: string; orderId?: number }
@@ -21,7 +22,7 @@ export interface Collection {
 }
 export interface PaymentSnapshot {
   order: { orderId: number; orderCode: string; storeId: number; amount: number; status: string; paymentStatus: string; paymentMethod: string; expiresAt: string | null; version: string };
-  payments: Payment[]; collection?: Collection;
+  payments: Payment[]; collection?: Collection; bankInfo?: BankInfo; reference?: string;
 }
 export interface CollectionInput { cashAmount: number; transferAmount: number; cashTendered: number; cashChange: number; reason: string }
 export type FinanceOperation = { path: string; body: object; key: string; signature: string };
