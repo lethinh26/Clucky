@@ -1,34 +1,75 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslations } from "next-intl";
-import { X } from "lucide-react";
+import { ArrowRight, EyeOff, X } from "lucide-react";
 import Link from "@/components/ui-loader/navigation-link";
+import { subscribeSession } from "@/lib/session";
 import type { PromoBanner } from "@/lib/types/promotion";
 import { BannerSlider, resolveSafeHref, type BannerSlideItem } from "./banner-slider";
+
+const DISMISSED_POPUPS_STORAGE_KEY = "clucky_dismissed_popup_banners_v1";
+
+function readDismissedPopupIds(): number[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_POPUPS_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((id): id is number => typeof id === "number") : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistDismissedPopupId(id: number): number[] {
+  const existing = readDismissedPopupIds();
+  if (existing.includes(id)) {
+    return existing;
+  }
+  const next = [...existing, id];
+  try {
+    window.localStorage.setItem(DISMISSED_POPUPS_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Ignore storage quota or private mode restrictions.
+  }
+  return next;
+}
 
 function BannerActionLink({
   href,
   label,
+  className,
   style,
 }: {
   href: string | null;
   label: string;
+  className?: string;
   style?: CSSProperties;
 }) {
   if (!href) {
     return null;
   }
+  const content = (
+    <>
+      <span>{label}</span>
+      <ArrowRight size={15} aria-hidden="true" />
+    </>
+  );
   if (href.startsWith("/")) {
     return (
-      <Link href={href} style={style}>
-        {label}
+      <Link href={href} className={className} style={style}>
+        {content}
       </Link>
     );
   }
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" style={style}>
-      {label}
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className} style={style}>
+      {content}
     </a>
   );
 }
@@ -41,11 +82,35 @@ export function BannerShowcase({
   showHero?: boolean;
 }) {
   const t = useTranslations();
-  const [popupDismissed, setPopupDismissed] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
+  const [hiddenPopupIds, setHiddenPopupIds] = useState<number[]>([]);
+  const [dismissedPopupId, setDismissedPopupId] = useState<number | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  if (banners.length === 0) {
-    return null;
-  }
+  useEffect(() => {
+    const syncDismissed = () => {
+      setHiddenPopupIds(readDismissedPopupIds());
+    };
+    syncDismissed();
+    setStorageReady(true);
+
+    const unsubscribe = subscribeSession(() => {
+      syncDismissed();
+      setDismissedPopupId(null);
+    });
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === DISMISSED_POPUPS_STORAGE_KEY || event.key === "clucky-customer-session-change") {
+        syncDismissed();
+        setDismissedPopupId(null);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
 
   const heroSlides: BannerSlideItem[] = showHero
     ? banners
@@ -59,180 +124,115 @@ export function BannerShowcase({
         }))
     : [];
 
-  const stripBanners = banners.filter((item) => item.position === "PROMO_STRIP");
   const popupBanner = banners.find((item) => item.position === "POPUP") ?? null;
+  const popupVisible = Boolean(
+    storageReady
+      && popupBanner
+      && dismissedPopupId !== popupBanner.id
+      && !hiddenPopupIds.includes(popupBanner.id),
+  );
   const popupHref = resolveSafeHref(popupBanner?.linkUrl);
+
+  const dismissPopup = useCallback(
+    (persist = false) => {
+      if (!popupBanner || isClosing) {
+        return;
+      }
+      if (persist) {
+        setHiddenPopupIds(persistDismissedPopupId(popupBanner.id));
+      }
+      setIsClosing(true);
+      if (closeTimerRef.current !== null) {
+        clearTimeout(closeTimerRef.current);
+      }
+      const targetId = popupBanner.id;
+      closeTimerRef.current = setTimeout(() => {
+        setDismissedPopupId(targetId);
+        setIsClosing(false);
+      }, 180);
+    },
+    [isClosing, popupBanner],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!popupVisible) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        dismissPopup(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [dismissPopup, popupVisible]);
+
+  if (banners.length === 0 || (heroSlides.length === 0 && !popupVisible)) {
+    return null;
+  }
 
   return (
     <>
-      {(heroSlides.length > 0 || stripBanners.length > 0) && (
+      {heroSlides.length > 0 && (
         <section className="banner-showcase-section" aria-label={t("home.banners.eyebrow")}>
-          {heroSlides.length > 0 && <BannerSlider slides={heroSlides} />}
-
-          {stripBanners.length > 0 && (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                gap: 16,
-              }}
-            >
-              {stripBanners.map((banner) => {
-                const stripHref = resolveSafeHref(banner.linkUrl);
-                return (
-                  <div
-                    key={banner.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 14,
-                      padding: 12,
-                      borderRadius: 18,
-                      background: "#FFFAF3",
-                      border: "1px solid rgba(143, 18, 22, 0.14)",
-                      boxShadow: "0 8px 20px rgba(22, 16, 13, 0.05)",
-                    }}
-                  >
-                    <img
-                      src={banner.imageUrl}
-                      alt={banner.title}
-                      loading="lazy"
-                      style={{
-                        width: 96,
-                        height: 68,
-                        borderRadius: 12,
-                        objectFit: "cover",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p
-                        style={{
-                          margin: "0 0 6px",
-                          color: "#16100D",
-                          fontFamily: "Baloo 2, sans-serif",
-                          fontWeight: 700,
-                          fontSize: 16,
-                          lineHeight: 1.25,
-                        }}
-                      >
-                        {banner.title}
-                      </p>
-                      <BannerActionLink
-                        href={stripHref}
-                        label={t("home.banners.cta")}
-                        style={{
-                          color: "#8F1216",
-                          fontFamily: "Quicksand, sans-serif",
-                          fontWeight: 700,
-                          fontSize: 13,
-                          textDecoration: "none",
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <BannerSlider slides={heroSlides} />
         </section>
       )}
 
-      {popupBanner && !popupDismissed && (
+      {popupBanner && popupVisible && (
         <div
           role="dialog"
           aria-modal="true"
           aria-label={popupBanner.title}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 90,
-            background: "rgba(22, 16, 13, 0.65)",
-            display: "grid",
-            placeItems: "center",
-            padding: 20,
+          className={`banner-popup-backdrop${isClosing ? " banner-popup-backdrop--closing" : ""}`}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              dismissPopup(false);
+            }
           }}
         >
-          <div
-            style={{
-              position: "relative",
-              width: "min(520px, 100%)",
-              borderRadius: 24,
-              overflow: "hidden",
-              background: "#FFFAF3",
-              border: "2px solid rgba(201, 162, 39, 0.55)",
-              boxShadow: "0 24px 60px rgba(22, 16, 13, 0.35)",
-            }}
-          >
+          <div className={`banner-popup-card${isClosing ? " banner-popup-card--closing" : ""}`}>
             <button
               type="button"
               aria-label={t("home.banners.close")}
-              onClick={() => setPopupDismissed(true)}
-              style={{
-                position: "absolute",
-                top: 12,
-                right: 12,
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                border: "none",
-                background: "rgba(22, 16, 13, 0.72)",
-                color: "#FFFAF3",
-                display: "grid",
-                placeItems: "center",
-                cursor: "pointer",
-              }}
+              className="banner-popup-close"
+              onClick={() => dismissPopup(false)}
             >
-              <X size={18} />
+              <X size={20} />
             </button>
 
-            <img
-              src={popupBanner.imageUrl}
-              alt={popupBanner.title}
-              style={{
-                width: "100%",
-                maxHeight: 300,
-                objectFit: "cover",
-                display: "block",
-              }}
-            />
-
-            <div
-              style={{
-                padding: 20,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 16,
-                flexWrap: "wrap",
-              }}
-            >
-              <h3
-                style={{
-                  margin: 0,
-                  color: "#16100D",
-                  fontFamily: "Baloo 2, sans-serif",
-                  fontWeight: 700,
-                  fontSize: 20,
-                }}
+            <div className="banner-popup-media">
+              <button
+                type="button"
+                className="banner-popup-dont-show"
+                onClick={() => dismissPopup(true)}
               >
-                {popupBanner.title}
-              </h3>
+                <EyeOff size={13} aria-hidden="true" />
+                <span>{t("home.banners.dontShowAgain")}</span>
+              </button>
 
-              <BannerActionLink
-                href={popupHref}
-                label={t("home.banners.cta")}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: 999,
-                  background: "#8F1216",
-                  color: "#FFFAF3",
-                  fontFamily: "Quicksand, sans-serif",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  textDecoration: "none",
-                }}
+              <img
+                src={popupBanner.imageUrl}
+                alt={popupBanner.title}
+                className="banner-popup-img"
               />
+
+              <div className="banner-popup-overlay">
+                <h3 className="banner-popup-title">{popupBanner.title}</h3>
+                <BannerActionLink
+                  href={popupHref}
+                  label={t("home.banners.cta")}
+                  className="banner-popup-cta"
+                />
+              </div>
             </div>
           </div>
         </div>

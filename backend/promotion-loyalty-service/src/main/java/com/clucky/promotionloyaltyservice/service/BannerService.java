@@ -50,8 +50,10 @@ public class BannerService {
     @Transactional(readOnly = true)
     public List<BannerResponse> getActiveBanners(String position) {
         String normalizedPosition = normalizePosition(position, false);
+        boolean filterByPosition = normalizedPosition != null;
+        String positionFilter = filterByPosition ? normalizedPosition : "";
         Instant now = Instant.now();
-        return bannerRepository.findActiveBanners(now, normalizedPosition)
+        return bannerRepository.findActiveBanners(now, filterByPosition, positionFilter)
                 .stream()
                 .map(b -> BannerResponse.fromEntity(b, now))
                 .toList();
@@ -61,9 +63,18 @@ public class BannerService {
     public List<BannerResponse> getAdminBanners(String position, Boolean isActive, String keyword) {
         requireAdmin();
         String normalizedPosition = normalizePosition(position, false);
+        boolean filterByPosition = normalizedPosition != null;
+        String positionFilter = filterByPosition ? normalizedPosition : "";
+        boolean filterByActive = isActive != null;
+        boolean activeFilter = Boolean.TRUE.equals(isActive);
         String cleanKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.strip();
+        boolean filterByKeyword = cleanKeyword != null;
+        String keywordPattern = filterByKeyword ? "%" + cleanKeyword.toLowerCase(Locale.ROOT) + "%" : "";
         Instant now = Instant.now();
-        return bannerRepository.findAdminBanners(normalizedPosition, isActive, cleanKeyword)
+        return bannerRepository.findAdminBanners(
+                        filterByPosition, positionFilter,
+                        filterByActive, activeFilter,
+                        filterByKeyword, keywordPattern)
                 .stream()
                 .map(b -> BannerResponse.fromEntity(b, now))
                 .toList();

@@ -897,6 +897,7 @@ select option:hover {
   width: 100%;
   height: 100%;
   display: block;
+  background: var(--espresso);
 }
 
 .banner-slide--clickable {
@@ -906,7 +907,8 @@ select option:hover {
 .banner-slide-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   display: block;
   user-select: none;
   -webkit-user-drag: none;
@@ -1093,7 +1095,9 @@ select option:hover {
   border-radius: 0;
   box-shadow: none;
   animation: none;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  display: block;
 }
 
 .hero-food .banner-slider--hero .banner-slide-overlay {
@@ -1135,5 +1139,453 @@ select option:hover {
     aspect-ratio: 16 / 10;
     min-height: 240px;
     max-height: 360px;
+  }
+}
+
+/* ---------- Promotional Banner Effects & Expanded Popup ---------- */
+@keyframes cluckyBannerSheen {
+  0% {
+    transform: translateX(-140%) skewX(-22deg);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.42;
+  }
+  70% {
+    opacity: 0.42;
+  }
+  100% {
+    transform: translateX(240%) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+@keyframes cluckyPopupSweep {
+  0%,
+  12% {
+    transform: translateX(-160%) skewX(-24deg);
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.95;
+  }
+  58% {
+    opacity: 0.95;
+  }
+  72%,
+  100% {
+    transform: translateX(320%) skewX(-24deg);
+    opacity: 0;
+  }
+}
+
+@keyframes cluckySlideProgress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes cluckyPopupFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cluckyPopupFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes cluckyPopupEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) scale(0.92);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.012);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cluckyPopupExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+}
+
+@keyframes cluckyBadgeGlow {
+  0%,
+  100% {
+    box-shadow: 0 4px 16px rgba(201, 162, 39, 0.28);
+  }
+  50% {
+    box-shadow: 0 4px 24px rgba(201, 162, 39, 0.56);
+  }
+}
+
+.hero-food .banner-slider--hero {
+  transition: box-shadow 320ms ease, border-color 320ms ease, transform 320ms ease;
+}
+
+.hero-food .banner-slider--hero:hover {
+  border-color: rgba(201, 162, 39, 0.65);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.58),
+    0 0 95px rgba(201, 162, 39, 0.28);
+}
+
+.banner-slide-img {
+  transition: transform 6.5s cubic-bezier(0.22, 1, 0.36, 1), filter 350ms ease;
+  will-change: transform;
+}
+
+.banner-slide--active .banner-slide-img {
+  transform: scale(1);
+}
+
+.banner-slide--clickable:hover .banner-slide-img {
+  filter: brightness(1.04) saturate(1.04);
+}
+
+.banner-slide::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 250, 243, 0) 0%,
+    rgba(255, 250, 243, 0.22) 50%,
+    rgba(255, 250, 243, 0) 100%
+  );
+  transform: translateX(-140%) skewX(-22deg);
+  opacity: 0;
+}
+
+.banner-slide--clickable:hover::after {
+  animation: cluckyBannerSheen 950ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.banner-slide .banner-slide-eyebrow,
+.banner-slide .banner-slide-title,
+.banner-slide .banner-slide-cta {
+  opacity: 0.78;
+  transform: translateY(8px);
+  transition:
+    opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.banner-slide--active .banner-slide-eyebrow {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 80ms;
+}
+
+.banner-slide--active .banner-slide-title {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 140ms;
+}
+
+.banner-slide--active .banner-slide-cta {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 200ms;
+}
+
+.banner-slider-dot.active {
+  box-shadow: 0 0 12px rgba(201, 162, 39, 0.72);
+}
+
+.banner-slider-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  z-index: 4;
+  background: rgba(255, 250, 243, 0.16);
+  pointer-events: none;
+}
+
+.banner-slider-progress-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--gold) 0%, #f3d26a 100%);
+  animation-name: cluckySlideProgress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.banner-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(22, 16, 13, 0.74);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  animation: cluckyPopupFadeIn 240ms ease-out forwards;
+}
+
+.banner-popup-backdrop--closing {
+  animation: cluckyPopupFadeOut 180ms ease-in forwards;
+}
+
+.banner-popup-card {
+  position: relative;
+  width: min(820px, calc(100vw - 32px));
+  border-radius: 26px;
+  overflow: hidden;
+  background: #FFFAF3;
+  border: 2px solid rgba(201, 162, 39, 0.65);
+  box-shadow:
+    0 32px 84px rgba(0, 0, 0, 0.56),
+    0 0 48px rgba(201, 162, 39, 0.24);
+  animation: cluckyPopupEnter 360ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.banner-popup-card--closing {
+  animation: cluckyPopupExit 180ms ease-in forwards;
+}
+
+.banner-popup-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 6;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 250, 243, 0.36);
+  background: rgba(22, 16, 13, 0.76);
+  backdrop-filter: blur(8px);
+  color: #FFFAF3;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  transition: transform 220ms ease, background-color 220ms ease, border-color 220ms ease;
+}
+
+.banner-popup-close:hover {
+  background: var(--wine);
+  border-color: rgba(201, 162, 39, 0.85);
+  transform: scale(1.08) rotate(90deg);
+}
+
+.banner-popup-media {
+  position: relative;
+  width: 100%;
+  background: #16100D;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner-popup-media::after {
+  content: "";
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 38%;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 250, 243, 0) 0%,
+    rgba(255, 245, 210, 0.22) 32%,
+    rgba(255, 255, 255, 0.56) 50%,
+    rgba(255, 245, 210, 0.22) 68%,
+    rgba(255, 250, 243, 0) 100%
+  );
+  animation: cluckyPopupSweep 3.6s 250ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.banner-popup-img {
+  width: 100%;
+  height: auto;
+  max-height: min(82vh, 640px);
+  object-fit: contain;
+  display: block;
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.banner-popup-card:hover .banner-popup-img {
+  transform: scale(1.015);
+}
+
+.banner-popup-dont-show {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(22, 16, 13, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(201, 162, 39, 0.65);
+  color: #FFFAF3;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.48);
+  transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+
+.banner-popup-dont-show:hover {
+  background: rgba(143, 18, 22, 0.9);
+  border-color: rgba(255, 232, 163, 0.85);
+  transform: translateY(-1px);
+}
+
+.banner-popup-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  padding: 28px 20px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 16, 13, 0) 0%,
+    rgba(22, 16, 13, 0.46) 45%,
+    rgba(22, 16, 13, 0.86) 100%
+  );
+}
+
+.banner-popup-title {
+  margin: 0;
+  padding: 6px 14px;
+  max-width: min(440px, 100%);
+  border-radius: 999px;
+  background: rgba(22, 16, 13, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 250, 243, 0.22);
+  color: #FFFAF3;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: clamp(13px, 1.25vw, 15px);
+  line-height: 1.35;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.48);
+}
+
+.banner-popup-cta {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #8F1216 0%, #B2191E 100%);
+  border: 1px solid rgba(201, 162, 39, 0.55);
+  color: #FFFAF3;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 13.5px;
+  text-decoration: none;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.52),
+    0 4px 16px rgba(143, 18, 22, 0.46);
+  transition: transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+}
+
+.banner-popup-cta::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 40%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 245, 210, 0.42) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: cluckyPopupSweep 3.6s 700ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.banner-popup-cta:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 28px rgba(143, 18, 22, 0.45),
+    0 0 0 2px rgba(201, 162, 39, 0.55);
+  filter: brightness(1.06);
+}
+
+@media (max-width: 640px) {
+  .banner-popup-card {
+    border-radius: 20px;
+  }
+  .banner-popup-overlay {
+    padding: 30px 16px 16px;
+  }
+  .banner-popup-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-popup-backdrop,
+  .banner-popup-card,
+  .banner-popup-media::after,
+  .banner-popup-cta::after,
+  .banner-popup-badge,
+  .banner-slide--clickable:hover::after,
+  .banner-slider-progress-fill {
+    animation: none !important;
+  }
+  .banner-slide-img,
+  .banner-popup-img,
+  .banner-popup-close,
+  .banner-popup-cta,
+  .banner-slide .banner-slide-eyebrow,
+  .banner-slide .banner-slide-title,
+  .banner-slide .banner-slide-cta {
+    transition: none !important;
+    transform: none !important;
   }
 }

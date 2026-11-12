@@ -27,6 +27,7 @@
     "prev": "Banner trước",
     "next": "Banner tiếp theo",
     "close": "Đóng thông báo",
+    "dontShowAgain": "Không hiển thị lại",
     "slideIndicator": "Chuyển đến banner {index}"
   }
 }

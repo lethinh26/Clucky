@@ -21,20 +21,26 @@ public interface BannerRepository extends JpaRepository<Banner, Long> {
         WHERE b.isActive = true
           AND (b.startAt IS NULL OR b.startAt <= :now)
           AND (b.endAt IS NULL OR b.endAt >= :now)
-          AND (:position IS NULL OR b.position = :position)
+          AND (:filterByPosition = false OR b.position = :position)
         ORDER BY b.displayOrder ASC, b.id DESC
     """)
-    List<Banner> findActiveBanners(@Param("now") Instant now, @Param("position") String position);
+    List<Banner> findActiveBanners(
+            @Param("now") Instant now,
+            @Param("filterByPosition") boolean filterByPosition,
+            @Param("position") String position);
 
     @Query("""
         SELECT b FROM Banner b
-        WHERE (:position IS NULL OR b.position = :position)
-          AND (:isActive IS NULL OR b.isActive = :isActive)
-          AND (:keyword IS NULL OR LOWER(b.title) LIKE LOWER(CONCAT('%', :keyword, '%')))
+        WHERE (:filterByPosition = false OR b.position = :position)
+          AND (:filterByActive = false OR b.isActive = :isActive)
+          AND (:filterByKeyword = false OR LOWER(b.title) LIKE :keywordPattern)
         ORDER BY b.displayOrder ASC, b.id DESC
     """)
     List<Banner> findAdminBanners(
+            @Param("filterByPosition") boolean filterByPosition,
             @Param("position") String position,
-            @Param("isActive") Boolean isActive,
-            @Param("keyword") String keyword);
+            @Param("filterByActive") boolean filterByActive,
+            @Param("isActive") boolean isActive,
+            @Param("filterByKeyword") boolean filterByKeyword,
+            @Param("keywordPattern") String keywordPattern);
 }

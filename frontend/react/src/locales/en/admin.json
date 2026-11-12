@@ -104,7 +104,7 @@
     },
     "banner": {
       "title": "Promotional Banner Management",
-      "subtitle": "Manage homepage hero, popup, and promo strip banners with scheduling and Cloudinary uploads.",
+      "subtitle": "Manage homepage hero and popup banners with scheduling and Cloudinary uploads.",
       "create": "Create Banner",
       "edit": "Edit Banner",
       "empty": "No banners match the current filters.",
@@ -114,7 +114,7 @@
       "saveSuccessUpdate": "Banner updated successfully.",
       "deleteSuccess": "Banner deleted.",
       "deleteConfirmTitle": "Delete this banner?",
-      "deleteConfirmDesc": "Banner \"{title}\" and its Cloudinary asset will be retired.",
+      "deleteConfirmDesc": "Banner \"{{title}}\" and its Cloudinary asset will be retired.",
       "searchPlaceholder": "Search by title or URL...",
       "allPositions": "All positions",
       "allStatuses": "All statuses",
@@ -131,11 +131,11 @@
         "image": "Banner image",
         "status": "Status",
         "schedule": "Schedule",
-        "orderShort": "Order: #{order}",
+        "orderShort": "Order: #{{order}}",
         "noSchedule": "Always active",
-        "fromDate": "From {date}",
-        "untilDate": "Until {date}",
-        "scheduleRange": "{start} -> {end}",
+        "fromDate": "From {{date}}",
+        "untilDate": "Until {{date}}",
+        "scheduleRange": "{{start}} -> {{end}}",
         "noLink": "No target link"
       },
       "positions": {

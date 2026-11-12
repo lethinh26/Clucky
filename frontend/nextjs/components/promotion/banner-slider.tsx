@@ -257,7 +257,7 @@ export function BannerSlider({
               key={slide.id}
               href={href}
               ariaLabel={slide.alt || slide.title}
-              className={`banner-slide${href ? " banner-slide--clickable" : ""}`}
+              className={`banner-slide${isCurrent ? " banner-slide--active" : ""}${href ? " banner-slide--clickable" : ""}`}
               onClick={handleSlideClick}
             >
               <img
@@ -321,6 +321,17 @@ export function BannerSlider({
                 />
               );
             })}
+          </div>
+
+          <div className="banner-slider-progress" aria-hidden="true">
+            <span
+              key={`${safeIndex}-${interactionTick}`}
+              className="banner-slider-progress-fill"
+              style={{
+                animationDuration: `${intervalMs}ms`,
+                animationPlayState: isHovered || isTabHidden ? "paused" : "running",
+              }}
+            />
           </div>
         </>
       )}

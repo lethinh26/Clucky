@@ -26,7 +26,7 @@ const MAX_BANNER_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_BANNER_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const ALLOWED_BANNER_EXT_RE = /\.(png|jpe?g|webp)$/i;
 
-export const BANNER_POSITIONS: BannerPosition[] = ['HERO_HOME', 'POPUP', 'PROMO_STRIP'];
+export const BANNER_POSITIONS: BannerPosition[] = ['HERO_HOME', 'POPUP'];
 
 export function isValidBannerLinkUrl(value?: string | null): boolean {
   const trimmed = (value ?? '').trim();

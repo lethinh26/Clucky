@@ -27,6 +27,7 @@
     "prev": "Previous banner",
     "next": "Next banner",
     "close": "Close promotion",
+    "dontShowAgain": "Don't show again",
     "slideIndicator": "Go to banner {index}"
   }
 }

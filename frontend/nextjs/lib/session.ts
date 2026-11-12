@@ -143,7 +143,12 @@ export async function signIn<T extends SessionUser | { status: string; pendingTo
 ): Promise<T> {
   return sessionLock(async () => {
     const result = await send<T>(path, { method: "POST", body: JSON.stringify(body) });
-    if ("userId" in result) publish(result, true);
+    if ("userId" in result) {
+      if (typeof window !== "undefined") {
+        try { window.localStorage.removeItem("clucky_dismissed_popup_banners_v1"); } catch {}
+      }
+      publish(result, true);
+    }
     return result;
   });
 }

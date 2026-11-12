@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import Link from "@/components/ui-loader/navigation-link";
-import { Hero } from "@/components/hero";
-import { BannerShowcase } from "@/components/promotion/banner-showcase";
+import { LiveHomePromotions } from "@/components/promotion/live-home-promotions";
 import { ProductCard } from "@/components/product-card";
 import { CategoryIcon } from "@/components/category-icon";
 import { catalogApi } from "@/lib/catalog-and-stores.api";
@@ -32,46 +31,35 @@ export default async function Home() {
     .filter((p) => p.isActive !== false)
     .slice(0, 9);
 
-  const heroSlides = activeBanners
-    .filter((item) => item.position === "HERO_HOME")
-    .map((item) => ({
-      id: item.id,
-      image: item.imageUrl,
-      title: item.title,
-      redirectUrl: item.linkUrl,
-      alt: item.title,
-    }));
-
   return (
     <>
       <main>
-        {/* Hero Section */}
-        <Hero
-          eyebrow={t("home.hero.eyebrow")}
-          titleTop={t("home.hero.titleTop")}
-          titleBottom={t("home.hero.titleBottom")}
-          description={t("home.hero.description")}
-          actions={[
-            { href: "/menu", label: t("home.hero.order"), variant: "primary" },
-            { href: "/menu", label: t("home.hero.menu"), variant: "secondary" },
-          ]}
-          imageSrc="/images/hero-img.avif"
-          imageAlt={t("home.hero.imageAlt")}
-          heroBanners={heroSlides}
-        />
-
-        {/* Floating Category Dock */}
-        <section className="category-row-section" aria-label={t("menu.categories.label")}>
-          <div className="category-dock">
-            <Link href="/menu" className="category-pill active">
-              <CategoryIcon id={0} size={18} active />
-              <span>{t("menu.categories.all")}</span>
-            </Link>
-          </div>
-        </section>
-
-        {/* Active Strip & Popup Promotional Banners */}
-        <BannerShowcase banners={activeBanners} showHero={false} />
+        {/* Hero Section + Live Synchronized Promotional Banners */}
+        <LiveHomePromotions
+          initialBanners={activeBanners}
+          heroProps={{
+            eyebrow: t("home.hero.eyebrow"),
+            titleTop: t("home.hero.titleTop"),
+            titleBottom: t("home.hero.titleBottom"),
+            description: t("home.hero.description"),
+            actions: [
+              { href: "/menu", label: t("home.hero.order"), variant: "primary" },
+              { href: "/menu", label: t("home.hero.menu"), variant: "secondary" },
+            ],
+            imageSrc: "/images/hero-img.avif",
+            imageAlt: t("home.hero.imageAlt"),
+          }}
+        >
+          {/* Floating Category Dock */}
+          <section className="category-row-section" aria-label={t("menu.categories.label")}>
+            <div className="category-dock">
+              <Link href="/menu" className="category-pill active">
+                <CategoryIcon id={0} size={18} active />
+                <span>{t("menu.categories.all")}</span>
+              </Link>
+            </div>
+          </section>
+        </LiveHomePromotions>
 
         {/* Intro */}
         <section

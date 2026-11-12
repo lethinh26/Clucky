@@ -104,7 +104,7 @@
     },
     "banner": {
       "title": "Quản lý Banner khuyến mãi",
-      "subtitle": "Cấu hình banner trang chủ, popup và dải khuyến mãi theo lịch hiển thị và ảnh Cloudinary.",
+      "subtitle": "Cấu hình banner trang chủ và popup khuyến mãi theo lịch hiển thị và ảnh Cloudinary.",
       "create": "Tạo Banner mới",
       "edit": "Chỉnh sửa Banner",
       "empty": "Chưa có banner nào phù hợp bộ lọc.",
@@ -114,7 +114,7 @@
       "saveSuccessUpdate": "Cập nhật banner thành công.",
       "deleteSuccess": "Đã xóa banner.",
       "deleteConfirmTitle": "Xác nhận xóa banner?",
-      "deleteConfirmDesc": "Banner \"{title}\" và ảnh trên Cloudinary sẽ được thu hồi.",
+      "deleteConfirmDesc": "Banner \"{{title}}\" và ảnh trên Cloudinary sẽ được thu hồi.",
       "searchPlaceholder": "Tìm theo tiêu đề hoặc URL...",
       "allPositions": "Tất cả vị trí",
       "allStatuses": "Tất cả trạng thái",
@@ -131,11 +131,11 @@
         "image": "Ảnh banner",
         "status": "Trạng thái",
         "schedule": "Lịch hiển thị",
-        "orderShort": "Thứ tự: #{order}",
+        "orderShort": "Thứ tự: #{{order}}",
         "noSchedule": "Hiển thị liên tục",
-        "fromDate": "Từ {date}",
-        "untilDate": "Đến {date}",
-        "scheduleRange": "{start} -> {end}",
+        "fromDate": "Từ {{date}}",
+        "untilDate": "Đến {{date}}",
+        "scheduleRange": "{{start}} -> {{end}}",
         "noLink": "Không gắn liên kết"
       },
       "positions": {
