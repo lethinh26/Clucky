@@ -247,6 +247,21 @@ export interface CustomerStatusMutation {
   changed: boolean;
 }
 
+export interface CustomerOrderHistoryItem {
+  orderId: number;
+  orderCode: string;
+  createdAt: string;
+  status: string;
+  totalAmount: number;
+  orderType: 'DELIVERY' | 'PICKUP' | string;
+}
+export interface CustomerOrderHistoryPage {
+  content: CustomerOrderHistoryItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
 export const customersApi = {
   list: (params: CustomerListParams, signal?: AbortSignal) =>
     api.get<CustomerPage>('/api/users/customers', { params, signal }).then((r) => r.data),
@@ -560,3 +575,4 @@ export const inventoryApi = {
 };
 
 export default api;
+
