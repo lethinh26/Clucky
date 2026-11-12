@@ -5,7 +5,7 @@ This document describes implemented behavior after integrating BE-35 / BE-51 wit
 ## Trust and ownership
 
 - Frontends call Gateway. Each backend still validates JWTs and derives actor/store from `CurrentActor`; `X-User-*` / `X-Store-Id` are not authorization credentials.
-- Voucher management is ADMIN / STORE_MANAGER only. Managers see/manage their own STORE vouchers. Creation and edits by a Manager require approval; edits clear the prior approval and return to PENDING_APPROVAL. Only ADMIN approves.
+- Voucher management is ADMIN / STORE_MANAGER only. Managers read their own STORE vouchers and submit proposals through the dedicated endpoint. CRUD, approval and rejection remain ADMIN-only; Manager edit/withdraw is not exposed.
 - Loyalty mutations require `INTERNAL_SERVICE` JWTs with configured issuer/audience and revocation checks. Customers cannot grant, redeem or release balances through these internal routes.
 - Loyalty preview uses the authenticated customer. A supplied `customerId` cannot select another user's balance. Anonymous preview has zero available points.
 - Order must compute trusted amounts from catalog snapshots, not browser prices.
@@ -18,11 +18,22 @@ This document describes implemented behavior after integrating BE-35 / BE-51 wit
 | GET `/api/promotions/vouchers/available` | Public | Active, in-date vouchers; optional positive `storeId` |
 | GET `/api/promotions/vouchers` | ADMIN / STORE_MANAGER | Filtered management list; Manager store scope is enforced from JWT |
 | GET `/api/promotions/vouchers/{id}` | ADMIN / STORE_MANAGER | Manager cannot read another store's voucher |
-| POST `/api/promotions/vouchers` | ADMIN / STORE_MANAGER | Manager creation is a pending STORE proposal |
-| POST `/api/promotions/vouchers/store-proposals` | ADMIN / STORE_MANAGER | STORE + PENDING_APPROVAL; Manager cannot submit another store ID |
+| POST `/api/promotions/vouchers` | ADMIN | Direct creation of an ACTIVE or DISABLED voucher |
+| POST `/api/promotions/vouchers/store-proposals` | STORE_MANAGER | STORE + PENDING_APPROVAL; Manager cannot submit another store ID or bypass approval |
 | PUT `/api/promotions/vouchers/{id}/approve` | ADMIN | Locked transition PENDING_APPROVAL -> ACTIVE; repeated approval is idempotent; expired pending proposals fail |
-| PUT `/api/promotions/vouchers/{id}` | ADMIN / STORE_MANAGER | Locked update; Manager edits require reapproval |
-| DELETE `/api/promotions/vouchers/{id}` | ADMIN / STORE_MANAGER | Own-store restriction; used vouchers are disabled instead of physically removed |
+| PUT `/api/promotions/vouchers/{id}/reject` | ADMIN | `{ reason, version }`; locked PENDING_APPROVAL -> REJECTED; trimmed reason required, at most 500 characters; nonnegative expected version required |
+| PUT `/api/promotions/vouchers/{id}` | ADMIN | Locked, version-checked update; pending/rejected proposals cannot be edited or activated through this route |
+| DELETE `/api/promotions/vouchers/{id}` | ADMIN | Pending/rejected proposals cannot be deleted; used/reserved live vouchers are disabled instead of physically removed |
+
+### Proposal operations enabled 2026-11-12
+
+- Manager: Promotions → Propose a voucher → Submit proposal. Store scope is derived from the JWT on the backend; pending proposals cannot be used at checkout.
+- Admin: Promotions → Voucher approvals → Review → Approve or Reject. The tab badge counts all pending proposals independently of search/status/store filters and uses `9+` for ten or more. Approval checks branch existence and expiry, retains the proposed terms, and respects start date/quota for effective availability.
+- Proposal creation and approval write audit events through the transactional outbox. Approval uses a row lock; retries do not write a second approval event.
+- Reactivation is only an ACTIVE/DISABLED toggle, never an approval shortcut. Detail/list statuses use readable labels and effective status; branch IDs resolve through the Store API rather than fabricated branch names.
+- Rejection stores `rejectionReason`, `rejectedBy` and `rejectedAt` using migration V8, keeps `createdBy`/`storeId`, and writes `VOUCHER_REJECTED` through the audit outbox. The owning branch manager reads the reason in Branch proposals; other branches cannot read it. This is in-app feedback, not a new email integration.
+- Repeating rejection with the same reason returns the stored result without replacing its actor/time or emitting another audit event. A different reason, an already-approved proposal or stale pending version returns conflict. Approval and rejection serialize on the same row lock.
+- Pending/rejected records appear in the dedicated review/proposal tab rather than the live voucher list. Manager edit/resubmission, Party orders, banners and mock proposal/rejection screens remain outside this change.
 
 Validate request: `code` (required, max 80), `orderAmount` (required, nonnegative integer VND, max 12 digits), optional positive `storeId`. `subtotal` is accepted as an alias for `orderAmount` for older callers. `customerId` does not grant authority.
 

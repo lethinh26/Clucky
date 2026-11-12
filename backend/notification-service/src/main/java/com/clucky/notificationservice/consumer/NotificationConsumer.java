@@ -6,6 +6,7 @@ import com.clucky.notificationservice.logging.SafeLog;
 import com.clucky.notificationservice.mapper.EventMapper;
 import com.clucky.notificationservice.repository.NotificationRepository;
 import com.clucky.notificationservice.service.EmailSenderService;
+import com.clucky.notificationservice.service.CustomerContactClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -30,18 +31,21 @@ public class NotificationConsumer {
     private final EmailSenderService emailSenderService;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     private final String customerUrl;
+    private final CustomerContactClient contacts;
 
     public NotificationConsumer(
             EventMapper eventMapper,
             NotificationRepository notificationRepository,
             EmailSenderService emailSenderService,
             org.springframework.jdbc.core.JdbcTemplate jdbc,
-            @org.springframework.beans.factory.annotation.Value("${clucky.frontend.customer-url}") String customerUrl
+            @org.springframework.beans.factory.annotation.Value("${clucky.frontend.customer-url}") String customerUrl,
+            CustomerContactClient contacts
     ) {
         this.eventMapper = eventMapper;
         this.notificationRepository = notificationRepository;
         this.emailSenderService = emailSenderService;
         this.jdbc = jdbc;
+        this.contacts = contacts;
         var origin = java.net.URI.create(customerUrl);
         if (!java.util.Set.of("http", "https").contains(origin.getScheme()) || origin.getHost() == null
                 || origin.getUserInfo() != null || origin.getQuery() != null || origin.getFragment() != null) {
@@ -141,6 +145,9 @@ public class NotificationConsumer {
         Long customerId = refundEvent ? refundCustomerId(payload)
                 : "inventory.low-stock".equals(event.eventType()) ? extractCustomerId(payload) : positiveId(payload, "customerId");
         Long orderId = extractOrderId(payload);
+        if (event.eventType().startsWith("order.") && (customerId == null || positiveId(payload, "orderId") == null)) {
+            throw new IllegalArgumentException("Invalid order notification identity");
+        }
         if ("refund.processed".equals(event.eventType())
                 && (positiveId(payload, "refundId") == null || orderId == null || orderId <= 0
                 || positiveId(payload, "storeId") == null || !"REFUNDED".equals(payload.path("status").asText())
@@ -162,7 +169,7 @@ public class NotificationConsumer {
                     : "UPDATE notification_service.payment_outcomes SET failed=true,outcome='FAILED',updated_at=now() WHERE order_id=?",orderId);
         }
         String orderCode = extractOrderCode(payload, orderId);
-        String recipientEmail = refundEvent ? refundEmail(payload, customerId) : extractRecipientEmail(payload);
+        String recipientEmail = refundEvent ? refundEmail(payload, customerId) : null;
         if (refundEvent && (customerId == null || recipientEmail == null)) {
             jdbc.update("""
                     INSERT INTO notification_service.notification_delivery_gaps(event_id,event_type,correlation_id,reason)
@@ -197,17 +204,27 @@ public class NotificationConsumer {
             }
         }
 
-        // 2. Email Delivery (Idempotent by messageId = event + channel + recipient)
-        if (recipientEmail != null && !recipientEmail.isBlank() && spec.emailTemplate() != null) {
-            String emailMessageId = java.util.UUID.nameUUIDFromBytes(("EMAIL:" + deliveryKey + ":" + ("refund.processed".equals(event.eventType()) ? customerId : recipientEmail.toLowerCase(java.util.Locale.ROOT).trim()))
+        if (spec.emailTemplate() != null && customerId != null) {
+            String emailMessageId = java.util.UUID.nameUUIDFromBytes(("EMAIL:" + deliveryKey + ":" + customerId)
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            if (!jdbc.queryForList("SELECT id FROM notification_service.email_logs WHERE message_id=? OR (event_id=? AND template=?)",
+                    emailMessageId, event.eventId(), spec.emailTemplate()).isEmpty()) return;
+            if (!refundEvent) recipientEmail = contacts.verifiedEmail(customerId);
+            if (recipientEmail == null) {
+                jdbc.update("INSERT INTO notification_service.notification_delivery_gaps(event_id,event_type,correlation_id,reason) "
+                        + "VALUES (?,?,?,'NO_VERIFIED_CUSTOMER_EMAIL') ON CONFLICT DO NOTHING",
+                        event.eventId(), event.eventType(), event.correlationId());
+                return;
+            }
             emailSenderService.processEmailIntent(
                     emailMessageId,
                     event.eventId(),
                     event.correlationId(),
                     recipientEmail.trim(),
                     spec.emailTemplate(),
-                    spec.emailVariables()
+                    spec.emailVariables(),
+                    positiveId(payload, "storeId"),
+                    null
             );
         }
     }
@@ -218,19 +235,37 @@ public class NotificationConsumer {
         vars.put("customerName", extractCustomerName(payload));
         vars.put("amount", extractAmount(payload));
         Long orderId = positiveId(payload, "orderId");
-        if (orderId != null) vars.put("orderUrl", customerUrl + "/orders/" + orderId);
+        if (orderId != null) {
+            vars.put("orderId", orderId.toString());
+            vars.put("orderUrl", customerUrl + "/orders/" + orderId);
+        }
+        if (eventType.startsWith("order.")) addOrderVariables(payload, vars);
 
         return switch (eventType) {
             case "order.created" -> {
                 String title = "Đơn hàng đã được tạo";
                 String content = "Đơn hàng #" + orderCode + " đã được tạo thành công và đang chờ xác nhận.";
-                yield new NotificationSpec(title, content, "ORDER", null, vars);
+                String status = payload.path("status").asText();
+                String template = switch (status) {
+                    case "CONFIRMED" -> "ORDER_CONFIRMED";
+                    case "PENDING_PAYMENT" -> "ORDER_CREATED";
+                    default -> throw new IllegalArgumentException("Invalid initial order state");
+                };
+                yield new NotificationSpec(title, content, "ORDER", template, vars);
             }
             case "order.status-changed" -> {
                 String status = payload.hasNonNull("status") ? payload.get("status").asText() : "CẬP NHẬT";
                 String title = "Cập nhật trạng thái đơn hàng";
                 String content = "Đơn hàng #" + orderCode + " đã chuyển sang trạng thái " + status + ".";
-                String emailTemplate = "CONFIRMED".equalsIgnoreCase(status) ? "ORDER_CONFIRMED" : null;
+                String emailTemplate = switch (status) {
+                    case "CONFIRMED" -> "ORDER_CONFIRMED";
+                    case "PREPARING" -> "ORDER_PREPARING";
+                    case "READY" -> "ORDER_READY";
+                    default -> null;
+                };
+                vars.put("readyInstruction", "PICKUP".equals(payload.path("type").asText())
+                        ? "Bạn có thể đến cửa hàng nhận món theo thông tin trong đơn."
+                        : "Vui lòng theo dõi hướng dẫn nhận món trong chi tiết đơn; trạng thái này chưa xác nhận đã giao hàng.");
                 yield new NotificationSpec(title, content, "ORDER", emailTemplate, vars);
             }
             case "order.completed" -> {
@@ -240,9 +275,7 @@ public class NotificationConsumer {
             }
             case "order.cancelled" -> {
                 String reason = payload.hasNonNull("reason") ? payload.get("reason").asText() : "";
-                if (!reason.isBlank()) {
-                    vars.put("reason", reason);
-                }
+                vars.put("reason", reason.isBlank() ? "Vui lòng xem chi tiết trong ứng dụng" : reason);
                 String title = "Đơn hàng đã bị hủy";
                 String content = "Đơn hàng #" + orderCode + " đã bị hủy." + (!reason.isBlank() ? " Lý do: " + reason : "");
                 yield new NotificationSpec(title, content, "ORDER", "ORDER_CANCELLED", vars);
@@ -262,6 +295,8 @@ public class NotificationConsumer {
                 if (!reason.isBlank()) {
                     vars.put("reason", reason);
                 }
+                vars.put("paymentExplanation", "Vui lòng xem trạng thái giao dịch và hướng dẫn trong ứng dụng. "
+                        + "Clucky chỉ xác nhận thanh toán sau khi đối chiếu thành công.");
                 String title = "Thanh toán thất bại";
                 String content = "Thanh toán cho đơn hàng #" + orderCode + " thất bại." + (!reason.isBlank() ? " Lý do: " + reason : "");
                 yield new NotificationSpec(title, content, "PAYMENT", "PAYMENT_FAILED", vars);
@@ -269,7 +304,7 @@ public class NotificationConsumer {
             case "refund.approved" -> {
                 String title = "Yêu cầu hoàn tiền đã được tiếp nhận";
                 String content = "Yêu cầu hoàn tiền cho đơn hàng #" + orderCode + " đã được tiếp nhận xử lý.";
-                yield new NotificationSpec(title, content, "REFUND", null, vars);
+                yield new NotificationSpec(title, content, "REFUND", "REFUND_APPROVED", vars);
             }
             case "refund.rejected" -> {
                 String reason = payload.hasNonNull("reason") ? payload.get("reason").asText() : "";
@@ -384,20 +419,31 @@ public class NotificationConsumer {
         return orderId != null ? String.valueOf(orderId) : "N/A";
     }
 
-    private String extractRecipientEmail(JsonNode payload) {
-        if (payload.hasNonNull("toEmail")) {
-            return payload.get("toEmail").asText();
+    private void addOrderVariables(JsonNode payload, Map<String, String> variables) {
+        var displayedItems = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
+        var items = payload.path("items");
+        if (items.isArray()) {
+            int encodedLength = 2;
+            for (JsonNode item : items) {
+                String name = item.path("itemName").asText("Món ăn");
+                if (name.length() > 200) name = name.substring(0, 200);
+                var displayed = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode().put("itemName", name);
+                for (String field : new String[]{"quantity", "unitPrice", "lineTotal"}) {
+                    if (item.path(field).isNumber()) displayed.set(field, item.get(field));
+                }
+                encodedLength += displayed.toString().length() + 1;
+                if (displayedItems.size() == 30 || encodedLength > 8500) break;
+                displayedItems.add(displayed);
+            }
+            variables.put("moreItems", Boolean.toString(displayedItems.size() < items.size()));
         }
-        if (payload.hasNonNull("customerEmail")) {
-            return payload.get("customerEmail").asText();
+        variables.put("orderItems", displayedItems.toString());
+        for (String field : new String[]{"subtotal", "discountAmount", "pointsAmount", "shippingFee", "totalAmount"}) {
+            if (payload.path(field).isNumber()) variables.put(field, payload.path(field).asText());
         }
-        if (payload.hasNonNull("receiverEmail")) {
-            return payload.get("receiverEmail").asText();
-        }
-        if (payload.hasNonNull("email")) {
-            return payload.get("email").asText();
-        }
-        return null;
+        variables.put("orderType", payload.path("type").asText());
+        variables.put("paymentMethod", payload.path("paymentMethod").asText());
+        variables.put("paymentStatus", payload.path("paymentStatus").asText());
     }
 
     private String extractCustomerName(JsonNode payload) {

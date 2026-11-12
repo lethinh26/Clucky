@@ -129,8 +129,8 @@ Các nhóm công việc dưới đây giữ thứ tự tra cứu cũ; cột Spri
 | [BE-43](../tasks/BE-43.md) | Audit Service độc lập, sở hữu bảng audit_logs và cung cấp API tra cứu nhật ký quản trị theo quyền | Mai Sơn Việt | 2 | TO DO | 04/11/2026 08:00 | 04/11/2026 23:59 | UI-03, UI-06, BE-09, BE-10 | 5 | 8 |
 | [BE-54](../tasks/BE-54.md) | Kết nối menu qua Gateway và triển khai cache theo quán, làm mới dữ liệu khi giá hoặc trạng thái bán thay đổi | Nguyễn Duy Quang Nhật | 2 | TO DO | 03/11/2026 08:00 | 03/11/2026 23:59 | BE-20, BE-22, BE-12 | 5 | 8 |
 | [BE-60](../tasks/BE-60.md) | Gửi email nghiệp vụ qua Gmail SMTP: kiểm tra đầu vào, render mẫu OTP, đơn hàng, thanh toán và hoàn tiền, trả rõ kết quả gửi | Cao Tất Thành | 3 | TO DO | 02/11/2026 08:00 | 02/11/2026 23:59 | BE-57, BE-59 | 5 | 23 |
-| [BE-62](../tasks/BE-62.md) | Quản lý vòng đời gửi email: lưu trạng thái, chống job trùng, phục hồi worker và gửi lại có giới hạn trước khi chuyển FAILED | Cao Tất Thành | 3 | TO DO | 02/11/2026 08:00 | 03/11/2026 23:59 | BE-07, BE-59, BE-60 | 8 | 18 |
-| [BE-63](../tasks/BE-63.md) | Vận hành email: ghi nhận failure/DLQ bền vững, truy vết các lần gửi và cung cấp API tra cứu log đúng quyền | Mai Sơn Việt | 3 | TO DO | 03/11/2026 08:00 | 04/11/2026 23:59 | BE-62, BE-09, KAFKA-01, BE-15 | 5 | 16 |
+| [BE-62](../tasks/BE-62.md) | Quản lý vòng đời gửi email: lưu trạng thái, chống job trùng, phục hồi worker và gửi lại có giới hạn trước khi chuyển FAILED | Cao Tất Thành | 3 | CHỜ NGHIỆM THU | 02/11/2026 08:00 | 03/11/2026 23:59 | BE-07, BE-59, BE-60 | 8 | 18 |
+| [BE-63](../tasks/BE-63.md) | Vận hành email: ghi nhận failure/DLQ bền vững, truy vết các lần gửi và cung cấp API tra cứu log đúng quyền | Mai Sơn Việt | 3 | CHỜ NGHIỆM THU | 03/11/2026 08:00 | 04/11/2026 23:59 | BE-62, BE-09, KAFKA-01, BE-15 | 5 | 16 |
 | [BE-72](../tasks/BE-72.md) | Upload và thay ảnh món, combo từ giao diện đến Cloudinary: kiểm tra file, lưu metadata, xử lý lỗi và dọn ảnh an toàn | Nguyễn Duy Quang Nhật | 2 | TO DO | 03/11/2026 08:00 | 03/11/2026 23:59 | BE-21, BE-68, BE-09 | 8 | 40 |
 | [BE-75](../tasks/BE-75.md) | Chuẩn hóa DTO metadata ảnh và loại credential, payload nhạy cảm khỏi response, log và bundle frontend | Lê Phú Thịnh | 3 | TO DO | 02/11/2026 08:00 | 04/11/2026 23:59 | BE-10 | 3 | 4 |
 | [BE-76](../tasks/BE-76.md) | Đăng nhập Google qua Firebase, xác minh ID token, yêu cầu tài khoản mới hoàn tất mật khẩu và phát JWT Clucky | Lê Phú Thịnh | 2 | TO DO | 02/11/2026 08:00 | 03/11/2026 23:59 | BE-01, BE-09, BE-17, BE-12 | 8 | 20 |
@@ -174,7 +174,7 @@ Các nhóm công việc dưới đây giữ thứ tự tra cứu cũ; cột Spri
 | [KAFKA-11](../tasks/KAFKA-11.md) | Thống nhất và tích hợp sự kiện khuyến mãi đã duyệt từ Promotion sang Notification, đủ dữ liệu chọn email và người nhận | Cao Tất Thành | 3 | TO DO | Chưa xếp | Chưa xếp | KAFKA-04, KAFKA-12 | 2 | 4 |
 | [UI-51](../tasks/UI-51.md) | Hiển thị trạng thái email liên quan đến đơn hoặc thanh toán cho Customer khi có contract được duyệt, không coi email lỗi là đơn lỗi | Trần Đức Anh | BACKLOG | TO DO | Chưa xếp | Chưa xếp | KAFKA-12, BE-27 | 2 | 4 |
 | [UI-53](../tasks/UI-53.md) | Màn quản lý Customer cho Admin | Trần Nguyễn Hữu Khánh | 3 | TO DO | 11/11/2026 08:00 | 12/11/2026 23:59 | BE-82, BE-83 | 5 | 10 |
-| [UI-50](../tasks/UI-50.md) | Màn tra cứu email log theo bộ lọc, xem chi tiết và gửi lại email lỗi khi API, quyền và chính sách được chốt | Mai Sơn Việt | BACKLOG | TO DO | Chưa xếp | Chưa xếp | BE-63 | 3 | 8 |
+| [UI-50](../tasks/UI-50.md) | Màn tra cứu email log theo bộ lọc, xem chi tiết và gửi lại email lỗi khi API, quyền và chính sách được chốt | Mai Sơn Việt | BACKLOG | CHỜ NGHIỆM THU | Chưa xếp | Chưa xếp | BE-63 | 3 | 8 |
 
 ## Audit Service riêng cho trang quản trị — cập nhật 02/11/2026
 

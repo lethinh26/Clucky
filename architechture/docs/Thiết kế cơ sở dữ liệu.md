@@ -83,6 +83,8 @@ V7 Order thêm orders.payment_expires_at và payment_decisions (payment_id uniqu
 | email_logs | id, message_id (unique), event_id, to_email, subject, template, provider (GMAIL_SMTP), status (QUEUED/SENDING/SENT/FAILED), retry_count, last_error, sent_at | Nhật ký Mail Sender; không lưu App Password |
 | mail_templates | id, template_key (unique), subject_template, body_template, is_active, updated_at | Template email transactional do hệ thống quản lý |
 
+Migration Notification V11 mở rộng `email_logs` với trusted store, keyed command hash, encrypted snapshot/version, expiry/sensitive, claim token/lease, attempt count/cycle/generation. Thêm `email_attempts`, `email_failure_outbox` (unique delivery/generation), `email_retry_requests` (unique delivery/expected generation và delivery/request ID), `email_command_conflicts`. Foreign key chỉ trong schema Notification; không thêm kho delivery song song. [Contract/retention/legacy rollout](Email_Operations_2026-11-11.md).
+
 # 8. REVIEW & REPORT SERVICE — review_db
 | Bảng | Cột chính | Mô tả |
 |---|---|---|
