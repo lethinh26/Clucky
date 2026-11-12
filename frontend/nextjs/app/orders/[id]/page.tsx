@@ -775,7 +775,7 @@ export default function OrderTrackingPage({
               <button
                 type="button"
                 className={styles.primaryButton}
-                disabled={submittingBank || !bankForm.bankBin || !bankForm.accountNumber.trim() || !bankForm.accountHolderName.trim()}
+                disabled={submittingBank || !bankForm.bankBin || !/^\d{1,80}$/.test(bankForm.accountNumber.trim()) || !bankForm.accountHolderName.trim()}
                 onClick={async () => {
                   if (!refund?.id) return;
                   try {
@@ -846,7 +846,7 @@ export default function OrderTrackingPage({
                 disabled={
                   submittingCreateRefund ||
                   !createRefundForm.bankBin ||
-                  !createRefundForm.accountNumber.trim() ||
+                  !/^\d{1,80}$/.test(createRefundForm.accountNumber.trim()) ||
                   !createRefundForm.accountHolderName.trim() ||
                   !createRefundForm.reason.trim()
                 }

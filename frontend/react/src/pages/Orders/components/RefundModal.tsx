@@ -220,7 +220,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
   const handleUpdateBankDetails = async () => {
     if (operationLock.current) return;
     if (!order.refundRequestId || !bankBin || !/^\d{1,80}$/.test(accountNumber) || !accountHolderName.trim()) {
-      message.warning(t("business:stores.pleaseCheckTheStoreInformationFields"));
+      message.warning(t("business:refundmodal.pleaseCheckBankDetails"));
       return;
     }
     operationLock.current = true; detailRequest.current?.abort();

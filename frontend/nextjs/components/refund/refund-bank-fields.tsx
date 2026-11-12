@@ -205,7 +205,7 @@ export function RefundBankFields({
           autoComplete="off"
           maxLength={80}
           value={accountNumber}
-          onChange={(event) => onAccountNumberChange(event.target.value.replace(/\s+/g, ""))}
+          onChange={(event) => onAccountNumberChange(event.target.value.replace(/\D/g, ""))}
           placeholder={t("business.id.enterAccountNumber")}
         />
       </div>

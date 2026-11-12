@@ -4,6 +4,9 @@ import com.clucky.paymentservice.dto.VietQrBankResponse;
 import com.clucky.paymentservice.exception.ApiException;
 import com.clucky.paymentservice.exception.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -16,17 +19,28 @@ import java.util.Objects;
 
 @Service
 public class VietQrService {
-    private static final String BANKS_URL = "https://api.vietqr.io/v2/banks";
+    private static final Logger log = LoggerFactory.getLogger(VietQrService.class);
+    private static final String DEFAULT_BANKS_URL = "https://api.vietqr.io/v2/banks";
     private static final Duration BANK_CACHE_TTL = Duration.ofHours(12);
+    private static final Duration STALE_CACHE_EXTENSION = Duration.ofMinutes(10);
 
+    private final String banksUrl;
     private final RestClient restClient;
     private volatile BankCache bankCache;
 
-    public VietQrService(RestClient.Builder restClientBuilder) {
+    public VietQrService(
+            RestClient.Builder restClientBuilder,
+            @Value("${vietqr.api.banks-url:" + DEFAULT_BANKS_URL + "}") String banksUrl) {
+        this.banksUrl = banksUrl;
         var factory = new org.springframework.http.client.JdkClientHttpRequestFactory(
                 java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
         factory.setReadTimeout(Duration.ofSeconds(10));
         this.restClient = restClientBuilder.requestFactory(factory).build();
+    }
+
+    VietQrService(RestClient restClient, String banksUrl) {
+        this.banksUrl = banksUrl != null ? banksUrl : DEFAULT_BANKS_URL;
+        this.restClient = restClient;
     }
 
     public List<VietQrBankResponse> getBanks() {
@@ -44,15 +58,27 @@ public class VietQrService {
             VietQrBanksResponse response;
             try {
                 response = restClient.get()
-                        .uri(BANKS_URL)
+                        .uri(banksUrl)
                         .header("Accept", MediaType.APPLICATION_JSON_VALUE)
                         .retrieve()
                         .body(VietQrBanksResponse.class);
             } catch (RestClientException failure) {
+                log.warn("Failed to fetch VietQR bank list from upstream: {}", failure.getMessage(), failure);
+                if (current != null && !current.banks().isEmpty()) {
+                    log.info("Serving stale VietQR bank list ({} banks) from cache after upstream failure", current.banks().size());
+                    bankCache = new BankCache(current.banks(), Instant.now().plus(STALE_CACHE_EXTENSION));
+                    return current.banks();
+                }
                 throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
             }
 
             if (response == null || !"00".equals(response.code()) || response.data() == null) {
+                log.warn("VietQR upstream returned invalid or empty response code: {}", response != null ? response.code() : "null");
+                if (current != null && !current.banks().isEmpty()) {
+                    log.info("Serving stale VietQR bank list ({} banks) from cache after invalid upstream response", current.banks().size());
+                    bankCache = new BankCache(current.banks(), Instant.now().plus(STALE_CACHE_EXTENSION));
+                    return current.banks();
+                }
                 throw new ApiException(ErrorCode.UPSTREAM_ERROR);
             }
 
@@ -65,6 +91,12 @@ public class VietQrService {
                     .sorted((left, right) -> displayName(left).compareToIgnoreCase(displayName(right)))
                     .toList();
             if (banks.isEmpty()) {
+                log.warn("VietQR upstream returned zero valid banks");
+                if (current != null && !current.banks().isEmpty()) {
+                    log.info("Serving stale VietQR bank list ({} banks) from cache after empty upstream bank list", current.banks().size());
+                    bankCache = new BankCache(current.banks(), Instant.now().plus(STALE_CACHE_EXTENSION));
+                    return current.banks();
+                }
                 throw new ApiException(ErrorCode.UPSTREAM_ERROR);
             }
 
@@ -80,10 +112,10 @@ public class VietQrService {
     private record BankCache(List<VietQrBankResponse> banks, Instant expiresAt) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record VietQrBanksResponse(String code, List<VietQrProviderBank> data) {}
+    record VietQrBanksResponse(String code, List<VietQrProviderBank> data) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record VietQrProviderBank(
+    record VietQrProviderBank(
             String bin,
             String shortName,
             String name,

@@ -2,8 +2,11 @@ package com.clucky.paymentservice.controller;
 
 import com.clucky.paymentservice.dto.VietQrBankResponse;
 import com.clucky.paymentservice.service.VietQrService;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.List;
 
 @RestController
@@ -16,7 +19,9 @@ public class VietQrController {
     }
 
     @GetMapping("/banks")
-    public List<VietQrBankResponse> banks() {
-        return vietQrService.getBanks();
+    public ResponseEntity<List<VietQrBankResponse>> banks() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+                .body(vietQrService.getBanks());
     }
 }
