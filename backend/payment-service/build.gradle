@@ -19,3 +19,5 @@ dependencies {
 
 bootJar { archiveFileName = 'payment-service-0.1.0-SNAPSHOT.jar' }
 jar { enabled = false }
+
+sourceSets.test.java.srcDir('../../tests/order-payment/payment-service')

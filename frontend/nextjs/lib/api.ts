@@ -13,6 +13,7 @@ export interface ApiError {
   status: number;
   code?: string;
   message?: string;
+  fieldErrors?: Record<string, string>;
 }
 
 export function getGuestSessionId(): string {
@@ -156,6 +157,7 @@ export interface BackendCartItem {
   itemKey: string;
   productId?: number;
   comboId?: number;
+  storeId?: number;
   itemName: string;
   unitPrice: number;
   quantity: number;
@@ -367,13 +369,12 @@ export interface CreatePartyOrderPayload {
   storeId: number;
   contactName: string;
   phone: string;
-  contactPhone?: string;
-  contactEmail?: string;
+  contactEmail: string;
   expectedDate: string;
-  expectedTime?: string;
+  expectedTime: string;
   guestCount: number;
+  packageCode: string;
   content: string;
-  notes?: string;
 }
 
 export interface PartyOrderResult {
@@ -382,10 +383,16 @@ export interface PartyOrderResult {
   storeId: number;
   contactName: string;
   phone: string;
+  contactEmail: string;
   expectedDate: string;
+  expectedTime: string;
   guestCount: number;
+  packageCode: string;
   content: string;
   status: string;
+  quoteAmount?: number | null;
+  paymentMethod?: string | null;
+  consultationNote?: string | null;
 }
 
 export type BackendPartyOrder = PartyOrderResult;
@@ -409,6 +416,9 @@ export interface RefundResult {
   reason: string;
   status: string;
   bankName?: string;
+  bankBin?: string;
+  bankAccountNo?: string;
+  bankAccountName?: string;
   accountNumber?: string;
   accountHolderName?: string;
   bankDetailsVersion?: number;
@@ -419,15 +429,26 @@ export interface RefundResult {
   updatedAt?: string;
 }
 
+export interface VietQrBank {
+  bin: string;
+  shortName?: string;
+  name?: string;
+  logo?: string;
+}
+
+export const vietQrApi = {
+  banks: () => request<VietQrBank[]>("/api/payments/banks"),
+};
+
 export const refundApi = {
   create: (
     dataOrOrderId:
-      | { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string }
+      | { orderId: number; reason: string; bankBin: string; bankName?: string; bankAccountNo: string; bankAccountName: string }
       | number,
     amountOrReason?: number | string,
     legacyReason?: string
   ) => {
-    let payload: { orderId: number; reason: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string };
+    let payload: { orderId: number; reason: string; bankBin?: string; bankName?: string; bankAccountNo?: string; bankAccountName?: string };
     if (typeof dataOrOrderId === "object") {
       payload = dataOrOrderId;
     } else {
@@ -454,7 +475,7 @@ export const refundApi = {
   },
   getEvidence: (id: number) =>
     request<{ signedUrl: string; publicId: string }>(`/api/refund-requests/${id}/evidence`),
-  updateBankDetails: (id: number, data: { bankName: string; accountNumber: string; accountHolderName: string }) =>
+  updateBankDetails: (id: number, data: { bankBin: string; bankName?: string; bankAccountNo: string; bankAccountName: string; expectedBankDetailsVersion?: number }) =>
     request<RefundResult>(`/api/refund-requests/${id}/bank-details`, {
       method: "PUT",
       body: JSON.stringify(data),

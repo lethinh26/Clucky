@@ -22,6 +22,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -51,6 +52,10 @@ clucky:
   kafka:
     partitions: ${KAFKA_TOPIC_PARTITIONS:3}
     replicas: ${KAFKA_TOPIC_REPLICAS:1}
+    retry:
+      backoff-ms: ${KAFKA_RETRY_BACKOFF_MS:1000}
+      max-attempts: ${KAFKA_RETRY_MAX_ATTEMPTS:3}
+      dlt-timeout-sec: ${KAFKA_DLT_TIMEOUT_SEC:10}
     retry-delay-ms: ${KAFKA_RETRY_DELAY_MS:2000}
     retry-attempts: ${KAFKA_RETRY_ATTEMPTS:5}
   redis:

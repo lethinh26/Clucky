@@ -7,6 +7,7 @@ import com.clucky.notificationservice.mapper.EventMapper;
 import com.clucky.notificationservice.repository.NotificationRepository;
 import com.clucky.notificationservice.service.AdminNotificationService;
 import com.clucky.notificationservice.service.EmailSenderService;
+import com.clucky.notificationservice.service.EmailLogService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -28,6 +29,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class AdminNotificationOperationsTest {
+    private final com.clucky.notificationservice.service.CustomerContactClient contacts = mock(com.clucky.notificationservice.service.CustomerContactClient.class);
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final EmailSenderService sender = mock(EmailSenderService.class);
     private final EventMapper mapper = mock(EventMapper.class);
@@ -44,7 +46,7 @@ class AdminNotificationOperationsTest {
         var service = new AdminNotificationService(jdbc);
         for (String role : List.of("CUSTOMER", "STAFF", "STORE_MANAGER", "SHIPPER")) {
             actor(role, 7);
-            assertThrows(AccessDeniedException.class, () -> service.emailLogs(0, 20, null, null, null, null));
+            assertThrows(AccessDeniedException.class, () -> new EmailLogService(jdbc, EmailDeliverySafetyTest.settings()).list(0, 20, null, null, null, null, null));
             assertThrows(AccessDeniedException.class, () -> service.inbox(0, 20));
             assertThrows(AccessDeniedException.class, service::unreadCount);
             assertThrows(AccessDeniedException.class, () -> service.markRead(1));
@@ -57,9 +59,11 @@ class AdminNotificationOperationsTest {
     void invalidFiltersAreRejectedBeforeQuerying() {
         actor("ADMIN", 9);
         var service = new AdminNotificationService(jdbc);
-        assertThrows(ApiException.class, () -> service.emailLogs(0, 101, null, null, null, null));
-        assertThrows(ApiException.class, () -> service.emailLogs(0, 20, null, "ANY", null, null));
-        assertThrows(ApiException.class, () -> service.emailLogs(0, 20, null, null, Instant.MAX, Instant.MIN));
+        var emails = new EmailLogService(jdbc, EmailDeliverySafetyTest.settings());
+        assertThrows(ApiException.class, () -> emails.list(0, 101, null, null, null, null, null));
+        assertThrows(ApiException.class, () -> emails.list(0, 20, null, "ANY", null, null, null));
+        assertThrows(ApiException.class, () -> emails.list(0, 20, null, null, null, Instant.MAX, Instant.MIN));
+        assertThrows(ApiException.class, () -> emails.list(0, 20, null, null, null, Instant.MIN, null));
         assertThrows(ApiException.class, () -> service.inbox(-1, 20));
         verifyNoInteractions(jdbc);
     }
@@ -85,12 +89,14 @@ class AdminNotificationOperationsTest {
     @Test
     void orderCreatedProducesOnlySanitizedRoleScopedAdminFanout() {
         var payload = json.createObjectNode().put("orderId", 42).put("storeId", 3)
+                .put("customerId", 7).put("status", "CONFIRMED")
                 .put("managerUserId", 777).put("email", "staff@example.com")
                 .put("body", "Do not copy customer private details");
         consume("order.created", "cart-order-service", "order-event", payload);
         verify(jdbc).update(contains("admin_notifications"), eq("order.created:42"), eq("order-event"), eq("trace"),
                 eq("Đơn hàng #42 vừa được tạo tại chi nhánh #3."), eq(42L), eq(3L));
-        verifyNoInteractions(sender, repository);
+        verifyNoInteractions(sender);
+        verify(contacts).verifiedEmail(7L);
     }
 
     @Test
@@ -121,7 +127,7 @@ class AdminNotificationOperationsTest {
                 contains("25000"), eq("REFUND"), eq(42L), anyString());
         verify(sender).processEmailIntent(anyString(), eq("refund-event"), eq("trace"), eq("customer@example.com"),
                 eq("REFUND_PROCESSED"), argThat(variables -> "CLK-42".equals(variables.get("orderCode"))
-                        && "25000".equals(variables.get("amount"))));
+                        && "25000".equals(variables.get("amount"))), eq(3L), isNull());
     }
 
     @Test
@@ -150,7 +156,7 @@ class AdminNotificationOperationsTest {
         consume("refund.processed", "payment-service", "first", refund());
         consume("refund.processed", "payment-service", "second", refund());
         var keys = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(sender, times(2)).processEmailIntent(keys.capture(), anyString(), eq("trace"), eq("customer@example.com"), eq("REFUND_PROCESSED"), anyMap());
+        verify(sender, times(2)).processEmailIntent(keys.capture(), anyString(), eq("trace"), eq("customer@example.com"), eq("REFUND_PROCESSED"), anyMap(), eq(3L), isNull());
         assertEquals(keys.getAllValues().getFirst(), keys.getAllValues().getLast());
         verify(jdbc, times(2)).update(contains("ON CONFLICT (operation_key)"), eq(7L), anyString(), anyString(), eq("REFUND"), eq(42L), anyString());
     }
@@ -176,10 +182,11 @@ class AdminNotificationOperationsTest {
         String template = "CHECK_" + operation;
         transactions.executeWithoutResult(transaction -> {
             transaction.setRollbackOnly();
-            var payload = json.createObjectNode().put("orderId", 9223372036854775806L).put("storeId", 3);
+            var payload = json.createObjectNode().put("orderId", 9223372036854775806L).put("storeId", 3)
+                    .put("customerId", 7).put("status", "CONFIRMED");
             when(mapper.fromJson("event", "order.created")).thenReturn(new DomainEvent(operation, "trace", "order.created",
                     "cart-order-service", Instant.now(), payload));
-            var consumer = new NotificationConsumer(mapper, repository, sender, database, "https://clucky.example");
+            var consumer = new NotificationConsumer(mapper, repository, sender, database, "https://clucky.example", contacts);
             var record = new ConsumerRecord<String, String>("order.created", 0, 0, "42", "event");
             consumer.consume(record, null);
             long notificationId = database.queryForObject("SELECT id FROM notification_service.admin_notifications WHERE event_id = ?", Long.class, operation);
@@ -198,11 +205,12 @@ class AdminNotificationOperationsTest {
                     INSERT INTO notification_service.email_logs(message_id,to_email,subject,template,status)
                     VALUES (?,?,'Sent message',?,'SENT')
                     """, operation, operation + "@example.com", template);
-            var logs = service.emailLogs(0, 1, operation, "SENT", Instant.now().minusSeconds(60), Instant.now().plusSeconds(60));
+            var emails = new EmailLogService(database, EmailDeliverySafetyTest.settings());
+            var logs = emails.list(0, 1, operation, "SENT", template, Instant.now().minusSeconds(60), Instant.now().plusSeconds(60));
             assertEquals(1, logs.totalElements());
             assertFalse(logs.content().getFirst().toEmail().contains(operation));
-            assertEquals(0, service.emailLogs(0, 20, operation, "FAILED", null, null).totalElements());
-            assertEquals(0, service.emailLogs(0, 20, "%' OR 1=1 --", null, null, null).totalElements());
+            assertEquals(0, emails.list(0, 20, operation, "FAILED", null, null, null).totalElements());
+            assertEquals(0, emails.list(0, 20, "%' OR 1=1 --", null, null, null, null).totalElements());
 
             database.queryForObject("SELECT set_config('clucky.actor_id','900002',true)", String.class);
             database.queryForObject("SELECT set_config('clucky.correlation_id','trace',true)", String.class);
@@ -226,7 +234,7 @@ class AdminNotificationOperationsTest {
 
     private void consume(String type, String source, String eventId, ObjectNode payload) {
         when(mapper.fromJson("event", type)).thenReturn(new DomainEvent(eventId, "trace", type, source, Instant.now(), payload));
-        new NotificationConsumer(mapper, repository, sender, jdbc, "https://clucky.example").consume(new ConsumerRecord<>(type, 0, 0, "42", "event"), null);
+        new NotificationConsumer(mapper, repository, sender, jdbc, "https://clucky.example", contacts).consume(new ConsumerRecord<>(type, 0, 0, "42", "event"), null);
     }
 
     private void actor(String role, long userId) {

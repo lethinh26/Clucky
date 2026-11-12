@@ -92,6 +92,8 @@
     "continueShopping": "← Tiếp tục chọn thêm món"
   },
   "checkout": {
+    "storeClosedTempBanner": "Chi nhánh \"{storeName}\" hiện đang tạm đóng cửa (Giờ mở cửa: {openTime} - {closeTime}). Các thao tác đặt hàng đang tạm khóa.",
+    "storeClosedHoursBanner": "Cửa hàng \"{storeName}\" hiện chưa mở cửa (Giờ phục vụ: {openTime} - {closeTime}). Các thao tác đặt hàng đang tạm khóa.",
     "theDiscountHasBeenApplied": "Áp dụng mã giảm 20.000đ thành công!",
     "freeDeliveryApplied": "Miễn phí vận chuyển thành công!",
     "theVoucherIsInvalidOrHasReachedItsUsageLimit": "Mã giảm giá không hợp lệ hoặc đã hết lượt.",
@@ -131,6 +133,7 @@
     "oneLastCheck": "KIỂM TRA LẦN CUỐI",
     "yourMealIsAlmostReady": "Bữa ngon sắp sẵn sàng",
     "voucherDiscount": "Voucher giảm giá",
+    "removeVoucher": "Bỏ áp dụng mã {code}",
     "rewardPoints": "Điểm tích lũy",
     "totalDue": "Tổng thanh toán",
     "editCart": "Chỉnh sửa giỏ hàng",
@@ -150,7 +153,7 @@
     "searchByOrderCodeCluOrStoreName": "Tìm theo mã đơn (CLU-...) hoặc tên quán...",
     "searchOrders": "Tìm kiếm đơn hàng",
     "filterOrderStatus": "Lọc trạng thái đơn",
-    "allOrders": "Tất cả đơn (",
+    "allOrders": "Tất cả đơn",
     "inProgress": "Đang xử lý",
     "completed": "Đã hoàn thành",
     "cancelled": "Đã hủy",
@@ -158,7 +161,21 @@
     "thereAreNoOrdersInThisSectionOrYourSearchDidNot": "Bạn chưa có đơn hàng nào trong mục này hoặc từ khóa tìm kiếm không khớp.",
     "reorderThisMeal": "Đặt lại đơn này",
     "viewDetails": "Xem chi tiết →",
-    "goToCart": "Đến giỏ hàng →"
+    "goToCart": "Đến giỏ hàng →",
+    "filterByDate": "Lọc theo ngày:",
+    "allDates": "Tất cả ngày",
+    "today": "Hôm nay",
+    "filterPayment": "Thanh toán:",
+    "allPaymentMethods": "Tất cả PTTT",
+    "paymentVietQr": "Chuyển khoản (VietQR)",
+    "paymentCod": "Tiền mặt (COD)",
+    "sortBy": "Sắp xếp:",
+    "sortNewest": "Mới nhất trước",
+    "sortOldest": "Cũ nhất trước",
+    "sortTotalDesc": "Giá trị cao → thấp",
+    "sortTotalAsc": "Giá trị thấp → cao",
+    "resetFilters": "Đặt lại bộ lọc",
+    "showingFilteredOrders": "Đang hiển thị {matched} / {total} đơn hàng"
   },
   "id": {
     "orderNotFound": "Không tìm thấy đơn hàng",
@@ -196,6 +213,12 @@
     "bankName": "Tên ngân hàng",
     "accountNumber": "Số tài khoản",
     "accountHolderName": "Tên chủ tài khoản",
+    "enterAccountNumber": "Nhập số tài khoản ngân hàng...",
+    "enterAccountHolderName": "Ví dụ: NGUYEN VAN A",
+    "searchAndChooseBank": "Tìm và chọn ngân hàng",
+    "searchBanks": "Tìm ngân hàng theo tên hoặc mã BIN",
+    "loadingBanks": "Đang tải danh sách ngân hàng...",
+    "noMatchingBanks": "Không tìm thấy ngân hàng phù hợp.",
     "saveBankDetails": "Lưu thông tin",
     "bankDetailsUpdated": "Đã cập nhật thông tin tài khoản thành công.",
     "cancelOrder": "Hủy đơn hàng?",
@@ -222,6 +245,7 @@
     "submitRequest": "Gửi yêu cầu"
   },
   "party": {
+    "consultationRequest": "Yêu cầu tư vấn gói tiệc",
     "customMenu": "Tự Chọn Thực Đơn",
     "ourTeamWillCallToDesignAMenuThatFitsYourBudget": "Đội ngũ tư vấn sẽ gọi điện thiết kế thực đơn phù hợp theo ngân sách.",
     "custom": "Tùy chọn",
@@ -244,6 +268,9 @@
     "individualPackagingGreetingCardsVatInvoiceHomeDelivery": "Yêu cầu về đóng gói riêng từng phần, thiệp mừng, xuất hóa đơn VAT, giao tận nơi...",
     "sendPartyBookingRequest": "Gửi yêu cầu đặt tiệc →",
     "yourDemoPartyRequestIsReady": "Yêu cầu đặt tiệc demo đã sẵn sàng!",
+    "requestSubmitted": "Đã gửi yêu cầu đặt tiệc",
+    "loginToRequestParty": "Vui lòng đăng nhập để gửi yêu cầu đặt tiệc.",
+    "requestAwaitingContact": "khách. Chi nhánh sẽ liên hệ để tư vấn và báo giá; yêu cầu này chưa được xác nhận thanh toán.",
     "youHaveCompletedTheFormFor": "Bạn đã hoàn tất biểu mẫu cho",
     "guestsThisIsAUiPreviewNoRequestHasBeenSentTo": "khách. Đây là bản xem thử giao diện, chưa gửi yêu cầu đến chi nhánh. Bạn có thể quay lại để điều chỉnh thông tin.",
     "guestCount": "Số khách",
@@ -253,7 +280,10 @@
     "partyPackage": "Gói tiệc",
     "theDemoFormHasBeenSavedInThisBrowser": "Biểu mẫu demo đã lưu trên trình duyệt này.",
     "couldNotSaveInThisBrowserYourDetailsRemainAvailableInThis": "Chưa lưu được vào trình duyệt; thông tin vẫn được giữ trong phiên hiện tại.",
-    "backToForm": "Quay lại biểu mẫu"
+    "backToForm": "Quay lại biểu mẫu",
+    "viewInCart": "Xem yêu cầu trong giỏ hàng",
+    "partyRequests": "Yêu cầu đặt tiệc",
+    "quotePending": "Đang chờ tư vấn và báo giá"
   },
   "stores": {
     "outsideHours": "○ Ngoài giờ phục vụ (Mở cửa lúc {openTime})",

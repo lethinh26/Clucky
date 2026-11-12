@@ -40,8 +40,7 @@ export interface CartItem {
   comboId?: number;
   itemType?: "PRODUCT" | "COMBO";
   itemKey?: string;
-  optionIds?: number[];
-  toppingIds?: number[];
+  storeId?: number;
   slug: string;
   name: string;
   category: string;
@@ -49,8 +48,12 @@ export interface CartItem {
   unitPrice: number;
   quantity: number;
   image: string;
+  optionIds?: number[];
+  toppingIds?: number[];
   options?: CartItemOption[];
   toppings?: CartItemTopping[];
+  optionsSnapshot?: any;
+  toppingsSnapshot?: any;
   note?: string;
 }
 
@@ -75,6 +78,7 @@ export interface Order {
   orderCode: string;
   storeId: string;
   storeName: string;
+  storeAddress?: string;
   type: OrderType;
   status: OrderStatus;
   subtotal: number;

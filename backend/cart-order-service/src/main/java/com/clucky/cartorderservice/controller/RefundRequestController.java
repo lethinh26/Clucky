@@ -8,6 +8,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,7 +25,8 @@ public class RefundRequestController {
     @PostMapping
     public ResponseEntity<RefundRequestResponse> createRefundRequest(@Valid @RequestBody CreateRefundRequest request) {
         var result = refundRequestService.createRefundRequest(request);
-        return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK).body(result.refund());
+        return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
+                .cacheControl(CacheControl.noStore()).body(result.refund());
     }
 
     @GetMapping
@@ -41,12 +43,12 @@ public class RefundRequestController {
         Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "id"));
 
         PageResponse<RefundRequestResponse> response = refundRequestService.getRefundRequests(customerId, storeId, status, orderId, pageable);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<RefundRequestResponse> getRefundRequestById(@PathVariable("id") @Positive Long id) {
-        return ResponseEntity.ok(refundRequestService.getRefundRequestById(id));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(refundRequestService.getRefundRequestById(id));
     }
 
     @PutMapping("/{id}/approve")
@@ -54,7 +56,8 @@ public class RefundRequestController {
             @PathVariable("id") @Positive Long id,
             @Valid @RequestBody(required = false) ReviewRefundRequest request) {
         RefundRequestResponse response = refundRequestService.approveRefundRequest(id, request);
-        return ResponseEntity.status(response.paymentOperation() == null ? HttpStatus.OK : HttpStatus.ACCEPTED).body(response);
+        return ResponseEntity.status(response.paymentOperation() == null ? HttpStatus.OK : HttpStatus.ACCEPTED)
+                .cacheControl(CacheControl.noStore()).body(response);
     }
 
     @PutMapping("/{id}/reject")
@@ -62,26 +65,26 @@ public class RefundRequestController {
             @PathVariable("id") @Positive Long id,
             @Valid @RequestBody ReviewRefundRequest request) {
         RefundRequestResponse response = refundRequestService.rejectRefundRequest(id, request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
     }
 
     @PutMapping("/{id}/claim-processing")
     public ResponseEntity<RefundRequestResponse> claimProcessing(@PathVariable("id") @Positive Long id) {
-        return ResponseEntity.ok(refundRequestService.claimProcessing(id));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(refundRequestService.claimProcessing(id));
     }
 
     @PutMapping("/{id}/request-bank-details")
     public ResponseEntity<RefundRequestResponse> requestBankDetails(
             @PathVariable("id") @Positive Long id,
             @Valid @RequestBody BankDetailsInvalidRequest request) {
-        return ResponseEntity.ok(refundRequestService.requestBankDetails(id, request));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(refundRequestService.requestBankDetails(id, request));
     }
 
     @PutMapping("/{id}/bank-details")
     public ResponseEntity<RefundRequestResponse> updateBankDetails(
             @PathVariable("id") @Positive Long id,
             @Valid @RequestBody UpdateBankDetailsRequest request) {
-        return ResponseEntity.ok(refundRequestService.updateBankDetails(id, request));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(refundRequestService.updateBankDetails(id, request));
     }
 
     @PostMapping("/{id}/evidence")
@@ -89,7 +92,7 @@ public class RefundRequestController {
     public ResponseEntity<RefundRequestResponse> uploadEvidence(
             @PathVariable("id") @Positive Long id,
             @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(refundRequestService.uploadEvidence(id, file));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(refundRequestService.uploadEvidence(id, file));
     }
 
     @GetMapping("/{id}/evidence")
@@ -100,6 +103,7 @@ public class RefundRequestController {
     @PutMapping("/{id}/confirm-refund")
     public ResponseEntity<RefundRequestResponse> confirmRefund(@PathVariable("id") @Positive Long id) {
         var response = refundRequestService.confirmRefund(id);
-        return ResponseEntity.status("REFUNDED".equals(response.status()) ? HttpStatus.OK : HttpStatus.ACCEPTED).body(response);
+        return ResponseEntity.status("REFUNDED".equals(response.status()) ? HttpStatus.OK : HttpStatus.ACCEPTED)
+                .cacheControl(CacheControl.noStore()).body(response);
     }
 }

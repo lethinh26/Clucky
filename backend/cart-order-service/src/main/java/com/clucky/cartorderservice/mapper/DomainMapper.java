@@ -45,7 +45,11 @@ public final class DomainMapper {
                 entity.getPaymentMethod(),
                 itemResponses,
                 historyResponses,
-                entity.getPaymentStatus()
+                entity.getPaymentStatus(),
+                entity.getOrderSource(),
+                entity.getDiningOption(),
+                entity.getQueueNumber(),
+                entity.getVersion()
         );
     }
 
@@ -100,6 +104,7 @@ public final class DomainMapper {
                 entity.getReviewedAt(),
                 entity.getReviewNote(),
                 entity.getBankName(),
+                entity.getBankBin(),
                 entity.getBankAccountNo(),
                 entity.getBankAccountName(),
                 entity.getBankDetailsVersion(),
@@ -123,6 +128,7 @@ public final class DomainMapper {
                 attempt.getAttemptNumber(),
                 attempt.getAttemptId(),
                 attempt.getBankName(),
+                attempt.getBankBin(),
                 attempt.getBankAccountNo(),
                 attempt.getBankAccountName(),
                 attempt.getAmount(),
@@ -142,10 +148,17 @@ public final class DomainMapper {
                 entity.getStoreId(),
                 entity.getContactName(),
                 entity.getPhone(),
+                entity.getContactEmail(),
                 entity.getExpectedDate(),
+                entity.getExpectedTime(),
                 entity.getGuestCount(),
+                entity.getPackageCode(),
                 entity.getContent(),
-                entity.getStatus()
+                entity.getStatus(),
+                entity.getQuoteAmount(),
+                entity.getPaymentMethod(),
+                entity.getConsultationNote(),
+                entity.getUpdatedAt()
         );
     }
 }

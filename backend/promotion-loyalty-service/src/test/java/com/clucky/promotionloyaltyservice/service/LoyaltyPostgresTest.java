@@ -71,7 +71,62 @@ class LoyaltyPostgresTest {
     @Autowired DataSource source;
     @Autowired VoucherService vouchers;
     @Autowired VoucherReservationService reservations;
+    @Autowired VoucherRepository voucherRepository;
     @Autowired JpaTransactionManager transactionManager;
+    @Autowired BannerRepository bannerRepository;
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void bannerFiltersRespectSchedulePositionStatusAndKeywordOnPostgres() {
+        Instant now = Instant.parse("2030-01-01T00:00:00Z");
+        String title = "Banner " + UUID.randomUUID();
+        var banner = new com.clucky.promotionloyaltyservice.entity.Banner();
+        banner.setTitle(title);
+        banner.setImageUrl("https://example.test/banner.png");
+        banner.setPosition("HERO_HOME");
+        banner.setIsActive(true);
+        banner.setStartAt(now.minusSeconds(60));
+        banner.setEndAt(now.plusSeconds(60));
+        bannerRepository.saveAndFlush(banner);
+        assertTrue(bannerRepository.findActiveBanners(now, false, "").contains(banner));
+        assertFalse(bannerRepository.findActiveBanners(now, true, "POPUP").contains(banner));
+        assertFalse(bannerRepository.findActiveBanners(now.minusSeconds(61), false, "").contains(banner));
+        assertFalse(bannerRepository.findActiveBanners(now.plusSeconds(61), false, "").contains(banner));
+        assertEquals(java.util.List.of(banner), bannerRepository.findAdminBanners(false, "", false, false, true,
+                "%" + title.toLowerCase(java.util.Locale.ROOT) + "%"));
+        banner.setIsActive(false);
+        bannerRepository.saveAndFlush(banner);
+        assertFalse(bannerRepository.findActiveBanners(now, false, "").contains(banner));
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void voucherFiltersHandleMissingAndCaseInsensitiveKeywordsOnPostgres() {
+        var voucher = new com.clucky.promotionloyaltyservice.model.Voucher();
+        voucher.setCode("FILTER_" + UUID.randomUUID());
+        voucher.setTitle("Clucky Mixed Case " + UUID.randomUUID());
+        voucher.setType(VoucherType.AMOUNT);
+        voucher.setValue(BigDecimal.TEN);
+        voucher.setStartAt(Instant.now().minusSeconds(60));
+        voucher.setEndAt(Instant.now().plusSeconds(3600));
+        voucher.setScope(com.clucky.promotionloyaltyservice.model.VoucherScope.STORE);
+        voucher.setStoreId(987654L);
+        voucher.setStatus(VoucherStatus.ACTIVE);
+        voucherRepository.saveAndFlush(voucher);
+
+        assertTrue(voucherRepository.findWithFilters(null, null, null, null).stream()
+                .anyMatch(found -> found.getId().equals(voucher.getId())));
+        assertTrue(voucherRepository.findWithFilters(null, null, null, "").stream()
+                .anyMatch(found -> found.getId().equals(voucher.getId())));
+        assertEquals(java.util.List.of(voucher), voucherRepository.findWithFilters(
+                voucher.getScope(), voucher.getStoreId(), VoucherStatus.ACTIVE,
+                voucher.getCode().toLowerCase(java.util.Locale.ROOT)));
+        assertEquals(java.util.List.of(voucher), voucherRepository.findWithFilters(
+                null, null, null, voucher.getTitle().toUpperCase(java.util.Locale.ROOT)));
+        assertTrue(voucherRepository.findWithFilters(null, 987655L, null, voucher.getCode()).isEmpty());
+        assertTrue(voucherRepository.findWithFilters(null, null, VoucherStatus.DISABLED, voucher.getCode()).isEmpty());
+        assertTrue(voucherRepository.findWithFilters(null, null, null, "MISSING_" + UUID.randomUUID()).isEmpty());
+    }
 
     @Test
     void concurrentApprovalsPersistOneApprovedState() throws Exception {

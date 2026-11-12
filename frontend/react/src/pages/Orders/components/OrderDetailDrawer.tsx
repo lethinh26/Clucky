@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../../i18n/hooks";
-import { useState } from "react";
-import { Drawer, Button, Modal, Input, Space, Tag } from "antd";
+import { useEffect, useRef, useState } from "react";
+import { Drawer, Button, Modal, Input, Space, Tag, Select, Alert } from "antd";
 import { message } from "../../../components/feedback";
 import {
   Clock3,
@@ -23,9 +23,12 @@ import { OrderProgress } from "../../../components/ui/OrderProgress";
 import { OrderStatusBadge } from "../../../components/ui/OrderStatusBadge";
 import { FoodImage } from "../../../components/ui/FoodImage";
 import { displayOrderTime } from "../../../lib/order-demo";
+import { formatQueueWithDate } from "../../../utils/orderExcelExport";
 import { useOrders } from "../../../context/OrderContext";
 import { useAuth } from "../../../context/AuthContext";
+import { getErrorMessage, vietQrApi, type VietQrBank } from "../../../lib/api";
 import styles from "../orders.module.css";
+import { CodEvidencePanel } from "./CodEvidencePanel";
 
 interface Props {
   order: AdminOrder | null;
@@ -38,6 +41,7 @@ interface Props {
   ) => Promise<boolean> | boolean;
   onOpenRefundModal?: (order: AdminOrder) => void;
   onOpenFinance?: (order: AdminOrder) => void;
+  onCollectCounter?: (order: AdminOrder) => void;
   onChanged?: () => void;
 }
 
@@ -48,29 +52,49 @@ export function OrderDetailDrawer({
   onStatusChange,
   onOpenRefundModal,
   onOpenFinance,
+  onCollectCounter,
   onChanged,
 }: Props) {
   const { t } = useTranslation();
 
 
   const { locale, money: money } = useLocaleTools();
-  const { actionError, createRefund } = useOrders();
+  const { stores, actionError, createRefund } = useOrders();
   const { isStaff } = useAuth();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [createRefundOpen, setCreateRefundOpen] = useState(false);
   const [refundReason, setRefundReason] = useState("");
+  const [bankBin, setBankBin] = useState("");
   const [bankName, setBankName] = useState("");
   const [accountNo, setAccountNo] = useState("");
   const [accountName, setAccountName] = useState("");
   const [submittingRefund, setSubmittingRefund] = useState(false);
+  const [banks, setBanks] = useState<VietQrBank[]>([]);
+  const [banksLoading, setBanksLoading] = useState(false);
+  const [banksError, setBanksError] = useState("");
+
+  useEffect(() => {
+    if (!createRefundOpen || banks.length > 0) return;
+    let active = true;
+    setBanksLoading(true);
+    setBanksError("");
+    vietQrApi.banks()
+      .then(items => { if (active) setBanks(items); })
+      .catch(error => { if (active) setBanksError(getErrorMessage(error)); })
+      .finally(() => { if (active) setBanksLoading(false); });
+    return () => { active = false; };
+  }, [createRefundOpen, banks.length]);
   if (!order) return null;
   return (
     <>
       <Drawer
         title={
           <div className={styles.drawerTitle}>
-            <span>{t("business:orderdetaildrawer.details")} {order.orderCode}</span>
+            <span>
+              {t("business:orderdetaildrawer.details")} {order.orderCode}
+              {order.queueNumber ? ` · ${formatQueueWithDate(order.queueNumber, order.createdAt).combinedLabel}` : ""}
+            </span>
             <OrderStatusBadge status={order.status} />
           </div>
         }
@@ -163,7 +187,17 @@ export function OrderDetailDrawer({
             </div>
             <div>
               <dt>{t("business:party.store")}</dt>
-              <dd>{order.storeName}</dd>
+              <dd>
+                {(() => {
+                  const s = stores.find((item) => Number(item.id) === Number(order.storeId));
+                  return (
+                    <>
+                      <div>{s?.name || order.storeName}</div>
+                      {s?.address && <small style={{ color: "#6b6259" }}>{s.address}</small>}
+                    </>
+                  );
+                })()}
+              </dd>
             </div>
             {order.deliveryAddress && (
               <div className={styles.wideField}>
@@ -218,9 +252,11 @@ export function OrderDetailDrawer({
             <div>
               <dt>{t("business:orderdetaildrawer.method")}</dt>
               <dd>
-                {onOpenFinance ? (order.paymentMethod || "UNKNOWN") : order.paymentMethod === "COD"
-                  ? t("business:orderdetaildrawer.cashCod")
-                  : t("business:id.bankTransfer")}
+                {onOpenFinance
+                  ? (order.paymentMethod || "UNKNOWN")
+                  : (order.paymentMethod === "COD" || (order.paymentMethod as string) === "CASH")
+                    ? t("business:orderdetaildrawer.cashCod")
+                    : t("business:id.bankTransfer")}
               </dd>
             </div>
             <div>
@@ -254,7 +290,7 @@ export function OrderDetailDrawer({
           <p className={styles.actionHint}> {t("business:orderdetaildrawer.actionsDependOnTheCurrentStatusAndYourDemoRole")} </p>
           <div className={styles.drawerActions}>
             {onOpenFinance && <Button icon={<Wallet size={16} />} onClick={() => onOpenFinance(order)}>{t("admin:ui.financeCollectionRefunds")}</Button>}
-            {order.status === "CONFIRMED" && (
+            {order.status === "CONFIRMED" && (order.orderType !== "PICKUP" || ["PAID", "COLLECTED"].includes(order.paymentStatus)) && (
               <Button
                 type="primary"
                 icon={<ChefHat size={16} />}
@@ -268,11 +304,21 @@ export function OrderDetailDrawer({
                 onClick={() => onStatusChange(order.id, "READY")}
               > {t("business:orderdetaildrawer.mealReady")} </Button>
             )}
-            {!onOpenFinance && order.paymentMethod === "COD" &&
-              order.paymentStatus === "PENDING" &&
-              !["CANCELLED", "COMPLETED"].includes(order.status) && (
-                <div><Button disabled icon={<Wallet size={16} />}>{t("business:orderdetaildrawer.confirmCodCollection")}</Button>
-                  <p>{t('admin:collectionUnavailable')}</p></div>
+            {!onOpenFinance && order.paymentStatus === "PENDING" &&
+              !["CANCELLED", "COMPLETED", "PENDING_PAYMENT"].includes(order.status) && (
+                onCollectCounter ? (
+                  <Button
+                    type="primary"
+                    icon={<Wallet size={16} />}
+                    onClick={() => onCollectCounter(order)}
+                  >
+                    {t("business:staffcard.collectCounterWithMethods")}
+                  </Button>
+                ) : (
+                  order.paymentMethod === "COD" &&
+                  order.orderType === "PICKUP" && ["CONFIRMED", "PREPARING", "READY"].includes(order.status) &&
+                  <CodEvidencePanel orderId={order.id} onCollect={() => onStatusChange(order.id, order.status, "COLLECT_COD")} />
+                )
               )}
             {["READY", "SHIPPING"].includes(order.status) && (
               <Button
@@ -294,6 +340,7 @@ export function OrderDetailDrawer({
             )}
             {order.status === "CANCELLED" &&
               order.paymentMethod === "BANK_TRANSFER" &&
+              order.paymentStatus === "PAID" &&
               !order.hasRefundRequest &&
               !order.refundStatus &&
               !isStaff && (
@@ -302,9 +349,10 @@ export function OrderDetailDrawer({
                   type="primary"
                   onClick={() => {
                     setRefundReason(t("business:orderdetaildrawer.eligibleRefundNotice"));
+                    setBankBin("");
                     setBankName("");
                     setAccountNo("");
-                    setAccountName(order.customerName || "");
+                    setAccountName("");
                     setCreateRefundOpen(true);
                   }}
                 >
@@ -330,14 +378,15 @@ export function OrderDetailDrawer({
         confirmLoading={submittingRefund}
         okButtonProps={{
           danger: true,
-          disabled: !refundReason.trim() || !bankName.trim() || !accountNo.trim() || !accountName.trim(),
+          disabled: !refundReason.trim() || !bankBin || !/^\d{1,80}$/.test(accountNo.trim()) || !accountName.trim(),
         }}
         onOk={async () => {
           setSubmittingRefund(true);
           const ok = await createRefund({
             orderId: Number(order.id),
             reason: refundReason.trim(),
-            bankName: bankName.trim(),
+            bankBin,
+            bankName,
             bankAccountNo: accountNo.trim(),
             bankAccountName: accountName.trim(),
           });
@@ -354,31 +403,46 @@ export function OrderDetailDrawer({
         </p>
         <Space direction="vertical" style={{ width: "100%" }} size={12}>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.bankLabel")}</label>
-            <Input
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              placeholder="Vietcombank, MB Bank, v.v."
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.bankLabel")} *</label>
+            <Select
+              showSearch
+              loading={banksLoading}
+              value={bankBin || undefined}
+              placeholder={t("business:refundmodal.searchAndChooseBank")}
+              optionFilterProp="label"
+              options={banks.map(bank => ({
+                value: bank.bin,
+                label: `${bank.shortName || bank.name || bank.bin} (${bank.bin})`,
+              }))}
+              onChange={(value: string) => {
+                setBankBin(value);
+                const selected = banks.find(b => b.bin === value);
+                setBankName(selected ? (selected.shortName || selected.name || selected.bin) : "");
+              }}
             />
+            {banksError && <Alert type="error" showIcon message={banksError} />}
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNoLabel")}</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNoLabel")} *</label>
             <Input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
               value={accountNo}
-              onChange={(e) => setAccountNo(e.target.value)}
+              onChange={(e) => setAccountNo(e.target.value.replace(/\s+/g, ""))}
               placeholder="123456789..."
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNameLabel")}</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.accountNameLabel")} *</label>
             <Input
               value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
+              onChange={(e) => setAccountName(e.target.value.toUpperCase())}
               placeholder="NGUYEN VAN A"
             />
           </div>
           <div>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.refundReasonLabel")}</label>
+            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>{t("business:orderdetaildrawer.refundReasonLabel")} *</label>
             <Input.TextArea
               value={refundReason}
               onChange={(e) => setRefundReason(e.target.value)}
@@ -396,8 +460,11 @@ export function OrderDetailDrawer({
         cancelText={t("business:id.keepOrder")}
         okButtonProps={{ danger: true, disabled: !reason.trim() }}
         onOk={async () => {
-          if (await onStatusChange(order.id, "CANCELLED", reason.trim()))
+          const success = await onStatusChange(order.id, "CANCELLED", reason.trim());
+          if (success) {
             setCancelOpen(false);
+            onClose();
+          }
         }}
       >
         <p> {t("business:orderdetaildrawer.enterACancellationReasonPaidOrdersWillCreateARefundRequestIn")} </p>

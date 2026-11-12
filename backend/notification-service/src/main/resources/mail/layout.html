@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{{subject}}</title>
+  <style>
+    body { margin:0; padding:0; -webkit-text-size-adjust:100%; }
+    table { border-spacing:0; }
+    img { border:0; }
+    @media screen and (max-width:600px) {
+      .outer-padding { padding:24px 12px !important; }
+      .content-padding { padding-left:24px !important; padding-right:24px !important; }
+      .heading { font-size:26px !important; }
+      .otp { font-size:30px !important; letter-spacing:5px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background:#F7F5F2;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">{{subject}}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F5F2;font-family:Quicksand,Arial,sans-serif;">
+  <tr><td class="outer-padding" align="center" style="padding:48px 20px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#FFFFFF;border:1px solid #EAE5DE;border-radius:20px;">
+      <tr><td align="center" style="padding:36px 24px 24px;">
+        <img src="cid:clucky-logo-v1" width="80" height="80" alt="Clucky" style="display:block;width:80px;height:80px;">
+      </td></tr>
+      <tr><td class="content-padding" align="center" style="padding:0 40px;word-break:break-word;">
+        <p style="margin:0 0 12px;color:#8F1216;font-size:11px;font-weight:700;letter-spacing:2px;line-height:18px;">{{eyebrow}}</p>
+        <h1 class="heading" style="margin:0;color:#16100D;font-family:Fredoka,Quicksand,Arial,sans-serif;font-size:30px;font-weight:600;line-height:1.3;letter-spacing:-0.5px;">{{title}}</h1>
+        <p style="margin:16px 0 0;color:#74685E;font-size:15px;line-height:25px;">{{content}}</p>
+      </td></tr>
+      <tr><td class="content-padding" style="padding:28px 40px 0;word-break:break-word;">{{details}}</td></tr>
+      {{action}}
+      <tr><td class="content-padding" align="center" style="padding:22px 40px 30px;">
+        <p style="margin:0;color:#82766C;font-size:12px;line-height:20px;">{{notice}}</p>
+      </td></tr>
+    </table>
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;">
+      <tr><td align="center" style="padding:24px 16px 0;">
+        <p style="margin:0;color:#8F1216;font-size:13px;font-weight:700;line-height:20px;">Clucky</p>
+        <p style="margin:4px 0 0;color:#968B81;font-size:12px;line-height:20px;">Crispy outside. Happy inside.</p>
+        <p style="margin:12px 0 0;color:#968B81;font-size:11px;line-height:18px;">{{footer}}</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

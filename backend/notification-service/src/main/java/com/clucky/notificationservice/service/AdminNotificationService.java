@@ -12,14 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
 public class AdminNotificationService {
-    private static final Set<String> STATUSES = Set.of("QUEUED", "SENDING", "SENT", "FAILED", "EXPIRED");
     private static final Pattern EMAIL = Pattern.compile("[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
     private final JdbcTemplate jdbc;
 
@@ -27,58 +23,8 @@ public class AdminNotificationService {
         this.jdbc = jdbc;
     }
 
-    public record EmailLogView(long id, String toEmail, String subject, String status, String template,
-                               Instant sentAt, Instant createdAt, String failureCode, int retryCount,
-                               String eventId, String correlationId, Instant nextAttemptAt) {}
-
     public record NotificationView(long id, String title, String content, String type, long refId,
                                    long storeId, boolean isRead, Instant createdAt) {}
-
-    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public PageResponse<EmailLogView> emailLogs(int page, int size, String recipient, String status, Instant from, Instant to) {
-        requireAdmin();
-        validatePage(page, size);
-        if (recipient != null && recipient.length() > 255 || status != null && !STATUSES.contains(status)
-                || from != null && to != null && !from.isBefore(to)) {
-            throw new ApiException(ErrorCode.VALIDATION_ERROR);
-        }
-        StringBuilder where = new StringBuilder(" WHERE 1=1");
-        List<Object> parameters = new ArrayList<>();
-        if (recipient != null && !recipient.isBlank()) {
-            where.append(" AND position(lower(?) in lower(to_email)) > 0");
-            parameters.add(recipient.trim());
-        }
-        if (status != null) {
-            where.append(" AND status = ?");
-            parameters.add(status);
-        }
-        if (from != null) {
-            where.append(" AND created_at >= ?");
-            parameters.add(Timestamp.from(from));
-        }
-        if (to != null) {
-            where.append(" AND created_at < ?");
-            parameters.add(Timestamp.from(to));
-        }
-        long total = jdbc.queryForObject("SELECT count(*) FROM notification_service.email_logs" + where,
-                Long.class, parameters.toArray());
-        parameters.add(size);
-        parameters.add((long) page * size);
-        var content = jdbc.query("SELECT id,to_email,subject,status,template,sent_at,created_at,last_error,retry_count,event_id,correlation_id,next_attempt_at FROM notification_service.email_logs"
-                        + where + " ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?", (row, index) -> {
-                    Timestamp sentAt = row.getTimestamp("sent_at");
-                    Timestamp nextAttempt = row.getTimestamp("next_attempt_at");
-                    String failure = row.getString("last_error");
-                    String safeFailure = failure == null ? null : Set.of("SMTP_CONNECT_FAILED", "SMTP_OUTCOME_UNKNOWN", "INVALID_TEMPLATE").contains(failure)
-                            ? failure : "DELIVERY_FAILED";
-                    return new EmailLogView(row.getLong("id"), maskEmail(row.getString("to_email")),
-                            maskSubject(row.getString("subject")), row.getString("status"), row.getString("template"),
-                            sentAt == null ? null : sentAt.toInstant(), row.getTimestamp("created_at").toInstant(), safeFailure,
-                            row.getInt("retry_count"), row.getString("event_id"), row.getString("correlation_id"),
-                            "QUEUED".equals(row.getString("status")) && nextAttempt != null ? nextAttempt.toInstant() : null);
-                }, parameters.toArray());
-        return new PageResponse<>(content, page, size, total, (int) ((total + size - 1) / size));
-    }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PageResponse<NotificationView> inbox(int page, int size) {

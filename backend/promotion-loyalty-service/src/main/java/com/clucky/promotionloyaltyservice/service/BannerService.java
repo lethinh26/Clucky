@@ -106,6 +106,7 @@ public class BannerService {
 
         try {
             return transaction.execute(status -> {
+                mediaAdapter.attach(uploaded.publicId());
                 Banner banner = new Banner();
                 banner.setTitle(title);
                 banner.setImageUrl(uploaded.secureUrl());
@@ -196,6 +197,7 @@ public class BannerService {
                 Map<String, Object> before = snapshot(locked);
                 String oldPublicId = locked.getImagePublicId();
 
+                mediaAdapter.attach(uploaded.publicId());
                 locked.setImageUrl(uploaded.secureUrl());
                 locked.setImagePublicId(uploaded.publicId());
 

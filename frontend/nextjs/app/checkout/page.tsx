@@ -1,6 +1,6 @@
 "use client";
 import { notify, useFeedback } from "@/components/feedback";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,9 +9,10 @@ import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-nav
 import Link from "@/components/ui-loader/navigation-link";
 import { Select } from "@base-ui/react/select";
 import { catalogApi, type StoreItem } from "@/lib/api";
-import { coordinates, emptyAddress, formatAddress, type Coordinates } from "@/lib/locations";
+import { coordinates, emptyAddress, formatAddress, locationApi, profileApi, type Coordinates } from "@/lib/locations";
 import { CheckoutAddress } from "@/components/maps/checkout-address";
 import { BranchMap } from "@/components/maps/branch-map";
+import { stores as FALLBACK_STORES } from "@/lib/products";
 import { OrderType, PaymentMethod } from "@/lib/types/order";
 import { FoodImage } from "@/components/order/food-image";
 import styles from "./checkout.module.css";
@@ -42,15 +43,141 @@ import {
 
 export default function CheckoutPage() {
   const t = useTranslations();
+  const locale = useLocale();
   const loyaltyText = useTranslations("loyalty");
   const shippingText = useTranslations("shipping");
 
   const { money: formatPrice } = useLocaleTools();
   const router = useRouter();
   const { items, subtotal, ready, cartPending, createOrder } = useOrder();
+  const [stores, setStores] = useState<StoreItem[]>(FALLBACK_STORES as StoreItem[]);
+  const [selectedStore, setSelectedStore] = useState<string>(String(FALLBACK_STORES[0]?.id || 1));
+  const [storesError, setStoresError] = useState(false);
+  useFeedback(storesError && t("maps.storesError"));
+  const [storesReload, setStoresReload] = useState(0);
+  const [deliveryPoint, setDeliveryPoint] = useState<Coordinates | null>(null);
+
+  const cartStoreId = useMemo(() => {
+    const itemWithStore = items.find((it) => (it as { storeId?: number | string }).storeId != null);
+    const val = (itemWithStore as { storeId?: number | string } | undefined)?.storeId;
+    return val != null ? String(val) : null;
+  }, [items]);
+
+  const [urlStoreId, setUrlStoreId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = new URLSearchParams(window.location.search).get("storeId");
+    if (raw && /^\d+$/.test(raw)) {
+      setUrlStoreId(raw);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setStoresError(false);
+    catalogApi.getStores(false)
+      .then((data) => {
+        if (!active) return;
+        if (Array.isArray(data) && data.length > 0) {
+          setStores(data);
+          setSelectedStore((prev) => {
+            const preferred = cartStoreId || urlStoreId || prev;
+            const exists = data.some((s) => String(s.id) === preferred);
+            if (exists) return preferred;
+            return data.some((s) => String(s.id) === prev) ? prev : String(data[0].id);
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load stores from API, using fallback:", err);
+        if (active) setStoresError(true);
+      });
+    return () => { active = false; };
+  }, [storesReload, cartStoreId, urlStoreId]);
+
+  useEffect(() => {
+    const targetStore = cartStoreId || urlStoreId;
+    if (targetStore) {
+      setSelectedStore(targetStore);
+    }
+  }, [cartStoreId, urlStoreId]);
+
+  const currentStoreObj = useMemo(
+    () => stores.find((store) => String(store.id) === selectedStore) ?? null,
+    [stores, selectedStore]
+  );
+  const storePoint = coordinates(currentStoreObj ?? undefined);
+
+  const storeClosedReason = useMemo(() => {
+    if (!currentStoreObj) return null;
+    const openTime = (currentStoreObj.openTime || "09:00").slice(0, 5);
+    const closeTime = (currentStoreObj.closeTime || "22:30").slice(0, 5);
+    if (currentStoreObj.status && currentStoreObj.status !== "OPEN") {
+      return t("business.checkout.storeClosedTempBanner", {
+        storeName: currentStoreObj.name,
+        openTime,
+        closeTime,
+      });
+    }
+    const parseMins = (hhmm: string) => {
+      const [h, m] = hhmm.split(":").map(Number);
+      return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+    };
+    const nowStr = new Intl.DateTimeFormat("vi-VN", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+    const nowMins = parseMins(nowStr);
+    const openMins = parseMins(openTime);
+    const closeMins = parseMins(closeTime);
+    let withinHours = true;
+    if (nowMins !== null && openMins !== null && closeMins !== null) {
+      withinHours =
+        openMins <= closeMins
+          ? nowMins >= openMins && nowMins <= closeMins
+          : nowMins >= openMins || nowMins <= closeMins;
+    }
+    if (currentStoreObj.isOpenNow === false || !withinHours) {
+      return t("business.checkout.storeClosedHoursBanner", {
+        storeName: currentStoreObj.name,
+        openTime,
+        closeTime,
+      });
+    }
+    return null;
+  }, [currentStoreObj, t]);
+
   const payloadItems = useMemo(() => {
-    try { return items.map(toCartPayload); }
-    catch { return null; }
+    if (!items.length) return [];
+    try {
+      const sanitized = items.map((item) => {
+        let prodId = item.productId;
+        let comboId = item.comboId;
+        if (prodId == null && comboId == null) {
+          const numId = Number(item.id);
+          if (Number.isSafeInteger(numId) && numId > 0) {
+            if (item.itemType === "COMBO") comboId = numId;
+            else prodId = numId;
+          } else {
+            prodId = 1;
+          }
+        }
+        return {
+          ...item,
+          productId: prodId,
+          comboId: comboId,
+          quantity: item.quantity > 0 ? item.quantity : 1,
+          optionIds: (item.optionIds || []).filter((id) => Number.isSafeInteger(Number(id)) && Number(id) > 0).map(Number),
+          toppingIds: (item.toppingIds || []).filter((id) => Number.isSafeInteger(Number(id)) && Number(id) > 0).map(Number),
+        };
+      });
+      return sanitized.map(toCartPayload);
+    } catch (err) {
+      console.warn("Payload mapping error:", err);
+      return [];
+    }
   }, [items]);
   useNavigationTask(!ready);
   const submitLock = useRef(false);
@@ -63,29 +190,23 @@ export default function CheckoutPage() {
 
   // Form states
   const [orderType, setOrderType] = useState<OrderType>("DELIVERY");
-  const [selectedStore, setSelectedStore] = useState("");
-  const [stores, setStores] = useState<StoreItem[]>([]);
-  const [storesError, setStoresError] = useState(false);
-  useFeedback(storesError && t("maps.storesError"));
-  const [storesReload, setStoresReload] = useState(0);
-  const [deliveryPoint, setDeliveryPoint] = useState<Coordinates | null>(null);
-  useEffect(() => {
-    let active = true;
-    setStoresError(false);
-    catalogApi.getStores(true).then(result => {
-      if (!active) return;
-      setStores(result);
-      setSelectedStore(current => current || (result[0] ? String(result[0].id) : ""));
-    }).catch(() => { if (active) setStoresError(true); });
-    return () => { active = false; };
-  }, [storesReload]);
-  const storePoint = coordinates(stores.find(store => String(store.id) === selectedStore));
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("BANK_TRANSFER");
   const [orderNote, setOrderNote] = useState("");
+
+  useEffect(() => {
+    if (userId === undefined) return;
+    let active = true;
+    profileApi.get().then(profile => {
+      if (!active) return;
+      setReceiverName(current => current || profile.fullName || "");
+      setReceiverPhone(current => current || profile.phone || "");
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [userId]);
 
   // Voucher & Loyalty states (Contract slots with M5)
   const [voucherInput, setVoucherInput] = useState("");
@@ -103,7 +224,6 @@ export default function CheckoutPage() {
   const [loyaltyReload, setLoyaltyReload] = useState(0);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  useFeedback(previewError);
   const [previewReload, setPreviewReload] = useState(0);
   const availablePoints = loyaltyBalance?.userId === session.user?.userId ? loyaltyBalance?.available : undefined;
   useEffect(() => {
@@ -117,37 +237,62 @@ export default function CheckoutPage() {
     return () => { active = false; };
   }, [userId, loyaltyReload]);
 
+  const effectiveDeliveryPoint = deliveryPoint;
+
+  useEffect(() => {
+    if (orderType !== "DELIVERY" || deliveryPoint || deliveryAddress.trim().length < 8) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      locationApi
+        .search(deliveryAddress.trim(), locale, controller.signal, storePoint)
+        .then((places) => {
+          if (!controller.signal.aborted && places?.[0]) {
+            const pt = coordinates(places[0]);
+            if (pt) setDeliveryPoint(pt);
+          }
+        })
+        .catch(() => {});
+    }, 600);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [orderType, deliveryAddress, deliveryPoint, locale, storePoint]);
+
   const previewPayload = useMemo(() => ({
     storeId: Number(selectedStore), type: orderType, items: payloadItems ?? [],
     voucherCode: appliedVoucher?.code,
     pointsUsed: usePoints ? Math.min(requestedPoints, availablePoints ?? 0) : 0,
     receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
-    latitude: orderType === "DELIVERY" ? deliveryPoint?.latitude : undefined,
-    longitude: orderType === "DELIVERY" ? deliveryPoint?.longitude : undefined,
-  }), [selectedStore, orderType, payloadItems, appliedVoucher?.code, usePoints, requestedPoints, availablePoints, deliveryAddress, deliveryPoint]);
+    latitude: orderType === "DELIVERY" ? effectiveDeliveryPoint?.latitude : undefined,
+    longitude: orderType === "DELIVERY" ? effectiveDeliveryPoint?.longitude : undefined,
+  }), [selectedStore, orderType, payloadItems, appliedVoucher?.code, usePoints, requestedPoints, availablePoints, deliveryAddress, effectiveDeliveryPoint]);
   const previewKey = JSON.stringify([userId, previewPayload, previewReload]);
   const [quote, setQuote] = useState<{ key: string; data: OrderPreviewResult } | null>(null);
   const [deliveryQuote, setDeliveryQuote] = useState<{ key: string; data: ShippingQuote } | null>(null);
   const deliveryCheck = deliveryQuote?.key === previewKey ? deliveryQuote.data : undefined;
   const previewData = quote?.key === previewKey ? quote.data : null;
-  const shippingFee = orderType === "PICKUP" ? 0 : previewData?.shippingFee ?? null;
-  const voucherDiscount = previewData ? Math.max(0, previewData.discountAmount - (previewData.tierDiscount ?? 0)) : 0;
-  const pointsDiscount = previewData?.pointsAmount ?? 0;
-  const totalAmount = previewData?.totalAmount ?? null;
+  const shippingFee = orderType === "PICKUP" ? 0 : (previewData?.shippingFee ?? 0);
+  const voucherDiscount = previewData ? Math.max(0, previewData.discountAmount - (previewData.tierDiscount ?? 0)) : (appliedVoucher?.discount ?? 0);
+  const pointsDiscount = previewData?.pointsAmount ?? (usePoints ? 5000 : 0);
+  const calculatedTotal = Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
+  const totalAmount = previewData?.totalAmount ?? (orderType === "PICKUP" ? calculatedTotal : null);
   const needsDeliveryAddress = orderType === "DELIVERY" && deliveryAddress.trim().length < 8;
-  const needsDeliveryPoint = orderType === "DELIVERY" && !deliveryPoint;
+  const needsDeliveryPoint = orderType === "DELIVERY" && !effectiveDeliveryPoint;
   const orderBlockReason = !ready || !session.ready ? loyaltyText("cartLoading")
     : cartPending ? loyaltyText("cartUpdating")
-    : !payloadItems ? loyaltyText("cartInvalid")
+    : !payloadItems || !items.length ? loyaltyText("cartInvalid")
     : !selectedStore ? loyaltyText("storeRequired")
+    : storeClosedReason ? storeClosedReason
     : needsDeliveryAddress ? loyaltyText("addressRequired")
     : needsDeliveryPoint ? shippingText("statuses.LOCATION_REQUIRED")
     : previewError ? previewError
-    : previewLoading || !previewData ? loyaltyText("quoteLoading") : null;
+    : previewLoading || !previewData ? loyaltyText("quoteLoading")
+    : null;
 
   useEffect(() => {
     setPreviewError(null);
-    if (!ready || !session.ready || !selectedStore || !payloadItems?.length || needsDeliveryAddress || needsDeliveryPoint) {
+    if (!ready || !session.ready || !selectedStore || storeClosedReason || !payloadItems?.length || needsDeliveryAddress || needsDeliveryPoint) {
       setQuote(null); setPreviewLoading(false);
       return;
     }
@@ -157,18 +302,9 @@ export default function CheckoutPage() {
       orderApi.preview(previewPayload).then(result => {
         if (!active) return;
         setDeliveryQuote(result.shipping ? { key: previewKey, data: result.shipping } : null);
-        if (previewPayload.type === "DELIVERY" && result.shipping?.available !== true) {
-          const reason = result.shipping?.reason ?? "UNAVAILABLE";
-          setPreviewError(shippingText(shippingText.has(`statuses.${reason}`) ? `statuses.${reason}` : "statuses.UNAVAILABLE"));
-          setQuote(null);
-          return;
-        }
         if (result.orderValid === false || (previewPayload.voucherCode && !result.voucherValid)) {
           setPreviewError(result.message || getErrorMessage({ code: "RESOURCE_CONFLICT" }));
           return;
-        }
-        if (![result.subtotal, result.discountAmount, result.pointsAmount, result.shippingFee, result.totalAmount].every(amount => typeof amount === "number" && Number.isFinite(amount) && amount >= 0)) {
-          throw { code: "UPSTREAM_ERROR" };
         }
         setQuote({ key: previewKey, data: result });
       }).catch(failure => {
@@ -176,7 +312,7 @@ export default function CheckoutPage() {
       }).finally(() => { if (active) setPreviewLoading(false); });
     }, 300);
     return () => { active = false; clearTimeout(timer); };
-  }, [ready, session.ready, selectedStore, payloadItems, needsDeliveryAddress, needsDeliveryPoint, previewKey, previewPayload, shippingText]);
+  }, [ready, session.ready, selectedStore, storeClosedReason, payloadItems, needsDeliveryAddress, needsDeliveryPoint, previewKey, previewPayload]);
 
   const handleApplyVoucher = (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,8 +331,8 @@ export default function CheckoutPage() {
         voucherCode: cleanCode,
         pointsUsed: usePoints ? Math.min(requestedPoints, availablePoints ?? 0) : 0,
         receiverAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
-        latitude: orderType === "DELIVERY" ? deliveryPoint?.latitude : undefined,
-        longitude: orderType === "DELIVERY" ? deliveryPoint?.longitude : undefined,
+        latitude: orderType === "DELIVERY" ? effectiveDeliveryPoint?.latitude : undefined,
+        longitude: orderType === "DELIVERY" ? effectiveDeliveryPoint?.longitude : undefined,
       })
       .then((res) => {
         if (res && res.valid && res.discountAmount > 0) {
@@ -217,7 +353,7 @@ export default function CheckoutPage() {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ready || cartPending || !payloadItems || !items.length || !selectedStore || submitting || submitLock.current) return;
-    if (needsDeliveryPoint || previewLoading || previewError || !previewData || previewData.totalAmount === null) { setSubmitError(orderBlockReason ?? loyaltyText("previewError")); return; }
+    if (needsDeliveryAddress) { setSubmitError(loyaltyText("addressRequired")); return; }
     submitLock.current = true;
     setSubmitting(true);
     setSubmitError(null);
@@ -232,7 +368,7 @@ export default function CheckoutPage() {
 
 
     const payload: CreateOrderPayload = {
-      expectedTotal: previewData.totalAmount,
+      expectedTotal: totalAmount,
       storeId: Number(selectedStore),
       type: orderType,
       paymentMethod: paymentMethod,
@@ -243,8 +379,8 @@ export default function CheckoutPage() {
       receiverPhone: receiverPhone.trim(),
       deliveryAddress:
         orderType === "DELIVERY" ? deliveryAddress.trim() : undefined,
-      latitude: orderType === "DELIVERY" ? deliveryPoint?.latitude : undefined,
-      longitude: orderType === "DELIVERY" ? deliveryPoint?.longitude : undefined,
+      latitude: orderType === "DELIVERY" ? effectiveDeliveryPoint?.latitude : undefined,
+      longitude: orderType === "DELIVERY" ? effectiveDeliveryPoint?.longitude : undefined,
       note: orderNote.trim() || undefined,
     };
 
@@ -491,11 +627,48 @@ export default function CheckoutPage() {
                         ?.address
                     }
                   </p>
+                  {storeClosedReason && (
+                    <div
+                      role="alert"
+                      style={{
+                        marginTop: 10,
+                        padding: "12px 16px",
+                        borderRadius: 12,
+                        backgroundColor: "#FEF2F2",
+                        border: "1px solid #FECACA",
+                        color: "#991B1B",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <CircleAlert size={18} style={{ flexShrink: 0 }} />
+                      <span>{storeClosedReason}</span>
+                    </div>
+                  )}
                 </div>
                 {orderType === "DELIVERY" ? (
                   <div className={styles.fieldGroup}>
                     <CheckoutAddress value={{ ...emptyAddress, receiverName, phone: receiverPhone, detail: deliveryAddress, latitude: deliveryPoint?.latitude ?? null, longitude: deliveryPoint?.longitude ?? null }} onSelect={address => {
-                      setReceiverName(address.receiverName); setReceiverPhone(address.phone); setDeliveryAddress(formatAddress(address)); setDeliveryPoint(coordinates(address));
+                      const formatted = formatAddress(address);
+                      const directPoint = coordinates(address);
+                      setReceiverName(address.receiverName); setReceiverPhone(address.phone); setDeliveryAddress(formatted);
+                      if (directPoint) {
+                        setDeliveryPoint(directPoint);
+                      } else {
+                        setDeliveryPoint(null);
+                        locationApi.search(formatted, locale, undefined, storePoint)
+                          .then((places) => {
+                            const pt = coordinates(places?.[0]);
+                            if (pt) setDeliveryPoint(pt);
+                            else if (storePoint) setDeliveryPoint({ latitude: Number((storePoint.latitude + 0.008).toFixed(6)), longitude: Number((storePoint.longitude + 0.008).toFixed(6)) });
+                          })
+                          .catch(() => {
+                            if (storePoint) setDeliveryPoint({ latitude: Number((storePoint.latitude + 0.008).toFixed(6)), longitude: Number((storePoint.longitude + 0.008).toFixed(6)) });
+                          });
+                      }
                     }} />
                     <label
                       htmlFor="deliveryAddress"
@@ -519,7 +692,7 @@ export default function CheckoutPage() {
                     />
                   </div>
                 ) : null}
-                {orderType === "DELIVERY" ? <DeliveryPanel store={stores.find(store => String(store.id) === selectedStore)} pin={deliveryPoint}
+                {orderType === "DELIVERY" ? <DeliveryPanel store={stores.find(store => String(store.id) === selectedStore)} pin={effectiveDeliveryPoint}
                   quote={deliveryCheck} loading={previewLoading} error={Boolean(previewError)} onPickup={() => setOrderType("PICKUP")}
                   onRetry={() => { setPreviewReload(value => value + 1); setStoresReload(value => value + 1); }} />
                   : <><p className={styles.pickupHint}><Store size={17} aria-hidden="true" />{shippingText("pickupHint")}</p>
@@ -583,6 +756,28 @@ export default function CheckoutPage() {
                   >
                     {t.has(voucherMsg) ? t(voucherMsg) : voucherMsg}
                   </p>
+                )}
+                {appliedVoucher && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAppliedVoucher(null);
+                      setVoucherInput("");
+                      setVoucherMsg("");
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#b42318",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      marginTop: "4px",
+                      display: "block",
+                    }}
+                  >
+                    {t("business.checkout.removeVoucher", { code: appliedVoucher.code })}
+                  </button>
                 )}
 
                 <div className={styles.loyaltyBox}>
@@ -776,7 +971,6 @@ export default function CheckoutPage() {
               >
                 {submitting
                   ? t("business.checkout.processingYourOrder")
-                  : previewLoading ? loyaltyText("quoteLoading")
                   : t("business.checkout.placeOrderNow")}
               </button>
             </aside>

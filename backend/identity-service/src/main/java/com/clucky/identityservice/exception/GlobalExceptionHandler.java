@@ -29,13 +29,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ApiError> business(ApiException failure, HttpServletRequest request) {
         request.setAttribute(CorrelationIdFilter.ERROR_CODE, failure.getCode().name());
-        return ResponseEntity.status(failure.getCode().httpStatus()).body(ApiError.of(failure.getCode(), request.getRequestURI()));
+        return ResponseEntity.status(failure.getCode().httpStatus()).body(ApiError.of(failure.getCode(), request.getRequestURI(), failure.getFieldErrors()));
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,
             HttpMessageNotReadableException.class, HandlerMethodValidationException.class,
             MethodArgumentTypeMismatchException.class})
     ResponseEntity<ApiError> invalid(Exception failure, HttpServletRequest request) {
+        if (failure instanceof MethodArgumentNotValidException validation
+                && validation.getBindingResult().getTarget() instanceof com.clucky.identityservice.dto.auth.RegisterRequest) {
+            var fields = new java.util.TreeMap<String, String>();
+            for (var field : validation.getBindingResult().getFieldErrors()) {
+                if (java.util.Set.of("fullName", "email", "phone", "password").contains(field.getField())) {
+                    fields.putIfAbsent(field.getField(), "INVALID");
+                }
+            }
+            request.setAttribute(CorrelationIdFilter.ERROR_CODE, ErrorCode.VALIDATION_ERROR.name());
+            return ResponseEntity.badRequest().body(ApiError.of(ErrorCode.VALIDATION_ERROR, request.getRequestURI(), fields));
+        }
         return respond(HttpStatus.BAD_REQUEST, request);
     }
 

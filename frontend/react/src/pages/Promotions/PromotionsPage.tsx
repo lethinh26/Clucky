@@ -10,6 +10,7 @@ import {
   DeleteOutlined,
   EyeOutlined,
   ShopOutlined,
+  GlobalOutlined,
   GiftOutlined,
   CalendarOutlined,
   StopOutlined,
@@ -36,6 +37,7 @@ import {
 } from '../../lib/api';
 import type { AdminVoucher, VoucherPayload, VoucherStatus } from '../../types/promotion';
 import './promotions.css';
+import { voucherState, voucherStoreName } from './presentation';
 
 const { Text, Title } = Typography;
 
@@ -48,6 +50,8 @@ export const PromotionsPage: React.FC = () => {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [loadError, setLoadError] = useState('');
+  const [storeError, setStoreError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   // Filters
@@ -55,6 +59,9 @@ export const PromotionsPage: React.FC = () => {
   const [scopeFilter, setScopeFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [storeFilter, setStoreFilter] = useState<number | 'ALL'>('ALL');
+  const [reviewSearch, setReviewSearch] = useState('');
+  const [reviewStatus, setReviewStatus] = useState(isAdmin ? 'PENDING_APPROVAL' : 'ALL');
+  const [reviewStore, setReviewStore] = useState<number | 'ALL'>('ALL');
 
   // Modals & Drawers
   const [modalOpen, setModalOpen] = useState<boolean>(false);
@@ -62,31 +69,31 @@ export const PromotionsPage: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [selectedVoucher, setSelectedVoucher] = useState<AdminVoucher | null>(null);
   const voucherRequest = useRef(0);
+  const mutationLock = useRef(false);
 
   // Fetch stores list
   const fetchStores = useCallback(async () => {
+    setStoreError('');
     try {
-      const data = await storesApi.list(false);
+      const data = isAdmin ? await storesApi.list(false)
+        : user.storeId ? [await storesApi.get(Number(user.storeId))] : [];
       setStores(data || []);
     } catch (error) {
-      message.error(getErrorMessage(error));
+      setStoreError(getErrorMessage(error));
     }
-  }, []);
+  }, [isAdmin, user.storeId]);
 
   const fetchVouchers = useCallback(async () => {
     const request = ++voucherRequest.current;
     try {
       setLoading(true);
       setLoadError('');
-      const apiScope = scopeFilter === 'SCOPE_ALL' ? 'ALL' : scopeFilter === 'SCOPE_STORE' ? 'STORE' : undefined;
-      const data = await promotionsApi.listVouchers({
-        scope: apiScope,
-        storeId: typeof storeFilter === 'number' ? storeFilter : undefined,
-        status: statusFilter !== 'ALL' ? statusFilter : undefined,
-        keyword: searchTerm.trim() || undefined,
-      });
+      const data = await promotionsApi.listVouchers();
 
-      if (request === voucherRequest.current) setVouchers(data);
+      if (request === voucherRequest.current) {
+        setVouchers(data);
+        setSelectedVoucher(current => current ? data.find(voucher => voucher.id === current.id) ?? current : null);
+      }
     } catch (error) {
       if (request !== voucherRequest.current) return;
       setLoadError(getErrorMessage(error));
@@ -94,29 +101,44 @@ export const PromotionsPage: React.FC = () => {
     } finally {
       if (request === voucherRequest.current) setLoading(false);
     }
-  }, [scopeFilter, storeFilter, statusFilter, searchTerm]);
+  }, [user.id, isAdmin, user.storeId]);
 
   useEffect(() => {
     fetchStores();
+  }, [fetchStores]);
+
+  useEffect(() => {
     fetchVouchers();
-    return () => { voucherRequest.current += 1; };
-  }, [fetchStores, fetchVouchers]);
+    window.addEventListener('focus', fetchVouchers);
+    return () => { voucherRequest.current += 1; window.removeEventListener('focus', fetchVouchers); };
+  }, [fetchVouchers]);
+
+  const liveVouchers = useMemo(() => vouchers.filter(voucher => !voucherState(voucher).isProposal), [vouchers]);
+  const pendingCount = vouchers.filter(voucher => voucher.status === 'PENDING_APPROVAL').length;
+  const reviewRows = vouchers.filter(voucher => {
+    if (!voucherState(voucher).isProposal) return false;
+    if (reviewStatus !== 'ALL' && voucher.status !== reviewStatus) return false;
+    if (reviewStore !== 'ALL' && Number(voucher.storeId) !== reviewStore) return false;
+    const term = reviewSearch.trim().toLocaleLowerCase();
+    return !term || [voucher.code, voucher.title, voucherStoreName(voucher, stores), voucher.rejectionReason]
+      .some(value => value?.toLocaleLowerCase().includes(term));
+  });
 
   // Quick KPI Statistics
   const kpiStats = useMemo(() => {
-    const total = vouchers.length;
-    const active = vouchers.filter((v) => (v.effectiveStatus || v.status) === 'ACTIVE').length;
-    const upcoming = vouchers.filter((v) => (v.effectiveStatus || v.status) === 'UPCOMING').length;
-    const inactive = vouchers.filter((v) => {
+    const total = liveVouchers.length;
+    const active = liveVouchers.filter((v) => (v.effectiveStatus || v.status) === 'ACTIVE').length;
+    const upcoming = liveVouchers.filter((v) => (v.effectiveStatus || v.status) === 'UPCOMING').length;
+    const inactive = liveVouchers.filter((v) => {
       const s = v.effectiveStatus || v.status;
       return s === 'EXPIRED' || s === 'EXHAUSTED' || s === 'DISABLED';
     }).length;
     return { total, active, upcoming, inactive };
-  }, [vouchers]);
+  }, [liveVouchers]);
 
   // Role isolation & Client-side filtering
   const filteredVouchers = useMemo(() => {
-    return vouchers.filter((v) => {
+    return liveVouchers.filter((v) => {
       // 1. Role-based isolation: Store Manager only sees ALL vouchers or vouchers of their store
       if (!isAdmin && user.storeId) {
         if (v.scope === 'STORE' && v.storeId !== null && Number(v.storeId) !== Number(user.storeId)) {
@@ -156,7 +178,7 @@ export const PromotionsPage: React.FC = () => {
 
       return true;
     });
-  }, [vouchers, isAdmin, user.storeId, scopeFilter, storeFilter, statusFilter, searchTerm]);
+  }, [liveVouchers, isAdmin, user.storeId, scopeFilter, storeFilter, statusFilter, searchTerm]);
 
   const hasActiveFilters =
     searchTerm.trim() !== '' ||
@@ -179,12 +201,14 @@ export const PromotionsPage: React.FC = () => {
 
   // Open edit modal
   const handleOpenEdit = (voucher: AdminVoucher) => {
+    if (!isAdmin || !voucherState(voucher).canToggle || mutationLock.current) return;
     setEditingVoucher(voucher);
     setModalOpen(true);
   };
 
   // Open detail drawer
   const handleOpenDetail = (voucher: AdminVoucher) => {
+    setActionError('');
     setSelectedVoucher(voucher);
     setDrawerOpen(true);
   };
@@ -201,30 +225,35 @@ export const PromotionsPage: React.FC = () => {
 
   // Submit create or update
   const handleSubmitVoucher = async (payload: VoucherPayload) => {
-    if (actionLoading) return;
+    if (mutationLock.current || (editingVoucher && !isAdmin)) return;
+    mutationLock.current = true;
     setActionLoading(true);
     try {
       const saved = editingVoucher
         ? await promotionsApi.updateVoucher(editingVoucher.id, { ...payload, version: editingVoucher.version })
-        : await promotionsApi.createVoucher(payload);
+        : isAdmin ? await promotionsApi.createVoucher(payload) : await promotionsApi.createStoreProposal(payload);
       setVouchers(previous => editingVoucher
         ? previous.map(voucher => voucher.id === saved.id ? saved : voucher)
         : [saved, ...previous]);
       if (selectedVoucher?.id === saved.id) setSelectedVoucher(saved);
       await fetchVouchers();
       setModalOpen(false);
-      message.success(t('loyalty:saved'));
+      if (!isAdmin) { setActiveTab('approvals'); setReviewStatus('PENDING_APPROVAL'); setReviewSearch(''); }
+      message.success(t(isAdmin ? 'loyalty:saved' : 'admin:voucherUi.proposed'));
     } catch (error) {
       message.error(getErrorMessage(error));
       await fetchVouchers();
     } finally {
+      mutationLock.current = false;
       setActionLoading(false);
     }
   };
 
   // Toggle active / disabled status
   const handleToggleStatus = async (voucher: AdminVoucher) => {
-    if (actionLoading) return;
+    if (!isAdmin || !voucherState(voucher).canToggle || mutationLock.current) return;
+    mutationLock.current = true;
+    setActionError('');
     setActionLoading(true);
     const newStatus: VoucherStatus = voucher.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
     try {
@@ -264,17 +293,59 @@ export const PromotionsPage: React.FC = () => {
           ? 'Đã kích hoạt lại mã "' + voucher.code + '"'
           : 'Đã tạm vô hiệu hóa mã "' + voucher.code + '"'
       );
+      await fetchVouchers();
     } catch (err) {
+      setActionError(getErrorMessage(err));
       message.error(getErrorMessage(err));
       await fetchVouchers();
     } finally {
+      mutationLock.current = false;
       setActionLoading(false);
     }
   };
 
   // Delete voucher
+  const handleApproveVoucher = async (voucher: AdminVoucher) => {
+    if (!isAdmin || !voucherState(voucher).canApprove || mutationLock.current) return;
+    mutationLock.current = true;
+    setActionLoading(true);
+    setActionError('');
+    try {
+      const saved = await promotionsApi.approveVoucher(voucher.id);
+      setSelectedVoucher(saved);
+      message.success(t('admin:voucherUi.approved'));
+      await fetchVouchers();
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+      await fetchVouchers();
+    } finally {
+      mutationLock.current = false;
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectVoucher = async (voucher: AdminVoucher, reason: string) => {
+    if (!isAdmin || !voucherState(voucher).canApprove || mutationLock.current) return;
+    mutationLock.current = true;
+    setActionLoading(true);
+    setActionError('');
+    try {
+      const saved = await promotionsApi.rejectVoucher(voucher.id, reason.trim(), voucher.version);
+      setSelectedVoucher(saved);
+      message.success(t('admin:voucherUi.rejected'));
+      await fetchVouchers();
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+      await fetchVouchers();
+    } finally {
+      mutationLock.current = false;
+      setActionLoading(false);
+    }
+  };
+
   const handleDeleteVoucher = async (voucher: AdminVoucher) => {
-    if (actionLoading) return;
+    if (!isAdmin || voucherState(voucher).isProposal || mutationLock.current) return;
+    mutationLock.current = true;
     setActionLoading(true);
     try {
       await promotionsApi.deleteVoucher(voucher.id);
@@ -285,6 +356,7 @@ export const PromotionsPage: React.FC = () => {
     } catch (err) {
       message.error(getErrorMessage(err));
     } finally {
+      mutationLock.current = false;
       setActionLoading(false);
     }
   };
@@ -297,8 +369,8 @@ export const PromotionsPage: React.FC = () => {
       key: 'code',
       width: 200,
       render: (_, record) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <VoucherBadge
               code={record.code}
               type={record.type}
@@ -306,6 +378,7 @@ export const PromotionsPage: React.FC = () => {
               status={record.effectiveStatus || record.status}
               size="medium"
             />
+          </div>
             <Tooltip title="Sao chép mã">
               <Button
                 type="text"
@@ -313,24 +386,9 @@ export const PromotionsPage: React.FC = () => {
                 aria-label={'Sao chép mã ' + record.code}
                 icon={<CopyOutlined style={{ color: '#8F1216', fontSize: 13 }} />}
                 onClick={() => handleCopyCode(record.code)}
-                style={{ width: 24, height: 24, padding: 0 }}
+                style={{ width: 24, height: 24, padding: 0, flexShrink: 0 }}
               />
             </Tooltip>
-          </div>
-          <Button
-            type="link"
-            size="small"
-            style={{
-              padding: 0,
-              height: 'auto',
-              fontSize: 11,
-              color: '#8F1216',
-              fontWeight: 600,
-            }}
-            onClick={() => handleOpenDetail(record)}
-          >
-            Xem chi tiết ↗
-          </Button>
         </div>
       ),
     },
@@ -429,14 +487,15 @@ export const PromotionsPage: React.FC = () => {
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}
-              title={record.storeName || 'Chi nhánh #' + record.storeId}
+              title={voucherStoreName(record, stores) || t('admin:voucherUi.storeUnavailable')}
             >
-              {record.storeName || 'Chi nhánh #' + record.storeId}
+              {voucherStoreName(record, stores) || t('admin:voucherUi.storeUnavailable')}
             </Tag>
           );
         }
         return (
           <Tag
+            icon={<GlobalOutlined />}
             bordered={false}
             style={{
               borderRadius: 999,
@@ -448,7 +507,7 @@ export const PromotionsPage: React.FC = () => {
               border: '1px solid #E9D5FF',
             }}
           >
-            🌐 Toàn hệ thống (ALL)
+            {t('admin:promotions.scope.all')}
           </Tag>
         );
       },
@@ -481,7 +540,7 @@ export const PromotionsPage: React.FC = () => {
         return (
           <div style={{ width: '100%', maxWidth: 125 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-              <span style={{ fontWeight: 800, color: '#8F1216', fontFamily: 'Baloo 2, sans-serif', fontSize: 14 }}>
+              <span style={{ fontWeight: 800, color: '#8F1216', fontFamily: 'Fredoka, Quicksand, sans-serif', fontSize: 14 }}>
                 {record.usedCount}
               </span>
               <span style={{ color: '#6B6259', fontWeight: 600 }}>
@@ -509,79 +568,8 @@ export const PromotionsPage: React.FC = () => {
       key: 'status',
       width: 135,
       render: (_, record) => {
-        const current = record.effectiveStatus || record.status;
-        let bg = '#F3F4F6';
-        let color = '#4B5563';
-        let dot = '#9CA3AF';
-        let border = '#E5E7EB';
-        let label = 'Đã tắt';
-
-        switch (current) {
-          case 'ACTIVE':
-            bg = '#ECFDF5';
-            color = '#065F46';
-            dot = '#10B981';
-            border = '#A7F3D0';
-            label = 'Đang chạy';
-            break;
-          case 'UPCOMING':
-            bg = '#EFF6FF';
-            color = '#1E40AF';
-            dot = '#3B82F6';
-            border = '#BFDBFE';
-            label = 'Sắp diễn ra';
-            break;
-          case 'EXPIRED':
-            bg = '#F3F4F6';
-            color = '#6B7280';
-            dot = '#9CA3AF';
-            border = '#E5E7EB';
-            label = 'Đã hết hạn';
-            break;
-          case 'EXHAUSTED':
-            bg = '#FEF2F2';
-            color = '#991B1B';
-            dot = '#EF4444';
-            border = '#FECACA';
-            label = 'Hết lượt';
-            break;
-          case 'DISABLED':
-            bg = '#F5EDE0';
-            color = '#78716C';
-            dot = '#A8A29E';
-            border = '#E7E5E4';
-            label = 'Tạm tắt';
-            break;
-        }
-
-        return (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 10px',
-              borderRadius: 999,
-              backgroundColor: bg,
-              color: color,
-              border: `1px solid ${border}`,
-              fontSize: 12,
-              fontWeight: 700,
-              fontFamily: 'Quicksand, sans-serif',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                backgroundColor: dot,
-              }}
-            />
-            {label}
-          </span>
-        );
+        const state = voucherState(record);
+        return <Tag color={state.color}>{t(`admin:voucherUi.states.${state.status}`)}</Tag>;
       },
     },
     {
@@ -601,7 +589,7 @@ export const PromotionsPage: React.FC = () => {
               aria-label={t("business:orderspage.viewDetails")}
             />
           </Tooltip>
-          <Tooltip title="Chỉnh sửa">
+          {isAdmin && voucherState(record).canToggle && <Tooltip title="Chỉnh sửa">
             <Button
               type="text"
               size="small"
@@ -610,8 +598,8 @@ export const PromotionsPage: React.FC = () => {
               onClick={() => handleOpenEdit(record)}
               aria-label="Chỉnh sửa"
             />
-          </Tooltip>
-          <Popconfirm
+          </Tooltip>}
+          {isAdmin && !voucherState(record).isProposal && <Popconfirm
             title="Xác nhận xóa voucher?"
             description={t("admin:ui.deleteVoucher") + record.code + t("admin:ui.vouchersAlreadyUsedOrReservedForOrdersWill")}
             okText={t("admin:ui.delete")}
@@ -630,7 +618,7 @@ export const PromotionsPage: React.FC = () => {
                 disabled={actionLoading}
               />
             </Tooltip>
-          </Popconfirm>
+          </Popconfirm>}
         </Space>
       ),
     },
@@ -650,7 +638,9 @@ export const PromotionsPage: React.FC = () => {
           </div>
         </div>
 
-        {activeTab === 'vouchers' && (
+        <Space wrap>
+        <Button icon={<ReloadOutlined />} disabled={loading || actionLoading} onClick={fetchVouchers}>{t('admin:voucherUi.refresh')}</Button>
+        {(activeTab === 'vouchers' || (!isAdmin && activeTab === 'approvals')) && (
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -665,10 +655,14 @@ export const PromotionsPage: React.FC = () => {
             }}
             onClick={handleOpenCreate}
           >
-            Tạo Voucher mới
+            {isAdmin ? 'Tạo Voucher mới' : t('admin:voucherUi.propose')}
           </Button>
         )}
+        </Space>
       </div>
+
+      {storeError && <Alert type="warning" showIcon title={t('admin:voucherUi.storeUnavailable')} description={storeError}
+        action={<Button onClick={fetchStores}>{t('common:retry')}</Button>} />}
 
       {/* Main Tabs */}
       <Tabs
@@ -685,7 +679,7 @@ export const PromotionsPage: React.FC = () => {
                 <GiftOutlined />
                 <span>Mã giảm giá (Vouchers)</span>
                 <Badge
-                  count={vouchers.length}
+                  count={liveVouchers.length}
                   style={{
                     backgroundColor: activeTab === 'vouchers' ? '#FFFAF3' : '#8F1216',
                     color: activeTab === 'vouchers' ? '#8F1216' : '#FFFAF3',
@@ -772,8 +766,8 @@ export const PromotionsPage: React.FC = () => {
                           style={{ width: 175 }}
                           options={[
                             { value: 'ALL', label: 'Tất cả phạm vi' },
-                            { value: 'SCOPE_ALL', label: '🌐 Toàn hệ thống' },
-                            { value: 'SCOPE_STORE', label: '🏪 Theo chi nhánh' },
+                            { value: 'SCOPE_ALL', label: <Space size={6}><GlobalOutlined />{t('admin:promotions.scope.all')}</Space> },
+                            { value: 'SCOPE_STORE', label: <Space size={6}><ShopOutlined />{t('admin:promotions.scope.store')}</Space> },
                           ]}
                         />
 
@@ -787,7 +781,7 @@ export const PromotionsPage: React.FC = () => {
                               { value: 'ALL', label: t("business:stores.allStores") },
                               ...stores.map((s) => ({
                                 value: s.id,
-                                label: `🏪 ${s.name}`,
+                                label: <Space size={6}><ShopOutlined />{s.name}</Space>,
                               })),
                             ]}
                           />
@@ -800,11 +794,11 @@ export const PromotionsPage: React.FC = () => {
                           style={{ width: 170 }}
                           options={[
                             { value: 'ALL', label: t("business:paymentspage.allStatuses") },
-                            { value: 'ACTIVE', label: '🟢 Đang chạy' },
-                            { value: 'UPCOMING', label: '🔵 Sắp diễn ra' },
-                            { value: 'EXPIRED', label: '⚪ Đã hết hạn' },
-                            { value: 'EXHAUSTED', label: '🔴 Đã hết lượt' },
-                            { value: 'DISABLED', label: '⚫ Đã tạm tắt' },
+                            { value: 'ACTIVE', label: <Space size={6}><CheckCircleOutlined />Đang chạy</Space> },
+                            { value: 'UPCOMING', label: <Space size={6}><CalendarOutlined />Sắp diễn ra</Space> },
+                            { value: 'EXPIRED', label: <Space size={6}><ClockCircleOutlined />Đã hết hạn</Space> },
+                            { value: 'EXHAUSTED', label: <Space size={6}><StopOutlined />{t('admin:voucherUi.states.EXHAUSTED')}</Space> },
+                            { value: 'DISABLED', label: <Space size={6}><StopOutlined />{t('admin:voucherUi.states.DISABLED')}</Space> },
                           ]}
                         />
 
@@ -839,6 +833,40 @@ export const PromotionsPage: React.FC = () => {
                 },
               ]
             : []),
+          {
+            key: 'approvals',
+            label: <span className={`voucher-review-tab${pendingCount > 0 && !loadError ? ' has-pending' : ''}`}>
+              <CheckCircleOutlined />
+              {t(isAdmin ? 'admin:voucherUi.reviewTab' : 'admin:voucherUi.proposalsTab')}
+              {!loadError && <Badge count={pendingCount} overflowCount={9} showZero className="voucher-review-count"
+                title={t('admin:voucherUi.pendingCount', { count: pendingCount })} />}
+            </span>,
+            children: loadError ? <Alert type="error" showIcon title={loadError} action={<Button onClick={fetchVouchers}>{t('common:retry')}</Button>} /> : (
+              <div className="voucher-admin-table">
+                <AdminTable<AdminVoucher> rowKey="id" loading={loading} dataSource={reviewRows} scroll={{ x: 1100 }}
+                  columns={[
+                    ...columns.filter(column => column.key !== 'actions'),
+                    { key: 'reason', title: t('admin:voucherUi.rejectionReason'), width: 240,
+                      render: (_, voucher) => <span className="voucher-review-reason">{voucher.rejectionReason || '—'}</span> },
+                    { key: 'review', title: t('accounts:action'), width: 140, fixed: 'right', render: (_, voucher) => (
+                      <Button type={isAdmin && voucher.status === 'PENDING_APPROVAL' ? 'primary' : 'default'}
+                        icon={<EyeOutlined />} disabled={actionLoading} onClick={() => handleOpenDetail(voucher)}>
+                        {t(isAdmin && voucher.status === 'PENDING_APPROVAL' ? 'admin:voucherUi.review' : 'business:orderspage.viewDetails')}
+                      </Button>
+                    ) },
+                  ]}
+                  searchValue={reviewSearch} onSearchChange={setReviewSearch} searchPlaceholder={t('admin:voucherUi.reviewSearch')}
+                  filterNodes={<Space wrap>
+                    <Select value={reviewStatus} onChange={setReviewStatus} style={{ width: 180 }} aria-label={t('accounts:status')}
+                      options={['ALL', 'PENDING_APPROVAL', 'REJECTED'].map(value => ({ value, label: t(value === 'ALL' ? 'business:paymentspage.allStatuses' : `admin:voucherUi.states.${value}`) }))} />
+                    {isAdmin && <Select value={reviewStore} onChange={setReviewStore} style={{ width: 230 }} aria-label={t('business:party.store')}
+                      options={[{ value: 'ALL', label: t('business:stores.allStores') }, ...stores.map(store => ({ value: store.id, label: store.name }))]} />}
+                    {(reviewSearch || reviewStore !== 'ALL' || reviewStatus !== (isAdmin ? 'PENDING_APPROVAL' : 'ALL')) && <Button onClick={() => { setReviewSearch(''); setReviewStore('ALL'); setReviewStatus(isAdmin ? 'PENDING_APPROVAL' : 'ALL'); }}>{t('business:orderspage.clearFilters')}</Button>}
+                  </Space>}
+                />
+              </div>
+            ),
+          },
         ]}
       />
 
@@ -856,7 +884,13 @@ export const PromotionsPage: React.FC = () => {
       <VoucherDetailDrawer
         open={drawerOpen}
         voucher={selectedVoucher}
-        onClose={() => setDrawerOpen(false)}
+        storeName={selectedVoucher ? voucherStoreName(selectedVoucher, stores) : undefined}
+        isAdmin={isAdmin}
+        loading={actionLoading}
+        error={actionError}
+        onApprove={handleApproveVoucher}
+        onReject={handleRejectVoucher}
+        onClose={() => { if (!mutationLock.current) setDrawerOpen(false); }}
         onEdit={(v) => {
           setDrawerOpen(false);
           handleOpenEdit(v);

@@ -33,6 +33,9 @@ export function isValidBannerLinkUrl(value?: string | null): boolean {
   if (!trimmed) {
     return true;
   }
+  if (trimmed.includes('\\') || Array.from(trimmed).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
+    return false;
+  }
   if (trimmed.startsWith('/')) {
     return !trimmed.startsWith('//');
   }

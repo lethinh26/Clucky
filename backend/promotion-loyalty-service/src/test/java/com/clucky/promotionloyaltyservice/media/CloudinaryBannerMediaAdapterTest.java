@@ -82,7 +82,7 @@ class CloudinaryBannerMediaAdapterTest {
         assertEquals("https://res.cloudinary.com/demo/image/upload/" + uploaded.publicId() + ".png", uploaded.secureUrl());
         verify(assets).reserve(uploaded.publicId());
         verify(assets).uploaded(uploaded.publicId(), uploaded.secureUrl());
-        verify(assets).attach(uploaded.publicId());
+        verify(assets, never()).attach(anyString());
 
         String serializedConfig = mapper.writeValueAsString(properties);
         assertFalse(serializedConfig.contains(CANARY));

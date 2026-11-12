@@ -169,7 +169,6 @@ public class CloudinaryBannerMediaAdapter {
                     (int) metadataNumber(result.get("height"), MAX_PIXELS));
             validateDimensions(uploaded.width(), uploaded.height());
             assets.uploaded(publicId, url);
-            assets.attach(publicId);
             return uploaded;
         } catch (ApiException failure) {
             safeRetireOrphan(publicId);
@@ -179,6 +178,10 @@ public class CloudinaryBannerMediaAdapter {
             LOG.warn("event=banner_media_upload_failed");
             throw new ApiException(ErrorCode.UPSTREAM_ERROR);
         }
+    }
+
+    public void attach(String publicId) {
+        assets.attach(publicId);
     }
 
     private static String metadataText(Object value, int limit) {

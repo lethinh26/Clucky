@@ -87,6 +87,7 @@ export function BannerShowcase({
   const [dismissedPopupId, setDismissedPopupId] = useState<number | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const syncDismissed = () => {
@@ -166,14 +167,15 @@ export function BannerShowcase({
     if (!popupVisible) {
       return;
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        dismissPopup(false);
-      }
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog?.close();
+      document.body.style.overflow = overflow;
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dismissPopup, popupVisible]);
+  }, [popupVisible]);
 
   if (banners.length === 0 || (heroSlides.length === 0 && !popupVisible)) {
     return null;
@@ -188,8 +190,12 @@ export function BannerShowcase({
       )}
 
       {popupBanner && popupVisible && (
-        <div
-          role="dialog"
+        <dialog
+          ref={dialogRef}
+          onCancel={(event) => {
+            event.preventDefault();
+            dismissPopup(false);
+          }}
           aria-modal="true"
           aria-label={popupBanner.title}
           className={`banner-popup-backdrop${isClosing ? " banner-popup-backdrop--closing" : ""}`}
@@ -235,7 +241,7 @@ export function BannerShowcase({
               </div>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
     </>
   );

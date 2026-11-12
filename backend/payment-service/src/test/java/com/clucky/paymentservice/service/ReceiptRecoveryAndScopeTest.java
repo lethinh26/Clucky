@@ -216,6 +216,33 @@ class ReceiptRecoveryAndScopeTest {
         assertTrue(sql.getValue().contains("receipt.bank_gateway"));
     }
 
+    @Test
+    void counterReceiptLinksScopedEvidenceWithoutAddingAnotherCollection() {
+        var transaction = receipt();
+        transaction.put("content", "Payment ORDER-100");
+        transaction.put("bank_tx_id", "SEPAY:77");
+        recover(transaction, List.of());
+        var collectionId = java.util.UUID.randomUUID();
+        Map<String, Object> counter = Map.of("id", 12L, "collection_id", collectionId, "store_id", 1L,
+                "order_code", "ORDER-100", "receipt_code", "REC-ORDER-100", "bank_amount_declared", new BigDecimal("50000"),
+                "bank_name", "Vietcombank", "bank_code", "VCB");
+        when(jdbc.queryForList(startsWith("SELECT bank_tx.*"), eq(7L))).thenReturn(List.of(transaction));
+        when(jdbc.queryForList(startsWith("SELECT receipt.id,receipt.receipt_code"), eq(7L))).thenReturn(List.of(counter));
+        when(jdbc.queryForList(startsWith("SELECT id FROM payment_service.counter_payment_receipts"), eq(Long.class), eq(12L))).thenReturn(List.of(12L));
+        when(jdbc.update(startsWith("UPDATE payment_service.bank_transactions SET collection_id="), any(Object[].class))).thenReturn(1);
+        when(jdbc.update(startsWith("UPDATE payment_service.counter_payment_receipts SET bank_tx_id="), any(Object[].class))).thenReturn(1);
+        service.recover();
+        ArgumentCaptor<String> scope = ArgumentCaptor.forClass(String.class);
+        verify(jdbc, times(2)).queryForList(scope.capture(), eq(7L));
+        String intakeScope = scope.getAllValues().stream().filter(sql -> sql.startsWith("SELECT bank_tx.*")).findFirst().orElseThrow();
+        assertTrue(intakeScope.contains("sub_account=''"));
+        assertTrue(intakeScope.contains("conflict_count=0"));
+        verify(jdbc).queryForList(contains("receipt.store_id=ANY(bank_tx.bank_store_ids)"), eq(7L));
+        verify(jdbc).update(startsWith("UPDATE payment_service.counter_payment_receipts SET bank_tx_id="),
+                eq("SEPAY:77"), eq(new BigDecimal("50000")), eq("RECONCILED"), eq(BigDecimal.ZERO), eq(12L));
+        verify(jdbc, never()).update(startsWith("INSERT INTO payment_service.collections"), any(Object[].class));
+    }
+
     private Object[] classification() {
         ArgumentCaptor<Object[]> changes = ArgumentCaptor.forClass(Object[].class);
         verify(jdbc).update(startsWith("UPDATE payment_service.bank_transactions SET status=?,reason=?"), changes.capture());

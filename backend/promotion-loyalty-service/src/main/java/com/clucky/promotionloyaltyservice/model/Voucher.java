@@ -69,6 +69,15 @@ public class Voucher {
     @Column(name = "approved_by")
     private Long approvedBy;
 
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
+    @Column(name = "rejected_by")
+    private Long rejectedBy;
+
+    @Column(name = "rejected_at")
+    private Instant rejectedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -211,6 +220,13 @@ public class Voucher {
     public void setReservedCount(int reservedCount) { this.reservedCount = reservedCount; }
 
     public long getVersion() { return version; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    public Long getRejectedBy() { return rejectedBy; }
+    public void setRejectedBy(Long rejectedBy) { this.rejectedBy = rejectedBy; }
+    public Instant getRejectedAt() { return rejectedAt; }
+    public void setRejectedAt(Instant rejectedAt) { this.rejectedAt = rejectedAt; }
 
     public Instant getStartAt() {
         return startAt;

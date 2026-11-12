@@ -1,4 +1,69 @@
 {
+  "voucherUi": {
+    "reviewTab": "Duyệt voucher", "proposalsTab": "Đề xuất chi nhánh", "pendingCount": "{{count}} voucher đang chờ duyệt",
+    "review": "Xét duyệt", "reviewSearch": "Tìm mã, chương trình, chi nhánh hoặc lý do...", "refresh": "Làm mới",
+    "reject": "Từ chối đề xuất", "rejectionReason": "Lý do từ chối", "confirmReject": "Từ chối và gửi lại chi nhánh",
+    "rejected": "Đã từ chối. Quản lý chi nhánh có thể xem lý do trong tab Đề xuất chi nhánh.",
+    "rejectedAt": "Thời điểm từ chối:", "reasonRequired": "Vui lòng nhập lý do từ chối", "reasonLength": "Lý do tối đa 500 ký tự",
+    "reasonPlaceholder": "Nêu rõ điều kiện chưa phù hợp để quản lý chi nhánh biết cần điều chỉnh gì.", "reasonUnavailable": "Bản ghi cũ chưa có lý do từ chối.",
+    "states": { "ACTIVE": "Đang hoạt động", "UPCOMING": "Sắp diễn ra", "EXPIRED": "Đã hết hạn", "EXHAUSTED": "Đã hết lượt", "DISABLED": "Tạm vô hiệu hóa", "PENDING_APPROVAL": "Chờ phê duyệt", "REJECTED": "Đã từ chối", "UNKNOWN": "Chưa xác định" },
+    "storeUnavailable": "Chưa tải được tên chi nhánh", "starts": "Bắt đầu:", "ends": "Kết thúc:",
+    "usage": "Tình trạng sử dụng", "used": "Đã sử dụng", "reserved": "Đang giữ cho đơn", "limit": "Giới hạn lượt dùng",
+    "usageHint": "Lượt đang giữ chưa phải lượt đã dùng. Thanh tiến độ thể hiện số lượt đã sử dụng trên giới hạn.",
+    "expiredProposal": "Đề xuất đã hết thời gian hiệu lực, không thể phê duyệt.",
+    "approvalHelp": "Đề xuất chi nhánh: chọn Chờ duyệt, mở chi tiết và bấm Phê duyệt đề xuất.",
+    "managerHelp": "Bạn chỉ gửi đề xuất cho chi nhánh của mình. Voucher chỉ có thể sử dụng sau khi Admin phê duyệt và còn trong thời gian hiệu lực.",
+    "pendingQueue": "Chờ duyệt", "propose": "Đề xuất voucher", "sendProposal": "Gửi đề xuất", "proposed": "Đã gửi đề xuất, chờ Admin phê duyệt",
+    "approve": "Phê duyệt đề xuất", "approved": "Đã phê duyệt. Voucher áp dụng theo thời gian hiệu lực và giới hạn lượt dùng.",
+    "confirmApprove": "Phê duyệt voucher {{code}}?", "approveHint": "Giữ nguyên điều kiện, thời gian và phạm vi chi nhánh của đề xuất.",
+    "confirmDelete": "Xóa voucher {{code}}?"
+  },
+  "audit": {
+    "exportExcel": "Xuất Excel",
+    "filters": "Bộ lọc nhật ký", "results": "Lịch sử hoạt động", "refresh": "Làm mới",
+    "rowHint": "Bấm vào một dòng để xem hoặc thu gọn chi tiết. Có thể dùng phím Enter hoặc Space khi chọn dòng.",
+    "rowLabel": "{{action}}, {{time}}. Mở hoặc thu gọn chi tiết",
+    "eventDetails": "Chi tiết thay đổi", "before": "Trước thay đổi", "after": "Sau thay đổi", "noDetails": "Sự kiện không có dữ liệu chi tiết bổ sung.",
+    "technical": "Thông tin kỹ thuật & dữ liệu gốc", "yes": "Có", "no": "Không",
+    "roles": { "ADMIN": "Quản trị viên", "STORE_MANAGER": "Quản lý chi nhánh", "STAFF": "Tác nghiệp chi nhánh", "CUSTOMER": "Khách hàng", "SHIPPER": "Giao hàng", "SYSTEM": "Hệ thống", "INTERNAL_SERVICE": "Dịch vụ nội bộ" },
+    "fields": {
+      "reason": "Lý do", "result": "Kết quả", "status": "Trạng thái", "beforeStatus": "Trạng thái trước", "afterStatus": "Trạng thái sau",
+      "storeId": "Mã chi nhánh", "role": "Vai trò", "sessionId": "Mã phiên thao tác", "identity": "Loại tài khoản", "previousAccountId": "Mã tài khoản trước",
+      "price": "Giá", "amount": "Số tiền", "quantity": "Số lượng", "version": "Phiên bản", "replyId": "Mã phản hồi", "fee": "Phí", "value": "Giá trị",
+      "totalLimit": "Giới hạn lượt dùng", "usedCount": "Số lượt đã dùng", "reservedCount": "Số lượt đang giữ", "minOrderAmount": "Giá trị đơn tối thiểu", "maxDiscount": "Giảm tối đa",
+      "spendPerPoint": "Số tiền tích 1 điểm", "pointValue": "Giá trị đổi 1 điểm", "silverThreshold": "Ngưỡng hạng Bạc", "goldThreshold": "Ngưỡng hạng Vàng", "silverDiscount": "Ưu đãi hạng Bạc (%)", "goldDiscount": "Ưu đãi hạng Vàng (%)",
+      "active": "Hoạt động", "enabled": "Đang bật", "available": "Khả dụng", "isActive": "Hoạt động", "isLocked": "Đã khóa", "isAvailable": "Còn phục vụ"
+    }
+  },
+  "emailOps": {
+    "description": "Dữ liệu thật, giờ lọc UTC+7. Manager chỉ xem email của quán mình. SENT nghĩa là SMTP đã chấp nhận, không xác nhận vào inbox. Nội dung và thông tin nhạy cảm không được hiển thị.",
+    "denied": "Bạn không có quyền xem nhật ký email.",
+    "templateInvalid": "Chỉ dùng chữ, số, dấu gạch ngang hoặc gạch dưới.",
+    "loading": "Đang tải lịch sử gửi…", "refresh": "Tải lại chi tiết", "expiry": "Hết hạn gửi lại",
+    "retry": "Đưa vào hàng chờ gửi lại", "cancel": "Hủy",
+    "confirmRetry": "Xác nhận gửi lại email này?",
+    "retryDescription": "Giữ nguyên người nhận và nội dung. Chỉ xếp lịch gửi, không có nghĩa email đã gửi thành công.",
+    "retryUncertain": "Chưa xác nhận được yêu cầu gửi lại. Đang tải trạng thái mới; không tạo yêu cầu khác nếu kết quả chưa rõ.",
+    "attempts": "Lịch sử từng lần gửi", "attempt": "Lần gửi", "generation": "Đợt gửi lại",
+    "started": "Bắt đầu", "finished": "Kết thúc", "outcome": "Kết quả",
+    "failureStream": "Chuyển lỗi sang failure/DLQ", "publishAttempts": "Số lần chuyển", "published": "Broker đã xác nhận",
+    "manualHistory": "Lịch sử yêu cầu gửi lại", "actor": "Admin thao tác (ID)",
+    "publication": { "NONE": "Không có lỗi cuối cùng trong đợt này", "PENDING": "Đã lưu bền vững, chờ chuyển", "PUBLISHED": "Broker đã xác nhận nhận lỗi" },
+    "blocked": {
+      "FORBIDDEN": "Chỉ Admin được gửi lại email.", "NOT_FAILED": "Chỉ email thất bại an toàn mới được gửi lại.",
+      "SECURITY_EMAIL": "Không gửi lại OTP/email bảo mật từ trang quản trị.",
+      "OUTCOME_UNKNOWN": "SMTP có thể đã nhận email. Cần đối chiếu, không gửi lại tự động hoặc qua trang này.",
+      "RETRY_LIMIT": "Đã hết số đợt gửi lại cho phép.", "EXPIRED": "Đã hết thời hạn giữ nội dung/gửi lại.",
+      "NO_SNAPSHOT": "Không còn bản nội dung an toàn để gửi lại.", "UNSAFE_FAILURE": "Loại lỗi này không cho phép gửi lại."
+    },
+    "codes": {
+      "SENDING": "Đang gửi", "SENT": "SMTP đã chấp nhận", "SMTP_CONNECT_FAILED": "Không kết nối được SMTP",
+      "SMTP_AUTH_FAILED": "SMTP từ chối xác thực; cần sửa cấu hình", "SMTP_OUTCOME_UNKNOWN": "Chưa xác định SMTP đã nhận hay chưa",
+      "INVALID_TEMPLATE": "Mẫu email hoặc biến nội dung không hợp lệ", "SNAPSHOT_UNAVAILABLE": "Không đọc được bản nội dung đã lưu",
+      "EMAIL_EXPIRED": "Email đã hết hạn", "LEGACY_UNSNAPSHOTTED": "Email cũ chưa có bản nội dung cố định; không tự gửi lại",
+      "DELIVERY_FAILED": "Gửi thất bại (đã ẩn chẩn đoán nhạy cảm)"
+    }
+  },
   "paymentStates": { "PENDING": "Chờ thanh toán", "PAID": "Đã thanh toán", "COLLECTED": "Đã thu", "REFUNDED": "Đã hoàn tiền", "FAILED": "Thanh toán thất bại", "UNKNOWN": "Chưa xác minh thanh toán" },
   "integrationUnavailable": "Chưa tích hợp dữ liệu và thao tác thực. Tính năng tạm khóa; không hiển thị dữ liệu mẫu hoặc ghi nhận thành công cục bộ.",
   "collectionUnavailable": "Chưa có nghiệp vụ ghi nhận thu tiền thực. Không thể thu COD hoặc hoàn tất đơn chưa có bằng chứng thanh toán.",
@@ -16,14 +81,18 @@
     "audit": "Nhật ký Quản trị",
     "reports": "Báo cáo & Thống kê",
     "payments": "Thanh toán & Đối soát",
-    "promotions": "Quản lý Khuyến mãi & Voucher"
+    "promotions": "Quản lý Khuyến mãi & Voucher",
+    "partyOrders": "Yêu cầu đặt tiệc",
+    "transfers": "Sổ Quỹ & Két Ca Trực"
   },
   "breadcrumb": {
     "catalog": "Thực đơn & Combo",
     "stores": "Hệ thống Chi nhánh",
     "reviews": "Đánh giá & Phản hồi",
     "users": "Tài khoản Chi nhánh",
-    "promotions": "Khuyến mãi & Voucher"
+    "promotions": "Khuyến mãi & Voucher",
+    "orders": "Quản lý Đơn hàng",
+    "transfers": "Sổ Quỹ Chi Nhánh"
   },
   "roles": {
     "hqAdmin": "Quản trị viên HQ",
@@ -450,6 +519,8 @@
     "theOrderIdInTheUrlIsInvalid": "Mã đơn trên URL không hợp lệ.",
     "searchOrderId": "Tìm mã đơn",
     "searchByOrderId": "Tìm theo mã đơn hàng",
+    "searchQueueNumber": "Số thứ tự theo ngày (VD: 1 hoặc #001)",
+    "queueNumberCol": "Số thứ tự (Ngày)",
     "filterOrderStatus": "Lọc trạng thái đơn",
     "noOrdersMatchYourFilters": "Không có đơn hàng phù hợp bộ lọc",
     "noPhoneNumberProvided": "Chưa có số điện thoại",
@@ -851,5 +922,37 @@
     "accountStatusChangedButTheUpdatedDataCould": "Đã đổi trạng thái tài khoản, nhưng chưa tải được dữ liệu mới: {{value1}}",
     "allLoginSessionsForThisAccountWillBe": "Toàn bộ phiên đăng nhập của tài khoản sẽ bị thu hồi.",
     "thisChangeOnlyAffectsTheSelectedAccountUnlocking": "Thay đổi chỉ áp dụng cho tài khoản đã chọn. Mở khóa không thay thế việc kích hoạt và không tự mở bán chi nhánh."
+  },
+  "party": {
+    "title": "Yêu cầu đặt tiệc",
+    "storeId": "Chi nhánh",
+    "guests": "khách",
+    "package": "Gói tiệc",
+    "request": "Yêu cầu",
+    "call": "Gọi",
+    "email": "Email",
+    "quote": "Báo giá",
+    "cash": "Tiền mặt",
+    "transfer": "Chuyển khoản",
+    "lastNote": "Ghi chú tư vấn",
+    "nextStatus": "Bước tiếp theo",
+    "note": "Nội dung liên hệ / tư vấn",
+    "payment": "Phương thức thanh toán",
+    "save": "Lưu cập nhật",
+    "saved": "Đã cập nhật yêu cầu",
+    "refresh": "Tải lại",
+    "loadMore": "Xem thêm yêu cầu",
+    "empty": "Chưa có yêu cầu đặt tiệc",
+    "noteRequired": "Cần ghi chú nội dung liên hệ hoặc lý do thay đổi",
+    "quoteRequired": "Cần nhập báo giá và phương thức thanh toán"
+  },
+  "system": {
+    "notConnected": "Chưa kết nối với hệ thống",
+    "retry": "Thử lại",
+    "emptyOrders": "Chưa có đơn hàng nào tại chi nhánh",
+    "soundEnabled": "Chuông báo: BẬT",
+    "soundDisabled": "Chuông báo: TẮT",
+    "refresh": "Làm mới dữ liệu",
+    "refreshed": "Đã đồng bộ dữ liệu mới nhất"
   }
 }

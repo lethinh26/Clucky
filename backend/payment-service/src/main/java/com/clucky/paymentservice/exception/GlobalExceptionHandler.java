@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ApiError> business(ApiException failure, HttpServletRequest request) {
         request.setAttribute(CorrelationIdFilter.ERROR_CODE, failure.getCode().name());
-        return ResponseEntity.status(failure.getCode().httpStatus()).body(ApiError.of(failure.getCode(), request.getRequestURI()));
+        return ResponseEntity.status(failure.getCode().httpStatus()).body(ApiError.of(failure.getCode(), failure.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class,

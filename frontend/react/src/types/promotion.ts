@@ -31,6 +31,9 @@ export interface AdminVoucher {
   effectiveStatus?: VoucherStatus | string;
   createdBy?: string | number;
   approvedBy?: string | number | null;
+  rejectionReason?: string | null;
+  rejectedBy?: string | number | null;
+  rejectedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

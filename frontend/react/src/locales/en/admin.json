@@ -1,4 +1,67 @@
 {
+  "voucherUi": {
+    "reviewTab": "Voucher approvals", "proposalsTab": "Branch proposals", "pendingCount": "{{count}} vouchers awaiting review",
+    "review": "Review", "reviewSearch": "Search code, program, branch or reason...", "refresh": "Refresh",
+    "reject": "Reject proposal", "rejectionReason": "Rejection reason", "confirmReject": "Reject and return to branch",
+    "rejected": "Rejected. The branch manager can view the reason in Branch proposals.",
+    "rejectedAt": "Rejected at:", "reasonRequired": "Please enter a rejection reason", "reasonLength": "Use at most 500 characters",
+    "reasonPlaceholder": "Explain which conditions need to change so the branch manager can act on the feedback.", "reasonUnavailable": "This older record has no rejection reason.",
+    "states": { "ACTIVE": "Active", "UPCOMING": "Upcoming", "EXPIRED": "Expired", "EXHAUSTED": "Usage limit reached", "DISABLED": "Disabled", "PENDING_APPROVAL": "Pending approval", "REJECTED": "Rejected", "UNKNOWN": "Unknown" },
+    "storeUnavailable": "Branch name unavailable", "starts": "Starts:", "ends": "Ends:",
+    "usage": "Voucher usage", "used": "Used", "reserved": "Reserved for orders", "limit": "Usage limit",
+    "usageHint": "Reservations are not completed uses. The progress bar shows used vouchers against the usage limit.",
+    "expiredProposal": "This proposal has expired and cannot be approved.",
+    "approvalHelp": "Branch proposals: select Pending approval, open the details, then select Approve proposal.",
+    "managerHelp": "You can only propose vouchers for your branch. A voucher must be approved by an admin and within its validity period before use.",
+    "pendingQueue": "Pending approval", "propose": "Propose a voucher", "sendProposal": "Submit proposal", "proposed": "Proposal submitted for admin approval",
+    "approve": "Approve proposal", "approved": "Approved. The voucher still follows its validity dates and usage limits.",
+    "confirmApprove": "Approve voucher {{code}}?", "approveHint": "The proposed terms, validity dates and branch scope remain unchanged.",
+    "confirmDelete": "Delete voucher {{code}}?"
+  },
+  "audit": {
+    "exportExcel": "Export Excel",
+    "filters": "Filter activity", "results": "Activity history", "refresh": "Refresh",
+    "rowHint": "Click any row to expand or collapse its details. Press Enter or Space when a row is focused.",
+    "rowLabel": "{{action}}, {{time}}. Expand or collapse details",
+    "eventDetails": "Change details", "before": "Before", "after": "After", "noDetails": "No additional details were recorded for this event.",
+    "technical": "Technical information & raw data", "yes": "Yes", "no": "No",
+    "roles": { "ADMIN": "Administrator", "STORE_MANAGER": "Store manager", "STAFF": "Branch operations", "CUSTOMER": "Customer", "SHIPPER": "Delivery", "SYSTEM": "System", "INTERNAL_SERVICE": "Internal service" },
+    "fields": {
+      "reason": "Reason", "result": "Result", "status": "Status", "beforeStatus": "Previous status", "afterStatus": "New status",
+      "storeId": "Branch ID", "role": "Role", "sessionId": "Session ID", "identity": "Account type", "previousAccountId": "Previous account ID",
+      "price": "Price", "amount": "Amount", "quantity": "Quantity", "version": "Version", "replyId": "Reply ID", "fee": "Fee", "value": "Value",
+      "totalLimit": "Usage limit", "usedCount": "Used count", "reservedCount": "Reserved count", "minOrderAmount": "Minimum order amount", "maxDiscount": "Maximum discount",
+      "spendPerPoint": "Spend per earned point", "pointValue": "Point redemption value", "silverThreshold": "Silver threshold", "goldThreshold": "Gold threshold", "silverDiscount": "Silver discount (%)", "goldDiscount": "Gold discount (%)",
+      "active": "Active", "enabled": "Enabled", "available": "Available", "isActive": "Active", "isLocked": "Locked", "isAvailable": "Available"
+    }
+  },
+  "emailOps": {
+    "description": "Live data; date filters use UTC+7. Managers only see their store's email. SENT means SMTP accepted, not confirmed inbox delivery. Message bodies and sensitive details are never displayed.",
+    "denied": "You cannot view email logs.", "templateInvalid": "Use letters, digits, hyphens or underscores only.",
+    "loading": "Loading delivery history…", "refresh": "Refresh details", "expiry": "Retry expires",
+    "retry": "Queue for retry", "cancel": "Cancel", "confirmRetry": "Queue this email for retry?",
+    "retryDescription": "The recipient and content stay unchanged. Queued does not mean successfully sent.",
+    "retryUncertain": "The retry request is not confirmed. Refreshing its status; do not create another request while the result is uncertain.",
+    "attempts": "Delivery attempt history", "attempt": "Attempt", "generation": "Retry cycle",
+    "started": "Started", "finished": "Finished", "outcome": "Outcome",
+    "failureStream": "Failure/DLQ handoff", "publishAttempts": "Publish attempts", "published": "Broker acknowledged",
+    "manualHistory": "Manual retry history", "actor": "Admin actor ID",
+    "publication": { "NONE": "No terminal failure in this cycle", "PENDING": "Durably recorded, awaiting publication", "PUBLISHED": "Broker acknowledged the failure" },
+    "blocked": {
+      "FORBIDDEN": "Only Admin can retry email.", "NOT_FAILED": "Only safe failed deliveries can be retried.",
+      "SECURITY_EMAIL": "OTP/security emails cannot be retried from administration.",
+      "OUTCOME_UNKNOWN": "SMTP may already have accepted this email. Reconcile first; retry is not available here.",
+      "RETRY_LIMIT": "The manual retry limit has been reached.", "EXPIRED": "The retained content/retry window has expired.",
+      "NO_SNAPSHOT": "No safe retained content is available.", "UNSAFE_FAILURE": "This failure is not eligible for retry."
+    },
+    "codes": {
+      "SENDING": "Sending", "SENT": "Accepted by SMTP", "SMTP_CONNECT_FAILED": "SMTP connection failed",
+      "SMTP_AUTH_FAILED": "SMTP authentication failed; fix configuration", "SMTP_OUTCOME_UNKNOWN": "SMTP acceptance is uncertain",
+      "INVALID_TEMPLATE": "Invalid email template or variables", "SNAPSHOT_UNAVAILABLE": "Retained content cannot be read",
+      "EMAIL_EXPIRED": "Email expired", "LEGACY_UNSNAPSHOTTED": "Legacy email has no frozen content; automatic replay blocked",
+      "DELIVERY_FAILED": "Delivery failed (sensitive diagnostics withheld)"
+    }
+  },
   "paymentStates": { "PENDING": "Pending payment", "PAID": "Paid", "COLLECTED": "Collected", "REFUNDED": "Refunded", "FAILED": "Payment failed", "UNKNOWN": "Payment not verified" },
   "integrationUnavailable": "Live data and operations are not integrated yet. This feature is disabled; no sample records or local success are shown.",
   "collectionUnavailable": "Payment collection is not integrated yet. COD collection and completion without payment evidence are disabled.",
@@ -16,14 +79,18 @@
     "audit": "Administration audit",
     "reports": "Reports & statistics",
     "payments": "Payments & reconciliation",
-    "promotions": "Promotions & Vouchers"
+    "promotions": "Promotions & Vouchers",
+    "partyOrders": "Party requests",
+    "transfers": "Cash Drawer & Transfers"
   },
   "breadcrumb": {
     "catalog": "Menu & combos",
     "stores": "Stores",
     "reviews": "Reviews & replies",
     "users": "Branch accounts",
-    "promotions": "Promotions & Vouchers"
+    "promotions": "Promotions & Vouchers",
+    "orders": "Order Management",
+    "transfers": "Cash Drawer & Transfers"
   },
   "roles": {
     "hqAdmin": "HQ administrator",
@@ -450,6 +517,8 @@
     "theOrderIdInTheUrlIsInvalid": "The order ID in the URL is invalid.",
     "searchOrderId": "Search order ID",
     "searchByOrderId": "Search by order ID",
+    "searchQueueNumber": "Daily queue # (e.g. 1 or #001)",
+    "queueNumberCol": "Daily Queue # (Date)",
     "filterOrderStatus": "Filter order status",
     "noOrdersMatchYourFilters": "No orders match your filters",
     "noPhoneNumberProvided": "No phone number provided",
@@ -851,5 +920,37 @@
     "accountStatusChangedButTheUpdatedDataCould": "Account status changed, but the updated data could not be loaded: {{value1}}",
     "allLoginSessionsForThisAccountWillBe": "All login sessions for this account will be revoked.",
     "thisChangeOnlyAffectsTheSelectedAccountUnlocking": "This change only affects the selected account. Unlocking does not replace activation or automatically reopen branch sales."
+  },
+  "party": {
+    "title": "Party requests",
+    "storeId": "Store",
+    "guests": "guests",
+    "package": "Package",
+    "request": "Request",
+    "call": "Call",
+    "email": "Email",
+    "quote": "Quote",
+    "cash": "Cash",
+    "transfer": "Bank transfer",
+    "lastNote": "Consultation note",
+    "nextStatus": "Next step",
+    "note": "Contact or consultation note",
+    "payment": "Payment method",
+    "save": "Save update",
+    "saved": "Request updated",
+    "refresh": "Refresh",
+    "loadMore": "Load more requests",
+    "empty": "No party requests yet",
+    "noteRequired": "Add a contact note or reason",
+    "quoteRequired": "Enter a quote and payment method"
+  },
+  "system": {
+    "notConnected": "Not connected to backend system",
+    "retry": "Retry",
+    "emptyOrders": "No orders found for this branch",
+    "soundEnabled": "Notification sound: ON",
+    "soundDisabled": "Notification sound: OFF",
+    "refresh": "Refresh data",
+    "refreshed": "Synchronized latest data"
   }
 }

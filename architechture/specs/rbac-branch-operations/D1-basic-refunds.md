@@ -28,6 +28,7 @@ Refund chỉ cho đơn chọn thuần chuyển khoản, đã nhận tiền thự
 - Phân biệt reason nghiệp vụ hủy với hủy do hết hạn ở dữ liệu/event. Cả WEB/COUNTER cùng điều kiện, không lấy PICKUP hoặc customerId có/không làm chứng cứ đủ điều kiện.
 - Số tiền hoàn do server tính từ phần thực nhận hợp lệ thuộc giá trị đơn chưa hoàn/đang giữ cho lượt chi. Không hoàn total nếu mới nhận một phần; không gồm excess hoặc tiền nhóm expiry. Cần reservation/unique/version bảo vệ tổng hoàn không vượt phần đủ điều kiện khi hai request cạnh tranh.
 - Request hiện có trong Order cần migration mới cho state mở rộng, cancellation snapshot, bank details phiên bản, processing attempt và customer nullable nếu đơn quầy. Không tự gán Staff là Customer để né schema.
+- Thông tin người thụ hưởng do Customer chọn từ danh sách ngân hàng VietQR theo BIN; nhập số tài khoản và tên chủ tài khoản trực tiếp dạng text. Snapshot ngân hàng/BIN/tài khoản/tên chủ tài khoản được lưu cùng refund attempt.
 - Customer chỉ tạo/xem/cập nhật yêu cầu của mình theo ownership hiện hữu. Với đơn vãng lai không customerId, không tự cấp đường public chỉnh ngân hàng bằng mã đơn; Manager/Admin xử lý hồ sơ đúng quán qua tác nghiệp có audit, xác nhận thông tin nhận hoàn và snapshot. Đây là contract tác nghiệp đề xuất để hỗ trợ phạm vi đơn quầy, không thêm account Customer giả hoặc email người nhận suy đoán.
 - Review từ chối chỉ vì yêu cầu không hợp lệ với reason bắt buộc, không tiêu chí cảm tính. Khoản tạm hoãn không vào REJECTED chỉ vì chưa làm tính năng. Không đổi payment PAID thành UNPAID sau hoàn.
 

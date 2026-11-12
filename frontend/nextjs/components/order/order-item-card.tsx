@@ -35,6 +35,8 @@ export function OrderItemCard({
   const t = useTranslations();
 
   const { money: formatPrice } = useLocaleTools();
+  const safeOptions = Array.isArray(options) ? options : [];
+  const safeToppings = Array.isArray(toppings) ? toppings : [];
   return (
     <article className={styles.itemCard}>
       <FoodImage src={image} alt={name} className={styles.itemImage} />
@@ -44,15 +46,15 @@ export function OrderItemCard({
         <p className={styles.itemMeta}>
           {formatPrice(unitPrice)} × {quantity} {t("business.cart.servings")} </p>
 
-        {(options.length > 0 || toppings.length > 0) && (
+        {(safeOptions.length > 0 || safeToppings.length > 0) && (
           <div className={styles.itemAddons}>
-            {options.map((opt, idx) => (
+            {safeOptions.map((opt, idx) => (
               <span key={`opt-${idx}`} className={styles.addonChip}>
-                {opt.groupName}: {opt.name}
+                {opt.groupName ? `${opt.groupName}: ${opt.name}` : opt.name}
                 {opt.extraPrice > 0 ? ` (+${formatPrice(opt.extraPrice)})` : ""}
               </span>
             ))}
-            {toppings.map((top, idx) => (
+            {safeToppings.map((top, idx) => (
               <span key={`top-${idx}`} className={styles.addonChip}>
                 +{top.name} (+{formatPrice(top.extraPrice)})
               </span>

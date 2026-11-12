@@ -19,7 +19,7 @@ export interface BannerSlideItem {
 
 export function resolveSafeHref(raw?: string | null): string | null {
   const trimmed = (raw ?? "").trim();
-  if (!trimmed) {
+  if (!trimmed || trimmed.includes("\\") || Array.from(trimmed).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
     return null;
   }
   if (trimmed.startsWith("/")) {
@@ -38,26 +38,30 @@ function SlideWrapper({
   ariaLabel,
   className,
   onClick,
+  inert,
   children,
 }: {
   href: string | null;
   ariaLabel: string;
   className: string;
   onClick: (event: MouseEvent<HTMLElement>) => void;
+  inert: boolean;
   children: ReactNode;
 }) {
   if (!href) {
-    return <div className={className}>{children}</div>;
+    return <div className={className} inert={inert} aria-hidden={inert}>{children}</div>;
   }
   if (href.startsWith("/")) {
     return (
-      <Link href={href} aria-label={ariaLabel} className={className} onClick={onClick}>
+      <Link href={href} aria-label={ariaLabel} className={className} onClick={onClick} inert={inert} aria-hidden={inert}>
         {children}
       </Link>
     );
   }
   return (
     <a
+      inert={inert}
+      aria-hidden={inert}
       href={href}
       target="_blank"
       rel="noopener noreferrer"
@@ -255,6 +259,7 @@ export function BannerSlider({
           return (
             <SlideWrapper
               key={slide.id}
+              inert={!isCurrent}
               href={href}
               ariaLabel={slide.alt || slide.title}
               className={`banner-slide${isCurrent ? " banner-slide--active" : ""}${href ? " banner-slide--clickable" : ""}`}

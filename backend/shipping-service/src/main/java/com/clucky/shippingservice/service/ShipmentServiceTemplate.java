@@ -54,6 +54,8 @@ public class ShipmentServiceTemplate {
                 || event.eventId() == null || event.eventId().isBlank() || event.eventId().length() > 160) {
             throw new IllegalArgumentException("Invalid shipment event source or identity");
         }
+        if ("COUNTER".equals(event.payload().path("orderSource").asText())
+                && !event.payload().hasNonNull("customerId")) return;
         OrderSnapshot order = snapshot(event.payload());
         String fingerprint = fingerprint(order);
         jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", Object.class, "shipment-order:" + order.orderId());

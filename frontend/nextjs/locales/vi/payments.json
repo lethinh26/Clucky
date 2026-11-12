@@ -15,6 +15,9 @@
   "partialReceived": "Đã nhận {received} / {total}",
   "scanHint": "Quét QR bằng ứng dụng ngân hàng. Thanh toán tự cập nhật.",
   "confirming": "Đã nhận đủ tiền, đang chờ hệ thống xác nhận đơn. Không chuyển thêm.",
+  "localSimulationNotice": "Chỉ dùng khi kiểm thử local. Giao dịch mô phỏng, không chuyển tiền thật.",
+  "simulateSuccess": "Mô phỏng thanh toán thành công",
+  "simulating": "Đang ghi nhận giao dịch mô phỏng…",
   "deadline": "Giữ nguyên nội dung chuyển khoản. Hạn 15 phút không gia hạn khi tải lại; không chuyển thêm sau khi hết hạn.",
   "refundUnavailable": "Khoản tiền này cần cửa hàng xử lý, chưa được hoàn tự động. Vui lòng liên hệ cửa hàng.",
   "statuses": {

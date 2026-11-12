@@ -22,6 +22,8 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.List;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -65,7 +67,8 @@ class BannerServiceTest {
                 .subject(String.valueOf(userId))
                 .claim("role", role)
                 .build();
-        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt,
+                List.of(new SimpleGrantedAuthority("ROLE_" + role))));
     }
 
     @Test
@@ -126,6 +129,9 @@ class BannerServiceTest {
 
         BannerRequest req = new BannerRequest("New Banner", "/menu", "HERO_HOME", 1, null, null, true, null, null, null, null);
         assertThrows(IllegalStateException.class, () -> bannerService.createBanner(req, file));
+        var order = inOrder(mediaAdapter, bannerRepository);
+        order.verify(mediaAdapter).attach(uploaded.publicId());
+        order.verify(bannerRepository).saveAndFlush(any(Banner.class));
         verify(mediaAdapter).retireOrphan("clucky/banners/new-1");
     }
 

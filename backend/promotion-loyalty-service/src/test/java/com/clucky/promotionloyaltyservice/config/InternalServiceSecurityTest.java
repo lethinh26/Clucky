@@ -74,11 +74,32 @@ class InternalServiceSecurityTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void publicBannersAndAdminWritesPreserveVoucherProposalPermissions() throws Exception {
+        mvc.perform(get("/api/promotions/banners")).andExpect(status().isOk());
+        mvc.perform(get("/api/promotions/banners/admin")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/promotions/banners")).andExpect(status().isUnauthorized());
+        for (String role : List.of("CUSTOMER", "STAFF", "STORE_MANAGER", "ADMIN")) {
+            String authorization = "Bearer " + token(role, "browser-test", 60, SECRET, "test-api");
+            int adminStatus = role.equals("ADMIN") ? 200 : 403;
+            mvc.perform(get("/api/promotions/banners/admin").header("Authorization", authorization)).andExpect(status().is(adminStatus));
+            mvc.perform(post("/api/promotions/banners").header("Authorization", authorization)).andExpect(status().is(adminStatus));
+            mvc.perform(put("/api/promotions/banners/1").header("Authorization", authorization)).andExpect(status().is(adminStatus));
+            mvc.perform(post("/api/promotions/banners/1/image").header("Authorization", authorization)).andExpect(status().is(adminStatus));
+            mvc.perform(delete("/api/promotions/banners/1").header("Authorization", authorization)).andExpect(status().is(adminStatus));
+            mvc.perform(post("/api/promotions/vouchers/store-proposals").header("Authorization", authorization))
+                    .andExpect(status().is(role.equals("STORE_MANAGER") ? 200 : 403));
+            for (String action : List.of("approve", "reject")) {
+                mvc.perform(put("/api/promotions/vouchers/1/" + action).header("Authorization", authorization)).andExpect(status().is(adminStatus));
+            }
+        }
+    }
+
     private String token(String role, String service, long expiresIn, String secret, String audience) {
         var now = Instant.now();
         var claims = JwtClaimsSet.builder().issuer("test-issuer").audience(List.of(audience)).subject("123")
                 .issuedAt(now.minusSeconds(180)).expiresAt(now.plusSeconds(expiresIn)).claim("typ", "access")
-                .claim("role", role).claim("service", service).claim("sid", "internal-test").build();
+                .claim("role", role).claim("storeId", 1L).claim("service", service).claim("sid", "internal-test").build();
         var encoder = new NimbusJwtEncoder(new ImmutableSecret<>(secret.getBytes(StandardCharsets.UTF_8)));
         return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
     }
@@ -95,6 +116,6 @@ class InternalServiceSecurityTest {
 
     @RestController
     static class ProbeController {
-        @RequestMapping("/internal/loyalty/**") String probe() { return "ok"; }
+        @RequestMapping({"/internal/loyalty/**", "/api/promotions/**"}) String probe() { return "ok"; }
     }
 }

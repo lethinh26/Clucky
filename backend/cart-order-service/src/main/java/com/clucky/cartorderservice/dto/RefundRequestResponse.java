@@ -17,6 +17,7 @@ public record RefundRequestResponse(
         Instant reviewedAt,
         String reviewNote,
         String bankName,
+        String bankBin,
         String bankAccountNo,
         String bankAccountName,
         Integer bankDetailsVersion,
@@ -42,6 +43,6 @@ public record RefundRequestResponse(
             Instant reviewedAt
     ) {
         this(id, orderId, null, null, customerId, amount, reason, status, reviewedBy, reviewedAt,
-                null, null, null, null, 1, 0, null, null, null, null, null, null, List.of(), null, null);
+                null, null, null, null, null, 1, 0, null, null, null, null, null, null, List.of(), null, null);
     }
 }
