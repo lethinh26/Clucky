@@ -33,9 +33,12 @@ import {
 import { OrderDetailDrawer } from "./components/OrderDetailDrawer";
 import { RefundModal } from "./components/RefundModal";
 import { FinanceModal } from "../Payments/FinanceDrawer";
+import { ReceiptBillModal } from "../Staff/components/ReceiptBillModal";
+import type { StaffOrder } from "../../mocks/mockStaffOrders";
 import {
   exportAdminOrdersByDateExcel,
   formatDateLabelVn,
+  formatQueueWithDate,
   getOrderVnDateYmd,
   getTodayVn,
   shiftDateYmd,
@@ -69,6 +72,7 @@ export const OrdersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedStore, setSelectedStore] = useState<string>("ALL");
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [queueFilter, setQueueFilter] = useState<string>("");
 
   // Drawer & Modal states
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -78,6 +82,7 @@ export const OrdersPage: React.FC = () => {
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [orderForRefund, setOrderForRefund] = useState<AdminOrder | null>(null);
   const [financeOrderId, setFinanceOrderId] = useState<number | null>(null);
+  const [kotModalOrder, setKotModalOrder] = useState<StaffOrder | null>(null);
 
   const handleOpenDetail = (order: AdminOrder) => {
     setSelectedOrderId(order.id);
@@ -94,16 +99,54 @@ export const OrdersPage: React.FC = () => {
       ok = await confirmCOD(orderId);
       if (ok) {
         try {
-          await updateStatus(orderId, "COMPLETED", "Đã xác nhận thu tiền COD và hoàn tất đơn online");
+          await updateStatus(orderId, "COMPLETED", "COLLECT_COD");
         } catch {
           // Ignore if already completed
         }
-        message.success("Đã xác nhận thu tiền COD và hoàn tất đơn hàng!");
+        message.success(t("business:staffactions.codCompletedSuccess"));
         return true;
       }
     } else {
       ok = await updateStatus(orderId, newStatus, reason);
       if (ok) {
+        if (newStatus === "PREPARING") {
+          const target = orders.find((o) => o.id === orderId);
+          if (target) {
+            const qNum = target.queueNumber && target.queueNumber > 0 ? target.queueNumber : 1;
+            const qFormatted = `#${String(qNum).padStart(3, "0")}`;
+            setDrawerOpen(false);
+            setKotModalOrder({
+              id: target.id,
+              orderCode: target.orderCode,
+              queueNumber: qNum,
+              orderSource: "WEB",
+              diningOption: target.orderType === "PICKUP" ? "DINE_IN" : "TAKE_AWAY",
+              customerName: target.customerName,
+              customerPhone: target.customerPhone,
+              storeId: target.storeId,
+              storeName: stores.find((s) => Number(s.id) === Number(target.storeId))?.name || target.storeName,
+              orderType: target.orderType,
+              deliveryAddress: target.deliveryAddress,
+              status: "PREPARING",
+              paymentMethod: target.paymentMethod,
+              paymentStatus: target.paymentStatus === "PAID" || target.paymentStatus === "COLLECTED" ? target.paymentStatus : "PENDING",
+              items: target.items,
+              subtotal: target.subtotal,
+              discount: target.discount,
+              shippingFee: target.shippingFee,
+              total: target.total,
+              note: target.note,
+              time: target.time,
+              createdAt: target.createdAt,
+              updatedAt: target.updatedAt,
+            });
+            message.success({
+              content: t("business:staffactions.kotOpened", { queue: qFormatted, code: target.orderCode }),
+              key: `kot-mgr-${orderId}-${Date.now()}`,
+            });
+            return true;
+          }
+        }
         message.success(t("business:orderspage.orderUpdated", { value1: t(statusLabels[newStatus]) }));
         return true;
       }
@@ -128,12 +171,20 @@ export const OrdersPage: React.FC = () => {
     if (selectedStore !== "ALL" && o.storeId !== selectedStore) return false;
     if (selectedDate && getOrderVnDateYmd(o.createdAt) !== selectedDate) return false;
 
+    if (queueFilter.trim()) {
+      const digits = queueFilter.trim().replace(/^#?0*/, "");
+      if (digits && /^\d+$/.test(digits)) {
+        if (String(o.queueNumber ?? "") !== digits) return false;
+      }
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       const matchCode = o.orderCode.toLowerCase().includes(q);
       const matchCustomer = o.customerName.toLowerCase().includes(q);
       const matchPhone = o.customerPhone.includes(q);
-      if (!matchCode && !matchCustomer && !matchPhone) return false;
+      const matchQueue = o.queueNumber != null && `#${String(o.queueNumber).padStart(3, "0")}`.toLowerCase().includes(q);
+      if (!matchCode && !matchCustomer && !matchPhone && !matchQueue) return false;
     }
 
     if (activeTab === "REFUND") {
@@ -177,6 +228,21 @@ export const OrdersPage: React.FC = () => {
   };
 
   const columns: TableColumnsType<AdminOrder> = [
+    {
+      title: t("admin:ui.queueNumberCol"),
+      dataIndex: "queueNumber",
+      key: "queueNumber",
+      width: 140,
+      render: (qNum: number | undefined, record) => {
+        const { queueLabel, dateLabel } = formatQueueWithDate(qNum, record.createdAt);
+        return (
+          <Space orientation="vertical" size={2}>
+            <Tag color="volcano" style={{ fontWeight: 800, fontSize: 13 }}>{queueLabel}</Tag>
+            {dateLabel && <Typography.Text type="secondary" style={{ fontSize: 11 }}>{dateLabel}</Typography.Text>}
+          </Space>
+        );
+      },
+    },
     {
       title: t("business:dashboard.orderCode"),
       dataIndex: "orderCode",
@@ -488,6 +554,15 @@ export const OrdersPage: React.FC = () => {
             allowClear
           />
 
+          <Input
+            aria-label={t("admin:ui.searchQueueNumber")}
+            placeholder={t("admin:ui.searchQueueNumber")}
+            value={queueFilter}
+            onChange={(e) => setQueueFilter(e.target.value)}
+            style={{ width: 200 }}
+            allowClear
+          />
+
           {isAdmin && (
             <Select
               aria-label={t("business:orderspage.filterStores")}
@@ -506,6 +581,7 @@ export const OrdersPage: React.FC = () => {
           icon={<SlidersHorizontal />}
           onClick={() => {
             setSearchQuery("");
+            setQueueFilter("");
             setSelectedStore("ALL");
             setActiveTab("ALL");
             message.info(
@@ -573,7 +649,14 @@ export const OrdersPage: React.FC = () => {
           filteredOrders.map((order) => (
             <article className={styles.mobileCard} key={order.id}>
               <div className={styles.mobileCardTop}>
-                <strong>{order.orderCode}</strong>
+                <div>
+                  <strong>{order.orderCode}</strong>
+                  {order.queueNumber ? (
+                    <Tag color="volcano" style={{ marginLeft: 8, fontWeight: 700 }}>
+                      {formatQueueWithDate(order.queueNumber, order.createdAt).combinedLabel}
+                    </Tag>
+                  ) : null}
+                </div>
                 <OrderStatusBadge status={order.status} />
               </div>
               <h3>{order.customerName}</h3>
@@ -672,6 +755,14 @@ export const OrdersPage: React.FC = () => {
           onChanged={() => void refreshOrders()}
         />
       )}
+
+      <ReceiptBillModal
+        key={kotModalOrder ? `${kotModalOrder.id}-KOT` : "closed"}
+        open={Boolean(kotModalOrder)}
+        order={kotModalOrder}
+        onClose={() => setKotModalOrder(null)}
+        initialMode="KOT"
+      />
     </div>
   );
 };

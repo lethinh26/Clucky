@@ -328,10 +328,10 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <div>
                     <strong style={{ fontSize: 13, color: "#16100d", display: "block" }}>
-                      Ảnh bằng chứng xác nhận thu tiền COD (≤ 2MB)
+                      {t("business:counterPayment.codEvidenceTitle")}
                     </strong>
                     <span style={{ fontSize: 12, color: "#6b6259" }}>
-                      Hỗ trợ JPEG, PNG, WebP tối đa 2MB để lưu đối chiếu thu tiền mặt đơn online
+                      {t("business:counterPayment.codEvidenceHint")}
                     </span>
                   </div>
                   <label
@@ -349,7 +349,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                     }}
                   >
                     <ImagePlus size={14} />
-                    <span>{codEvidenceFile ? "Đổi ảnh (≤ 2MB)" : "Import ảnh (≤ 2MB)"}</span>
+                    <span>{codEvidenceFile ? t("business:counterPayment.changeImageBtn") : t("business:counterPayment.uploadImageBtn")}</span>
                     <input
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
@@ -363,7 +363,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                           file.size > 2 * 1024 * 1024 ||
                           !["image/jpeg", "image/png", "image/webp"].includes(file.type)
                         ) {
-                          message.error("Ảnh bằng chứng phải là JPEG, PNG hoặc WebP và dung lượng tối đa 2MB.");
+                          message.error(t("business:counterPayment.invalidEvidenceError"));
                           return;
                         }
                         setCodEvidenceFile(file);
@@ -371,7 +371,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                           if (prev) URL.revokeObjectURL(prev);
                           return URL.createObjectURL(file);
                         });
-                        message.success(`Đã chọn ảnh minh chứng: ${file.name}`);
+                        message.success(t("business:counterPayment.evidenceSelectedSuccess", { name: file.name }));
                       }}
                     />
                   </label>
@@ -394,7 +394,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                     <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                       <img
                         src={codEvidencePreviewUrl}
-                        alt="Bằng chứng COD"
+                        alt={t("business:counterPayment.codEvidenceAlt")}
                         style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, border: "1px solid #e8e2d9" }}
                       />
                       <div style={{ minWidth: 0 }}>
@@ -402,7 +402,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                           {codEvidenceFile.name}
                         </div>
                         <div style={{ fontSize: 11, color: "#1e7a46", fontWeight: 600 }}>
-                          {(codEvidenceFile.size / 1024).toFixed(1)} KB · Sẵn sàng lưu bằng chứng COD
+                          {t("business:counterPayment.evidenceReadyKb", { size: (codEvidenceFile.size / 1024).toFixed(1) })}
                         </div>
                       </div>
                     </div>
@@ -425,7 +425,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                         display: "inline-flex",
                         alignItems: "center",
                       }}
-                      title="Xóa ảnh"
+                      title={t("business:counterPayment.removeImageTitle")}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -523,7 +523,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                   type="text"
                   value={manualReason}
                   onChange={(e) => setManualReason(e.target.value)}
-                  placeholder="Hoặc nhập ghi chú xác nhận chuyển khoản..."
+                  placeholder={t("business:counterPayment.transferNotePlaceholder")}
                   style={{
                     marginTop: 8,
                     width: "100%",
@@ -600,14 +600,14 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
               <div className={styles.manualSection}>
                 <div className={styles.manualHeader}>
                   <span className={styles.manualTitle}>
-                    Xác nhận đã nhận phần chuyển khoản (Bắt buộc cho đơn Kết hợp):
+                    {t("business:counterPayment.splitTransferConfirmLabel")}
                   </span>
                 </div>
                 <div className={styles.quickTagsList}>
                   {[
-                    "Đã kiểm tra biên lai CK thành công",
-                    "Khách đã chuyển khoản phần còn lại",
-                    "Xác nhận kết hợp tiền mặt + QR",
+                    t("business:counterPayment.quickNoteReceiptChecked"),
+                    t("business:counterPayment.quickNoteCustomerPaidRest"),
+                    t("business:counterPayment.quickNoteSplitConfirmed"),
                   ].map((tag) => (
                     <button
                       key={tag}
@@ -625,7 +625,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
                   type="text"
                   value={manualReason}
                   onChange={(e) => setManualReason(e.target.value)}
-                  placeholder="Hoặc nhập ghi chú xác nhận chuyển khoản..."
+                  placeholder={t("business:counterPayment.transferNotePlaceholder")}
                   style={{
                     marginTop: 8,
                     width: "100%",

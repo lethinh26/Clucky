@@ -2,6 +2,18 @@ import type { StaffOrder } from "../mocks/mockStaffOrders";
 import type { BankTransactionItem } from "../mocks/mockPosCatalog";
 import type { AdminOrder } from "../types/order";
 import type { BackendCounterReceipt, Store } from "../lib/api";
+import { getBrowserLocale } from "../i18n/locale";
+import { getTranslator } from "../i18n/translator";
+
+function getExcelTranslator(locale?: string) {
+  if (locale && locale.toLowerCase().startsWith("en")) {
+    return getTranslator("en");
+  }
+  if (locale && locale.toLowerCase().startsWith("vi")) {
+    return getTranslator("vi");
+  }
+  return getTranslator(getBrowserLocale());
+}
 
 function escapeXml(value: unknown): string {
   return String(value ?? "")
@@ -29,9 +41,11 @@ function formatDateTimeVn(iso?: string): string {
   }
 }
 
-export function formatDateLabelVn(ymd?: string, locale = "vi"): string {
-  const isEn = locale.toLowerCase().startsWith("en");
-  if (!ymd) return isEn ? "All dates" : "Tất cả các ngày";
+export function formatDateLabelVn(ymd?: string, locale?: string): string {
+  const tr = getExcelTranslator(locale);
+  const resolved = locale ?? getBrowserLocale();
+  const isEn = resolved.toLowerCase().startsWith("en");
+  if (!ymd) return tr("business:excel.allDates");
   const parts = ymd.split("-");
   if (parts.length !== 3) return ymd;
   const [y, m, d] = parts.map(Number);
@@ -76,6 +90,26 @@ export function getOrderVnDateYmd(iso?: string): string {
 
 export function getTodayVn(): string {
   return getOrderVnDateYmd(new Date().toISOString());
+}
+
+export function formatVnShortDate(iso?: string): string {
+  const ymd = getOrderVnDateYmd(iso);
+  if (!ymd || !ymd.includes("-")) return "";
+  const [y, m, d] = ymd.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+export function formatQueueWithDate(queueNumber?: number | null, createdAt?: string): {
+  queueLabel: string;
+  dateLabel: string;
+  combinedLabel: string;
+} {
+  const queueLabel = queueNumber != null && queueNumber > 0
+    ? `#${String(queueNumber).padStart(3, "0")}`
+    : "—";
+  const dateLabel = formatVnShortDate(createdAt);
+  const combinedLabel = dateLabel ? `${queueLabel} · ${dateLabel}` : queueLabel;
+  return { queueLabel, dateLabel, combinedLabel };
 }
 
 function triggerExcelDownload(xmlContent: string, filename: string) {
@@ -149,7 +183,7 @@ const EXCEL_STYLES = `
         <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E8E2D9"/>
       </Borders>
       <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#8F1216"/>
-      <NumberFormat ss:Format="#,##0 &quot;đ&quot;"/>
+      <NumberFormat ss:Format="#,##0 &quot;&#273;&quot;"/>
     </Style>
     <Style ss:ID="SummaryLabel">
       <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
@@ -175,51 +209,51 @@ const EXCEL_STYLES = `
   </Styles>
 `;
 
-function staffKitchenLabel(status: StaffOrder["status"]): string {
+function staffKitchenLabel(status: StaffOrder["status"], tr: ReturnType<typeof getTranslator>): string {
   switch (status) {
     case "PENDING_PAYMENT":
-      return "Chờ thanh toán";
+      return tr("business:excel.staffStatus.PENDING_PAYMENT");
     case "CONFIRMED":
-      return "Mới xác nhận";
+      return tr("business:excel.staffStatus.CONFIRMED");
     case "PREPARING":
-      return "Đang chế biến";
+      return tr("business:excel.staffStatus.PREPARING");
     case "READY":
-      return "Sẵn sàng trả món";
+      return tr("business:excel.staffStatus.READY");
     case "SHIPPING":
-      return "Đang giao hàng";
+      return tr("business:excel.staffStatus.SHIPPING");
     case "COMPLETED":
-      return "Đã hoàn tất bàn giao";
+      return tr("business:excel.staffStatus.COMPLETED");
     case "CANCELLED":
-      return "Đã hủy";
+      return tr("business:excel.staffStatus.CANCELLED");
     default:
       return status;
   }
 }
 
-function staffPaymentStatusLabel(status: string): string {
+function staffPaymentStatusLabel(status: string, tr: ReturnType<typeof getTranslator>): string {
   switch (status) {
     case "COLLECTED":
     case "PAID":
-      return "Đã thu tiền";
+      return tr("business:excel.staffPayStatus.COLLECTED");
     case "PENDING":
-      return "Chờ thu tiền";
+      return tr("business:excel.staffPayStatus.PENDING");
     case "DISCREPANCY":
-      return "Cần đối soát";
+      return tr("business:excel.staffPayStatus.DISCREPANCY");
     default:
       return status;
   }
 }
 
-function staffPaymentMethodLabel(method: StaffOrder["paymentMethod"]): string {
+function staffPaymentMethodLabel(method: StaffOrder["paymentMethod"], tr: ReturnType<typeof getTranslator>): string {
   switch (method) {
     case "CASH":
-      return "Tiền mặt (CASH)";
+      return tr("business:excel.staffMethod.CASH");
     case "COD":
-      return "Tiền mặt khi nhận (COD)";
+      return tr("business:excel.staffMethod.COD");
     case "BANK_TRANSFER":
-      return "Chuyển khoản (VietQR)";
+      return tr("business:excel.staffMethod.BANK_TRANSFER");
     case "SPLIT":
-      return "Kết hợp (Tiền mặt + QR)";
+      return tr("business:excel.staffMethod.SPLIT");
     default:
       return method;
   }
@@ -233,6 +267,8 @@ export function exportStaffDailyOrdersExcel(params: {
   receiptsByCode?: Record<string, BackendCounterReceipt>;
 }) {
   const { date, storeName, staffName, orders, receiptsByCode = {} } = params;
+  const locale = getBrowserLocale();
+  const tr = getTranslator(locale);
   const completedOrders = orders.filter((o) => o.status === "COMPLETED");
   const processingOrders = orders.filter((o) =>
     ["CONFIRMED", "PREPARING", "READY", "SHIPPING"].includes(o.status)
@@ -289,12 +325,20 @@ export function exportStaffDailyOrdersExcel(params: {
           ? o.total
           : 0);
       const cashChange = rec?.cashChange ?? o.cashChange ?? 0;
-      const cashier = rec?.staffName || o.cashierName || staffName || "Nhân viên ca trực";
+      const cashier = rec?.staffName || o.cashierName || staffName || tr("business:excel.defaultShiftStaff");
       const receiptCode =
         rec?.receiptCode ||
         o.receiptCode ||
         o.bankRefCode ||
         (["PAID", "COLLECTED"].includes(o.paymentStatus) ? `REC-${o.orderCode}` : "—");
+      const orderSourceText =
+        o.orderSource === "COUNTER"
+          ? tr("business:excel.staffOrderSourceCounter")
+          : tr("business:excel.staffOrderSourceWeb");
+      const diningOptionText =
+        o.diningOption === "DINE_IN"
+          ? tr("business:excel.diningDineIn")
+          : tr("business:excel.diningTakeAway");
 
       return `
         <Row ss:AutoFitHeight="1" ss:Height="26">
@@ -302,27 +346,40 @@ export function exportStaffDailyOrdersExcel(params: {
           <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(o.orderCode)}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="String">#${String(o.queueNumber).padStart(3, "0")}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatDateTimeVn(o.createdAt))}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${o.orderSource === "COUNTER" ? "Tại quầy (POS)" : "Đặt Online (Web)"}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${o.diningOption === "DINE_IN" ? "Ăn tại quán" : "Mang về / Giao hàng"}</Data></Cell>
-          <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(o.customerName || "Khách tại quầy")}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(orderSourceText)}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(diningOptionText)}</Data></Cell>
+          <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(o.customerName || tr("business:excel.walkInCustomer"))}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(o.customerPhone || "—")}</Data></Cell>
           <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(itemsText)}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="Number">${totalQty}</Data></Cell>
           <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${o.subtotal || o.total || 0}</Data></Cell>
           <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${o.discount || 0}</Data></Cell>
           <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${o.total || 0}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(staffPaymentMethodLabel(o.paymentMethod))}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(staffPaymentStatusLabel(o.paymentStatus))}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(staffPaymentMethodLabel(o.paymentMethod, tr))}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(staffPaymentStatusLabel(o.paymentStatus, tr))}</Data></Cell>
           <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${cashTendered}</Data></Cell>
           <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${cashChange}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(receiptCode)}</Data></Cell>
           <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(cashier)}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(staffKitchenLabel(o.status))}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(staffKitchenLabel(o.status, tr))}</Data></Cell>
           <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(o.note || "")}</Data></Cell>
         </Row>
       `;
     })
     .join("");
+
+  const fmt = new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN");
+  const subtitleText = tr("business:excel.staffReportSubtitle", {
+    storeName,
+    dateLabel: formatDateLabelVn(date, locale),
+    date,
+    staffName,
+    exportedAt: formatDateTimeVn(new Date().toISOString()),
+  });
+  const cashTenderedChangeVal = tr("business:excel.staffCashTenderedChangeValue", {
+    tendered: fmt.format(totalCashTendered),
+    change: fmt.format(totalCashChange),
+  });
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
@@ -331,7 +388,7 @@ export function exportStaffDailyOrdersExcel(params: {
  xmlns:x="urn:schemas-microsoft-com:office:excel"
  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
   ${EXCEL_STYLES}
-  <Worksheet ss:Name="Thong Ke Ngay ${escapeXml(date)}">
+  <Worksheet ss:Name="${escapeXml(tr("business:excel.staffSheetName", { date }))}">
     <Table>
       <Column ss:Width="45"/>
       <Column ss:Width="135"/>
@@ -357,74 +414,74 @@ export function exportStaffDailyOrdersExcel(params: {
 
       <Row ss:Height="28">
         <Cell ss:MergeAcross="20" ss:StyleID="Title">
-          <Data ss:Type="String">CLUCKY FAST FOOD — BẢNG THỐNG KÊ HOẠT ĐỘNG &amp; ĐƠN HÀNG THEO NGÀY</Data>
+          <Data ss:Type="String">${escapeXml(tr("business:excel.staffReportTitle"))}</Data>
         </Cell>
       </Row>
       <Row ss:Height="20">
         <Cell ss:MergeAcross="20" ss:StyleID="Subtitle">
-          <Data ss:Type="String">Chi nhánh: ${escapeXml(storeName)} | Ngày hoạt động: ${escapeXml(formatDateLabelVn(date))} (${escapeXml(date)}) | Người xuất: ${escapeXml(staffName)} | Thời điểm xuất: ${escapeXml(formatDateTimeVn(new Date().toISOString()))}</Data>
+          <Data ss:Type="String">${escapeXml(subtitleText)}</Data>
         </Cell>
       </Row>
       <Row ss:Height="10"/>
 
       <Row ss:Height="24">
         <Cell ss:MergeAcross="5" ss:StyleID="SectionHeader">
-          <Data ss:Type="String">I. TỔNG HỢP KẾT QUẢ XỬ LÝ ĐƠN HÀNG &amp; THU NGÂN TRONG NGÀY</Data>
+          <Data ss:Type="String">${escapeXml(tr("business:excel.staffSectionSummary"))}</Data>
         </Cell>
       </Row>
       <Row ss:Height="22">
-        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">Tổng số đơn hàng trong ngày</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.staffTotalOrders"))}</Data></Cell>
         <Cell ss:StyleID="SummaryValue"><Data ss:Type="Number">${orders.length}</Data></Cell>
-        <Cell ss:StyleID="SummaryLabel"><Data ss:Type="String">Tổng doanh thu đã thu (VND)</Data></Cell>
+        <Cell ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.staffTotalRevenue"))}</Data></Cell>
         <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${totalRevenue}</Data></Cell>
       </Row>
       <Row ss:Height="22">
-        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">Số đơn đã hoàn tất bàn giao</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.staffCompletedOrders"))}</Data></Cell>
         <Cell ss:StyleID="SummaryValue"><Data ss:Type="Number">${completedOrders.length}</Data></Cell>
-        <Cell ss:StyleID="SummaryLabel"><Data ss:Type="String">Thực thu Tiền mặt / COD (VND)</Data></Cell>
+        <Cell ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.staffCashRevenue"))}</Data></Cell>
         <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${cashRevenue}</Data></Cell>
       </Row>
       <Row ss:Height="22">
-        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">Số đơn đang chế biến / chờ giao</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.staffProcessingOrders"))}</Data></Cell>
         <Cell ss:StyleID="SummaryValue"><Data ss:Type="Number">${processingOrders.length}</Data></Cell>
-        <Cell ss:StyleID="SummaryLabel"><Data ss:Type="String">Tổng tiền khách đưa / Tiền thối lại</Data></Cell>
-        <Cell ss:StyleID="SummaryValue"><Data ss:Type="String">${new Intl.NumberFormat("vi-VN").format(totalCashTendered)} đ / Thối: ${new Intl.NumberFormat("vi-VN").format(totalCashChange)} đ</Data></Cell>
+        <Cell ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.staffCashTenderedChangeLabel"))}</Data></Cell>
+        <Cell ss:StyleID="SummaryValue"><Data ss:Type="String">${escapeXml(cashTenderedChangeVal)}</Data></Cell>
       </Row>
       <Row ss:Height="22">
-        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">Số đơn đã hủy</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.staffCancelledOrders"))}</Data></Cell>
         <Cell ss:StyleID="SummaryValue"><Data ss:Type="Number">${cancelledOrders.length}</Data></Cell>
-        <Cell ss:StyleID="SummaryLabel"><Data ss:Type="String">Tổng thu Chuyển khoản / VietQR (VND)</Data></Cell>
+        <Cell ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.staffTransferRevenue"))}</Data></Cell>
         <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${transferRevenue}</Data></Cell>
       </Row>
       <Row ss:Height="12"/>
 
       <Row ss:Height="24">
         <Cell ss:MergeAcross="20" ss:StyleID="SectionHeader">
-          <Data ss:Type="String">II. CHI TIẾT ĐƠN HÀNG &amp; CÔNG VIỆC ĐÃ THỰC HIỆN TRONG NGÀY (${orders.length} ĐƠN)</Data>
+          <Data ss:Type="String">${escapeXml(tr("business:excel.staffSectionDetails", { count: orders.length }))}</Data>
         </Cell>
       </Row>
       <Row ss:Height="28">
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">STT</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Mã đơn hàng</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Số Queue</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Thời gian tạo</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Nguồn đơn</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Hình thức</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Khách hàng</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Số điện thoại</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Chi tiết món ăn đã làm</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">SL món</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tạm tính</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Giảm giá</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tổng thanh toán</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Phương thức TT</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Trạng thái TT</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tiền khách đưa</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tiền thối lại</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Mã biên lai / Tham chiếu</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Nhân viên thực hiện</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Trạng thái công việc</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Ghi chú</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colNo"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderCode"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colQueueNumber"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCreatedAt"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderSource"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderType"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCustomer"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colPhone"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colItemsDone"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colItemQty"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colSubtotal"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colDiscount"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colTotal"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colPaymentMethod"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colPaymentStatus"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCashTendered"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCashChange"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colReceiptRef"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colHandledBy"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colWorkStatus"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colNote"))}</Data></Cell>
       </Row>
       ${rowsXml}
     </Table>
@@ -435,54 +492,54 @@ export function exportStaffDailyOrdersExcel(params: {
   triggerExcelDownload(xml, `Thong-ke-don-hang-ca-truc-${safeDate}.xls`);
 }
 
-function adminStatusLabel(status: AdminOrder["status"]): string {
+function adminStatusLabel(status: AdminOrder["status"], tr: ReturnType<typeof getTranslator>): string {
   switch (status) {
     case "PENDING_PAYMENT":
-      return "Chờ thanh toán";
+      return tr("business:excel.adminStatus.PENDING_PAYMENT");
     case "CONFIRMED":
-      return "Đã xác nhận";
+      return tr("business:excel.adminStatus.CONFIRMED");
     case "PREPARING":
-      return "Đang chuẩn bị";
+      return tr("business:excel.adminStatus.PREPARING");
     case "READY":
-      return "Sẵn sàng giao/nhận";
+      return tr("business:excel.adminStatus.READY");
     case "SHIPPING":
-      return "Đang giao hàng";
+      return tr("business:excel.adminStatus.SHIPPING");
     case "COMPLETED":
-      return "Đã hoàn thành";
+      return tr("business:excel.adminStatus.COMPLETED");
     case "CANCELLED":
-      return "Đã hủy";
+      return tr("business:excel.adminStatus.CANCELLED");
     default:
       return status;
   }
 }
 
-function adminPaymentMethodLabel(method?: string): string {
+function adminPaymentMethodLabel(method: string | undefined, tr: ReturnType<typeof getTranslator>): string {
   switch (method) {
     case "CASH":
-      return "Tiền mặt tại quầy";
+      return tr("business:excel.adminMethod.CASH");
     case "COD":
-      return "Tiền mặt khi nhận (COD)";
+      return tr("business:excel.adminMethod.COD");
     case "BANK_TRANSFER":
-      return "Chuyển khoản ngân hàng (VietQR)";
+      return tr("business:excel.adminMethod.BANK_TRANSFER");
     case "SPLIT":
-      return "Thanh toán kết hợp";
+      return tr("business:excel.adminMethod.SPLIT");
     default:
-      return method || "Chưa xác định";
+      return method || tr("business:excel.adminMethod.UNKNOWN");
   }
 }
 
-function adminPaymentStatusLabel(status?: string): string {
+function adminPaymentStatusLabel(status: string | undefined, tr: ReturnType<typeof getTranslator>): string {
   switch (status) {
     case "PAID":
-      return "Đã thanh toán";
+      return tr("business:excel.adminPayStatus.PAID");
     case "COLLECTED":
-      return "Đã thu tiền";
+      return tr("business:excel.adminPayStatus.COLLECTED");
     case "PENDING":
-      return "Chờ thanh toán";
+      return tr("business:excel.adminPayStatus.PENDING");
     case "REFUNDED":
-      return "Đã hoàn tiền";
+      return tr("business:excel.adminPayStatus.REFUNDED");
     default:
-      return status || "Chưa xác minh";
+      return status || tr("business:excel.adminPayStatus.UNKNOWN");
   }
 }
 
@@ -492,6 +549,8 @@ export function exportAdminOrdersByDateExcel(
   dateLabel = "",
   receiptsByCode: Record<string, BackendCounterReceipt> = {}
 ) {
+  const locale = getBrowserLocale();
+  const tr = getTranslator(locale);
   const completedCount = orders.filter((o) => o.status === "COMPLETED").length;
   const paidOrders = orders.filter((o) =>
     ["PAID", "COLLECTED"].includes(o.paymentStatus ?? "")
@@ -517,22 +576,27 @@ export function exportAdminOrdersByDateExcel(
         rec?.receiptCode ||
         rec?.bankRefCode ||
         (methodStr === "BANK_TRANSFER" ? o.orderCode : "—");
+      const orderTypeLabel =
+        o.orderType === "PICKUP"
+          ? tr("business:excel.orderTypePickup")
+          : tr("business:excel.orderTypeDelivery");
 
       return `
         <Row ss:AutoFitHeight="1" ss:Height="25">
           <Cell ss:StyleID="CellCenter"><Data ss:Type="Number">${idx + 1}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatQueueWithDate(o.queueNumber, o.createdAt).combinedLabel)}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(getOrderVnDateYmd(o.createdAt))}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(formatDateTimeVn(o.createdAt))}</Data></Cell>
           <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(o.orderCode)}</Data></Cell>
           <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(storeName)}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${o.orderType === "PICKUP" ? "Nhận tại quầy" : "Giao tận nơi"}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(orderTypeLabel)}</Data></Cell>
           <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(o.customerName)}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(o.customerPhone || "—")}</Data></Cell>
-          <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(itemsText || "Xem chi tiết đơn")}</Data></Cell>
+          <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(itemsText || tr("business:excel.viewOrderDetails"))}</Data></Cell>
           <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${o.total || 0}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(adminStatusLabel(o.status))}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(adminPaymentMethodLabel(o.paymentMethod))}</Data></Cell>
-          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(adminPaymentStatusLabel(o.paymentStatus))}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(adminStatusLabel(o.status, tr))}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(adminPaymentMethodLabel(o.paymentMethod, tr))}</Data></Cell>
+          <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(adminPaymentStatusLabel(o.paymentStatus, tr))}</Data></Cell>
           <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${cashTendered}</Data></Cell>
           <Cell ss:StyleID="CellMoney"><Data ss:Type="Number">${cashChange}</Data></Cell>
           <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(qrOrReceiptRef)}</Data></Cell>
@@ -540,6 +604,15 @@ export function exportAdminOrdersByDateExcel(
       `;
     })
     .join("");
+
+  const fmt = new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN");
+  const subtitleText = tr("business:excel.adminReportSubtitle", {
+    dateLabel: formatDateLabelVn(dateLabel, locale),
+    totalOrders: orders.length,
+    completedCount,
+    revenue: fmt.format(totalRevenue),
+    grossTotal: fmt.format(totalAllOrders),
+  });
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
@@ -551,6 +624,7 @@ export function exportAdminOrdersByDateExcel(
   <Worksheet ss:Name="Quan Ly Don Hang">
     <Table>
       <Column ss:Width="45"/>
+      <Column ss:Width="125"/>
       <Column ss:Width="95"/>
       <Column ss:Width="135"/>
       <Column ss:Width="145"/>
@@ -568,34 +642,35 @@ export function exportAdminOrdersByDateExcel(
       <Column ss:Width="145"/>
 
       <Row ss:Height="28">
-        <Cell ss:MergeAcross="15" ss:StyleID="Title">
-          <Data ss:Type="String">CLUCKY ADMIN — BÁO CÁO QUẢN LÝ ĐƠN HÀNG &amp; TÀI CHÍNH THEO NGÀY</Data>
+        <Cell ss:MergeAcross="16" ss:StyleID="Title">
+          <Data ss:Type="String">${escapeXml(tr("business:excel.adminReportTitle"))}</Data>
         </Cell>
       </Row>
       <Row ss:Height="20">
-        <Cell ss:MergeAcross="15" ss:StyleID="Subtitle">
-          <Data ss:Type="String">Kỳ lọc: ${escapeXml(formatDateLabelVn(dateLabel))} | Tổng số đơn: ${orders.length} | Hoàn thành: ${completedCount} | Doanh thu đã thu: ${new Intl.NumberFormat("vi-VN").format(totalRevenue)} đ | Tổng giá trị đơn: ${new Intl.NumberFormat("vi-VN").format(totalAllOrders)} đ</Data>
+        <Cell ss:MergeAcross="16" ss:StyleID="Subtitle">
+          <Data ss:Type="String">${escapeXml(subtitleText)}</Data>
         </Cell>
       </Row>
       <Row ss:Height="10"/>
 
       <Row ss:Height="28">
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">STT</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Ngày đặt</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Giờ tạo đơn</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Mã đơn hàng</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Chi nhánh</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Hình thức</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Khách hàng</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Số điện thoại</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Món đã đặt</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tổng tiền</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Trạng thái đơn</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Phương thức TT</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Trạng thái TT</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tiền khách đưa</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tiền thối lại</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Mã biên lai / QR</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colNo"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colQueueWithDate"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderDate"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderTime"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderCode"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colBranch"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderType"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCustomer"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colPhone"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colItemsOrdered"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colAmountTotal"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderStatus"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colPaymentMethod"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colPaymentStatus"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCashTendered"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCashChange"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colReceiptOrQr"))}</Data></Cell>
       </Row>
       ${rowsXml}
     </Table>
@@ -632,6 +707,9 @@ export function exportCashLedgerExcel(params: {
     receipts,
     transactions,
   } = params;
+  const locale = getBrowserLocale();
+  const tr = getTranslator(locale);
+  const fmt = new Intl.NumberFormat(locale === "en" ? "en-US" : "vi-VN");
 
   const receiptRowsXml = receipts
     .map(
@@ -672,6 +750,17 @@ export function exportCashLedgerExcel(params: {
     )
     .join("");
 
+  const ledgerSubtitle = tr("business:excel.ledgerReportSubtitle", {
+    storeName,
+    storeAddress: storeAddress ? ` (${storeAddress})` : "",
+    dateLabel: formatDateLabelVn(date, locale),
+    staffName,
+  });
+  const cashCollectedChangeVal = tr("business:excel.ledgerCashCollectedChangeVal", {
+    collected: fmt.format(totalCashCollected),
+    change: fmt.format(totalCashChangeGiven),
+  });
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
@@ -697,67 +786,67 @@ export function exportCashLedgerExcel(params: {
 
       <Row ss:Height="28">
         <Cell ss:MergeAcross="12" ss:StyleID="Title">
-          <Data ss:Type="String">CLUCKY — BÁO CÁO SỔ QUỸ DÒNG TIỀN &amp; KÉT CA TRỰC (${escapeXml(date)})</Data>
+          <Data ss:Type="String">${escapeXml(tr("business:excel.ledgerReportTitle", { date }))}</Data>
         </Cell>
       </Row>
       <Row ss:Height="20">
         <Cell ss:MergeAcross="12" ss:StyleID="Subtitle">
-          <Data ss:Type="String">Chi nhánh: ${escapeXml(storeName)}${storeAddress ? ` (${escapeXml(storeAddress)})` : ""} | Ngày: ${escapeXml(formatDateLabelVn(date))} | Người xuất: ${escapeXml(staffName)}</Data>
+          <Data ss:Type="String">${escapeXml(ledgerSubtitle)}</Data>
         </Cell>
       </Row>
       <Row ss:Height="8"/>
 
       <Row ss:Height="24">
-        <Cell ss:MergeAcross="2" ss:StyleID="KpiLabel"><Data ss:Type="String">Két tiền mặt thực tế (VND)</Data></Cell>
-        <Cell ss:MergeAcross="2" ss:StyleID="KpiValue"><Data ss:Type="Number">${netCashInDrawer}</Data></Cell>
-        <Cell ss:MergeAcross="2" ss:StyleID="KpiLabel"><Data ss:Type="String">Tiền mặt tổng thu / Đã thối (VND)</Data></Cell>
-        <Cell ss:MergeAcross="3" ss:StyleID="KpiLabel"><Data ss:Type="String">${new Intl.NumberFormat("vi-VN").format(totalCashCollected)} đ / ${new Intl.NumberFormat("vi-VN").format(totalCashChangeGiven)} đ</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.ledgerCashDrawer"))}</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryValue"><Data ss:Type="Number">${netCashInDrawer}</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.ledgerCashCollectedChange"))}</Data></Cell>
+        <Cell ss:MergeAcross="3" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(cashCollectedChangeVal)}</Data></Cell>
       </Row>
       <Row ss:Height="24">
-        <Cell ss:MergeAcross="2" ss:StyleID="KpiLabel"><Data ss:Type="String">Chuyển khoản đã đối soát (VND)</Data></Cell>
-        <Cell ss:MergeAcross="2" ss:StyleID="KpiValue"><Data ss:Type="Number">${totalBankReconciled}</Data></Cell>
-        <Cell ss:MergeAcross="2" ss:StyleID="KpiLabel"><Data ss:Type="String">Chuyển khoản chờ đối soát (VND)</Data></Cell>
-        <Cell ss:MergeAcross="3" ss:StyleID="KpiValue"><Data ss:Type="Number">${totalBankPending}</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.ledgerBankReconciled"))}</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryValue"><Data ss:Type="Number">${totalBankReconciled}</Data></Cell>
+        <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">${escapeXml(tr("business:excel.ledgerBankPending"))}</Data></Cell>
+        <Cell ss:MergeAcross="3" ss:StyleID="SummaryValue"><Data ss:Type="Number">${totalBankPending}</Data></Cell>
       </Row>
       <Row ss:Height="12"/>
 
       <Row ss:Height="24">
         <Cell ss:MergeAcross="12" ss:StyleID="Title">
-          <Data ss:Type="String">I. BIÊN LAI THU NGÂN (${receipts.length} biên lai)</Data>
+          <Data ss:Type="String">${escapeXml(tr("business:excel.ledgerSectionReceipts", { count: receipts.length }))}</Data>
         </Cell>
       </Row>
       <Row ss:Height="26">
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">STT</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Mã biên lai</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Mã đơn hàng</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Số gọi món</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Thời gian</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Phương thức</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tổng thu</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tiền mặt thu</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Khách đưa</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Tiền thối</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Chuyển khoản</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Thu ngân</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Trạng thái</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colNo"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colReceiptCode"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colOrderCode"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colTicketQueue"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colTime"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colMethod"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colTotalCollected"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCashCollected"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCustomerTendered"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colChange"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colBankTransfer"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colCashier"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colStatus"))}</Data></Cell>
       </Row>
       ${receiptRowsXml}
       <Row ss:Height="14"/>
 
       <Row ss:Height="24">
         <Cell ss:MergeAcross="7" ss:StyleID="Title">
-          <Data ss:Type="String">II. GIAO DỊCH NGÂN HÀNG (${transactions.length} giao dịch)</Data>
+          <Data ss:Type="String">${escapeXml(tr("business:excel.ledgerSectionBankTx", { count: transactions.length }))}</Data>
         </Cell>
       </Row>
       <Row ss:Height="26">
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">STT</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Mã giao dịch NH</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Thời gian nhận</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Số tiền</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Ngân hàng / STK</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Nội dung chuyển khoản</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Đơn liên kết</Data></Cell>
-        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">Trạng thái</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colNo"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colBankTxId"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colReceivedAt"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colAmount"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colBankAccount"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colTransferContent"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colLinkedOrder"))}</Data></Cell>
+        <Cell ss:StyleID="TableHeader"><Data ss:Type="String">${escapeXml(tr("business:excel.colStatus"))}</Data></Cell>
       </Row>
       ${txRowsXml}
     </Table>

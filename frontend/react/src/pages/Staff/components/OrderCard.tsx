@@ -26,6 +26,7 @@ interface OrderCardProps {
   onPaymentCollect?: (order: StaffOrder) => void;
   onViewDetails?: (orderId: string) => void;
   onReprint?: (order: StaffOrder) => void;
+  onPrintKot?: (order: StaffOrder) => void;
   formatMoney?: (val: number) => string;
 }
 
@@ -39,6 +40,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onPaymentCollect,
   onViewDetails,
   onReprint,
+  onPrintKot,
   formatMoney = defaultFormatMoney,
 }) => {
   const { t } = useTranslation();
@@ -299,14 +301,24 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           )}
 
           {order.status === "PREPARING" && (
-            <button
-              type="button"
-              className={`${styles.actionButton} ${styles.btnSuccess}`}
-              onClick={() => onStatusChange?.(order.id, "READY")}
-              aria-label={"Báo xong món đơn " + formattedQueue}
-            >
-              <PackageCheck size={18} /> {t("business:staffcard.foodReady")}
-            </button>
+            <>
+              <button
+                type="button"
+                className={`${styles.actionButton} ${styles.btnSuccess}`}
+                onClick={() => onStatusChange?.(order.id, "READY")}
+                aria-label={"Báo xong món đơn " + formattedQueue}
+              >
+                <PackageCheck size={18} /> {t("business:staffcard.foodReady")}
+              </button>
+              <button
+                type="button"
+                className={`${styles.actionButton} ${styles.btnSecondary}`}
+                onClick={() => onPrintKot?.(order)}
+                title={t("business:staffcard.printKot")}
+              >
+                <Printer size={18} /> {t("business:staffcard.printKot")}
+              </button>
+            </>
           )}
 
           {order.status === "READY" && (

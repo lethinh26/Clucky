@@ -23,6 +23,7 @@ import { OrderProgress } from "../../../components/ui/OrderProgress";
 import { OrderStatusBadge } from "../../../components/ui/OrderStatusBadge";
 import { FoodImage } from "../../../components/ui/FoodImage";
 import { displayOrderTime } from "../../../lib/order-demo";
+import { formatQueueWithDate } from "../../../utils/orderExcelExport";
 import { useOrders } from "../../../context/OrderContext";
 import { useAuth } from "../../../context/AuthContext";
 import styles from "../orders.module.css";
@@ -73,7 +74,10 @@ export function OrderDetailDrawer({
       <Drawer
         title={
           <div className={styles.drawerTitle}>
-            <span>{t("business:orderdetaildrawer.details")} {order.orderCode}</span>
+            <span>
+              {t("business:orderdetaildrawer.details")} {order.orderCode}
+              {order.queueNumber ? ` · ${formatQueueWithDate(order.queueNumber, order.createdAt).combinedLabel}` : ""}
+            </span>
             <OrderStatusBadge status={order.status} />
           </div>
         }
@@ -291,7 +295,7 @@ export function OrderDetailDrawer({
                     icon={<Wallet size={16} />}
                     onClick={() => onCollectCounter(order)}
                   >
-                    {t("business:staffcard.collectCounter")} (Tiền mặt / QR / Kết hợp)
+                    {t("business:staffcard.collectCounterWithMethods")}
                   </Button>
                 ) : (
                   order.paymentMethod === "COD" &&

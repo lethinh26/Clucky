@@ -201,6 +201,7 @@ function mapBackendOrderToAdminOrder(be: BackendOrder, images: OrderItemImages =
   return {
     id: String(be.id),
     orderCode: be.orderCode,
+    queueNumber: be.queueNumber ?? undefined,
     customerName: be.receiverName || `Customer #${be.customerId}`,
     customerPhone: be.receiverPhone || "",
     storeId: String(be.storeId),
@@ -269,10 +270,12 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthState();
   const { i18n } = useTranslation();
 
-  const refreshStores = useCallback(async () => {
+  const fetchStores = useCallback(async (signal?: AbortSignal) => {
     if (!user) return;
+    const revision = getSessionState().revision;
     try {
-      const list = await storesApi.list(false);
+      const list = await storesApi.list(undefined, signal);
+      if (signal?.aborted || revision !== getSessionState().revision) return;
       if (Array.isArray(list)) {
         setStores(list);
       }
@@ -281,18 +284,24 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  const refreshStores = useCallback(() => fetchStores(), [fetchStores]);
+
   useEffect(() => {
+    setStores([]);
     if (!user) {
-      setStores([]);
       return;
     }
-    void refreshStores();
+    const controller = new AbortController();
+    void fetchStores(controller.signal);
     const timer = window.setInterval(() => {
-      void refreshStores();
+      void fetchStores(controller.signal);
       setClockTick((t) => t + 1);
     }, 30000);
-    return () => window.clearInterval(timer);
-  }, [user, refreshStores]);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+    };
+  }, [user, fetchStores]);
 
   const currentStore = useMemo(() => {
     if (!stores.length) return null;

@@ -74,6 +74,7 @@ public class OrderController {
             @RequestParam(value = "orderSource", required = false) String orderSource,
             @RequestParam(value = "date", required = false) String date,
             @RequestParam(value = "orderCode", required = false) String orderCode,
+            @RequestParam(value = "queueNumber", required = false) Integer queueNumber,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size
     ) {
@@ -82,7 +83,7 @@ public class OrderController {
         Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         PageResponse<OrderResponse> response = orderService.getOrders(
-                customerId, storeId, status, paymentStatus, orderSource, date, orderCode, pageable);
+                customerId, storeId, status, paymentStatus, orderSource, date, orderCode, queueNumber, pageable);
         return ResponseEntity.ok(response);
     }
 

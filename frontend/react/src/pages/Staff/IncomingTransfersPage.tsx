@@ -96,7 +96,7 @@ export const IncomingTransfersPage: React.FC = () => {
   );
 
   const activeStoreName =
-    activeStore?.name || user?.storeName || `Chi nhánh #${selectedStoreId}`;
+    activeStore?.name || user?.storeName || t("business:stafforderspage.branchFallback", { id: selectedStoreId });
   const activeStoreAddress = activeStore?.address;
 
   // Transactions & Receipts state

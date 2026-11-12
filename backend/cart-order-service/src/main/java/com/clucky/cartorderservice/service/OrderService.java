@@ -304,6 +304,7 @@ public class OrderService {
         order.setCustomerEmail(customerProfiles.currentCustomerEmail(customerId));
         order.setCustomerEmailVerified(true);
         order.setStoreId(request.storeId());
+        order.setQueueNumber(generateDailyQueueNumber(request.storeId()));
         order.setType(type);
         order.setStatus(initialStatus);
         order.setSubtotal(subtotal);
@@ -907,9 +908,24 @@ public class OrderService {
             String orderCode,
             Pageable pageable
     ) {
+        return getOrders(customerId, requestedStoreId, status, paymentStatus, orderSource, date, orderCode, null, pageable);
+    }
+
+    public PageResponse<OrderResponse> getOrders(
+            Long customerId,
+            Long requestedStoreId,
+            String status,
+            String paymentStatus,
+            String orderSource,
+            String date,
+            String orderCode,
+            Integer queueNumber,
+            Pageable pageable
+    ) {
         CurrentActor actor = CurrentActor.require();
         if (customerId != null && actor.role() != Role.ADMIN) throw new ApiException(ErrorCode.FORBIDDEN);
-        if (customerId != null && customerId <= 0 || requestedStoreId != null && requestedStoreId <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
+        if (customerId != null && customerId <= 0 || requestedStoreId != null && requestedStoreId <= 0
+                || queueNumber != null && queueNumber <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
         Long effectiveStoreId = accessGuard.effectiveStore(requestedStoreId);
         String cleanStatus = (status != null && !status.isBlank()) ? status.trim().toUpperCase() : null;
         if (cleanStatus != null && Arrays.stream(OrderStatus.values()).noneMatch(value -> value.name().equals(cleanStatus))) throw new ApiException(ErrorCode.VALIDATION_ERROR);
@@ -933,7 +949,7 @@ public class OrderService {
 
         Page<Order> orderPage = orderRepository.findOrdersFiltered(
                 customerId, effectiveStoreId, cleanStatus, cleanPaymentStatus, cleanOrderSource,
-                createdFrom, createdTo, orderCodePattern, pageable);
+                createdFrom, createdTo, orderCodePattern, queueNumber, pageable);
         return mapToOrderResponsePage(orderPage);
     }
 
@@ -1039,7 +1055,8 @@ public class OrderService {
     }
 
     private String generateOrderCode() {
-        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDate.now());
+        ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDate.now(vnZone));
         String chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         for (int attempt = 0; attempt < 20; attempt++) {
             StringBuilder sb = new StringBuilder(4);
@@ -1055,13 +1072,23 @@ public class OrderService {
     }
 
     private int generateDailyQueueNumber(Long storeId) {
-        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDate.now());
+        ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate todayVn = LocalDate.now(vnZone);
+        String dateStr = DateTimeFormatter.ofPattern("yyyyMMdd").format(todayVn);
+        Instant startOfDay = todayVn.atStartOfDay(vnZone).toInstant();
+        Instant endOfDay = todayVn.plusDays(1).atStartOfDay(vnZone).toInstant();
+        Integer maxQueue = orderRepository.findMaxQueueNumberForStoreAndDate(storeId, startOfDay, endOfDay);
+        int dbBase = maxQueue != null ? maxQueue : 0;
+
         String queueKey = "queue:store:" + storeId + ":" + dateStr;
         if (redisTemplate != null) {
             try {
                 Long seq = redisTemplate.opsForValue().increment(queueKey);
                 if (seq != null) {
-                    if (seq == 1L) {
+                    if (seq <= dbBase) {
+                        seq = (long) (dbBase + 1);
+                        redisTemplate.opsForValue().set(queueKey, String.valueOf(seq), Duration.ofDays(2));
+                    } else if (seq == 1L) {
                         redisTemplate.expire(queueKey, Duration.ofDays(2));
                     }
                     return (int) (((seq - 1) % 999) + 1);
@@ -1070,9 +1097,7 @@ public class OrderService {
                 LOG.warn("Failed to generate queue number with redis for store {}: {}", storeId, e.getMessage());
             }
         }
-        Instant startOfDay = LocalDate.now().atStartOfDay(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
-        Integer maxQueue = orderRepository.findMaxQueueNumberForStoreAndDate(storeId, startOfDay);
-        int next = (maxQueue != null ? maxQueue : 0) + 1;
+        int next = dbBase + 1;
         return ((next - 1) % 999) + 1;
     }
 }

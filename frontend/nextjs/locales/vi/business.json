@@ -153,7 +153,7 @@
     "searchByOrderCodeCluOrStoreName": "Tìm theo mã đơn (CLU-...) hoặc tên quán...",
     "searchOrders": "Tìm kiếm đơn hàng",
     "filterOrderStatus": "Lọc trạng thái đơn",
-    "allOrders": "Tất cả đơn (",
+    "allOrders": "Tất cả đơn",
     "inProgress": "Đang xử lý",
     "completed": "Đã hoàn thành",
     "cancelled": "Đã hủy",
@@ -174,7 +174,8 @@
     "sortOldest": "Cũ nhất trước",
     "sortTotalDesc": "Giá trị cao → thấp",
     "sortTotalAsc": "Giá trị thấp → cao",
-    "resetFilters": "Đặt lại bộ lọc"
+    "resetFilters": "Đặt lại bộ lọc",
+    "showingFilteredOrders": "Đang hiển thị {matched} / {total} đơn hàng"
   },
   "id": {
     "orderNotFound": "Không tìm thấy đơn hàng",

@@ -221,7 +221,7 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
             ? qrAmountDue
             : 0;
   const bankCode = bankPayment?.bank_code || "MB";
-  const bankName = bankPayment?.bank_name || "MBBank (Ngân hàng Quân Đội)";
+  const bankName = bankPayment?.bank_name || t("business:financeModal.defaultBankName");
   const accountNo = bankPayment?.account_no || "0387654321";
   const accountName = bankPayment?.account_name || "CLUCKY FAST FOOD";
   const transferRef =

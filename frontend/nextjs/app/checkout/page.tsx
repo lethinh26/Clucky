@@ -237,19 +237,7 @@ export default function CheckoutPage() {
     return () => { active = false; };
   }, [userId, loyaltyReload]);
 
-  const effectiveDeliveryPoint = useMemo<Coordinates | null>(() => {
-    if (deliveryPoint) return deliveryPoint;
-    if (orderType === "DELIVERY" && deliveryAddress.trim().length >= 8) {
-      if (storePoint) {
-        return {
-          latitude: Number((storePoint.latitude + 0.008).toFixed(6)),
-          longitude: Number((storePoint.longitude + 0.008).toFixed(6)),
-        };
-      }
-      return { latitude: 10.7769, longitude: 106.7009 };
-    }
-    return null;
-  }, [deliveryPoint, orderType, deliveryAddress, storePoint]);
+  const effectiveDeliveryPoint = deliveryPoint;
 
   useEffect(() => {
     if (orderType !== "DELIVERY" || deliveryPoint || deliveryAddress.trim().length < 8) return;
@@ -290,16 +278,16 @@ export default function CheckoutPage() {
   const calculatedTotal = Math.max(0, subtotal + shippingFee - voucherDiscount - pointsDiscount);
   const totalAmount = previewData?.totalAmount ?? (orderType === "PICKUP" ? calculatedTotal : null);
   const needsDeliveryAddress = orderType === "DELIVERY" && deliveryAddress.trim().length < 8;
-  const needsDeliveryPoint = false;
+  const needsDeliveryPoint = orderType === "DELIVERY" && !effectiveDeliveryPoint;
   const orderBlockReason = !ready || !session.ready ? loyaltyText("cartLoading")
     : cartPending ? loyaltyText("cartUpdating")
     : !payloadItems || !items.length ? loyaltyText("cartInvalid")
     : !selectedStore ? loyaltyText("storeRequired")
     : storeClosedReason ? storeClosedReason
     : needsDeliveryAddress ? loyaltyText("addressRequired")
-    : needsDeliveryPoint ? t("maps.deliveryPinRequired")
+    : needsDeliveryPoint ? shippingText("statuses.LOCATION_REQUIRED")
     : previewError ? previewError
-    : !previewData ? loyaltyText("quotePending")
+    : previewLoading || !previewData ? loyaltyText("quoteLoading")
     : null;
 
   useEffect(() => {
@@ -664,7 +652,23 @@ export default function CheckoutPage() {
                 {orderType === "DELIVERY" ? (
                   <div className={styles.fieldGroup}>
                     <CheckoutAddress value={{ ...emptyAddress, receiverName, phone: receiverPhone, detail: deliveryAddress, latitude: deliveryPoint?.latitude ?? null, longitude: deliveryPoint?.longitude ?? null }} onSelect={address => {
-                      setReceiverName(address.receiverName); setReceiverPhone(address.phone); setDeliveryAddress(formatAddress(address)); setDeliveryPoint(coordinates(address));
+                      const formatted = formatAddress(address);
+                      const directPoint = coordinates(address);
+                      setReceiverName(address.receiverName); setReceiverPhone(address.phone); setDeliveryAddress(formatted);
+                      if (directPoint) {
+                        setDeliveryPoint(directPoint);
+                      } else {
+                        setDeliveryPoint(null);
+                        locationApi.search(formatted, locale, undefined, storePoint)
+                          .then((places) => {
+                            const pt = coordinates(places?.[0]);
+                            if (pt) setDeliveryPoint(pt);
+                            else if (storePoint) setDeliveryPoint({ latitude: Number((storePoint.latitude + 0.008).toFixed(6)), longitude: Number((storePoint.longitude + 0.008).toFixed(6)) });
+                          })
+                          .catch(() => {
+                            if (storePoint) setDeliveryPoint({ latitude: Number((storePoint.latitude + 0.008).toFixed(6)), longitude: Number((storePoint.longitude + 0.008).toFixed(6)) });
+                          });
+                      }
                     }} />
                     <label
                       htmlFor="deliveryAddress"
@@ -967,7 +971,6 @@ export default function CheckoutPage() {
               >
                 {submitting
                   ? t("business.checkout.processingYourOrder")
-                  : previewLoading ? loyaltyText("quoteLoading")
                   : t("business.checkout.placeOrderNow")}
               </button>
             </aside>

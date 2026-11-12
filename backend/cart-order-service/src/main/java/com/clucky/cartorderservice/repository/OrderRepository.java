@@ -41,6 +41,13 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 
     default Page<Order> findOrdersFiltered(Long customerId, Long storeId, String status, String paymentStatus,
             String orderSource, Instant createdFrom, Instant createdTo, String orderCodePattern, Pageable pageable) {
+        return findOrdersFiltered(customerId, storeId, status, paymentStatus, orderSource, createdFrom, createdTo,
+                orderCodePattern, null, pageable);
+    }
+
+    default Page<Order> findOrdersFiltered(Long customerId, Long storeId, String status, String paymentStatus,
+            String orderSource, Instant createdFrom, Instant createdTo, String orderCodePattern,
+            Integer queueNumber, Pageable pageable) {
         Specification<Order> filter = (root, query, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (customerId != null) predicates.add(builder.equal(root.get("customerId"), customerId));
@@ -50,6 +57,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
             if (orderSource != null) predicates.add(builder.equal(root.get("orderSource"), orderSource));
             if (createdFrom != null) predicates.add(builder.greaterThanOrEqualTo(root.<Instant>get("createdAt"), createdFrom));
             if (createdTo != null) predicates.add(builder.lessThan(root.<Instant>get("createdAt"), createdTo));
+            if (queueNumber != null) predicates.add(builder.equal(root.get("queueNumber"), queueNumber));
             if (orderCodePattern != null && !"%".equals(orderCodePattern)) {
                 predicates.add(builder.like(builder.lower(root.get("orderCode")), orderCodePattern.toLowerCase()));
             }
@@ -66,11 +74,14 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 
     @Query("""
         SELECT COALESCE(MAX(o.queueNumber), 0) FROM Order o
-        WHERE o.storeId = :storeId AND o.createdAt >= :createdFrom
+        WHERE o.storeId = :storeId
+          AND o.createdAt >= :createdFrom
+          AND o.createdAt < :createdTo
     """)
     Integer findMaxQueueNumberForStoreAndDate(
         @Param("storeId") Long storeId,
-        @Param("createdFrom") java.time.Instant createdFrom
+        @Param("createdFrom") java.time.Instant createdFrom,
+        @Param("createdTo") java.time.Instant createdTo
     );
 
 }

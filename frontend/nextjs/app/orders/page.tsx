@@ -29,19 +29,41 @@ type FilterTab = "ALL" | "ACTIVE" | "COMPLETED" | "CANCELLED";
 type PaymentFilter = "ALL" | "BANK_TRANSFER" | "COD";
 type SortOption = "NEWEST" | "OLDEST" | "TOTAL_DESC" | "TOTAL_ASC";
 
+function formatDateYmdInVn(d: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const year = parts.find((p) => p.type === "year")?.value ?? "";
+  const month = parts.find((p) => p.type === "month")?.value ?? "";
+  const day = parts.find((p) => p.type === "day")?.value ?? "";
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
 function toVnDateYmd(isoString?: string): string {
   if (!isoString) return "";
-  const d = new Date(isoString);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(d);
+  let normalized = String(isoString).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(normalized)) {
+    normalized = normalized.replace(" ", "T") + (normalized.includes("+") || normalized.endsWith("Z") ? "" : "+07:00");
+  }
+  const d = new Date(normalized);
+  if (!Number.isNaN(d.getTime())) {
+    return formatDateYmdInVn(d);
+  }
+  const match = normalized.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : "";
 }
 
 function getTodayVnYmd(): string {
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date());
+  return formatDateYmdInVn(new Date());
+}
+
+function normalizePaymentMethod(method?: string): string {
+  const m = String(method || "").trim().toUpperCase();
+  if (m === "CASH") return "COD";
+  return m;
 }
 
 export default function OrdersHistoryPage() {
@@ -69,28 +91,54 @@ export default function OrdersHistoryPage() {
   const [sortBy, setSortBy] = useState<SortOption>("NEWEST");
   const todayVn = getTodayVnYmd();
 
-  const filteredOrders = orders
+  const hasActiveFilters = Boolean(
+    searchQuery.trim() || selectedDate || paymentFilter !== "ALL" || sortBy !== "NEWEST" || activeTab !== "ALL"
+  );
+
+  const resetAllFilters = () => {
+    setSearchQuery("");
+    setSelectedDate("");
+    setPaymentFilter("ALL");
+    setSortBy("NEWEST");
+    setActiveTab("ALL");
+  };
+
+  // Base filters (Search + Date + Payment Method) applied before status tab counts
+  const baseFilteredOrders = orders.filter((order) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const matchCode = (order.orderCode || "").toLowerCase().includes(q);
+      const matchStore = (order.storeName || "").toLowerCase().includes(q);
+      const matchAddress = (order.storeAddress || "").toLowerCase().includes(q);
+      const matchItems = (order.items || []).some((it) =>
+        (it.itemName || "").toLowerCase().includes(q)
+      );
+      if (!matchCode && !matchStore && !matchAddress && !matchItems) return false;
+    }
+
+    if (selectedDate) {
+      const orderDate = toVnDateYmd(order.createdAt);
+      if (orderDate !== selectedDate) return false;
+    }
+
+    if (paymentFilter !== "ALL") {
+      if (normalizePaymentMethod(order.paymentMethod) !== paymentFilter) return false;
+    }
+
+    return true;
+  });
+
+  const tabCounts = {
+    ALL: baseFilteredOrders.length,
+    ACTIVE: baseFilteredOrders.filter((order) =>
+      ["PENDING_PAYMENT", "CONFIRMED", "PREPARING", "READY", "SHIPPING"].includes(order.status)
+    ).length,
+    COMPLETED: baseFilteredOrders.filter((order) => order.status === "COMPLETED").length,
+    CANCELLED: baseFilteredOrders.filter((order) => order.status === "CANCELLED").length,
+  };
+
+  const filteredOrders = [...baseFilteredOrders]
     .filter((order) => {
-      // Search filter
-      if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase();
-        const matchCode = order.orderCode.toLowerCase().includes(q);
-        const matchStore = order.storeName.toLowerCase().includes(q);
-        if (!matchCode && !matchStore) return false;
-      }
-
-      // Date filter
-      if (selectedDate) {
-        const orderDate = toVnDateYmd(order.createdAt);
-        if (orderDate !== selectedDate) return false;
-      }
-
-      // Payment method filter
-      if (paymentFilter !== "ALL") {
-        if (order.paymentMethod !== paymentFilter) return false;
-      }
-
-      // Tab filter
       if (activeTab === "ALL") return true;
       if (activeTab === "ACTIVE") {
         return (
@@ -106,8 +154,8 @@ export default function OrdersHistoryPage() {
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === "TOTAL_DESC") return b.totalAmount - a.totalAmount;
-      if (sortBy === "TOTAL_ASC") return a.totalAmount - b.totalAmount;
+      if (sortBy === "TOTAL_DESC") return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
+      if (sortBy === "TOTAL_ASC") return Number(a.totalAmount || 0) - Number(b.totalAmount || 0);
       const timeA = new Date(a.createdAt || 0).getTime();
       const timeB = new Date(b.createdAt || 0).getTime();
       return sortBy === "OLDEST" ? timeA - timeB : timeB - timeA;
@@ -253,6 +301,24 @@ export default function OrdersHistoryPage() {
               </select>
             </div>
           </div>
+
+          <div className={styles.filterSummaryRow}>
+            <span className={styles.filterSummaryText}>
+              {t("business.orders.showingFilteredOrders", {
+                matched: filteredOrders.length,
+                total: orders.length,
+              })}
+            </span>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className={styles.filterResetBtn}
+                onClick={resetAllFilters}
+              >
+                {t("business.orders.resetFilters")}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Status Tabs */}
@@ -268,7 +334,7 @@ export default function OrdersHistoryPage() {
             }`}
             onClick={() => setActiveTab("ALL")}
           >
-            {t("business.orders.allOrders")} ({orders.length})
+            {t("business.orders.allOrders")} ({tabCounts.ALL})
           </button>
           <button
             type="button"
@@ -278,7 +344,7 @@ export default function OrdersHistoryPage() {
             }`}
             onClick={() => setActiveTab("ACTIVE")}
           >
-            {t("business.orders.inProgress")}
+            {t("business.orders.inProgress")} ({tabCounts.ACTIVE})
           </button>
           <button
             type="button"
@@ -288,7 +354,7 @@ export default function OrdersHistoryPage() {
             }`}
             onClick={() => setActiveTab("COMPLETED")}
           >
-            {t("business.orders.completed")}
+            {t("business.orders.completed")} ({tabCounts.COMPLETED})
           </button>
           <button
             type="button"
@@ -298,7 +364,7 @@ export default function OrdersHistoryPage() {
             }`}
             onClick={() => setActiveTab("CANCELLED")}
           >
-            {t("business.orders.cancelled")}
+            {t("business.orders.cancelled")} ({tabCounts.CANCELLED})
           </button>
         </div>
 

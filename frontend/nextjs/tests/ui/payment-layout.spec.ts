@@ -13,7 +13,7 @@ test("payment stays compact while manual details and excess remain accessible", 
   await page.route("**/api/auth/session", route => route.fulfill({ json: { userId: 1, role: "CUSTOMER", fullName: "Customer" } }));
   let current = { ...payment };
   await page.route("**/api/payments/1", route => route.fulfill({ json: current }));
-  await page.route("https://vietqr.app/img?*", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
+  await page.route("https://img.vietqr.io/image/**", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
   await page.goto("http://127.0.0.1:4175/?live-payment");
   await expect(page.getByRole("img")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sao chép số tài khoản" })).toBeHidden();

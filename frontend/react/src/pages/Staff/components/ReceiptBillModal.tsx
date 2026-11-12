@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   Printer,
@@ -121,7 +122,18 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
     second: "2-digit",
   });
 
-  return (
+  const createdAtDate = order.createdAt ? new Date(order.createdAt) : null;
+  const orderDateLabel =
+    createdAtDate && !Number.isNaN(createdAtDate.getTime())
+      ? new Intl.DateTimeFormat("vi-VN", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }).format(createdAtDate)
+      : "";
+
+  const modalNode = (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label="Hóa đơn thanh toán K80">
       <div className={styles.modalWindow}>
         {/* Action Toolbar */}
@@ -236,7 +248,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                 {/* Số thứ tự gọi món & Hình thức dùng bữa */}
                 <div className={styles.queueCallout}>
                   <div className={styles.queueCalloutLeft}>
-                    <span className={styles.queueTitle}>SỐ THỨ TỰ GỌI MÓN</span>
+                    <span className={styles.queueTitle}>SỐ THỨ TỰ GỌI MÓN {orderDateLabel ? `(${orderDateLabel})` : ""}</span>
                     <span className={styles.queueNumberLarge}>
                       {formattedQueue}
                     </span>
@@ -415,7 +427,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                 {/* Số thứ tự to bản cho bếp gọi */}
                 <div className={styles.queueCallout} style={{ backgroundColor: "#000000", color: "#ffffff" }}>
                   <div className={styles.queueCalloutLeft}>
-                    <span style={{ fontSize: 10, color: "#aaaaaa" }}>SỐ THỨ TỰ BẾP</span>
+                    <span style={{ fontSize: 10, color: "#aaaaaa" }}>SỐ THỨ TỰ BẾP {orderDateLabel ? `(${orderDateLabel})` : ""}</span>
                     <span style={{ fontFamily: "Fredoka, sans-serif", fontSize: 28, fontWeight: 800, color: "#ffffff" }}>
                       {formattedQueue}
                     </span>
@@ -480,4 +492,6 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalNode, document.body) : modalNode;
 };

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { getBrowserLocale } from "../../i18n/locale";
+import { getTranslator } from "../../i18n/translator";
 import {
   Bell,
   BellOff,
@@ -74,8 +76,9 @@ export function fromBackendOrderToStaffOrder(
   bo: BackendOrder,
   images: OrderItemImages = new Map(),
   storesList: StoreModel[] = [],
+  fallbackDailyQueue?: number,
 ): StaffOrder {
-  const qNum = bo.queueNumber ?? (typeof bo.id === "number" ? bo.id : 1);
+  const qNum = bo.queueNumber && bo.queueNumber > 0 ? bo.queueNumber : (fallbackDailyQueue ?? 1);
   const createdDate = bo.createdAt ? new Date(bo.createdAt) : new Date();
   const timeStr = `${String(createdDate.getHours()).padStart(2, "0")}:${String(
     createdDate.getMinutes(),
@@ -106,6 +109,7 @@ export function fromBackendOrderToStaffOrder(
     };
   });
 
+  const tr = getTranslator(getBrowserLocale());
   const orderSrc: OrderSource =
     bo.orderSource === "COUNTER" || !bo.customerId ? "COUNTER" : "WEB";
   const diningOpt: DiningOption =
@@ -125,7 +129,7 @@ export function fromBackendOrderToStaffOrder(
     storeName:
       bo.storeName ||
       storesList.find((s) => Number(s.id) === Number(bo.storeId))?.name ||
-      `Chi nhánh #${bo.storeId}`,
+      tr("business:stafforderspage.branchFallback", { id: bo.storeId }),
     orderType: bo.type === "DELIVERY" ? "DELIVERY" : "PICKUP",
     deliveryAddress: bo.deliveryAddress,
     status: (bo.status as AdminOrderStatus) || "CONFIRMED",
@@ -143,6 +147,23 @@ export function fromBackendOrderToStaffOrder(
     version: bo.version ?? 0,
     printCount: 0,
   };
+}
+
+function mapDailyStaffOrders(
+  backendList: BackendOrder[],
+  images: OrderItemImages,
+  storesList: StoreModel[],
+): StaffOrder[] {
+  const sortedAsc = [...backendList].sort(
+    (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime() || Number(a.id) - Number(b.id),
+  );
+  const dailyIdxById = new Map<number, number>();
+  sortedAsc.forEach((bo, idx) => {
+    dailyIdxById.set(Number(bo.id), (idx % 999) + 1);
+  });
+  return backendList.map((order) =>
+    fromBackendOrderToStaffOrder(order, images, storesList, dailyIdxById.get(Number(order.id))),
+  );
 }
 
 export function StaffOrdersPage() {
@@ -195,7 +216,7 @@ export function StaffOrdersPage() {
       ]);
       if (revision !== fetchRevisionRef.current) return;
       imageMapRef.current = images;
-      const converted = (backendList || []).map(order => fromBackendOrderToStaffOrder(order, images, storesRef.current));
+      const converted = mapDailyStaffOrders(backendList || [], images, storesRef.current);
       setOrders(converted);
       setFetchError(false);
       prevConfirmedIdsRef.current = new Set(
@@ -299,7 +320,7 @@ export function StaffOrdersPage() {
         const storeIdNum = user?.storeId ? Number(user.storeId) : currentStore?.id || 1;
         const backendList = await loadStoreDayOrders(storeIdNum, selectedDate);
         if (active && backendList) {
-          const converted = backendList.map(order => fromBackendOrderToStaffOrder(order, imageMapRef.current ?? new Map(), storesRef.current));
+          const converted = mapDailyStaffOrders(backendList, imageMapRef.current ?? new Map(), storesRef.current);
 
           // Phát hiện đơn CONFIRMED mới xuất hiện
           const confirmedOrders = converted.filter(
@@ -403,8 +424,8 @@ export function StaffOrdersPage() {
       const branchLabel =
         currentStore?.name ||
         user?.storeName ||
-        `Chi nhánh #${storeIdNum}`;
-      const staffLabel = user?.fullName || "Nhân viên ca trực";
+        t("business:stafforderspage.branchFallback", { id: storeIdNum });
+      const staffLabel = user?.fullName || t("business:stafforderspage.shiftStaffDefault");
       exportStaffDailyOrdersExcel({
         date: selectedDate,
         storeName: branchLabel,
@@ -436,14 +457,14 @@ export function StaffOrdersPage() {
           try {
             await ordersApi.updateStatus(numericId, {
               status: "COMPLETED",
-              note: "Đã xác nhận thu tiền COD và hoàn tất đơn online",
+              note: t("business:stafforderspage.codOnlineCompletedNote"),
             });
             setActiveTab("COMPLETED");
           } catch {
             // Bỏ qua nếu đơn đã tự chuyển hoàn tất
           }
           await fetchOrders(false);
-          message.success("Đã xác nhận thu tiền COD và hoàn tất đơn hàng!");
+          message.success(t("business:staffactions.codCompletedSuccess"));
           return true;
         } catch (err: any) {
           if (
@@ -470,14 +491,20 @@ export function StaffOrdersPage() {
           version: targetOrder?.version,
         });
 
-        const updatedOrder: StaffOrder | undefined = targetOrder
+        const mappedFromBackend = fromBackendOrderToStaffOrder(
+          updatedBackend,
+          imageMapRef.current ?? new Map(),
+          storesRef.current,
+          targetOrder?.queueNumber,
+        );
+        const updatedOrder: StaffOrder = targetOrder
           ? {
               ...targetOrder,
               status: nextStatus,
               version: updatedBackend.version ?? ((targetOrder.version ?? 0) + 1),
               updatedAt: new Date().toISOString(),
             }
-          : undefined;
+          : mappedFromBackend;
 
         setOrders((prev) =>
           prev.map((order) => {
@@ -491,13 +518,18 @@ export function StaffOrdersPage() {
           }),
         );
 
-        if (nextStatus === "PREPARING" && updatedOrder) {
+        if (nextStatus === "PREPARING") {
+          setSelectedOrderId(null);
           setReceiptInitialMode("KOT");
           setReceiptModalOrder(updatedOrder);
-          const qFormatted = `#${String(updatedOrder.queueNumber || 0).padStart(3, "0")}`;
-          message.success(
-            `Đã nhận nấu & in phiếu chế biến bếp (KOT) cho đơn ${qFormatted} (${updatedOrder.orderCode})!`,
-          );
+          const qFormatted = `#${String(updatedOrder.queueNumber || 1).padStart(3, "0")}`;
+          message.success({
+            content: t("business:staffactions.kotOpened", {
+              queue: qFormatted,
+              code: updatedOrder.orderCode,
+            }),
+            key: `kot-${orderId}-${Date.now()}`,
+          });
           return true;
         }
 
@@ -729,8 +761,12 @@ export function StaffOrdersPage() {
 
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim();
+          const qNormalized = q.replace(/^#?0*/, "");
+          const paddedQueue = `#${String(order.queueNumber || 0).padStart(3, "0")}`;
           const matchCode = order.orderCode.toLowerCase().includes(q);
-          const matchQueue = String(order.queueNumber).includes(q);
+          const matchQueue =
+            String(order.queueNumber) === qNormalized ||
+            paddedQueue.toLowerCase().includes(q);
           const matchName = (order.customerName || "").toLowerCase().includes(q);
           const matchPhone = (order.customerPhone || "").includes(q);
           if (!matchCode && !matchQueue && !matchName && !matchPhone) {
@@ -844,7 +880,7 @@ export function StaffOrdersPage() {
             <Store size={20} />
             <div className={styles.branchInfo}>
               <span className={styles.branchName}>
-                {currentStore?.name || user?.storeName || `Chi nhánh #${user?.storeId || 1}`}
+                {currentStore?.name || user?.storeName || t("business:stafforderspage.branchFallback", { id: user?.storeId || 1 })}
               </span>
               <span
                 className={`${styles.branchStatus} ${
@@ -1012,12 +1048,13 @@ export function StaffOrdersPage() {
           <div className={styles.dateStatPill}>
             <span>{t("business:dateFilter.collectedTodayLabel")}</span>
             <strong style={{ color: "#8f1216" }}>
-              {new Intl.NumberFormat(i18n.language === "en" ? "en-US" : "vi-VN").format(
-                orders
-                  .filter((o) => ["PAID", "COLLECTED"].includes(o.paymentStatus))
-                  .reduce((sum, o) => sum + (o.total || 0), 0)
-              )}{" "}
-              đ
+              {t("business:stafforderspage.vndAmount", {
+                amount: new Intl.NumberFormat(i18n.language === "en" ? "en-US" : "vi-VN").format(
+                  orders
+                    .filter((o) => ["PAID", "COLLECTED"].includes(o.paymentStatus))
+                    .reduce((sum, o) => sum + (o.total || 0), 0)
+                ),
+              })}
             </strong>
           </div>
         </div>
@@ -1184,6 +1221,10 @@ export function StaffOrdersPage() {
               onPaymentCollect={handlePaymentCollect}
               onViewDetails={(id) => setSelectedOrderId(id)}
               onReprint={handleReprintOrder}
+              onPrintKot={(ord) => {
+                setReceiptInitialMode("KOT");
+                setReceiptModalOrder(ord);
+              }}
             />
           ))}
         </div>
@@ -1222,6 +1263,7 @@ export function StaffOrdersPage() {
 
       {/* Phase 2: Modal Xem & In Hóa Đơn K80 / Phiếu Bếp KOT */}
       <ReceiptBillModal
+        key={receiptModalOrder ? `${receiptModalOrder.id}-${receiptInitialMode}` : "closed"}
         open={Boolean(receiptModalOrder)}
         order={receiptModalOrder}
         onClose={() => setReceiptModalOrder(null)}

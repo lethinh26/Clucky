@@ -386,6 +386,8 @@
     "theOrderIdInTheUrlIsInvalid": "Mã đơn trên URL không hợp lệ.",
     "searchOrderId": "Tìm mã đơn",
     "searchByOrderId": "Tìm theo mã đơn hàng",
+    "searchQueueNumber": "Số thứ tự theo ngày (VD: 1 hoặc #001)",
+    "queueNumberCol": "Số thứ tự (Ngày)",
     "filterOrderStatus": "Lọc trạng thái đơn",
     "noOrdersMatchYourFilters": "Không có đơn hàng phù hợp bộ lọc",
     "noPhoneNumberProvided": "Chưa có số điện thoại",

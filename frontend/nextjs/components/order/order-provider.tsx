@@ -339,16 +339,22 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     if (!getSessionState().user) return;
     const revision = getSessionState().revision;
     try {
-      const page = await orderApi.getMyOrders(0, 50);
-      if (revision !== getSessionState().revision) return;
-      setOrdersError(null);
-      if (page && Array.isArray(page.content)) {
-        const serverOrders = page.content.map((be) => mapBackendOrderToOrder(be, storesListRef.current));
-        setWorkspace((prev) => ({
-          ...prev,
-          orders: serverOrders,
-        }));
+      const collected: BackendOrder[] = [];
+      for (let pageIndex = 0; ; pageIndex++) {
+        const page = await orderApi.getMyOrders(pageIndex, 100);
+        if (revision !== getSessionState().revision) return;
+        if (!page || !Array.isArray(page.content)) break;
+        collected.push(...page.content);
+        if (page.content.length < 100 || (typeof page.totalPages === "number" && pageIndex + 1 >= page.totalPages)) {
+          break;
+        }
       }
+      setOrdersError(null);
+      const serverOrders = collected.map((be) => mapBackendOrderToOrder(be, storesListRef.current));
+      setWorkspace((prev) => ({
+        ...prev,
+        orders: serverOrders,
+      }));
     } catch (error) {
       if (revision === getSessionState().revision) setOrdersError(error);
     }

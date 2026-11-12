@@ -386,6 +386,8 @@
     "theOrderIdInTheUrlIsInvalid": "The order ID in the URL is invalid.",
     "searchOrderId": "Search order ID",
     "searchByOrderId": "Search by order ID",
+    "searchQueueNumber": "Daily queue # (e.g. 1 or #001)",
+    "queueNumberCol": "Daily Queue # (Date)",
     "filterOrderStatus": "Filter order status",
     "noOrdersMatchYourFilters": "No orders match your filters",
     "noPhoneNumberProvided": "No phone number provided",

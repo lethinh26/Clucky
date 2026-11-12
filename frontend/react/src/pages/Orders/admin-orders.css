@@ -4,7 +4,7 @@
 .admin-orders-heading h2.ant-typography { font-family: var(--font-heading); font-size: 30px; margin: 6px 0; }
 .admin-orders-heading > .ant-tag { padding: 8px 14px; margin: 0; border-radius: 12px; background: #fffaf3; font-weight: 700; }
 .admin-orders-list { min-width: 0; border: 1px solid #e8e2d9; background: #fffaf3; border-radius: 18px; overflow: hidden; }
-.admin-orders-filters { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(200px, 270px) minmax(180px, 220px); gap: 12px; padding: 18px; border-bottom: 1px solid #e8e2d9; }
+.admin-orders-filters { display: grid; grid-template-columns: minmax(200px, 1.2fr) minmax(170px, 0.9fr) minmax(190px, 1fr) minmax(170px, 0.9fr); gap: 12px; padding: 18px; border-bottom: 1px solid #e8e2d9; }
 .admin-orders-filters > * { width: 100%; min-width: 0; }
 .admin-orders-list > .ant-alert { margin: 12px 18px; }
 .admin-orders .ant-table-thead > tr > th { font-size: 12px; color: #6b6259; background: #f8f3eb; }

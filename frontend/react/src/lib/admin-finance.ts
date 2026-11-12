@@ -2,7 +2,7 @@ import i18n from "../i18n/index.ts";
 import { api, type BackendOrder, type BackendRefund, type PageResponse } from "./api";
 import type { AdminOrder } from "../types/order";
 
-export interface OrderQuery { page: number; size: number; storeId?: number; status?: string; orderCode?: string; customerId?: number; date?: string }
+export interface OrderQuery { page: number; size: number; storeId?: number; status?: string; orderCode?: string; queueNumber?: number; customerId?: number; date?: string }
 export interface RefundQuery { page: number; size: number; storeId?: number; status?: string; orderId?: number }
 export interface ReceiptQuery { page: number; size: number; storeId?: number; status?: string; search?: string; bank?: string; conflictsOnly?: boolean; unclassifiedOnly?: boolean; from?: string; to?: string }
 export interface Receipt {
@@ -99,7 +99,7 @@ export function reconciliationBody(receipt: Receipt, snapshot: PaymentSnapshot, 
 
 export function orderForAdmin(order: BackendOrder, refund?: BackendRefund): AdminOrder {
   const status = order.status === "DELIVERED" ? "COMPLETED" : order.status as AdminOrder["status"];
-  return { id: String(order.id), orderCode: order.orderCode, customerName: order.receiverName || `#${order.customerId}`,
+  return { id: String(order.id), orderCode: order.orderCode, queueNumber: order.queueNumber ?? undefined, customerName: order.receiverName || `#${order.customerId}`,
     customerPhone: order.receiverPhone || "", storeId: String(order.storeId), storeName: `Clucky #${order.storeId}`,
     orderType: order.type || "DELIVERY", status, paymentMethod: order.paymentMethod as AdminOrder["paymentMethod"],
     paymentStatus: (order.paymentStatus || "UNKNOWN") as AdminOrder["paymentStatus"],

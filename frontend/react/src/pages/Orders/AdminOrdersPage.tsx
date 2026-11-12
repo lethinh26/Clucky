@@ -22,6 +22,7 @@ import type { AdminOrder } from "../../types/order";
 import {
   exportAdminOrdersByDateExcel,
   formatDateLabelVn,
+  formatQueueWithDate,
   getOrderVnDateYmd,
   getTodayVn,
   shiftDateYmd,
@@ -136,7 +137,20 @@ export function AdminOrdersPage() {
   };
 
   const columns = [
-    { title: t("business:promotionUi.order"), width: 235, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><Button type="link" onClick={() => openDetail(order.id)}>{order.orderCode}</Button><small>{orderDate(order.createdAt, locale)}</small></div> },
+    {
+      title: t("admin:ui.queueNumberCol"),
+      width: 155,
+      render: (_: unknown, order: AdminOrder) => {
+        const { queueLabel, dateLabel } = formatQueueWithDate(order.queueNumber, order.createdAt);
+        return (
+          <div className="order-cell">
+            <Tag color="volcano" style={{ fontWeight: 800, fontSize: 13 }}>{queueLabel}</Tag>
+            {dateLabel && <small>{dateLabel}</small>}
+          </div>
+        );
+      },
+    },
+    { title: t("business:promotionUi.order"), width: 220, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><Button type="link" onClick={() => openDetail(order.id)}>{order.orderCode}</Button><small>{orderDate(order.createdAt, locale)}</small></div> },
     { title: t("admin:nav.customers"), width: 175, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><strong>{order.customerName}</strong><small>{order.customerPhone || t("admin:ui.noPhoneNumberProvided")}</small></div> },
     { title: t("admin:ui.branchFulfillment"), width: 220, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><span>{stores.find(store => store.id === Number(order.storeId))?.name || order.storeName}</span><small>{order.orderType === 'PICKUP' ? t("business:orderdetaildrawer.counterPickup") : t("business:checkout.homeDelivery")}</small></div> },
     { title: t("accounts:status"), width: 155, render: (_: unknown, order: AdminOrder) => <OrderStatusBadge status={order.status} /> },
@@ -271,6 +285,22 @@ export function AdminOrdersPage() {
     <div className="admin-orders-list">
     <div className="admin-orders-filters">
       <Input.Search aria-label={t("admin:ui.searchOrderId")} placeholder={t("admin:ui.searchByOrderId")} prefix={<SearchOutlined />} defaultValue={linkedOrderCode} allowClear maxLength={80} onSearch={orderCode => setQuery(current => ({ ...current, page: 0, orderCode: orderCode.trim() || undefined }))} />
+      <Input.Search
+        aria-label={t("admin:ui.searchQueueNumber")}
+        placeholder={t("admin:ui.searchQueueNumber")}
+        allowClear
+        maxLength={10}
+        onSearch={val => {
+          const digits = val.trim().replace(/^#?0*/, "");
+          const parsed = digits && /^\d+$/.test(digits) && Number(digits) > 0 ? Number(digits) : undefined;
+          setQuery(current => ({ ...current, page: 0, queueNumber: parsed }));
+        }}
+        onChange={e => {
+          if (!e.target.value) {
+            setQuery(current => (current.queueNumber === undefined ? current : { ...current, page: 0, queueNumber: undefined }));
+          }
+        }}
+      />
       <Select aria-label={t("business:orderspage.filterStores")} placeholder={t("business:stores.allStores")} allowClear showSearch optionFilterProp="label" value={query.storeId}
         options={stores.map(store => ({ value: store.id, label: store.name }))} onChange={storeId => setQuery(current => ({ ...current, page: 0, storeId }))} />
       <Select aria-label={t("admin:ui.filterOrderStatus")} placeholder={t("business:paymentspage.allStatuses")} allowClear value={query.status}

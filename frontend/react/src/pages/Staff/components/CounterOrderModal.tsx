@@ -405,7 +405,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
           await paymentsApi.collectCounter({
             orderId: Number(created.id),
             orderCode: created.orderCode,
-            queueNumber: created.queueNumber ?? Number(created.id),
+            queueNumber: created.queueNumber ?? existingOrderCount + 1,
             storeId: Number(created.storeId || effectiveStoreId),
             totalDue: Number(created.totalAmount ?? totalAmount),
             method: "CASH",
@@ -413,7 +413,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
             cashTendered: effectiveCashTendered,
             bankAmount: 0,
             manualAcceptance: false,
-            staffNotes: "Thu tiền mặt trực tiếp khi tạo đơn tại quầy POS",
+            staffNotes: t("business:counterPos.autoCollectStaffNote"),
           });
           latestCreated = { ...created, paymentStatus: "COLLECTED" };
         } catch (payErr) {
@@ -421,7 +421,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
         }
       }
 
-      const qNum = created.queueNumber ?? (created.id || 1);
+      const qNum = created.queueNumber ?? existingOrderCount + 1;
       const formattedQueue = `#${String(qNum).padStart(3, "0")}`;
       message.success(t("business:staffactions.counterCreated", { queue: formattedQueue }));
 
@@ -503,8 +503,8 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
               <span>Giao Diện Nhập Đơn Quầy Fast-Food (POS)</span>
             </div>
             <span className={styles.posSubtitle}>
-              {currentStore?.name || user?.storeName || `Chi nhánh #${user?.storeId || 1}`}
-              {currentStore?.address ? ` · ${currentStore.address}` : " · Tối ưu thao tác thu ngân · Bàn phím & Cảm ứng"}
+              {currentStore?.name || user?.storeName || t("business:stafforderspage.branchFallback", { id: user?.storeId || 1 })}
+              {currentStore?.address ? ` · ${currentStore.address}` : t("business:counterPos.subtitleFallback")}
             </span>
           </div>
 
@@ -843,7 +843,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
                       htmlFor="cashCollectedCheck"
                       style={{ cursor: "pointer", fontWeight: 700 }}
                     >
-                      Nhân viên xác nhận thu tiền mặt ngay tại quầy
+                      {t("business:counterPos.confirmCashAtCounter")}
                     </label>
                   </div>
 
@@ -866,7 +866,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
                         }}
                       >
                         <span style={{ fontSize: 12, color: "#6B6259", fontWeight: 600 }}>
-                          Tiền khách đưa:
+                          {t("business:counterPos.cashTenderedLabel")}
                         </span>
                         <input
                           type="number"
@@ -909,7 +909,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
                                 cursor: "pointer",
                               }}
                             >
-                              {preset === totalAmount ? "Đủ tiền" : formatVnd(preset)}
+                              {preset === totalAmount ? t("business:counterPos.exactCash") : formatVnd(preset)}
                             </button>
                           ))}
                       </div>
@@ -923,7 +923,7 @@ export const CounterOrderModal: React.FC<CounterOrderModalProps> = ({
                           color: effectiveCashChange > 0 ? "#1E7A46" : "#6B6259",
                         }}
                       >
-                        <span>Tiền thối lại khách:</span>
+                        <span>{t("business:counterPos.cashChangeLabel")}</span>
                         <strong style={{ fontSize: 14 }}>
                           {formatVnd(effectiveCashChange)}
                         </strong>

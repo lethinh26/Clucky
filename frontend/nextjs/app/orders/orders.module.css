@@ -627,3 +627,37 @@
   background: #fef3c7;
   color: #b45309;
 }
+
+.filterSummaryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #efe7dc;
+}
+
+.filterSummaryText {
+  font-size: 13px;
+  font-weight: 700;
+  color: #6b6259;
+}
+
+.filterResetBtn {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid #8f1216;
+  background: #ffffff;
+  color: #8f1216;
+  font-family: "Quicksand", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.filterResetBtn:hover {
+  background: #8f1216;
+  color: #ffffff;
+}

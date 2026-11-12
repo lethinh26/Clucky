@@ -272,7 +272,7 @@ export interface PageResponse<T> {
 
 export const ordersApi = {
   list: (
-    params?: { storeId?: number; status?: string; date?: string; page?: number; size?: number },
+    params?: { storeId?: number; status?: string; date?: string; queueNumber?: number; page?: number; size?: number },
     signal?: AbortSignal
   ) =>
     api

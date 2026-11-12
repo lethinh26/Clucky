@@ -153,7 +153,7 @@
     "searchByOrderCodeCluOrStoreName": "Search by order code (CLU-...) or store name...",
     "searchOrders": "Search orders",
     "filterOrderStatus": "Filter order status",
-    "allOrders": "All orders (",
+    "allOrders": "All orders",
     "inProgress": "In progress",
     "completed": "Completed",
     "cancelled": "Cancelled",
@@ -174,7 +174,8 @@
     "sortOldest": "Oldest first",
     "sortTotalDesc": "Total: High to Low",
     "sortTotalAsc": "Total: Low to High",
-    "resetFilters": "Reset filters"
+    "resetFilters": "Reset filters",
+    "showingFilteredOrders": "Showing {matched} of {total} orders"
   },
   "id": {
     "orderNotFound": "Order not found",
