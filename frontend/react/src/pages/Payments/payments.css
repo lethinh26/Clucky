@@ -5,6 +5,9 @@
 .payments-page .ant-tabs-tabpane {
   min-width: 0;
 }
+.payments-page .ant-tabs > .ant-tabs-nav .ant-tabs-nav-operations {
+  display: none;
+}
 .payments-page .ant-table-wrapper {
   max-width: 100%;
 }
