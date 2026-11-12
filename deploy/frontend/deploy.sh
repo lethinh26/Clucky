@@ -24,9 +24,13 @@ flock -w 300 9 || fail 'Another frontend deployment is still running.'
 compose() {
   local release=$1
   shift
+  local overrides=()
+  if [[ -f "$RELEASES/$release/images.json" ]]; then
+    overrides=(-f "$RELEASES/$release/images.json")
+  fi
   docker compose --project-name "$PROJECT" --project-directory "$RELEASES/$release" \
     --env-file "$RELEASES/$release/release.env" \
-    -f "$RELEASES/$release/compose.yml" "$@"
+    -f "$RELEASES/$release/compose.yml" "${overrides[@]}" "$@"
 }
 
 linked_release() {
@@ -54,15 +58,15 @@ if [[ "$ACTION" == apply ]]; then
     cd "$incoming"
     sha256sum --check --strict SHA256SUMS
     [[ $(cat release.env) == "IMAGE_TAG=$RELEASE_ID" ]] || fail 'Image tag does not match the release.'
-    docker load --input customer.tar.gz
-    docker load --input admin.tar.gz
+    if [[ ! -f images.json ]]; then
+      docker load --input customer.tar.gz
+      docker load --input admin.tar.gz
+    fi
   )
-  docker image inspect "clucky-customer:$RELEASE_ID" "clucky-admin:$RELEASE_ID" >/dev/null
   mv "$incoming" "$RELEASES/$RELEASE_ID"
 else
   RELEASE_ID=$(linked_release previous)
   [[ -n "$RELEASE_ID" ]] || fail 'No previous release is available.'
-  docker image inspect "clucky-customer:$RELEASE_ID" "clucky-admin:$RELEASE_ID" >/dev/null
 fi
 
 rollback_on_error() {
@@ -84,8 +88,15 @@ trap 'rollback_on_error 129' HUP
 trap 'rollback_on_error 130' INT
 trap 'rollback_on_error 143' TERM
 
+if [[ "$ACTION" == apply && -f "$RELEASES/$RELEASE_ID/images.json" ]]; then
+  SECONDS=0
+  compose "$RELEASE_ID" pull
+  printf 'Frontend image pull: %ss\n' "$SECONDS"
+fi
+SECONDS=0
 # --wait uses the image healthchecks and does not require a running backend.
 compose "$RELEASE_ID" up -d --no-build --pull never --remove-orphans --wait --wait-timeout 120
+printf 'Frontend activation and readiness: %ss\n' "$SECONDS"
 if [[ -n "$previous" && "$previous" != "$RELEASE_ID" ]]; then
   set_link previous "$previous"
 fi
