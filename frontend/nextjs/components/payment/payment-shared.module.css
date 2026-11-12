@@ -349,7 +349,7 @@
 .paymentError p { margin: 0; }
 .paymentError .retryButton { justify-self: start; }
 .livePayment .embedded { margin-top: 0; }
-.livePayment .qrImageWrapper { width: min(232px, 100%); margin-bottom: 12px; }
+.livePayment .qrImageWrapper { width: min(340px, 100%); padding: 12px; margin-bottom: 16px; }
 .livePayment .qrTimer { margin-bottom: 10px; font-size: 12px; }
 .livePayment .paymentNote { margin-top: 10px; }
 

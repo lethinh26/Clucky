@@ -8,9 +8,9 @@ Pipeline source: `.github/workflows/frontend-ci.yml`, display name **Clucky full
 2. Config Server with the exact release's config-repo snapshot, then Eureka.
 3. Identity, Catalog/Store, Cart/Order, Payment, Promotion/Loyalty, Shipping, Notification, Review/Report and Audit.
 4. API Gateway after all nine business-service health checks, then wait for Eureka registrations.
-5. Customer Next.js and staff/admin React, using the same commit as backend.
+5. Customer Next.js and staff/admin React, using images matching the release's source and public build arguments.
 
-Total: 17 containers, including 12 Java services. Every source release rebuilds/packages all application images on the GitHub runner; Docker Compose reuses unchanged infra instead of resetting data. VPS does not compile Java/Node. Health checks confirm runtime readiness, not completion of every business task: services that still contain templates remain templates, and missing email/payment/S2S integrations do not become implemented through deployment.
+Total: 17 containers, including 12 Java services. Only application images whose inputs changed or are missing from GHCR are built on GitHub runners. Docker Compose reconciles the complete desired state and reuses unchanged application/infra containers instead of resetting data. VPS does not compile Java/Node. Health checks confirm runtime readiness, not completion of every business task: services that still contain templates remain templates, and missing email/payment/S2S integrations do not become implemented through deployment.
 
 **Per owner request, sample accounts and fixed sample passwords remain unchanged. No disabling, randomization, password reset or seed deletion is performed. Those credentials are in repository migrations; an Internet-accessible demo using them must not contain real customer/payment data.**
 
@@ -19,6 +19,10 @@ Total: 17 containers, including 12 Java services. Every source release rebuilds/
 Use repository Secrets/Variables so both packaging and deploy jobs see the same values. The full-stack deploy job retains the existing environment name `frontend-production` to avoid losing existing environment permissions/secrets; it now protects the entire stack. Configure its approval/access rules accordingly.
 
 Existing SSH settings: VPS_HOST, VPS_PORT (default 8686), VPS_USER, VPS_WORKDIR (default /opt/clucky), Secret VPS_SSH_KEY, and **Secret VPS_SSH_KNOWN_HOSTS** with verified host public key. StrictHostKeyChecking=yes is used for all transfers, including private credentials.
+
+Images use `ghcr.io/<owner>/<repository>/<service>`. The workflow grants `packages: write` only to packaging jobs and uses the short-lived `GITHUB_TOKEN`; no PAT or additional registry Secret is needed. New packages remain private by default. If a package already exists, grant this repository Actions access in its package settings. The VPS needs outbound HTTPS access to GHCR and its blob storage. Registry credentials on the VPS are stored in a private, release-specific Docker config and removed on exit; expired job tokens are not retained as a permanent login.
+
+Optional Repository Variable `IMAGE_CACHE_EPOCH`: change this value (for example to a maintenance date) and run the workflow to rebuild all images and refresh mutable base-image tags even when application source is unchanged.
 
 Public Repository Variables:
 - NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_PROJECT_ID: same Firebase project as the server credential. Local Next.js env does not populate these Variables.
@@ -87,7 +91,15 @@ Mapbox guidance: [token security](https://docs.mapbox.com/help/dive-deeper/how-t
 
 ## What happens on deployment
 
-Images are tagged by commit/run/attempt; frontend and backend use one release ID. Manifests verify transferred files. Old main revisions are rejected before activation; production runs are serialized, including the standalone Firebase rotation workflow.
+Frontend and backend share one commit/run/attempt release ID. `deploy/images.py` hashes each component's Git objects (including deleted files through the resulting tree), shared build inputs and public build arguments. Existing input-tagged images are reused; missing images build in a matrix with up to four parallel jobs, with frontend and backend builds independent. Gradle state and Docker layers are cached between runs. Java JARs are compiled with the Gradle wrapper on the runner and packaged by `runtime.Dockerfile`; local Docker builds keep using the original `Dockerfile`.
+
+Only the small release plan is stored as an Actions artifact. It freezes the public build arguments for packaging retries; it never contains backend secrets. Deployment pins every image to a registry digest, transfers scripts/config/manifests with SHA256 verification, then pulls missing layers directly on the VPS. No image tarballs are uploaded/downloaded through Actions or copied with SCP. Existing release scripts still support rollback to old tar-based releases already loaded on the VPS. Old main revisions are rejected before activation; production runs are serialized, including the standalone Firebase rotation workflow.
+
+Image selection does not diff against the previous merge: it is derived from the full target inputs, so failed deployments, skipped commits and reverts cannot omit a required image. All services are reconciled against pinned desired images, including containers changed by a partially failed release. Unchanged images and runtime settings keep their containers. Config Server mounts an immutable config snapshot at a stable revision path; a config-repo change labels/restarts the Java services so they reload configuration without rebuilding their images. Compose/runtime environment changes still reconcile normally.
+
+The cross-job build matrix contains only numeric indices. Each packaging job reads its service, image reference and build arguments from the release-plan artifact. This avoids GitHub dropping the entire matrix when an otherwise public registry reference or input hash happens to match a masked secret. Secret masking is not disabled or bypassed.
+
+The first GHCR deployment fills the registry and caches and may be slower. Subsequent runs log `build`/`reuse` per service, plus separate durations for manifest upload, image pulls and activation/readiness. Measure those runs before claiming a new deployment-time target. Retain images/config snapshots needed by current and rollback releases; do not automatically prune them.
 
 Firebase provision runs automatically, then backend env validation, then infrastructure. PostgreSQL is dumped in custom format to `$VPS_WORKDIR/backend/backups/<release>-<timestamp>.dump` before any new application/Flyway startup. Dump failure stops deployment. This is a point-in-time backup, not a zero-downtime restore strategy; writes made after the dump are not present in it. Keep/rotate backups under your retention policy; deployment does not silently delete old backups.
 
@@ -102,7 +114,7 @@ Database name/user/password must remain stable across redeploys. Changing POSTGR
 ## Rerun, rotation and rollback
 
 - Secret changes do not trigger a push: use Actions → Clucky full-stack CI/CD → Run workflow → main. Re-run all jobs for a fresh release ID if a partially activated release directory already exists.
-- Full-stack deployment creates a newly tagged Identity container, so the atomically replaced Firebase file is re-mounted and the SDK reloads credentials. The standalone **Provision Firebase credential on VPS** workflow is manual-only, does not restart Identity and is not needed during full deployments.
+- A private runtime fingerprint of the Firebase credential is applied to Identity's container label. Changed credentials recreate Identity even if its image is reused, so the atomically replaced file is re-mounted and the SDK reloads it. Unchanged credentials do not force a restart. The standalone **Provision Firebase credential on VPS** workflow is manual-only, does not restart Identity and is not needed during full deployments.
 - Frontend rollback remains `VPS_WORKDIR=/opt/clucky bash /opt/clucky/frontend/current/deploy.sh rollback`.
 - Backend rollback is manual **only after confirming the old code is compatible with current schema**:
 
@@ -116,6 +128,7 @@ Backend rollback changes images/config, never restores/downgrades database. If s
 ## Checks left for the owner (not executed by agent)
 
 ```text
+python deploy/test_images.py
 python deploy/backend/test_prepare.py
 python deploy/identity/test_firebase_secret.py
 bash -n deploy/backend/deploy.sh

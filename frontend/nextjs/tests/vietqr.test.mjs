@@ -6,7 +6,7 @@ const bank = { bankCode: 'MB', bankName: 'MB Bank', accountNo: '0909123456789', 
 
 test('VietQR uses all requested parameters and preserves transfer amount and leading zeros', () => {
   const url = new URL(buildVietQrUrl({ bank, amount: 262000, description: 'CLU-240826', storeName: 'Clucky Nguyễn Trãi' }));
-  assert.equal(url.origin + url.pathname, 'https://img.vietqr.io/image/MB-0909123456789-compact2.png');
+  assert.equal(url.origin + url.pathname, 'https://img.vietqr.io/image/MB-0909123456789-qr_only.svg');
   assert.deepEqual(Object.fromEntries(url.searchParams), {
     amount: '262000', addInfo: 'CLU240826', accountName: 'CLUCKY VIETNAM',
   });

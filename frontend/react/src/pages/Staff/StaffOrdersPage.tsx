@@ -203,6 +203,23 @@ export function StaffOrdersPage() {
 
   const isFirstLoadDoneRef = useRef<boolean>(false);
   const prevConfirmedIdsRef = useRef<Set<string>>(new Set());
+  const audioRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    const unlock = () => {
+      if (!window.AudioContext) return;
+      audioRef.current ??= new AudioContext();
+      void audioRef.current.resume().catch(() => {});
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      void audioRef.current?.close().catch(() => {});
+      audioRef.current = null;
+    };
+  }, []);
 
   // Hàm load danh sách đơn từ backend API
   const fetchOrders = useCallback(async (isSilent = false) => {
@@ -220,7 +237,7 @@ export function StaffOrdersPage() {
       setOrders(converted);
       setFetchError(false);
       prevConfirmedIdsRef.current = new Set(
-        converted.filter((o) => o.status === "CONFIRMED").map((o) => o.id),
+        converted.filter((o) => o.status === "CONFIRMED" || o.status === "PENDING_PAYMENT").map((o) => o.id),
       );
       isFirstLoadDoneRef.current = true;
     } catch (err) {
@@ -263,19 +280,15 @@ export function StaffOrdersPage() {
   // Phase 2: POS Order Modal, Payment Modal, Receipt Bill Modal
   const [isPosModalOpen, setIsPosModalOpen] = useState(false);
   const [paymentModalOrder, setPaymentModalOrder] = useState<StaffOrder | null>(null);
+  const collectionAttempt = useRef<{ signature: string; key: string } | null>(null);
   const [receiptModalOrder, setReceiptModalOrder] = useState<StaffOrder | null>(null);
   const [receiptInitialMode, setReceiptInitialMode] = useState<"RECEIPT" | "KOT">("RECEIPT");
 
   // Web Audio API Synthesis Chime (D5 587.33Hz -> A5 880Hz nhẹ nhàng)
   const playChime = useCallback(() => {
     try {
-      const AudioContextClass =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext;
-      if (!AudioContextClass) return;
-
-      const ctx = new AudioContextClass();
+      const ctx = audioRef.current;
+      if (!ctx || ctx.state !== "running") return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
@@ -291,6 +304,7 @@ export function StaffOrdersPage() {
 
       osc.start();
       osc.stop(ctx.currentTime + 0.6);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
     } catch (e) {
       console.warn("Audio play blocked or unsupported:", e);
     }
@@ -313,25 +327,28 @@ export function StaffOrdersPage() {
   useEffect(() => {
     const pollIntervalTime = document.hidden ? 15000 : 5000;
     let active = true;
+    let polling = false;
 
     const intervalId = window.setInterval(async () => {
-      if (!isFirstLoadDoneRef.current) return;
+      if (!isFirstLoadDoneRef.current || polling) return;
+      polling = true;
+      const revision = fetchRevisionRef.current;
       try {
         const storeIdNum = user?.storeId ? Number(user.storeId) : currentStore?.id || 1;
         const backendList = await loadStoreDayOrders(storeIdNum, selectedDate);
-        if (active && backendList) {
+        if (active && revision === fetchRevisionRef.current && backendList) {
           const converted = mapDailyStaffOrders(backendList, imageMapRef.current ?? new Map(), storesRef.current);
 
           // Phát hiện đơn CONFIRMED mới xuất hiện
           const confirmedOrders = converted.filter(
-            (o) => o.status === "CONFIRMED",
+            (o) => o.status === "CONFIRMED" || o.status === "PENDING_PAYMENT",
           );
 
           const newConfirmedList = confirmedOrders.filter(
             (order) => !prevConfirmedIdsRef.current.has(order.id),
           );
 
-          if (newConfirmedList.length > 0) {
+          if (newConfirmedList.length > 0 && selectedDate === businessDate()) {
             const newestOrder = newConfirmedList[0];
             if (soundEnabled) {
               playChime();
@@ -347,6 +364,8 @@ export function StaffOrdersPage() {
         }
       } catch {
         // Bỏ qua lỗi kết nối tạm thời khi polling chạy ngầm
+      } finally {
+        polling = false;
       }
     }, pollIntervalTime);
 
@@ -354,7 +373,7 @@ export function StaffOrdersPage() {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [soundEnabled, playChime, user?.storeId, selectedDate]);
+  }, [soundEnabled, playChime, user?.storeId, currentStore?.id, selectedDate, t]);
 
   // 8. Lắng nghe phím tắt toàn cục: F1 (Nhập đơn nhanh)
   const handleOpenPOS = useCallback(() => {
@@ -376,6 +395,9 @@ export function StaffOrdersPage() {
       setOrders((prev) =>
         prev.some((o) => o.id === mapped.id) ? prev : [mapped, ...prev],
       );
+      if (mapped.paymentStatus === "PENDING" && ["BANK_TRANSFER", "SPLIT"].includes(mapped.paymentMethod)) {
+        setPaymentModalOrder(mapped);
+      }
     }
     if (selectedDate !== today) {
       setSelectedDate(today);
@@ -575,24 +597,16 @@ export function StaffOrdersPage() {
     bankDeclaredAmount: number;
     manualReason?: string;
     refCode?: string;
-    codEvidenceFile?: File | null;
   }) => {
     const order =
       paymentModalOrder?.id === data.orderId
         ? paymentModalOrder
         : orders.find((o) => o.id === data.orderId);
-    if (!order) return;
+    if (!order) return false;
 
     const numericId = Number(order.id);
     const totalDue = order.total;
 
-    if (data.codEvidenceFile && !Number.isNaN(numericId) && numericId > 0) {
-      try {
-        await paymentsApi.uploadCodEvidence(numericId, data.codEvidenceFile);
-      } catch (eviErr) {
-        console.warn("COD evidence upload warning:", eviErr);
-      }
-    }
 
     let cashAmount = 0;
     let cashTendered = data.cashTendered;
@@ -632,14 +646,11 @@ export function StaffOrdersPage() {
     };
 
     // Pha 1: Ghi nhận thu tiền tại quầy qua payment-service
-    let receipt: any;
-    try {
-      receipt = await paymentsApi.collectCounter(collectionPayload);
-    } catch (err: any) {
-      console.error("counter collection failed:", err);
-      message.error(t("business:staffactions.collectionFailed", { detail: getErrorMessage(err) }));
-      return;
+    const signature = JSON.stringify(collectionPayload);
+    if (collectionAttempt.current?.signature !== signature) {
+      collectionAttempt.current = { signature, key: crypto.randomUUID() };
     }
+    const receipt = await paymentsApi.collectCounter(collectionPayload, collectionAttempt.current.key);
 
     // Pha 1 thành công (HTTP 201)
     setPaymentModalOrder(null);
@@ -674,7 +685,7 @@ export function StaffOrdersPage() {
         queue: String(order.queueNumber).padStart(3, "0"),
       }));
       await fetchOrders(true);
-      return;
+      return true;
     }
 
     if (collectionAccepted) {
@@ -687,6 +698,7 @@ export function StaffOrdersPage() {
       message.warning(t("business:staffactions.orderChanged"));
     }
     await fetchOrders(true);
+    return collectionAccepted;
   };
 
   // Mở in lại hóa đơn

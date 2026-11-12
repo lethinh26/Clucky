@@ -99,6 +99,7 @@ jobs:
       - name: Build customer for UI tests
         run: npm run build
         env:
+          INTERNAL_API_URL: "http://127.0.0.1:4175"
           NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "pk.playwright-test-token"
 
       - name: Build admin for UI tests
@@ -123,195 +124,155 @@ jobs:
           if-no-files-found: ignore
 
   preflight:
-    name: Validate backend configuration
-    if: github.event_name != 'pull_request'
+    name: Plan changed images
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     environment: frontend-production
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Validate backend secret without logging values
-        env:
-          BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
-          VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
-        shell: bash
-        run: printf '%s' "$BACKEND_ENV_JSON" | python3 deploy/backend/prepare.py --validate
-
-  images:
-    name: Package frontend images
-    needs: preflight
-    # PR checks gate merging; main packages the merged revision without retesting.
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read
     outputs:
-      release_id: ${{ steps.release.outputs.id }}
+      builds: ${{ steps.plan.outputs.builds }}
+      release_id: ${{ steps.plan.outputs.release_id }}
     env:
+      BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
+      VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
       PUBLIC_API_URL: ${{ vars.FRONTEND_API_URL }}
       FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
       FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
       FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
       CUSTOMER_DEMO_ENABLED: ${{ vars.NEXT_PUBLIC_M3_DEMO_ENABLED || 'false' }}
-    steps:
-      - name: Checkout checked revision
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Identify release bundle
-        id: release
-        run: echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
-
-      - name: Load public Mapbox tokens from backend configuration
-        env:
-          BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
-          VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import os
-          import sys
-          sys.path.insert(0, "deploy/backend")
-          from prepare import validate_environment
-          values = validate_environment(os.environ["BACKEND_ENV_JSON"])
-          names = ("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN")
-          if not all(values.get(name) for name in names):
-              sys.exit("Set NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN and VITE_MAPBOX_ACCESS_TOKEN in BACKEND_ENV_JSON.")
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:
-              for name in names:
-                  token = values[name]
-                  print(f"::add-mask::{token}")
-                  environment.write(f"{name}={token}\n")
-          PY
-
-      - name: Require public Firebase configuration
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ -n "$FIREBASE_API_KEY" && -n "$FIREBASE_AUTH_DOMAIN" && -n "$FIREBASE_PROJECT_ID" ]] || { echo 'Set the three NEXT_PUBLIC_FIREBASE_* repository Variables before deploying.' >&2; exit 1; }
-
-      - name: Build production images on GitHub runner
-        shell: bash
-        run: |
-          set -euo pipefail
-          for app in nextjs react; do
-            args=()
-            if [[ "$app" == nextjs ]]; then
-              image=customer
-              args+=(--build-arg "NEXT_PUBLIC_API_URL=$PUBLIC_API_URL")
-              args+=(--build-arg "NEXT_PUBLIC_FIREBASE_API_KEY=$FIREBASE_API_KEY")
-              args+=(--build-arg "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$FIREBASE_AUTH_DOMAIN")
-              args+=(--build-arg "NEXT_PUBLIC_FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID")
-              args+=(--build-arg "NEXT_PUBLIC_M3_DEMO_ENABLED=$CUSTOMER_DEMO_ENABLED")
-              args+=(--build-arg "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=$NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN")
-            else
-              image=admin
-              args+=(--build-arg "VITE_API_URL=$PUBLIC_API_URL")
-              args+=(--build-arg "VITE_MAPBOX_ACCESS_TOKEN=$VITE_MAPBOX_ACCESS_TOKEN")
-            fi
-            docker build --pull "${args[@]}" \
-              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-              --label "com.clucky.component=$image" \
-              --tag "clucky-$image:$RELEASE_ID" "frontend/$app"
-          done
-
-      - name: Check production container health
-        shell: bash
-        run: |
-          set -euo pipefail
-          for image in customer admin; do
-            container="frontend-smoke-$image"
-            docker run --detach --name "$container" "clucky-$image:$RELEASE_ID"
-            healthy=false
-            for attempt in $(seq 1 45); do
-              state=$(docker inspect --format '{{.State.Health.Status}}' "$container")
-              running=$(docker inspect --format '{{.State.Running}}' "$container")
-              if [[ "$state" == healthy ]]; then healthy=true; break; fi
-              if [[ "$state" == unhealthy || "$running" != true ]]; then break; fi
-              sleep 3
-            done
-            if [[ "$healthy" != true ]]; then
-              docker logs --tail 80 "$container"
-              echo "Production container $image did not become healthy." >&2
-              exit 1
-            fi
-          done
-
-      - name: Remove smoke container
-        if: always()
-        run: docker rm -f frontend-smoke-customer frontend-smoke-admin || true
-
-      - name: Export healthy image
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p bundle
-          for image in customer admin; do
-            docker save "clucky-$image:$RELEASE_ID" | gzip -1 > "bundle/$image.tar.gz"
-          done
-
-      - name: Store immutable release image
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-images-${{ env.RELEASE_ID }}
-          path: bundle/*.tar.gz
-          compression-level: 0
-          retention-days: 3
-          if-no-files-found: error
-
-  backend_images:
-    name: Package all backend images
-    needs: images
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      RELEASE_ID: ${{ needs.images.outputs.release_id }}
+      IMAGE_CACHE_EPOCH: ${{ vars.IMAGE_CACHE_EPOCH }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Build versioned Java images without running tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          images=()
-          for service in config-server discovery-server identity-service catalog-store-service cart-order-service payment-service promotion-loyalty-service shipping-service notification-service review-report-service audit-service api-gateway; do
-            image="clucky-$service:$RELEASE_ID"
-            docker build --build-arg "SERVICE_NAME=$service" \
-              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-              -f deploy/backend/Dockerfile --tag "$image" backend
-            images+=("$image")
-          done
-          mkdir -p backend-bundle
-          docker save "${images[@]}" | gzip -1 > backend-bundle/backend.tar.gz
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Reuse images with identical source and build arguments
+        id: plan
+        run: python3 deploy/images.py plan
       - uses: actions/upload-artifact@v4
         with:
-          name: backend-images-${{ env.RELEASE_ID }}
-          path: backend-bundle/backend.tar.gz
-          compression-level: 0
-          retention-days: 3
+          name: release-plan-${{ env.RELEASE_ID }}
+          path: release-plan.json
+          retention-days: 30
           if-no-files-found: error
+
+  images:
+    name: Package image / ${{ matrix.build }}
+    needs: preflight
+    if: needs.preflight.outputs.builds != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: frontend-production
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        build: ${{ fromJSON(needs.preflight.outputs.builds) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-plan-${{ needs.preflight.outputs.release_id }}
+      - name: Select image from release plan
+        id: image
+        env:
+          BUILD_INDEX: ${{ matrix.build }}
+        run: python3 deploy/images.py select "$BUILD_INDEX"
+      - uses: actions/setup-java@v4
+        if: steps.image.outputs.context == 'backend'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.image.outputs.context == 'backend'
+      - name: Build only the selected Java service
+        if: steps.image.outputs.context == 'backend'
+        env:
+          SERVICE: ${{ steps.image.outputs.service }}
+        run: |
+          set -euo pipefail
+          cd backend
+          bash gradlew ":$SERVICE:bootJar" --no-daemon --max-workers=2 --build-cache
+          mkdir -p ../image-context
+          cp "$SERVICE/build/libs/$SERVICE-0.1.0-SNAPSHOT.jar" ../image-context/app.jar
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare public build arguments
+        id: args
+        env:
+          SERVICE: ${{ steps.image.outputs.service }}
+        run: python3 deploy/images.py args "$SERVICE"
+      - name: Build cached image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.image.outputs.context == 'backend' && 'image-context' || steps.image.outputs.context }}
+          file: ${{ steps.image.outputs.dockerfile }}
+          platforms: linux/amd64
+          pull: true
+          load: true
+          tags: ${{ steps.image.outputs.image }}
+          build-args: ${{ steps.args.outputs.args }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ steps.image.outputs.service }}
+          cache-to: type=gha,scope=${{ steps.image.outputs.service }},mode=max
+      - name: Check frontend container health before publishing
+        if: steps.image.outputs.context != 'backend'
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          trap 'docker rm -f frontend-smoke >/dev/null 2>&1 || true' EXIT
+          docker run --detach --name frontend-smoke "$IMAGE"
+          for attempt in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' frontend-smoke)
+            if [[ "$status" == healthy ]]; then exit 0; fi
+            if [[ "$status" == unhealthy ]]; then break; fi
+            sleep 2
+          done
+          docker logs frontend-smoke
+          exit 1
+      - name: Publish immutable input image
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: docker push "$IMAGE"
 
   deploy:
     name: Deploy infrastructure, backend and frontends to VPS
-    needs: [images, backend_images]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [preflight, images]
+    if: >-
+      always() && !cancelled() && needs.preflight.result == 'success' &&
+      (needs.images.result == 'success' || needs.images.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: frontend-production
+    permissions:
+      contents: read
+      packages: read
     concurrency:
       group: clucky-full-stack-production
       cancel-in-progress: false
     env:
       # Retain the packaged ID when only a failed deployment job is rerun.
-      RELEASE_ID: ${{ needs.images.outputs.release_id }}
+      RELEASE_ID: ${{ needs.preflight.outputs.release_id }}
       DEPLOY_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
       DEPLOY_PORT: ${{ vars.VPS_PORT || secrets.VPS_PORT || '8686' }}
       DEPLOY_USER: ${{ vars.VPS_USER || secrets.VPS_USER }}
@@ -331,17 +292,19 @@ jobs:
           current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
           [[ "$current" == "$GITHUB_SHA" ]] || { echo 'A newer main revision exists; skip this release.' >&2; exit 1; }
 
-      - name: Download checked release images
+      - name: Download release plan
         uses: actions/download-artifact@v4
         with:
-          name: frontend-images-${{ env.RELEASE_ID }}
-          path: bundle
+          name: release-plan-${{ env.RELEASE_ID }}
 
-      - name: Download backend images
-        uses: actions/download-artifact@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
-          name: backend-images-${{ env.RELEASE_ID }}
-          path: backend-bundle
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pin every service to its registry digest
+        run: python3 deploy/images.py bundle
 
       - name: Prepare SSH and release manifest
         env:
@@ -360,7 +323,7 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > "$RUNNER_TEMP/frontend_known_hosts"
           cp deploy/frontend/compose.yml deploy/frontend/deploy.sh bundle/
           printf 'IMAGE_TAG=%s\n' "$RELEASE_ID" > bundle/release.env
-          (cd bundle && sha256sum customer.tar.gz admin.tar.gz compose.yml deploy.sh release.env > SHA256SUMS)
+          (cd bundle && sha256sum images.json compose.yml deploy.sh release.env > SHA256SUMS)
           cp deploy/backend/compose.yml deploy/backend/deploy.sh deploy/backend/prepare.py backend-bundle/
           cp deploy/identity/firebase_secret.py backend-bundle/install-firebase.py
           mkdir -p backend-bundle/config-repo
@@ -369,6 +332,7 @@ jobs:
 
       - name: Provision secrets and deploy complete stack
         env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
           EXPECTED_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
@@ -388,18 +352,25 @@ jobs:
           target="$DEPLOY_USER@$DEPLOY_HOST"
           incoming="$VPS_WORKDIR/frontend/incoming/$RELEASE_ID"
           backend_incoming="$VPS_WORKDIR/backend/incoming/$RELEASE_ID"
+          registry_config="$VPS_WORKDIR/.registry-$RELEASE_ID"
           options=(-i "$RUNNER_TEMP/frontend_key" -o BatchMode=yes -o IdentitiesOnly=yes
             -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$RUNNER_TEMP/frontend_known_hosts"
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
           ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "set -e; umask 077; mkdir -p '$incoming' '$backend_incoming'; command -v python3 >/dev/null; command -v flock >/dev/null; docker compose version >/dev/null"
+          cleanup_registry() {
+            ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "rm -f -- '$registry_config/config.json'; rmdir -- '$registry_config'" || true
+          }
+          trap cleanup_registry EXIT
+          printf '%s' "$REGISTRY_TOKEN" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "umask 077; mkdir -p '$registry_config'; DOCKER_CONFIG='$registry_config' docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
+          SECONDS=0
           scp -r -P "$DEPLOY_PORT" "${options[@]}" backend-bundle/. "$target:$backend_incoming/"
+          scp -P "$DEPLOY_PORT" "${options[@]}" \
+            bundle/images.json bundle/compose.yml bundle/deploy.sh bundle/release.env bundle/SHA256SUMS "$target:$incoming/"
+          printf 'Release manifest upload: %ss\n' "$SECONDS"
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "python3 '$backend_incoming/install-firebase.py' '$VPS_WORKDIR'"
           printf '%s' "$BACKEND_ENV_JSON" | ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "VPS_HOST='$DEPLOY_HOST' python3 '$backend_incoming/prepare.py' '$VPS_WORKDIR' '$RELEASE_ID'"
-          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "VPS_WORKDIR='$VPS_WORKDIR' bash '$backend_incoming/deploy.sh' apply '$RELEASE_ID'"
-          scp -P "$DEPLOY_PORT" "${options[@]}" \
-            bundle/customer.tar.gz bundle/admin.tar.gz bundle/compose.yml \
-            bundle/deploy.sh bundle/release.env bundle/SHA256SUMS "$target:$incoming/"
-          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "VPS_WORKDIR='$VPS_WORKDIR' bash '$incoming/deploy.sh' apply '$RELEASE_ID'"
+          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "DOCKER_CONFIG='$registry_config' VPS_WORKDIR='$VPS_WORKDIR' bash '$backend_incoming/deploy.sh' apply '$RELEASE_ID'"
+          ssh -p "$DEPLOY_PORT" "${options[@]}" "$target" "DOCKER_CONFIG='$registry_config' VPS_WORKDIR='$VPS_WORKDIR' bash '$incoming/deploy.sh' apply '$RELEASE_ID'"
 
       - name: Remove runner SSH material
         if: always()

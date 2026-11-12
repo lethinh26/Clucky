@@ -5,12 +5,6 @@
 .payments-page .ant-tabs-tabpane {
   min-width: 0;
 }
-.payments-page .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-  overflow-x: auto;
-}
-.payments-page .ant-tabs-nav-list {
-  transform: none !important;
-}
 .payments-page .ant-tabs > .ant-tabs-nav .ant-tabs-nav-operations {
   display: none;
 }

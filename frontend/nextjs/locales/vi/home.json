@@ -19,5 +19,15 @@
     "recipeDescription": "Pha trộn tinh tế từ 12 loại thảo mộc tự nhiên theo công thức chuẩn Âu, mang lại dư vị thơm nồng kích thích vị giác nhưng không gắt cổ.",
     "deliveryTitle": "Giao hàng chuẩn nhiệt",
     "deliveryDescription": "Túi giữ nhiệt chuyên dụng giữ trọn độ nóng giòn từ bếp tới tận cửa nhà bạn trong vòng 30 phút từ các chi nhánh gần nhất."
+  },
+  "banners": {
+    "carouselLabel": "Danh sách banner khuyến mãi",
+    "eyebrow": "Ưu đãi nổi bật",
+    "cta": "Khám phá ngay",
+    "prev": "Banner trước",
+    "next": "Banner tiếp theo",
+    "close": "Đóng thông báo",
+    "dontShowAgain": "Không hiển thị lại",
+    "slideIndicator": "Chuyển đến banner {index}"
   }
 }

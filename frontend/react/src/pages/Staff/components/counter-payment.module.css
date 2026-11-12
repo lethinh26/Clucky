@@ -308,11 +308,13 @@
   border-radius: 16px;
   padding: 16px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .qrImageFrame {
-  width: 150px;
-  height: 150px;
+  flex: 0 0 auto;
+  width: min(320px, 100%);
+  aspect-ratio: 1;
   background-color: #ffffff;
   border: 1px solid #e8e2d9;
   border-radius: 12px;
@@ -329,7 +331,9 @@
 }
 
 .bankDetails {
-  flex: 1;
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -485,4 +489,12 @@
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.tabBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.bankUnavailable { color: #b42318; line-height: 1.6; }
+@media (max-width: 600px) {
+  .qrContainer { justify-content: center; padding: 12px; }
+  .bankDetails { flex-basis: 100%; }
+  .splitGrid { grid-template-columns: 1fr; }
 }

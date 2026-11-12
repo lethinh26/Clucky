@@ -76,7 +76,8 @@ public class SecurityConfig {
                     if (docsEnabled) {
                         auth.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
                     }
-                    auth.requestMatchers("/api/promotions/banners", "/api/promotions/banners/**").denyAll();
+                    auth.requestMatchers(HttpMethod.GET, "/api/promotions/banners").permitAll();
+                    auth.requestMatchers("/api/promotions/banners", "/api/promotions/banners/**").hasRole("ADMIN");
                     auth.requestMatchers(HttpMethod.POST, "/api/promotions/vouchers/store-proposals").hasRole("STORE_MANAGER");
                     auth.requestMatchers(HttpMethod.PUT, "/api/promotions/vouchers/*/approve", "/api/promotions/vouchers/*/reject").hasRole("ADMIN");
                     auth.requestMatchers(HttpMethod.GET, "/api/stores", "/api/stores/{id}",

@@ -29,10 +29,10 @@ export function CodEvidencePanel({ orderId, onCollect }: {
     return () => { active = false; };
   }, [orderId]);
 
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action?: () => Promise<unknown>) => {
     setBusy(true);
     try {
-      await action();
+      if (action) await action();
       setEvidence(await paymentsApi.getCodEvidence(orderId));
     } catch (error) {
       message.error(getErrorMessage(error));
@@ -65,6 +65,7 @@ export function CodEvidencePanel({ orderId, onCollect }: {
     <span>{t("business:orderdemo.codEvidenceHint")}</span>
     <Space wrap>
       <Tag>{evidence ? t(`business:orderdemo.codEvidence${evidence.status}`) : t("business:orderdemo.codEvidenceLoading")}</Tag>
+      <Button loading={busy} onClick={() => void run()}>{t("admin:system.refresh")}</Button>
       {evidence && evidence.status !== "MISSING" && <Button onClick={() => void view()}>{t("business:orderdemo.codViewEvidence")}</Button>}
       {evidence?.status !== "APPROVED" && <label>
         <input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} style={{ display: "none" }}

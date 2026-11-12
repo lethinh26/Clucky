@@ -28,6 +28,14 @@ Thư mục làm việc trong các lệnh dưới đây là `D:\Work\Ptit\Lap-Tri
 
 ## Mapbox và cập nhật từng container
 
+- QR thanh toán hiển thị lớn, dùng template `qr_only` theo [VietQR Quick Link](https://www.vietqr.io/qr-dong). Customer không còn nút mô phỏng thanh toán. QR quầy/kết hợp lấy ngân hàng được cấu hình cho chi nhánh từ Payment, không dùng tài khoản mẫu; mã hiển thị/copy và `addInfo` giống nhau, không thêm hậu tố `SPLIT`. QR online giữ reference của phiên thanh toán; QR quầy dùng mã đơn đã bỏ dấu phân cách để khớp đối soát.
+- Thu COD online cần ảnh bằng chứng và tài khoản quản lý khác người tải ảnh duyệt trước khi ghi thu. Modal thu quầy dùng lại panel tải/xem/duyệt bằng chứng; không tự duyệt hoặc bỏ kiểm tra backend. Chuyển khoản online chỉ xác nhận qua đối soát ngân hàng, không dùng nút thu thủ công của đơn quầy.
+- Trang tác nghiệp báo cả đơn mới chờ thanh toán lẫn đã xác nhận, cập nhật theo chi nhánh đang chọn. Âm thanh cần một lần click/gõ phím trên trang để trình duyệt cho phép phát; thông báo chữ vẫn hoạt động độc lập.
+
+- Xác thực local: Gateway và Identity cùng chấp nhận Customer ở `localhost:3000`/`127.0.0.1:3000`, Admin ở `localhost:3001`/`127.0.0.1:3001` và Vite ở cổng `5173`. Cookie vẫn gắn với hostname; không trộn URL frontend `127.0.0.1` với Gateway `localhost`. Khi thiếu `Origin`, Gateway chỉ chấp nhận `Referer` thuộc đúng allowlist của ứng dụng; không tắt CSRF hoặc cho phép wildcard.
+- Phiên bị từ chối `401`/`403` được xác minh và refresh tối đa một lần; nếu endpoint session/refresh vẫn từ chối thì xóa trạng thái đăng nhập ở UI. Lỗi phân quyền nghiệp vụ `403` với session hợp lệ không làm đăng xuất. Test hồi quy đã bổ sung, không tự chạy theo yêu cầu.
+- Đã ngừng tính năng đặt tiệc: xóa `/party`, `/admin/party-orders` và API `/api/party-orders` khỏi runtime. Giữ migration Flyway đã áp dụng và bảng/dữ liệu lịch sử; không xóa volumes hoặc chạy migration phá hủy dữ liệu.
+
 - Token thật đặt trong `.env.docker`; `.env.example` chỉ chứa tên biến trống. Hai frontend dùng `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` và `VITE_MAPBOX_ACCESS_TOKEN` dạng public `pk.`. Script từ chối token bí mật trong các biến frontend. Token public nằm trong bundle nên cần giới hạn URL và quyền ở Mapbox; không dùng `sk.` cho frontend.
 - `MAPBOX_GEOCODING_TOKEN` chỉ truyền cho Catalog Store Service. Frontend gọi Gateway, không gọi geocoding trực tiếp. Bản đồ/styles gọi Mapbox bằng public token theo cơ chế SDK.
 - Tìm kiếm/reverse dùng Geocoding v6, `permanent=true` vì kết quả có thể được lưu vào địa chỉ hoặc chi nhánh. Tài khoản cần đủ điều kiện Permanent Geocoding; không tự hạ về temporary khi bị từ chối. Không cache kết quả geocoding. Tìm kiếm ưu tiên Việt Nam, debounce 650 ms; backend giới hạn tổng 2 request/giây mỗi instance.

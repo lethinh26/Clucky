@@ -37,5 +37,5 @@ export function buildVietQrUrl({
     addInfo: transferReference(description),
     accountName: bank.accountName.trim(),
   });
-  return `https://img.vietqr.io/image/${bankCode}-${accountNo}-compact2.png?${params.toString()}`;
+  return `https://img.vietqr.io/image/${bankCode}-${accountNo}-qr_only.svg?${params.toString()}`;
 }

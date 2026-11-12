@@ -82,7 +82,6 @@
     "reports": "Báo cáo & Thống kê",
     "payments": "Thanh toán & Đối soát",
     "promotions": "Quản lý Khuyến mãi & Voucher",
-    "partyOrders": "Yêu cầu đặt tiệc",
     "transfers": "Sổ Quỹ & Két Ca Trực"
   },
   "breadcrumb": {
@@ -170,6 +169,81 @@
     "backlogAlert": {
       "title": "Chức năng thuộc Kế hoạch phát triển (Phase 2 / Backlog)",
       "description": "Khung giao diện này được thiết kế theo quy chuẩn kiến trúc để chuẩn bị cho giai đoạn tiếp theo. Hiện tại hệ thống chưa kích hoạt tích hợp API thực tế cho chức năng này."
+    },
+    "banner": {
+      "title": "Quản lý Banner khuyến mãi",
+      "subtitle": "Cấu hình banner trang chủ và popup khuyến mãi theo lịch hiển thị và ảnh Cloudinary.",
+      "create": "Tạo Banner mới",
+      "edit": "Chỉnh sửa Banner",
+      "empty": "Chưa có banner nào phù hợp bộ lọc.",
+      "loadError": "Không thể tải danh sách banner. Vui lòng thử lại.",
+      "retry": "Thử lại",
+      "saveSuccessCreate": "Tạo banner và tải ảnh lên thành công.",
+      "saveSuccessUpdate": "Cập nhật banner thành công.",
+      "deleteSuccess": "Đã xóa banner.",
+      "deleteConfirmTitle": "Xác nhận xóa banner?",
+      "deleteConfirmDesc": "Banner \"{{title}}\" và ảnh trên Cloudinary sẽ được thu hồi.",
+      "searchPlaceholder": "Tìm theo tiêu đề hoặc URL...",
+      "allPositions": "Tất cả vị trí",
+      "allStatuses": "Tất cả trạng thái",
+      "fields": {
+        "title": "Tiêu đề banner",
+        "titlePlaceholder": "Ví dụ: Siêu ưu đãi gà giòn cuối tuần",
+        "position": "Vị trí hiển thị",
+        "displayOrder": "Thứ tự hiển thị",
+        "linkUrl": "Đường dẫn đích (tuỳ chọn)",
+        "linkUrlPlaceholder": "/menu hoặc https://...",
+        "startAt": "Bắt đầu hiển thị",
+        "endAt": "Kết thúc hiển thị",
+        "isActive": "Kích hoạt",
+        "image": "Ảnh banner",
+        "status": "Trạng thái",
+        "schedule": "Lịch hiển thị",
+        "orderShort": "Thứ tự: #{{order}}",
+        "noSchedule": "Hiển thị liên tục",
+        "fromDate": "Từ {{date}}",
+        "untilDate": "Đến {{date}}",
+        "scheduleRange": "{{start}} -> {{end}}",
+        "noLink": "Không gắn liên kết"
+      },
+      "positions": {
+        "HERO_HOME": "Banner chính (Hero Home)",
+        "POPUP": "Popup khuyến mãi",
+        "PROMO_STRIP": "Dải ưu đãi (Promo Strip)"
+      },
+      "statuses": {
+        "ACTIVE": "Đang hiển thị",
+        "UPCOMING": "Sắp hiển thị",
+        "EXPIRED": "Đã hết hạn",
+        "DISABLED": "Đang tắt"
+      },
+      "upload": {
+        "dragHint": "Kéo thả ảnh hoặc nhấn để chọn tệp banner",
+        "formatHint": "Hỗ trợ PNG, JPEG, WEBP, tối đa 5 MB (khuyến nghị 16:9).",
+        "replaceHint": "Chọn ảnh mới nếu muốn thay thế ảnh hiện tại",
+        "uploading": "Đang tải ảnh lên Cloudinary...",
+        "removeSelected": "Bỏ ảnh đã chọn",
+        "previewAlt": "Xem trước banner"
+      },
+      "actions": {
+        "edit": "Sửa",
+        "delete": "Xóa",
+        "cancel": "Hủy",
+        "saveCreate": "Tạo banner",
+        "saveUpdate": "Lưu thay đổi"
+      },
+      "validation": {
+        "titleRequired": "Vui lòng nhập tiêu đề banner",
+        "titleMax": "Tiêu đề tối đa 180 ký tự",
+        "positionRequired": "Vui lòng chọn vị trí hiển thị",
+        "orderRequired": "Vui lòng nhập thứ tự hiển thị",
+        "orderMin": "Thứ tự hiển thị phải từ 0 trở lên",
+        "linkInvalid": "Đường dẫn chỉ chấp nhận /nội-bộ hoặc http(s)://...",
+        "endAfterStart": "Thời gian kết thúc phải sau thời gian bắt đầu",
+        "imageRequired": "Vui lòng chọn ảnh banner",
+        "imageTypeInvalid": "Chỉ chấp nhận ảnh PNG, JPEG hoặc WEBP",
+        "imageTooLarge": "Dung lượng ảnh không được vượt quá 5 MB"
+      }
     }
   },
   "ui": {
@@ -847,29 +921,6 @@
     "accountStatusChangedButTheUpdatedDataCould": "Đã đổi trạng thái tài khoản, nhưng chưa tải được dữ liệu mới: {{value1}}",
     "allLoginSessionsForThisAccountWillBe": "Toàn bộ phiên đăng nhập của tài khoản sẽ bị thu hồi.",
     "thisChangeOnlyAffectsTheSelectedAccountUnlocking": "Thay đổi chỉ áp dụng cho tài khoản đã chọn. Mở khóa không thay thế việc kích hoạt và không tự mở bán chi nhánh."
-  },
-  "party": {
-    "title": "Yêu cầu đặt tiệc",
-    "storeId": "Chi nhánh",
-    "guests": "khách",
-    "package": "Gói tiệc",
-    "request": "Yêu cầu",
-    "call": "Gọi",
-    "email": "Email",
-    "quote": "Báo giá",
-    "cash": "Tiền mặt",
-    "transfer": "Chuyển khoản",
-    "lastNote": "Ghi chú tư vấn",
-    "nextStatus": "Bước tiếp theo",
-    "note": "Nội dung liên hệ / tư vấn",
-    "payment": "Phương thức thanh toán",
-    "save": "Lưu cập nhật",
-    "saved": "Đã cập nhật yêu cầu",
-    "refresh": "Tải lại",
-    "loadMore": "Xem thêm yêu cầu",
-    "empty": "Chưa có yêu cầu đặt tiệc",
-    "noteRequired": "Cần ghi chú nội dung liên hệ hoặc lý do thay đổi",
-    "quoteRequired": "Cần nhập báo giá và phương thức thanh toán"
   },
   "system": {
     "notConnected": "Chưa kết nối với hệ thống",

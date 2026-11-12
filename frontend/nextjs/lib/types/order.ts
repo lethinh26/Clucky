@@ -18,8 +18,6 @@ export type ShipmentStatus =
 
 export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED" | "PROCESSING" | "WAITING_BANK_DETAILS";
 
-export type PartyOrderStatus =
-  "NEW" | "CONTACTED" | "QUOTED" | "CONFIRMED" | "CLOSED";
 
 export interface CartItemOption {
   id?: number;
@@ -110,18 +108,6 @@ export interface Order {
   }[];
 }
 
-export interface PartyOrderRequest {
-  customerName: string;
-  customerPhone: string;
-  customerEmail: string;
-  expectedDate: string;
-  expectedTime: string;
-  guestCount: number;
-  storeId: string;
-  storeName: string;
-  notes: string;
-  comboChoice?: string;
-}
 
 export interface RefundRequest {
   id: string;

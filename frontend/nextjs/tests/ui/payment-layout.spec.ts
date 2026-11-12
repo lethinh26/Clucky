@@ -16,6 +16,9 @@ test("payment stays compact while manual details and excess remain accessible", 
   await page.route("https://img.vietqr.io/image/**", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
   await page.goto("http://127.0.0.1:4175/?live-payment");
   await expect(page.getByRole("img")).toBeVisible();
+  await expect(page.getByRole("img")).toHaveAttribute("src", /-qr_only\.svg\?/);
+  expect((await page.getByRole("img").boundingBox())?.width).toBeGreaterThanOrEqual(240);
+  await expect(page.getByRole("button", { name: "Mô phỏng thanh toán thành công" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Sao chép số tài khoản" })).toBeHidden();
   await page.locator("summary").filter({ hasText: "Chuyển khoản thủ công" }).click();
   await expect(page.getByRole("button", { name: "Sao chép số tài khoản" })).toBeVisible();

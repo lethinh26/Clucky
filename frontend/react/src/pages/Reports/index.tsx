@@ -363,7 +363,7 @@ export const ReportsPage: React.FC = () => {
       ),
     },
     {
-      title: t('business:party.store'),
+      title: t('business:stores.store'),
       dataIndex: 'storeId',
       key: 'storeId',
       width: 190,

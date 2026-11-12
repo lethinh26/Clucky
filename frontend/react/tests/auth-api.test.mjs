@@ -34,7 +34,7 @@ function load(handler) {
     if (name === '../i18n/core') return { getBrowserLocale: () => 'vi', getErrorMessage: () => '' };
     throw new Error(`Unexpected import: ${name}`);
   });
-  return { ...exports, requests };
+  return { ...exports, requests, session };
 }
 
 test('concurrent admin 401s refresh once and replay with cookies, never bearer tokens', async () => {
@@ -77,4 +77,41 @@ test('auth and business requests discard stale bearer tokens and use the admin c
     return { status: 200, data: {}, headers: {}, config };
   };
   await app.api.get('/api/orders', { headers: { Authorization: 'Bearer stale' } });
+});
+
+test('403 session bootstrap leaves the admin signed out without an error screen', async () => {
+  const app = load(() => ({ ok: false, status: 403, json: async () => ({ code: 'FORBIDDEN' }) }));
+  assert.equal(await app.authApi.session(), null);
+  assert.equal(app.session.getSessionState().ready, true);
+  assert.equal(app.session.getSessionState().error, null);
+  assert.equal(app.requests.filter(request => request.url === '/api/auth/refresh').length, 1);
+});
+
+test('expired 403s clear the admin session after a single refresh attempt', async () => {
+  let expired = false;
+  const app = load(() => expired ? { ok: false, status: 403, json: async () => ({ code: 'FORBIDDEN' }) } : undefined);
+  await app.authApi.login({ email: 'admin@example.com', password: 'Password1' });
+  expired = true;
+  app.api.defaults.adapter = async config => {
+    throw new axios.AxiosError('forbidden', 'ERR_BAD_REQUEST', config, null, { status: 403, config });
+  };
+  const results = await Promise.allSettled([app.api.get('/api/orders'), app.api.get('/api/users/me')]);
+  assert.ok(results.every(result => result.status === 'rejected'));
+  assert.equal(app.session.getSessionState().user, null);
+  assert.equal(app.session.getSessionState().error, null);
+  assert.equal(app.requests.filter(request => request.url === '/api/auth/refresh').length, 1);
+});
+
+test('a business 403 preserves a valid admin session and does not loop', async () => {
+  const app = load();
+  let attempts = 0;
+  await app.authApi.login({ email: 'admin@example.com', password: 'Password1' });
+  app.api.defaults.adapter = async config => {
+    attempts++;
+    throw new axios.AxiosError('forbidden', 'ERR_BAD_REQUEST', config, null, { status: 403, config });
+  };
+  await assert.rejects(app.api.get('/api/orders'), error => error.response.status === 403);
+  assert.equal(app.session.getSessionState().user.userId, 7);
+  assert.equal(attempts, 2);
+  assert.equal(app.requests.filter(request => request.url === '/api/auth/refresh').length, 0);
 });

@@ -17,6 +17,7 @@ export async function seedOrder(page: Page) {
     userId: 1, role: "CUSTOMER", fullName: "Customer", email: "customer@example.com",
   } }));
   await page.route("**/api/cart", route => route.fulfill({ json: { items: [] } }));
+  await page.route("**/api/reviews/my", route => route.fulfill({ json: [] }));
   await page.route("**/api/orders/**", (route) => {
     const backendOrder = { ...order, id: 901, customerId: 1, storeId: 1, timeline: [] };
     if (route.request().method() === "PUT" && new URL(route.request().url()).pathname.endsWith("/cancel")) {

@@ -364,48 +364,6 @@ export const orderApi = {
     }),
 };
 
-/* ---------- Party Order ---------- */
-export interface CreatePartyOrderPayload {
-  storeId: number;
-  contactName: string;
-  phone: string;
-  contactEmail: string;
-  expectedDate: string;
-  expectedTime: string;
-  guestCount: number;
-  packageCode: string;
-  content: string;
-}
-
-export interface PartyOrderResult {
-  id: number;
-  customerId?: number;
-  storeId: number;
-  contactName: string;
-  phone: string;
-  contactEmail: string;
-  expectedDate: string;
-  expectedTime: string;
-  guestCount: number;
-  packageCode: string;
-  content: string;
-  status: string;
-  quoteAmount?: number | null;
-  paymentMethod?: string | null;
-  consultationNote?: string | null;
-}
-
-export type BackendPartyOrder = PartyOrderResult;
-
-export const partyOrderApi = {
-  create: (payload: CreatePartyOrderPayload) =>
-    request<PartyOrderResult>("/api/party-orders", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-  getMyPartyOrders: (page = 0, size = 20) =>
-    request<PageResponse<PartyOrderResult>>(`/api/party-orders/my?page=${page}&size=${size}`),
-};
 
 /* ---------- Refund Request ---------- */
 export interface RefundResult {
@@ -628,6 +586,11 @@ export const catalogApi = {
 
 /* ---------- Promotions & Loyalty ---------- */
 export const promotionApi = {
+  getActiveBanners: (position?: import("./types/promotion").BannerPosition) => {
+    const query = position ? `?position=${encodeURIComponent(position)}` : "";
+    return request<import("./types/promotion").PromoBanner[]>(`/api/promotions/banners${query}`);
+  },
+
   getAvailableVouchers: () =>
     request<import("./types/promotion").Voucher[]>("/api/promotions/vouchers/available"),
   validateVoucher: (body: {

@@ -19,8 +19,12 @@ flock -w 600 9 || fail 'Another backend deploy is running.'
 docker compose version >/dev/null
 
 compose() {
+  local overrides=()
+  if [[ -f "$ROOT/releases/$RELEASE_ID/images.json" ]]; then
+    overrides=(-f "$ROOT/releases/$RELEASE_ID/images.json")
+  fi
   docker compose --project-name clucky-backend --project-directory "$ROOT/releases/$RELEASE_ID" \
-    --env-file "$ROOT/releases/$RELEASE_ID/runtime.env" -f "$ROOT/releases/$RELEASE_ID/compose.yml" "$@"
+    --env-file "$ROOT/releases/$RELEASE_ID/runtime.env" -f "$ROOT/releases/$RELEASE_ID/compose.yml" "${overrides[@]}" "$@"
 }
 
 if [[ "$ACTION" == apply ]]; then
@@ -32,9 +36,21 @@ if [[ "$ACTION" == apply ]]; then
   (
     cd "$incoming"
     sha256sum --check --strict SHA256SUMS
-    docker load --input backend.tar.gz
+    if [[ -f backend.tar.gz ]]; then docker load --input backend.tar.gz; fi
   )
-  for service in "${SERVICES[@]}"; do docker image inspect "clucky-$service:$RELEASE_ID" >/dev/null; done
+  if [[ -f "$incoming/images.json" ]]; then
+    configuration=$(cat "$incoming/configuration-revision")
+    [[ "$configuration" =~ ^[0-9a-f]{40}$ ]] || fail 'Invalid configuration revision.'
+    [[ ! -L "$ROOT/configs" && ! -L "$ROOT/configs/$configuration" ]] || fail 'Invalid configuration directory.'
+    mkdir -p "$ROOT/configs"
+    if [[ -d "$ROOT/configs/$configuration" ]]; then
+      diff -qr "$incoming/config-repo" "$ROOT/configs/$configuration" >/dev/null || fail 'Configuration revision does not match stored files.'
+    else
+      mv "$incoming/config-repo" "$ROOT/configs/$configuration"
+    fi
+  else
+    for service in "${SERVICES[@]}"; do docker image inspect "clucky-$service:$RELEASE_ID" >/dev/null; done
+  fi
   mv "$incoming" "$ROOT/releases/$RELEASE_ID"
 else
   [[ "${SCHEMA_COMPATIBLE_ROLLBACK:-}" == yes ]] || fail 'Review schema compatibility, then explicitly set SCHEMA_COMPATIBLE_ROLLBACK=yes. No database downgrade is performed.'
@@ -51,16 +67,22 @@ on_failure() {
 trap on_failure ERR
 
 compose config --quiet
+if [[ "$ACTION" == apply && -f "$ROOT/releases/$RELEASE_ID/images.json" ]]; then
+  SECONDS=0
+  compose pull "${SERVICES[@]}"
+  printf 'Backend image pull: %ss\n' "$SECONDS"
+fi
+SECONDS=0
 compose run --rm --no-deps --user 0 --entrypoint chown kafka 1000:1000 /tmp/kraft-combined-logs
 # ponytail: in-place deployment; use blue/green plus compatible migrations when zero downtime is required.
 compose up -d --wait --wait-timeout 240 postgres redis kafka
 backup="$ROOT/backups/$RELEASE_ID-$(date -u +%Y%m%dT%H%M%SZ).dump"
 compose exec -T postgres sh -c 'exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' > "$backup.tmp"
 mv "$backup.tmp" "$backup"
-compose up -d --no-build --pull never --wait --wait-timeout 240 config-server
-compose up -d --no-build --pull never --wait --wait-timeout 240 discovery-server
-compose up -d --no-build --pull never --wait --wait-timeout 360 identity-service catalog-store-service cart-order-service payment-service promotion-loyalty-service shipping-service notification-service review-report-service audit-service
-compose up -d --no-build --pull never --wait --wait-timeout 240 api-gateway
+compose up -d --no-deps --no-build --pull never --wait --wait-timeout 240 config-server
+compose up -d --no-deps --no-build --pull never --wait --wait-timeout 240 discovery-server
+compose up -d --no-deps --no-build --pull never --wait --wait-timeout 360 identity-service catalog-store-service cart-order-service payment-service promotion-loyalty-service shipping-service notification-service review-report-service audit-service
+compose up -d --no-deps --no-build --pull never --wait --wait-timeout 240 api-gateway
 
 registered=false
 for attempt in $(seq 1 60); do
@@ -71,6 +93,7 @@ for attempt in $(seq 1 60); do
   sleep 5
 done
 [[ "$registered" == true ]] || fail 'Not all business services and Gateway registered UP in Eureka.'
+printf 'Backend backup, activation and readiness: %ss\n' "$SECONDS"
 if [[ -L "$ROOT/current" ]]; then
   previous=$(readlink "$ROOT/current")
   [[ "$previous" =~ ^releases/[0-9a-f]{40}-[0-9]+-[0-9]+$ ]] || fail 'Invalid current release link.'

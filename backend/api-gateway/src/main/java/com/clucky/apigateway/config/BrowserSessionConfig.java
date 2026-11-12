@@ -2,7 +2,9 @@ package com.clucky.apigateway.config;
 
 import com.clucky.apigateway.dto.ApiError;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -25,8 +27,8 @@ public class BrowserSessionConfig {
     public BrowserSessionConfig(
             @Value("${clucky.auth.customer-origins}") List<String> customerOrigins,
             @Value("${clucky.auth.admin-origins}") List<String> adminOrigins) {
-        this.customerOrigins = customerOrigins;
-        this.adminOrigins = adminOrigins;
+        this.customerOrigins = customerOrigins.stream().map(BrowserSessionConfig::normalizeOrigin).toList();
+        this.adminOrigins = adminOrigins.stream().map(BrowserSessionConfig::normalizeOrigin).toList();
     }
 
     @Bean
@@ -69,10 +71,12 @@ public class BrowserSessionConfig {
             boolean cookieMutation = !SAFE_METHODS.contains(request.getMethod().name())
                     && request.getCookies().keySet().stream().anyMatch(name -> name.startsWith("clucky_"));
             String origin = request.getHeaders().getOrigin();
+            if (origin == null) origin = refererOrigin(request.getHeaders().getFirst(HttpHeaders.REFERER));
             boolean invalidClient = client != null && !Set.of("customer", "admin").contains(client);
-            boolean invalidOrigin = origin == null || !(admin ? adminOrigins : customerOrigins).contains(origin);
+            boolean invalidOrigin = origin == null || !(admin ? adminOrigins : customerOrigins).contains(normalizeOrigin(origin));
             if (invalidClient || ((authMutation || cookieMutation || (client != null && origin != null))
                     && invalidOrigin)) {
+                exchange.getAttributes().put(CorrelationIdFilter.ERROR_CODE, "FORBIDDEN");
                 exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
                 exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
                 byte[] body;
@@ -91,5 +95,23 @@ public class BrowserSessionConfig {
             }).build();
             return chain.filter(exchange.mutate().request(forwarded).build());
         };
+    }
+
+    private static String normalizeOrigin(String origin) {
+        return origin.strip().toLowerCase(Locale.ROOT).replaceAll("/+$", "");
+    }
+
+    private static String refererOrigin(String referer) {
+        if (referer == null) return null;
+        try {
+            URI uri = URI.create(referer);
+            if (uri.getHost() == null || uri.getUserInfo() != null
+                    || !("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))) {
+                return null;
+            }
+            return uri.getScheme() + "://" + uri.getRawAuthority();
+        } catch (IllegalArgumentException failure) {
+            return null;
+        }
     }
 }
