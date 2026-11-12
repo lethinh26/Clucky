@@ -2,6 +2,7 @@ package com.clucky.catalogstoreservice.exception;
 
 @javax.annotation.processing.Generated("scripts/generate-errors.mjs")
 public enum ErrorCode {
+    INVALID_REQUEST(400, "The request is invalid."),
     VALIDATION_ERROR(400, "The submitted information is invalid."),
     UNAUTHENTICATED(401, "Please sign in to continue."),
     FORBIDDEN(403, "You do not have permission to perform this action."),

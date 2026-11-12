@@ -1,4 +1,5 @@
 {
+  "INVALID_REQUEST": "Yêu cầu không hợp lệ.",
   "VALIDATION_ERROR": "Thông tin nhập chưa hợp lệ.",
   "UNAUTHENTICATED": "Vui lòng đăng nhập để tiếp tục.",
   "FORBIDDEN": "Bạn không có quyền thực hiện thao tác này.",

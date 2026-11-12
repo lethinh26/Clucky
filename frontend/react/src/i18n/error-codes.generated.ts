@@ -1,5 +1,8 @@
 export const generatedBy = "scripts/generate-errors.mjs";
 export const errorCatalog = {
+  "INVALID_REQUEST": {
+    "httpStatus": 400
+  },
   "VALIDATION_ERROR": {
     "httpStatus": 400
   },

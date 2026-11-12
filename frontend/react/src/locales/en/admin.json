@@ -137,6 +137,10 @@
     "statuses": {
       "ACTIVE": "Active",
       "LOCKED": "Locked"
-    }
+    },
+    "orderHistoryError": "Unable to load order history.",
+    "orderCode": "Order code",
+    "totalAmount": "Total amount",
+    "orderType": "Order type"
   }
 }

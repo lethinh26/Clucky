@@ -137,6 +137,10 @@
     "statuses": {
       "ACTIVE": "Hoạt động",
       "LOCKED": "Đã khóa"
-    }
+    },
+    "orderHistoryError": "Không thể tải lịch sử đơn hàng.",
+    "orderCode": "Mã đơn",
+    "totalAmount": "Tổng tiền",
+    "orderType": "Loại đơn"
   }
 }
