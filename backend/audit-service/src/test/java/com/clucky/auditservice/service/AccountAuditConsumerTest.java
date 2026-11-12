@@ -1,5 +1,6 @@
 package com.clucky.auditservice.service;
 
+import com.clucky.auditservice.mapper.AuditMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +33,7 @@ class AccountAuditConsumerTest {
         objectMapper = new ObjectMapper();
         jdbcTemplate = mock(JdbcTemplate.class);
         acknowledgment = mock(Acknowledgment.class);
-        consumer = new AccountAuditConsumer(objectMapper, jdbcTemplate);
+        consumer = new AccountAuditConsumer(objectMapper, jdbcTemplate, new AuditMapper());
     }
 
     @Test
@@ -132,8 +133,8 @@ class AccountAuditConsumerTest {
     }
 
     @Test
-    @DisplayName("AC-08: Untrusted or unknown sourceService is safely ignored and acknowledged without DB write")
-    void untrustedSourceServiceIgnoredAndAcknowledged() {
+    @DisplayName("AC-08: Untrusted sourceService fails for retry/DLT without DB write")
+    void untrustedSourceServiceRejectedWithoutAcknowledgment() {
         String eventJson = """
             {
               "eventId": "evt-hack-123",
@@ -151,10 +152,12 @@ class AccountAuditConsumerTest {
             }
             """;
 
-        consumer.receive(eventJson, acknowledgment);
+        assertThatThrownBy(() -> consumer.receive(eventJson, acknowledgment))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid audit event");
 
         verifyNoInteractions(jdbcTemplate);
-        verify(acknowledgment, times(1)).acknowledge();
+        verify(acknowledgment, never()).acknowledge();
     }
 
     @Test
@@ -225,6 +228,7 @@ class AccountAuditConsumerTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
+        "null", "[]", "{}",
         // Missing or invalid eventId
         """
         {"eventId":"","correlationId":"c1","eventType":"audit.recorded","sourceService":"identity-service","occurredAt":"2026-11-12T02:00:00Z","payload":{"actorId":1,"actorRole":"ADMIN","action":"TEST","targetType":"User","targetId":1}}
@@ -253,8 +257,8 @@ class AccountAuditConsumerTest {
     @DisplayName("AC-08: Malformed or unvalidated events fail schema check and trigger retry/DLQ (not fail-open)")
     void malformedEventsThrowExceptionForRetryOrDlq(String malformedJson) {
         assertThatThrownBy(() -> consumer.receive(malformedJson, acknowledgment))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Audit persistence pending");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid audit event");
 
         verifyNoInteractions(jdbcTemplate);
         verify(acknowledgment, never()).acknowledge();

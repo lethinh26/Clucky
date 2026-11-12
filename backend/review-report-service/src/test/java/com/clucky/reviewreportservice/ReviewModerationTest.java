@@ -185,7 +185,9 @@ class ReviewModerationTest {
         assertFalse(event.path("correlationId").asText().isBlank());
         assertEquals("audit.recorded", event.path("eventType").asText());
         assertEquals(2L, event.path("payload").path("storeId").asLong());
-        assertEquals("HIDDEN", event.path("payload").path("after").path("status").asText());
+        assertEquals("HIDDEN", event.path("payload").path("detail").path("after").path("status").asText());
+        assertFalse(event.path("payload").has("before"));
+        assertFalse(event.path("payload").has("after"));
         when(jdbc.update(anyString(), anyString(), anyString())).thenThrow(new IllegalStateException("Database unavailable"));
         assertThrows(IllegalStateException.class,
                 () -> outbox.record(actor, 2L, "HIDE_REVIEW", 1L, Map.of(), Map.of("status", "HIDDEN")));
