@@ -26,6 +26,7 @@ export interface AdminOrderItem {
 export interface AdminOrder {
   id: string;
   orderCode: string;
+  queueNumber?: number;
   customerName: string;
   customerPhone: string;
   storeId: string;

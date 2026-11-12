@@ -1,5 +1,12 @@
 {
-  "paymentStates": { "PENDING": "Chờ thanh toán", "PAID": "Đã thanh toán", "COLLECTED": "Đã thu", "REFUNDED": "Đã hoàn tiền", "FAILED": "Thanh toán thất bại", "UNKNOWN": "Chưa xác minh thanh toán" },
+  "paymentStates": {
+    "PENDING": "Chờ thanh toán",
+    "PAID": "Đã thanh toán",
+    "COLLECTED": "Đã thu",
+    "REFUNDED": "Đã hoàn tiền",
+    "FAILED": "Thanh toán thất bại",
+    "UNKNOWN": "Chưa xác minh thanh toán"
+  },
   "integrationUnavailable": "Chưa tích hợp dữ liệu và thao tác thực. Tính năng tạm khóa; không hiển thị dữ liệu mẫu hoặc ghi nhận thành công cục bộ.",
   "collectionUnavailable": "Chưa có nghiệp vụ ghi nhận thu tiền thực. Không thể thu COD hoặc hoàn tất đơn chưa có bằng chứng thanh toán.",
   "nav": {
@@ -16,14 +23,18 @@
     "audit": "Nhật ký Quản trị",
     "reports": "Báo cáo & Thống kê",
     "payments": "Thanh toán & Đối soát",
-    "promotions": "Quản lý Khuyến mãi & Voucher"
+    "promotions": "Quản lý Khuyến mãi & Voucher",
+    "partyOrders": "Yêu cầu đặt tiệc",
+    "transfers": "Sổ Quỹ & Két Ca Trực"
   },
   "breadcrumb": {
     "catalog": "Thực đơn & Combo",
     "stores": "Hệ thống Chi nhánh",
     "reviews": "Đánh giá & Phản hồi",
     "users": "Tài khoản Chi nhánh",
-    "promotions": "Khuyến mãi & Voucher"
+    "promotions": "Khuyến mãi & Voucher",
+    "orders": "Quản lý Đơn hàng",
+    "transfers": "Sổ Quỹ Chi Nhánh"
   },
   "roles": {
     "hqAdmin": "Quản trị viên HQ",
@@ -375,6 +386,8 @@
     "theOrderIdInTheUrlIsInvalid": "Mã đơn trên URL không hợp lệ.",
     "searchOrderId": "Tìm mã đơn",
     "searchByOrderId": "Tìm theo mã đơn hàng",
+    "searchQueueNumber": "Số thứ tự theo ngày (VD: 1 hoặc #001)",
+    "queueNumberCol": "Số thứ tự (Ngày)",
     "filterOrderStatus": "Lọc trạng thái đơn",
     "noOrdersMatchYourFilters": "Không có đơn hàng phù hợp bộ lọc",
     "noPhoneNumberProvided": "Chưa có số điện thoại",
@@ -776,5 +789,37 @@
     "accountStatusChangedButTheUpdatedDataCould": "Đã đổi trạng thái tài khoản, nhưng chưa tải được dữ liệu mới: {{value1}}",
     "allLoginSessionsForThisAccountWillBe": "Toàn bộ phiên đăng nhập của tài khoản sẽ bị thu hồi.",
     "thisChangeOnlyAffectsTheSelectedAccountUnlocking": "Thay đổi chỉ áp dụng cho tài khoản đã chọn. Mở khóa không thay thế việc kích hoạt và không tự mở bán chi nhánh."
+  },
+  "party": {
+    "title": "Yêu cầu đặt tiệc",
+    "storeId": "Chi nhánh",
+    "guests": "khách",
+    "package": "Gói tiệc",
+    "request": "Yêu cầu",
+    "call": "Gọi",
+    "email": "Email",
+    "quote": "Báo giá",
+    "cash": "Tiền mặt",
+    "transfer": "Chuyển khoản",
+    "lastNote": "Ghi chú tư vấn",
+    "nextStatus": "Bước tiếp theo",
+    "note": "Nội dung liên hệ / tư vấn",
+    "payment": "Phương thức thanh toán",
+    "save": "Lưu cập nhật",
+    "saved": "Đã cập nhật yêu cầu",
+    "refresh": "Tải lại",
+    "loadMore": "Xem thêm yêu cầu",
+    "empty": "Chưa có yêu cầu đặt tiệc",
+    "noteRequired": "Cần ghi chú nội dung liên hệ hoặc lý do thay đổi",
+    "quoteRequired": "Cần nhập báo giá và phương thức thanh toán"
+  },
+  "system": {
+    "notConnected": "Chưa kết nối với hệ thống",
+    "retry": "Thử lại",
+    "emptyOrders": "Chưa có đơn hàng nào tại chi nhánh",
+    "soundEnabled": "Chuông báo: BẬT",
+    "soundDisabled": "Chuông báo: TẮT",
+    "refresh": "Làm mới dữ liệu",
+    "refreshed": "Đã đồng bộ dữ liệu mới nhất"
   }
 }

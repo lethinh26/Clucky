@@ -58,6 +58,7 @@
   "distanceAway": "~ cách {distance} km",
   "distanceUnavailable": "Chưa xác định khoảng cách",
   "defaultAddressOrigin": "Từ địa chỉ mặc định",
+  "deliveryPinRequired": "Chọn địa chỉ có ghim trên bản đồ để tính phí giao hàng.",
   "currentLocationOrigin": "Từ vị trí hiện tại",
   "storesLoading": "Đang tải chi nhánh…",
   "branches": "chi nhánh",

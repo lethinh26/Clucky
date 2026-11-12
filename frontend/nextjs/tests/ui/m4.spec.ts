@@ -317,7 +317,7 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   } }));
   const qr = page.getByRole("img", { name: `VietQR thanh toán đơn ${paymentReference}` });
   await page.setViewportSize({ width: 375, height: 900 });
-  await page.route("https://vietqr.app/img?*", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
+  await page.route("https://img.vietqr.io/image/**", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/></svg>' }));
   await page.goto(customer + "/orders/901");
   await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toHaveCount(0);
   await expect(
@@ -332,11 +332,10 @@ test("order detail keeps main order flow and integrates payment/shipment widgets
   await expect(page.getByText("Đã tạo phiếu giao", { exact: true })).toHaveCount(0);
   await expect(qr).toBeVisible();
   const qrUrl = new URL((await qr.getAttribute("src"))!);
-  expect(qrUrl.origin + qrUrl.pathname).toBe("https://vietqr.app/img");
+  expect(qrUrl.origin + qrUrl.pathname).toBe(`https://img.vietqr.io/image/${bankInfo.bankCode}-${bankInfo.accountNo}-compact2.png`);
   expect(qrUrl.searchParams.get("amount")).toBe("262000");
-  expect(qrUrl.searchParams.get("des")).toBe(paymentReference);
-  expect(qrUrl.searchParams.get("acc")).toBe(bankInfo.accountNo);
-  expect(qrUrl.searchParams.get("bank")).toBe(bankInfo.bankCode);
+  expect(qrUrl.searchParams.get("addInfo")).toBe(paymentReference);
+  expect(qrUrl.searchParams.get("accountName")).toBe(bankInfo.accountName);
   await expect(page.getByText("Phí giao hàng", { exact: true })).toHaveCount(1);
   await expect(page.getByRole("region", { name: "Điều khiển tiến trình đơn hàng" })).not.toBeVisible();
   await expectNoOverflow(page);

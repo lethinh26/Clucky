@@ -22,3 +22,5 @@ dependencies {
 
 bootJar { archiveFileName = 'cart-order-service-0.1.0-SNAPSHOT.jar' }
 jar { enabled = false }
+
+sourceSets.test.java.srcDir('../../tests/order-payment/cart-order-service')

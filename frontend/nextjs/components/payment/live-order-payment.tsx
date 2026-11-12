@@ -31,6 +31,8 @@ export function LiveOrderPayment({ orderId, pending, available, storeName }: {
   const session = useSession();
   const [result, setResult] = useState<{ payment: Payment; revision: number } | null>(null);
   const [error, setError] = useState("");
+  const [simulationError, setSimulationError] = useState("");
+  const [simulating, setSimulating] = useState(false);
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
@@ -77,6 +79,21 @@ export function LiveOrderPayment({ orderId, pending, available, storeName }: {
   const hasExcess = payment && BigInt(payment.excessAmount) > BigInt(0);
   const hasReceived = payment && BigInt(payment.receivedAmount) > BigInt(0);
   const needsReview = hasExcess || hasReceived && (status === "EXPIRED" || status === "CANCELLED");
+  const canSimulate = process.env.NEXT_PUBLIC_PAYMENT_SIMULATION_ENABLED === "true"
+    && transferable && !hasReceived && !payment?.confirmationPending && !simulating;
+
+  const simulate = async () => {
+    setSimulating(true);
+    setSimulationError("");
+    try {
+      const confirmed = await request<Payment>(`/api/payments/${orderId}/simulate-bank-transfer`, { method: "POST" });
+      setResult({ payment: confirmed, revision: session.revision });
+    } catch (failure) {
+      setSimulationError(getErrorMessage(failure));
+    } finally {
+      setSimulating(false);
+    }
+  };
 
   return <section className={`${styles.paymentScope} ${styles.livePayment}`} aria-label={t("title")}>
     {error ? <div role="alert" className={styles.paymentError}><p>{error}</p><p>{t("noTransferOnError")}</p>
@@ -94,6 +111,12 @@ export function LiveOrderPayment({ orderId, pending, available, storeName }: {
       {transferable && hasReceived && <p className={styles.paymentHint} role="status">{t("partialReceived", { received: money(payment.receivedAmount), total: money(payment.amount) })}</p>}
       {transferable && payment.reference && payment.expiresAt && payment.bankInfo && <PaymentWidget orderCode={payment.reference} amount={missing} expiresAt={payment.expiresAt}
         bankInfo={payment.bankInfo} status="PENDING" storeName={storeName} embedded />}
+      {canSimulate && <div className={styles.paymentHint}>
+        <p>{t("localSimulationNotice")}</p>
+        <button type="button" className={styles.retryButton} onClick={() => void simulate()}>{t("simulateSuccess")}</button>
+      </div>}
+      {simulating && <p role="status" className={styles.paymentHint}>{t("simulating")}</p>}
+      {simulationError && <p role="alert" className={styles.paymentError}>{simulationError}</p>}
       {needsReview && <div className={styles.paymentReview} role="status">
         {hasExcess && <strong>{t("excess")}: {money(payment.excessAmount)}</strong>}
         <p>{t("refundUnavailable")}</p>

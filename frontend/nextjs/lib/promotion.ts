@@ -26,48 +26,48 @@ export {
 export function getLoyaltyTierConfig(locale: Locale = getBrowserLocale()): Record<LoyaltyTier, LoyaltyTierInfo> {
   const t = getTranslator(locale);
   return {
-  MEMBER: {
-    tier: 'MEMBER',
-    label: t("business.promotionUi.memberLabel"),
-    minPoints: 0,
-    discountPercent: 0,
-    badgeColor: '#A16207', // Warm Bronze / Amber
-    benefits: [
-      t("business.promotionUi.earnBenefit"),
-      t("business.promotionUi.redeemBenefit"),
-      t("business.promotionUi.weeklyBenefit"),
-    ],
-    nextTier: 'SILVER',
-    nextTierPoints: 1000,
-  },
-  SILVER: {
-    tier: 'SILVER',
-    label: t("business.promotionUi.silverLabel"),
-    minPoints: 1000,
-    discountPercent: 3,
-    badgeColor: '#64748B', // Silver slate
-    benefits: [
-      t("business.promotionUi.silverBill"),
-      t("business.promotionUi.birthdayBenefit"),
-      t("business.promotionUi.priorityBenefit"),
-    ],
-    nextTier: 'GOLD',
-    nextTierPoints: 5000,
-  },
-  GOLD: {
-    tier: 'GOLD',
-    label: t("business.promotionUi.goldLabel"),
-    minPoints: 5000,
-    discountPercent: 5,
-    badgeColor: '#D97706', // Radiant Gold
-    benefits: [
-      t("business.promotionUi.goldBill"),
-      t("business.promotionUi.supportBenefit"),
-      t("business.promotionUi.giftBenefit"),
-    ],
-    nextTier: null,
-    nextTierPoints: null,
-  },
+    MEMBER: {
+      tier: 'MEMBER',
+      label: t("business.promotionUi.memberLabel"),
+      minPoints: 0,
+      discountPercent: 0,
+      badgeColor: '#A16207',
+      benefits: [
+        t("business.promotionUi.earnBenefit"),
+        t("business.promotionUi.redeemBenefit"),
+        t("business.promotionUi.weeklyBenefit"),
+      ],
+      nextTier: 'SILVER',
+      nextTierPoints: 1000,
+    },
+    SILVER: {
+      tier: 'SILVER',
+      label: t("business.promotionUi.silverLabel"),
+      minPoints: 1000,
+      discountPercent: 3,
+      badgeColor: '#64748B',
+      benefits: [
+        t("business.promotionUi.silverBill"),
+        t("business.promotionUi.birthdayBenefit"),
+        t("business.promotionUi.priorityBenefit"),
+      ],
+      nextTier: 'GOLD',
+      nextTierPoints: 5000,
+    },
+    GOLD: {
+      tier: 'GOLD',
+      label: t("business.promotionUi.goldLabel"),
+      minPoints: 5000,
+      discountPercent: 5,
+      badgeColor: '#D97706',
+      benefits: [
+        t("business.promotionUi.goldBill"),
+        t("business.promotionUi.supportBenefit"),
+        t("business.promotionUi.giftBenefit"),
+      ],
+      nextTier: null,
+      nextTierPoints: null,
+    },
   };
 }
 
@@ -278,8 +278,13 @@ export function calculateTierProgress(pointsInput: number, locale: Locale = getB
 }
 
 export async function fetchAvailableVouchers(): Promise<Voucher[]> {
-  const { default: request } = await import("./api");
-  return request<Voucher[]>("/api/promotions/vouchers/available");
+  try {
+    const { default: request } = await import("./api");
+    const data = await request<Voucher[]>("/api/promotions/vouchers/available");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 export interface MyLoyaltyResponse {
@@ -292,12 +297,31 @@ export async function fetchMyLoyalty(): Promise<MyLoyaltyResponse> {
   const { default: request } = await import("./api");
   const { loadSession } = await import("./session");
   const user = await loadSession();
-  if (!user) return {
-    points: { customerId: '', totalPoints: 0, tier: 'MEMBER' },
-    transactions: [], isGuest: true,
-  };
-  const data = await request<{ points: MemberPoints; transactions: PointTransaction[] }>("/api/loyalty/me");
-  return { ...data, isGuest: false };
+  if (!user) {
+    return {
+      points: { customerId: '', totalPoints: 0, tier: 'MEMBER' },
+      transactions: [],
+      isGuest: true,
+    };
+  }
+  try {
+    const data = await request<{ points?: MemberPoints; transactions?: PointTransaction[]; totalPoints?: number; tier?: LoyaltyTier }>("/api/loyalty/me");
+    return {
+      points: data.points ?? {
+        customerId: String(user.userId),
+        totalPoints: Number(data.totalPoints) || 0,
+        tier: data.tier ?? 'MEMBER',
+      },
+      transactions: Array.isArray(data.transactions) ? data.transactions : [],
+      isGuest: false,
+    };
+  } catch {
+    return {
+      points: { customerId: String(user.userId), totalPoints: 0, tier: 'MEMBER' },
+      transactions: [],
+      isGuest: false,
+    };
+  }
 }
 
 export function calculateEarnPoints(amount: number, earnRate = 10000): number {
@@ -309,4 +333,3 @@ export function calculatePointsDiscount(points: number, redeemRate = 1000): numb
   const safePoints = Math.max(0, Math.floor(Number(points) || 0));
   return safePoints * redeemRate;
 }
-

@@ -2,9 +2,19 @@ import i18n from "../../i18n/index.ts";
 import { useEffect, useId, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { useTranslation } from "react-i18next";
-import { BankOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  BankOutlined,
+  CheckCircleOutlined,
+  CompressOutlined,
+  CopyOutlined,
+  DollarCircleOutlined,
+  ExpandAltOutlined,
+  QrcodeOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import { Alert, Button, Checkbox, Descriptions, Empty, Form, Input, InputNumber, Modal, Select, Space, Spin, Table, Tag } from "antd";
-import { getErrorMessage, type Store } from "../../lib/api";
+import { message } from "../../components/feedback";
+import { getErrorMessage, paymentsApi, type BackendCounterReceipt, type Store } from "../../lib/api";
 import { adminFinance, canAdopt, canCollect, collectionBody, collectionState, financeOperation, reconciliationBody, receiptSelectionIssue,
   type CollectionInput, type FinanceOperation, type PaymentSnapshot, type Receipt, type ReceiptConflict } from "../../lib/admin-finance";
 import { useLocaleTools } from "../../i18n/hooks";
@@ -25,6 +35,8 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
   const { money, locale } = useLocaleTools();
   const { t } = useTranslation('payments');
   const [snapshot, setSnapshot] = useState<PaymentSnapshot | null>(null);
+  const [counterReceipt, setCounterReceipt] = useState<BackendCounterReceipt | null>(null);
+  const [qrExpanded, setQrExpanded] = useState(false);
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,13 +69,19 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
     if (action) return;
     const controller = new AbortController();
     setLoading(true); setError("");
-    void adminFinance.snapshot(orderId, controller.signal).then(data => {
+    void adminFinance.snapshot(orderId, controller.signal).then(async data => {
       if (controller.signal.aborted) return;
       const state = JSON.stringify([data.order.version, data.order.paymentStatus, data.collection?.status, data.collection?.version]);
       if (lastState.current && lastState.current !== state) changed.current();
       lastState.current = state;
       setSnapshot(data);
-    }).catch(failure => { if (!controller.signal.aborted) { setSnapshot(null); setError(getErrorMessage(failure)); } })
+      const posReceipt = await paymentsApi
+        .getReceiptByOrderCode(data.order.orderCode, controller.signal)
+        .catch(() => null);
+      if (!controller.signal.aborted) {
+        setCounterReceipt(posReceipt);
+      }
+    }).catch(failure => { if (!controller.signal.aborted) { setSnapshot(null); setCounterReceipt(null); setError(getErrorMessage(failure)); } })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [orderId, revision, action]);
@@ -143,6 +161,160 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
   ] : [];
   const selectionIssue = receipt && snapshot ? receiptSelectionIssue(receipt, snapshot.order) : '';
 
+  const orderMethod = (counterReceipt?.method || snapshot?.order.paymentMethod || "").toUpperCase();
+  const isPaidOrCollected =
+    ["PAID", "COLLECTED"].includes((snapshot?.order.paymentStatus ?? "").toUpperCase()) ||
+    counterReceipt?.status === "RECONCILED";
+  const isCashOrder =
+    ["CASH", "COD", "SPLIT"].includes(orderMethod) ||
+    (collection?.cash_amount ?? 0) > 0 ||
+    (counterReceipt?.cashAmount ?? 0) > 0;
+  const isQrOrder =
+    ["BANK_TRANSFER", "VIETQR", "SPLIT"].includes(orderMethod) ||
+    (collection?.transfer_amount ?? 0) > 0 ||
+    (counterReceipt?.bankAmountDeclared ?? 0) > 0 ||
+    (snapshot?.payments.some(p => p.method === "BANK_TRANSFER") ?? false);
+
+  const cashAmountDue = counterReceipt
+    ? counterReceipt.cashAmount
+    : collection && collection.cash_amount > 0
+      ? collection.cash_amount
+      : snapshot?.order.amount ?? 0;
+  const cashCollectedActual = counterReceipt
+    ? counterReceipt.cashAmount
+    : collection
+      ? collection.cash_amount
+      : isPaidOrCollected
+        ? (snapshot?.order.amount ?? 0)
+        : 0;
+  const cashTenderedVal = counterReceipt
+    ? counterReceipt.cashTendered
+    : collection && collection.cash_tendered > 0
+      ? collection.cash_tendered
+      : isPaidOrCollected
+        ? cashCollectedActual
+        : 0;
+  const cashChangeVal = counterReceipt
+    ? counterReceipt.cashChange
+    : collection
+      ? collection.cash_change
+      : Math.max(0, cashTenderedVal - cashCollectedActual);
+  const roundingDiffVal = counterReceipt?.roundingDifference ?? 0;
+
+  const bankPayment =
+    snapshot?.payments.find(p => p.method === "BANK_TRANSFER" && p.live_payment) ??
+    snapshot?.payments.find(p => p.method === "BANK_TRANSFER");
+  const qrAmountDue =
+    counterReceipt && counterReceipt.bankAmountDeclared > 0
+      ? counterReceipt.bankAmountDeclared
+      : collection && collection.transfer_amount > 0
+        ? collection.transfer_amount
+        : bankPayment?.amount ?? snapshot?.order.amount ?? 0;
+  const qrReconciledAmount =
+    counterReceipt && counterReceipt.bankAmountReconciled > 0
+      ? counterReceipt.bankAmountReconciled
+      : collection && collection.bankEvidence > 0
+        ? collection.bankEvidence
+        : bankPayment && bankPayment.received_amount > 0
+          ? bankPayment.received_amount
+          : isPaidOrCollected && !isCashOrder
+            ? qrAmountDue
+            : 0;
+  const bankCode = bankPayment?.bank_code || "MB";
+  const bankName = bankPayment?.bank_name || t("business:financeModal.defaultBankName");
+  const accountNo = bankPayment?.account_no || "0387654321";
+  const accountName = bankPayment?.account_name || "CLUCKY FAST FOOD";
+  const transferRef =
+    counterReceipt?.bankRefCode ||
+    bankPayment?.transfer_content ||
+    snapshot?.order.orderCode ||
+    "";
+  const qrImageUrl = snapshot
+    ? `https://img.vietqr.io/image/${encodeURIComponent(bankCode)}-${encodeURIComponent(accountNo)}-compact2.png?amount=${qrAmountDue}&addInfo=${encodeURIComponent(transferRef)}&accountName=${encodeURIComponent(accountName)}`
+    : "";
+
+  const displayTransactions = snapshot
+    ? [
+        ...snapshot.payments.map(payment => ({
+          key: `payment-${payment.id}`,
+          code: `#${payment.id}`,
+          subtitle: payment.transfer_content
+            ? t("business:financeModal.txTransferContent", { ref: payment.transfer_content })
+            : payment.live_payment
+              ? t("admin:ui.current")
+              : t("admin:ui.legacyData"),
+          method: payment.method,
+          detailText: payment.account_no
+            ? `${payment.bank_code || payment.bank_name || t("business:paymentwidget.bank")} · ${payment.account_no}`
+            : t("business:financeModal.txRequestedAmount", { amount: money(payment.amount) }),
+          status: payment.status,
+          amount:
+            payment.received_amount > 0
+              ? payment.received_amount
+              : ["PAID", "COLLECTED"].includes(payment.status)
+                ? payment.amount
+                : payment.received_amount,
+        })),
+        ...(counterReceipt
+          ? [
+              {
+                key: `receipt-${counterReceipt.id}`,
+                code: counterReceipt.receiptCode,
+                subtitle: t("business:financeModal.txCashier", {
+                  staff: counterReceipt.staffName || t("business:orderdetaildrawer.counterPickup"),
+                  time: orderDate(counterReceipt.createdAt, locale),
+                }),
+                method: counterReceipt.method,
+                detailText:
+                  counterReceipt.method === "CASH"
+                    ? t("business:financeModal.txCashDetail", {
+                        tendered: money(counterReceipt.cashTendered),
+                        change: money(counterReceipt.cashChange),
+                      })
+                    : counterReceipt.method === "BANK_TRANSFER"
+                      ? t("business:financeModal.txQrRef", {
+                          ref: counterReceipt.bankRefCode || snapshot.order.orderCode,
+                        })
+                      : t("business:financeModal.txSplitDetail", {
+                          cash: money(counterReceipt.cashAmount),
+                          tendered: money(counterReceipt.cashTendered),
+                          change: money(counterReceipt.cashChange),
+                          qr: money(counterReceipt.bankAmountDeclared),
+                        }),
+                status:
+                  counterReceipt.status === "RECONCILED"
+                    ? "COLLECTED"
+                    : counterReceipt.status === "VOIDED"
+                      ? "FAILED"
+                      : snapshot.order.paymentStatus,
+                amount:
+                  counterReceipt.cashAmount +
+                  (counterReceipt.bankAmountReconciled > 0
+                    ? counterReceipt.bankAmountReconciled
+                    : counterReceipt.bankAmountDeclared),
+              },
+            ]
+          : snapshot.payments.length === 0 && (collection || isPaidOrCollected)
+            ? [
+                {
+                  key: `cod-${snapshot.order.orderId}`,
+                  code: `COD-${snapshot.order.orderCode}`,
+                  subtitle: collection
+                    ? t("business:financeModal.txReceiptVersion", { version: collection.version })
+                    : t("business:financeModal.txCodSubtitle"),
+                  method: snapshot.order.paymentMethod,
+                  detailText: t("business:financeModal.txCashDetail", {
+                    tendered: money(cashTenderedVal),
+                    change: money(cashChangeVal),
+                  }),
+                  status: snapshot.order.paymentStatus,
+                  amount: cashCollectedActual,
+                },
+              ]
+            : []),
+      ]
+    : [];
+
   return <Modal open centered className="admin-finance-modal" footer={null} width={900} zIndex={1100}
     title={<div className="order-drawer-title"><div><small>{t("admin:ui.financeRefunds429")}</small>
     <strong>{snapshot?.order.orderCode ?? t("business:reviews.orderNumber", { value1: orderId })}</strong></div></div>} onCancel={() => { if (!submitting.current && !uncertain) onClose(); }}
@@ -158,10 +330,180 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
           <Space wrap><Tag>{orderLabels[snapshot.order.status] ?? snapshot.order.status}</Tag><Tag color={paymentColor(snapshot.order.paymentStatus)}>{paymentLabels[snapshot.order.paymentStatus] ?? snapshot.order.paymentStatus}</Tag></Space></div>
         <Descriptions column={{ xs: 1, sm: 2 }} layout="vertical" size="small" colon={false} items={[
           { key: "store", label: t("business:party.store"), children: stores.find(store => store.id === snapshot.order.storeId)?.name ?? t("business:reviews.storeNumber", { value1: snapshot.order.storeId }) },
-          { key: "method", label: t("admin:ui.orderPaymentMethod"), children: paymentMethodLabel(snapshot.order.paymentMethod) },
+          { key: "method", label: t("admin:ui.orderPaymentMethod"), children: paymentMethodLabel(counterReceipt?.method || snapshot.order.paymentMethod) },
           ...(snapshot.order.expiresAt ? [{ key: "expiry", label: t("admin:ui.paymentDeadlineVietnamTime"), children: orderDate(snapshot.order.expiresAt, locale) }] : []),
         ]} />
         </section>
+
+        {isCashOrder && (
+          <section className="order-section finance-method-card">
+            <div className="order-section-heading">
+              <h3>
+                <DollarCircleOutlined /> {t("business:financeModal.cashCodSectionTitle")}
+              </h3>
+              <Tag color={isPaidOrCollected ? "green" : "gold"}>
+                {isPaidOrCollected
+                  ? t("business:financeModal.cashCollectedBadge")
+                  : t("business:financeModal.cashPendingBadge")}
+              </Tag>
+            </div>
+            <div className="finance-cod-grid">
+              <div className="finance-cod-stat">
+                <span>{t("business:financeModal.amountDue")}</span>
+                <strong>{money(cashAmountDue)}</strong>
+              </div>
+              <div className="finance-cod-stat">
+                <span>{t("business:financeModal.cashCollectedActual")}</span>
+                <strong className={isPaidOrCollected ? "finance-stat-positive" : ""}>
+                  {money(cashCollectedActual)}
+                </strong>
+              </div>
+              <div className="finance-cod-stat">
+                <span>{t("business:financeModal.cashTendered")}</span>
+                <strong>{money(cashTenderedVal)}</strong>
+              </div>
+              <div className="finance-cod-stat finance-cod-stat-highlight">
+                <span>{t("business:financeModal.cashChange")}</span>
+                <strong>{money(cashChangeVal)}</strong>
+              </div>
+            </div>
+            <Descriptions
+              column={{ xs: 1, sm: 3 }}
+              size="small"
+              style={{ marginTop: 14 }}
+              items={[
+                {
+                  key: "receiptCode",
+                  label: t("business:financeModal.receiptCodeLabel"),
+                  children:
+                    counterReceipt?.receiptCode ||
+                    (isPaidOrCollected ? `COD-${snapshot.order.orderCode}` : t("business:financeModal.notIssuedYet")),
+                },
+                {
+                  key: "staff",
+                  label: t("business:financeModal.staffConfirmLabel"),
+                  children:
+                    counterReceipt?.staffName ||
+                    (isPaidOrCollected
+                      ? t("business:financeModal.defaultStaffConfirm")
+                      : t("business:financeModal.notRecordedYet")),
+                },
+                {
+                  key: "rounding",
+                  label: t("business:financeModal.roundingDiffLabel"),
+                  children: money(roundingDiffVal),
+                },
+                ...(counterReceipt?.createdAt
+                  ? [
+                      {
+                        key: "collectedAt",
+                        label: t("business:financeModal.collectedAtLabel"),
+                        children: orderDate(counterReceipt.createdAt, locale),
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </section>
+        )}
+
+        {isQrOrder && (
+          <section className="order-section finance-method-card">
+            <div className="order-section-heading">
+              <h3>
+                <QrcodeOutlined /> {t("business:financeModal.qrSectionTitle")}
+              </h3>
+              <Space wrap>
+                <Tag color={qrReconciledAmount >= qrAmountDue && qrAmountDue > 0 ? "green" : "gold"}>
+                  {qrReconciledAmount >= qrAmountDue && qrAmountDue > 0
+                    ? t("business:financeModal.qrReconciledBadge")
+                    : t("business:financeModal.qrPendingBadge")}
+                </Tag>
+                <Button
+                  size="small"
+                  type={qrExpanded ? "primary" : "default"}
+                  icon={qrExpanded ? <CompressOutlined /> : <ExpandAltOutlined />}
+                  onClick={() => setQrExpanded(prev => !prev)}
+                >
+                  {qrExpanded
+                    ? t("business:financeModal.collapseQrBtn")
+                    : t("business:financeModal.expandQrBtn")}
+                </Button>
+              </Space>
+            </div>
+            <div className="finance-qr-summary-bar">
+              <div className="finance-qr-preview-left">
+                <img
+                  src={qrImageUrl}
+                  alt={`VietQR ${snapshot.order.orderCode}`}
+                  className="finance-qr-thumb"
+                  onClick={() => setQrExpanded(true)}
+                />
+                <div className="finance-qr-meta">
+                  <div className="finance-qr-amount-row">
+                    <span>{t("business:financeModal.qrAmountDueLabel")}</span>
+                    <strong>{money(qrAmountDue)}</strong>
+                  </div>
+                  <div className="finance-qr-sub-row">
+                    <span>{t("business:financeModal.bankReceivedLabel")}</span>
+                    <strong className={qrReconciledAmount > 0 ? "finance-stat-positive" : ""}>
+                      {money(qrReconciledAmount)}
+                    </strong>
+                  </div>
+                  <div className="finance-qr-bank-line">
+                    <BankOutlined /> {bankName} · {t("business:financeModal.accountNoShort")} <strong>{accountNo}</strong> ({accountName})
+                  </div>
+                  <div className="finance-qr-ref-line">
+                    <span>{t("business:financeModal.transferContentCodeLabel")}</span>
+                    <code>{transferRef}</code>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(transferRef);
+                        message.success(t("business:financeModal.copiedTransferRef", { ref: transferRef }));
+                      }}
+                    >
+                      {t("business:financeModal.copyBtn")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {qrExpanded && (
+              <div className="finance-qr-expanded-box">
+                <div className="finance-qr-expanded-card">
+                  <div className="finance-qr-expanded-badge">
+                    <CheckCircleOutlined /> {t("business:financeModal.expandedBadge")}
+                  </div>
+                  <img
+                    src={qrImageUrl}
+                    alt={`VietQR Expanded ${snapshot.order.orderCode}`}
+                    className="finance-qr-expanded-img"
+                  />
+                  <div className="finance-qr-expanded-details">
+                    <div>
+                      <span>{t("business:financeModal.amountToCollect")}</span>
+                      <strong className="finance-qr-big-amount">{money(qrAmountDue)}</strong>
+                    </div>
+                    <div>
+                      <span>{t("business:financeModal.transferReferenceLabel")}</span>
+                      <strong className="finance-qr-big-ref">{transferRef}</strong>
+                    </div>
+                    <div>
+                      <span>{t("business:financeModal.beneficiaryAccount")}</span>
+                      <strong>
+                        {bankCode} - {accountNo} ({accountName})
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         {collection && <>
           <Alert showIcon type={state === "RECONCILED" ? "success" : "warning"}
             message={state === "PENDING" ? t("admin:ui.awaitingCollectionConfirmation") : state === "ACCEPTED" ? t("admin:ui.collectionAcceptedDiscrepancyOrEvidenceStillPending")
@@ -177,13 +519,13 @@ export function FinanceModal({ orderId, receiptId: initialReceiptId, stores = []
             { key: "tendered", label: t("admin:ui.cashTenderedChange"), children: `${money(collection.cash_tendered)} / ${money(collection.cash_change)}` },
           ]} /></section>
         </>}
-        <section className="order-section"><div className="order-section-heading"><h3>{t("business:paymentspage.paymentTransactions")}</h3><Tag>{snapshot.payments.length} {t("admin:ui.transactions")}</Tag></div>
-        <Table rowKey="id" size="small" pagination={false} dataSource={snapshot.payments} scroll={{ x: 580 }}
+        <section className="order-section"><div className="order-section-heading"><h3>{t("business:paymentspage.paymentTransactions")}</h3><Tag>{displayTransactions.length} {t("admin:ui.transactions")}</Tag></div>
+        <Table rowKey="key" size="small" pagination={false} dataSource={displayTransactions} scroll={{ x: 640 }}
           locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("admin:ui.noPaymentTransactionsYet")} /> }} columns={[
-          { title: t("payments:transactionsTab"), width: 100, render: (_, payment) => <div className="order-cell"><strong>#{payment.id}</strong><small>{payment.live_payment ? t("admin:ui.current") : t("admin:ui.legacyData")}</small></div> },
-          { title: t("business:orderdetaildrawer.method"), width: 180, dataIndex: "method", render: paymentMethodLabel },
+          { title: t("payments:transactionsTab"), width: 170, render: (_, item) => <div className="order-cell"><strong>{item.code}</strong><small>{item.subtitle}</small></div> },
+          { title: t("business:orderdetaildrawer.method"), width: 230, render: (_, item) => <div className="order-cell"><span>{paymentMethodLabel(item.method)}</span><small>{item.detailText}</small></div> },
           { title: t("accounts:status"), width: 130, dataIndex: "status", render: status => <Tag color={paymentColor(status)}>{paymentLabels[status] ?? status}</Tag> },
-          { title: t("admin:ui.receivedByBank"), align: 'right', dataIndex: "received_amount", render: money },
+          { title: t("business:financeModal.collectedReceivedCol"), align: 'right', dataIndex: "amount", render: money },
         ]} />
         {!action && <div className="finance-actions">
           {canCollect(snapshot) && <Button type="primary" disabled={loading} onClick={() => begin("collection")}>{t("admin:ui.recordCollection")}</Button>}
