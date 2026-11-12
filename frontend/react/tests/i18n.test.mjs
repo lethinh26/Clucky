@@ -83,6 +83,23 @@ test('formatters retain VND and use Vietnam time on both locales', () => {
   assert.equal(formatDate('invalid', 'vi'), '—');
 });
 
+test('date styles used by email logs do not mix with default date components', () => {
+  const value = '2026-11-02T20:00:00Z';
+  for (const locale of ['vi', 'en']) {
+    for (const options of [
+      { dateStyle: 'short', timeStyle: 'short' },
+      { dateStyle: 'short' },
+      { timeStyle: 'short' },
+      { dateStyle: 'short', timeStyle: 'short', timeZone: 'UTC' },
+      { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' },
+    ]) {
+      assert.equal(formatDate(value, locale, options), new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-US', {
+        timeZone: 'Asia/Ho_Chi_Minh', ...options,
+      }).format(new Date(value)));
+    }
+  }
+});
+
 test('i18next switches language without recreating its instance', async () => {
   const { default: i18n } = await import('../src/i18n/index.ts');
   const original = i18n.language;

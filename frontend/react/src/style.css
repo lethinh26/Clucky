@@ -26,6 +26,38 @@ body {
 
 .admin-sider {
   background: #16100d !important;
+  position: sticky !important;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  align-self: flex-start;
+}
+
+.admin-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-sider .sider-brand {
+  flex-shrink: 0;
+}
+
+.sider-navigation {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #6b6259 #16100d;
+  padding-bottom: 8px;
+}
+
+.sider-account {
+  flex-shrink: 0;
+  margin: 12px 16px 16px;
 }
 
 .sider-brand {

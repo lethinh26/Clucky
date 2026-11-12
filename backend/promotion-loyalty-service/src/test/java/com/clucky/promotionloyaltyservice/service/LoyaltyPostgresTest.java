@@ -71,7 +71,37 @@ class LoyaltyPostgresTest {
     @Autowired DataSource source;
     @Autowired VoucherService vouchers;
     @Autowired VoucherReservationService reservations;
+    @Autowired VoucherRepository voucherRepository;
     @Autowired JpaTransactionManager transactionManager;
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void voucherFiltersHandleMissingAndCaseInsensitiveKeywordsOnPostgres() {
+        var voucher = new com.clucky.promotionloyaltyservice.model.Voucher();
+        voucher.setCode("FILTER_" + UUID.randomUUID());
+        voucher.setTitle("Clucky Mixed Case " + UUID.randomUUID());
+        voucher.setType(VoucherType.AMOUNT);
+        voucher.setValue(BigDecimal.TEN);
+        voucher.setStartAt(Instant.now().minusSeconds(60));
+        voucher.setEndAt(Instant.now().plusSeconds(3600));
+        voucher.setScope(com.clucky.promotionloyaltyservice.model.VoucherScope.STORE);
+        voucher.setStoreId(987654L);
+        voucher.setStatus(VoucherStatus.ACTIVE);
+        voucherRepository.saveAndFlush(voucher);
+
+        assertTrue(voucherRepository.findWithFilters(null, null, null, null).stream()
+                .anyMatch(found -> found.getId().equals(voucher.getId())));
+        assertTrue(voucherRepository.findWithFilters(null, null, null, "").stream()
+                .anyMatch(found -> found.getId().equals(voucher.getId())));
+        assertEquals(java.util.List.of(voucher), voucherRepository.findWithFilters(
+                voucher.getScope(), voucher.getStoreId(), VoucherStatus.ACTIVE,
+                voucher.getCode().toLowerCase(java.util.Locale.ROOT)));
+        assertEquals(java.util.List.of(voucher), voucherRepository.findWithFilters(
+                null, null, null, voucher.getTitle().toUpperCase(java.util.Locale.ROOT)));
+        assertTrue(voucherRepository.findWithFilters(null, 987655L, null, voucher.getCode()).isEmpty());
+        assertTrue(voucherRepository.findWithFilters(null, null, VoucherStatus.DISABLED, voucher.getCode()).isEmpty());
+        assertTrue(voucherRepository.findWithFilters(null, null, null, "MISSING_" + UUID.randomUUID()).isEmpty());
+    }
 
     @Test
     void concurrentApprovalsPersistOneApprovedState() throws Exception {

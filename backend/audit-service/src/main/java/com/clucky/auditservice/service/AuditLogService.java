@@ -13,9 +13,7 @@ import com.clucky.auditservice.repository.AuditLogRepository;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.time.Instant;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -50,22 +48,7 @@ public class AuditLogService {
         var entries = repository.findAll(specification(actor, query),
                 PageRequest.of(0, MAX_EXPORT_ROWS + 1, Sort.by(Sort.Direction.DESC, "occurredAt", "id")));
         if (entries.getTotalElements() > MAX_EXPORT_ROWS) { throw new ApiException(ErrorCode.REQUEST_TOO_LARGE); }
-        StringBuilder csv = new StringBuilder("\uFEFFeventId,correlationId,sourceService,actorId,actorRole,storeId,action,targetType,targetId,occurredAt\r\n");
-        for (AuditLog entry : entries) {
-            csv.append(Stream.of(entry.getEventId(), entry.getCorrelationId(), entry.getSourceService(),
-                    entry.getActorId(), entry.getActorRole(), entry.getStoreId(), entry.getAction(),
-                    entry.getTargetType(), entry.getTargetId(), entry.getOccurredAt())
-                    .map(AuditLogService::csvCell).collect(Collectors.joining(","))).append("\r\n");
-        }
-        return csv.toString().getBytes(StandardCharsets.UTF_8);
-    }
-
-    private static String csvCell(Object value) {
-        String text = value == null ? "" : value.toString();
-        if (text.stripLeading().matches("^[=+@-].*") || text.startsWith("\t") || text.startsWith("\r")) {
-            text = "'" + text;
-        }
-        return "\"" + text.replace("\"", "\"\"") + "\"";
+        return AuditWorkbook.write(entries.getContent(), query, Instant.now());
     }
 
     private Specification<AuditLog> specification(CurrentActor actor, AuditLogQuery query) {

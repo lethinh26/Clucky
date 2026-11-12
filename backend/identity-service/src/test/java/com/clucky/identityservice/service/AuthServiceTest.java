@@ -114,6 +114,40 @@ class AuthServiceTest {
     }
 
     @Test
+    void duplicatePhoneIsIdentifiedWithoutCallingItAnEmailConflict() {
+        service.register(new RegisterRequest("A", "a@example.com", "0901234567", "Password1"));
+        var failure = assertThrows(ApiException.class,
+                () -> service.register(new RegisterRequest("B", "b@example.com", "0901234567", "Password1")));
+        assertEquals(ErrorCode.RESOURCE_CONFLICT, failure.getCode());
+        assertEquals(Map.of("phone", "ALREADY_EXISTS"), failure.getFieldErrors());
+        assertEquals(1, users.size());
+        assertEquals(1, publishedTemplates.size());
+    }
+
+    @Test
+    void concurrentRegistrationConflictsUseTheActualDatabaseConstraint() {
+        for (String name : List.of("users_email_key", "users_phone_key", "unknown_constraint")) {
+            var repository = mock(UserRepository.class);
+            var publisher = mock(EmailEventPublisher.class);
+            var constraint = mock(org.hibernate.exception.ConstraintViolationException.class);
+            when(constraint.getConstraintName()).thenReturn(name);
+            var databaseFailure = new DataIntegrityViolationException("private database diagnostic", constraint);
+            when(repository.saveAndFlush(any(User.class))).thenThrow(databaseFailure);
+            var concurrent = new AuthService(repository, encoder, mock(JwtIssuer.class), otpService, refreshTokens, publisher, mock(AuthProperties.class));
+            var request = new RegisterRequest("Customer", "new@example.com", "0901234567", "Password1");
+            if ("unknown_constraint".equals(name)) {
+                assertSame(databaseFailure, assertThrows(DataIntegrityViolationException.class, () -> concurrent.register(request)));
+            } else {
+                var failure = assertThrows(ApiException.class, () -> concurrent.register(request));
+                assertEquals("users_email_key".equals(name) ? ErrorCode.EMAIL_EXISTS : ErrorCode.RESOURCE_CONFLICT, failure.getCode());
+                assertEquals("users_phone_key".equals(name) ? Map.of("phone", "ALREADY_EXISTS") : Map.of(), failure.getFieldErrors());
+                assertFalse(failure.getMessage().contains("private"));
+            }
+            verifyNoInteractions(publisher);
+        }
+    }
+
+    @Test
     void loginBeforeVerificationIsRejectedAndCreatesNoSession() {
         service.register(new RegisterRequest("A", "a@example.com", null, "Password1"));
 

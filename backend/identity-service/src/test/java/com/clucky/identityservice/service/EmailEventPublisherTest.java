@@ -28,6 +28,10 @@ class EmailEventPublisherTest {
         when(kafka.send(any(ProducerRecord.class))).thenReturn(pending);
         publisher.publishOtpEmail("a@example.com", "register-otp", "123456", Map.of());
         verify(pending).get(10, TimeUnit.SECONDS);
+        var record = org.mockito.ArgumentCaptor.forClass(ProducerRecord.class);
+        verify(kafka).send(record.capture());
+        var variables = new ObjectMapper().readTree(record.getValue().value().toString()).path("variables");
+        assertTrue(java.time.Instant.parse(variables.path("expiresAt").asText()).isAfter(java.time.Instant.now()));
     }
 
     @Test

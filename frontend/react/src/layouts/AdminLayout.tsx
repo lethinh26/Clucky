@@ -95,6 +95,8 @@ export const AdminLayout: React.FC = () => {
       "audit",
     ],
     STORE_MANAGER: [
+      "promotions",
+      "email-logs",
       "dashboard",
       "stores",
       "inventory",
@@ -309,6 +311,7 @@ export const AdminLayout: React.FC = () => {
           )}
         </div>
 
+        <div className="sider-navigation">
         {!collapsed && (
           <div
             style={{
@@ -336,14 +339,12 @@ export const AdminLayout: React.FC = () => {
             fontSize: 14,
           }}
         />
+        </div>
 
         {!collapsed && (
           <div
+            className="sider-account"
             style={{
-              position: "absolute",
-              bottom: 24,
-              left: 20,
-              right: 20,
               padding: 14,
               background: "rgba(255, 250, 243, 0.05)",
               borderRadius: 14,
