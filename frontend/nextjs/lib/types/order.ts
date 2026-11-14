@@ -7,7 +7,8 @@ export type OrderStatus =
   | "READY"
   | "SHIPPING"
   | "COMPLETED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "DELIVERY_FAILED";
 
 export type PaymentMethod = "COD" | "BANK_TRANSFER";
 

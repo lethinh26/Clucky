@@ -184,8 +184,8 @@
     "INVALID_CREDENTIALS":  {
                                 "httpStatus":  401,
                                 "messages":  {
-                                                 "vi":  "Email hoặc mật khẩu không chính xác.",
-                                                 "en":  "Invalid email or password."
+                                                 "vi":  "Thông tin đăng nhập chưa hợp lệ",
+                                                 "en":  "Invalid sign-in information."
                                              }
                             },
     "EMAIL_NOT_VERIFIED":  {

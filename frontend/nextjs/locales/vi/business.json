@@ -150,10 +150,13 @@
     "pointsAvailableUsePointsForOff": "Có 120 điểm (-5.000đ khi dùng 50 điểm)",
     "paymentMethod": "Phương thức thanh toán",
     "automaticVietqrBankTransfer": "Chuyển khoản VietQR tự động",
-    "thePaymentCodeWillAppearWhenThePaymentServiceIsConnected": "Mã thanh toán sẽ hiển thị khi dịch vụ thanh toán được kết nối.",
+    "thePaymentCodeWillAppearWhenThePaymentServiceIsConnected": "Sau khi đặt đơn, quét VietQR trên trang chi tiết đơn để thanh toán trước. Quán sẽ chuẩn bị món sau khi thanh toán được xác nhận.",
     "recommended": "Khuyên dùng",
     "cashOnDeliveryCod": "Thanh toán khi nhận hàng (COD)",
+    "cashAtStorePickup": "Thanh toán tiền mặt khi nhận tại quán",
     "payCashToTheDriverOrTheStoreCashier": "Thanh toán tiền mặt cho tài xế hoặc thu ngân tại quán.",
+    "payCashToDeliveryRider": "Trả tiền mặt cho shipper khi nhận món. Khoản thu diễn ra ngoài Clucky và chưa được hệ thống xác minh.",
+    "payCashAtStorePickup": "Thanh toán tiền mặt cho thu ngân khi đến nhận món tại quán.",
     "oneLastCheck": "KIỂM TRA LẦN CUỐI",
     "yourMealIsAlmostReady": "Bữa ngon sắp sẵn sàng",
     "voucherDiscount": "Voucher giảm giá",
@@ -210,6 +213,9 @@
     "amountDue": "Số tiền cần thanh toán",
     "payInCashWhenYouReceiveYourMeal": "Bạn thanh toán bằng tiền mặt khi nhận món.",
     "scanTheCodeBelowToCompletePayment": "Quét mã bên dưới để hoàn tất thanh toán.",
+    "codSimulatedPaid": "Đã thanh toán (mô phỏng)",
+    "codSimulatedPaidMessage": "Shipper đã nhận món, quán được ghi nhận thanh toán mô phỏng. Bạn vẫn trả tiền mặt cho shipper khi nhận hàng; Clucky không xác minh khoản thu từ khách.",
+    "codCollectionOutside": "Tiền mặt khách trả shipper là giao dịch ngoài hệ thống, chưa được Clucky xác minh.",
     "orderValue": "Giá trị đơn hàng",
     "paymentWasUnsuccessfulPleaseCheckYourOrderStatus": "Thanh toán chưa thành công. Vui lòng kiểm tra lại trạng thái đơn hàng.",
     "thePaymentSessionHasExpiredPleaseCheckYourOrderBeforePaying": "Phiên thanh toán đã hết hạn. Vui lòng kiểm tra lại đơn hàng trước khi thanh toán.",
@@ -370,7 +376,8 @@
   "orderstatuschip": {
     "confirmed": "Đã xác nhận",
     "readyForDelivery": "Sẵn sàng giao",
-    "outForDelivery": "Đang giao hàng"
+    "outForDelivery": "Đang giao hàng",
+    "deliveryFailed": "Giao hàng không thành công"
   },
   "ordersummarycard": {
     "discount": "Giảm giá",

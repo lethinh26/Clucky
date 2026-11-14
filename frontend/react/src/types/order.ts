@@ -7,6 +7,7 @@ export type AdminOrderStatus =
   | "READY"
   | "SHIPPING"
   | "COMPLETED"
+  | "DELIVERY_FAILED"
   | "CANCELLED";
 
 export type AdminPaymentMethod = "COD" | "BANK_TRANSFER";
@@ -32,6 +33,8 @@ export interface AdminOrder {
   storeId: string;
   storeName: string;
   orderType: "DELIVERY" | "PICKUP";
+  diningOption?: "DINE_IN" | "TAKE_AWAY";
+  orderSource?: "WEB" | "COUNTER";
   deliveryAddress?: string;
   status: AdminOrderStatus;
   paymentMethod: AdminPaymentMethod;

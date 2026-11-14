@@ -11,7 +11,8 @@ import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-nav
 import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Input } from "@/components/ui/input";
-import { authApi } from "@/lib/api";
+import { authApi, type OtpChannel } from "@/lib/api";
+import { passwordChecks } from "@/lib/registration-validation";
 
 function ResetPasswordForm() {
   const t = useTranslations();
@@ -19,7 +20,9 @@ function ResetPasswordForm() {
   const router = useRouter();
   const startDeferred = useDeferredAction();
   const params = useSearchParams();
-  const email = params.get("email") ?? "";
+  const channel: OtpChannel = params.get("channel") === "EMAIL" ? "EMAIL" : "SMS";
+  const identifier = (channel === "SMS" ? params.get("phone") : params.get("email")) ?? "";
+  const challengeId = params.get("challengeId") ?? undefined;
   const [otp, setOtp] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
@@ -38,13 +41,18 @@ function ResetPasswordForm() {
       setError("auth.validation.confirmMismatch");
       return;
     }
-    if (!/^\d{6}$/.test(otp) || password.length < 8) {
+    if (!(channel === "SMS" ? /^0\d{9,10}$/.test(identifier) : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier))) {
+      setError("auth.validation.recoveryRequired");
+      return;
+    }
+    const checks = passwordChecks(password);
+    if (!/^\d{6}$/.test(otp) || !Object.values(checks).every(Boolean)) {
       setError("auth.validation.resetCredentials");
       return;
     }
     setLoading(true);
     try {
-      await authApi.resetPassword({ email, otp, newPassword: password });
+      await authApi.resetPassword({ ...(channel === "SMS" ? { channel, phone: identifier } : { channel, email: identifier }), otp, newPassword: password, ...(challengeId ? { challengeId } : {}) });
       if (!task.isCurrent()) return;
       setSuccess("auth.reset.success");
       task.schedule(() => router.push("/login"), 1200);
@@ -59,7 +67,7 @@ function ResetPasswordForm() {
   return (
     <AuthShell
       title={t("auth.reset.title")}
-      subtitle={t("auth.reset.description", { email: email || t("auth.fields.yourEmail") })}
+      subtitle={t("auth.reset.description", { contact: identifier || t("auth.fields.yourPhone") })}
     >
       <form className="auth-form" onSubmit={onSubmit} noValidate>
         {Boolean(error) && (
@@ -72,13 +80,14 @@ function ResetPasswordForm() {
             {t(success)}
           </div>
         )}
+        {!identifier && <p className="form-error" role="alert">{t("auth.validation.recoveryRequired")} <Link href="/forgot-password">{t("auth.forgot.title")}</Link></p>}
         <Input
           label={t("auth.otp.label")}
           inputMode="numeric"
           value={otp}
-          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+          onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
           required
-          disabled={loading}
+          disabled={loading || !identifier}
           placeholder={t("auth.otp.placeholder")}
         />
         <Input
@@ -88,8 +97,9 @@ function ResetPasswordForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          disabled={loading}
+          disabled={loading || !identifier}
         />
+        <p className="text-xs leading-relaxed text-[#75675E]">{t("auth.google.passwordPolicy")}</p>
         <Input
           label={t("auth.fields.confirmPassword")}
           type="password"
@@ -97,7 +107,7 @@ function ResetPasswordForm() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           required
-          disabled={loading}
+          disabled={loading || !identifier}
           error={
             password !== confirm && confirm
               ? t("auth.validation.confirmMismatch")
@@ -107,7 +117,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           className="btn-primary btn-block"
-          disabled={loading}
+          disabled={loading || !identifier}
         >
           {loading ? t("common.updating") : t("auth.reset.title")}
         </button>

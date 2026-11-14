@@ -150,10 +150,13 @@
     "pointsAvailableUsePointsForOff": "120 points available (use 50 points for ₫5,000 off)",
     "paymentMethod": "Payment method",
     "automaticVietqrBankTransfer": "Automatic VietQR bank transfer",
-    "thePaymentCodeWillAppearWhenThePaymentServiceIsConnected": "The payment code will appear when the payment service is connected.",
+    "thePaymentCodeWillAppearWhenThePaymentServiceIsConnected": "After placing your order, scan the VietQR code on the order details page to pay in advance. The store prepares your food after payment is confirmed.",
     "recommended": "Recommended",
     "cashOnDeliveryCod": "Cash on delivery (COD)",
+    "cashAtStorePickup": "Pay cash at store pickup",
     "payCashToTheDriverOrTheStoreCashier": "Pay cash to the driver or the store cashier.",
+    "payCashToDeliveryRider": "Pay cash to the rider when your food arrives. This collection happens outside Clucky and is not verified by the platform.",
+    "payCashAtStorePickup": "Pay the store cashier in cash when you collect your food.",
     "oneLastCheck": "ONE LAST CHECK",
     "yourMealIsAlmostReady": "Your meal is almost ready",
     "voucherDiscount": "Voucher discount",
@@ -210,6 +213,9 @@
     "amountDue": "Amount due",
     "payInCashWhenYouReceiveYourMeal": "Pay in cash when you receive your meal.",
     "scanTheCodeBelowToCompletePayment": "Scan the code below to complete payment.",
+    "codSimulatedPaid": "Paid (simulation only)",
+    "codSimulatedPaidMessage": "The rider has collected the food and a simulated store payment is recorded. You still pay the rider in cash on delivery; Clucky cannot verify that collection.",
+    "codCollectionOutside": "Cash collected by the rider is outside Clucky and remains unverified.",
     "orderValue": "Order value",
     "paymentWasUnsuccessfulPleaseCheckYourOrderStatus": "Payment was unsuccessful. Please check your order status.",
     "thePaymentSessionHasExpiredPleaseCheckYourOrderBeforePaying": "The payment session has expired. Please check your order before paying.",
@@ -370,7 +376,8 @@
   "orderstatuschip": {
     "confirmed": "Confirmed",
     "readyForDelivery": "Ready for delivery",
-    "outForDelivery": "Out for delivery"
+    "outForDelivery": "Out for delivery",
+    "deliveryFailed": "Delivery unsuccessful"
   },
   "ordersummarycard": {
     "discount": "Discount",

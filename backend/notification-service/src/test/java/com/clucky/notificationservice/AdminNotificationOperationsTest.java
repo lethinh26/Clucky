@@ -120,8 +120,10 @@ class AdminNotificationOperationsTest {
     @Test
     void processedRefundRequiresCustomerRecipientAndUsesOwnedContent() {
         var payload = refund();
+        when(contacts.verifiedEmail(7L)).thenReturn("customer@example.com");
         payload.put("managerUserId", 777).put("toEmail", "staff@example.com")
                 .put("subject", "Untrusted subject").put("body", "Untrusted body");
+        payload.withObject("recipient").put("email", "stale@example.com");
         consume("refund.processed", "cart-order-service", "refund-event", payload);
         verify(jdbc).update(contains("INSERT INTO notification_service.notifications"), eq(7L), eq("Hoàn tiền thành công"),
                 contains("25000"), eq("REFUND"), eq(42L), anyString());
@@ -142,17 +144,19 @@ class AdminNotificationOperationsTest {
     }
 
     @Test
-    void unverifiedOrMultipleEmailRecipientsAreNotSent() {
+    void eventRecipientEmailCannotBypassMissingVerifiedContact() {
         var payload = refund();
         payload.withObject("recipient").put("emailVerified", false);
         consume("refund.processed", "cart-order-service", "unverified", payload);
         payload.withObject("recipient").put("emailVerified", true).put("email", "customer@example.com,other@example.com");
         consume("refund.processed", "cart-order-service", "multiple", payload);
+        verify(contacts, times(2)).verifiedEmail(7L);
         verifyNoInteractions(sender);
     }
 
     @Test
     void replayUsesSameRefundDeliveryKeyEvenWithDifferentEnvelopeIds() {
+        when(contacts.verifiedEmail(7L)).thenReturn("customer@example.com");
         consume("refund.processed", "payment-service", "first", refund());
         consume("refund.processed", "payment-service", "second", refund());
         var keys = org.mockito.ArgumentCaptor.forClass(String.class);

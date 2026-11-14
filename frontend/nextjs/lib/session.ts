@@ -2,7 +2,8 @@ export interface SessionUser {
   userId: number;
   role: "CUSTOMER" | "ADMIN" | "STORE_MANAGER" | "STAFF";
   storeId?: number;
-  email: string;
+  email: string | null;
+  phone?: string | null;
   fullName: string;
 }
 

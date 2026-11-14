@@ -46,22 +46,23 @@ export interface LoginPayload {
 }
 export interface RegisterPayload {
   fullName: string;
-  email: string;
-  phone?: string;
+  phone: string;
   password: string;
 }
+export interface AuthChallenge { challengeId?: string; message?: string }
 export interface VerifyOtpPayload {
-  email: string;
+  phone: string;
   otp: string;
+  challengeId: string;
 }
-export interface ForgotPasswordPayload {
-  email: string;
-}
-export interface ResetPasswordPayload {
-  email: string;
+export type OtpChannel = "SMS" | "EMAIL";
+export type RecoveryContact = { channel: "SMS"; phone: string; email?: never } | { channel: "EMAIL"; email: string; phone?: never };
+export type ForgotPasswordPayload = RecoveryContact;
+export type ResetPasswordPayload = RecoveryContact & {
   otp: string;
   newPassword: string;
-}
+  challengeId?: string;
+};
 export type AuthTokens = SessionUser;
 export type GoogleAuthResult =
   AuthTokens | { status: "REQUIRES_PASSWORD"; pendingToken: string };
@@ -74,14 +75,14 @@ export const authApi = {
   login: (body: LoginPayload) =>
     signIn<AuthTokens>("/api/auth/login", body),
   register: (body: RegisterPayload) =>
-    request<{ message?: string }>("/api/auth/register", {
+    request<AuthChallenge>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  resendOtp: (email: string) =>
-    request<{ message?: string }>("/api/auth/resend-otp", {
+  resendOtp: (phone: string) =>
+    request<AuthChallenge>("/api/auth/resend-otp", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ phone }),
     }),
   verifyOtp: (body: VerifyOtpPayload) =>
     signIn<AuthTokens>("/api/auth/verify-otp", body),
@@ -89,7 +90,7 @@ export const authApi = {
   refresh: refreshSession,
   logout: () => endSession(),
   forgotPassword: (body: ForgotPasswordPayload) =>
-    request<{ message?: string }>("/api/auth/forgot-password", {
+    request<AuthChallenge>("/api/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -100,7 +101,7 @@ export const authApi = {
 /* ---------- BE-18: self profile + address book ---------- */
 export interface ProfileResponse {
   id: number;
-  email: string;
+  email: string | null;
   phone: string | null;
   fullName: string;
   avatarUrl: string | null;
@@ -108,6 +109,7 @@ export interface ProfileResponse {
   storeId: number | null;
   status: string;
   emailVerified: boolean;
+  phoneVerified: boolean;
 }
 export interface AddressResponse {
   id: number;
@@ -132,11 +134,29 @@ export interface AddressPayload {
 
 export const profileApi = {
   get: () => request<ProfileResponse>("/api/users/me"),
-  update: (body: { fullName: string; phone: string }) =>
+  update: (body: { fullName: string }) =>
     request<ProfileResponse>("/api/users/me", {
       method: "PUT",
       body: JSON.stringify(body),
     }),
+  requestEmailOtp: (email: string) => request<AuthChallenge>("/api/users/me/email/request", {
+    method: "POST", body: JSON.stringify({ email }),
+  }),
+  confirmEmail: (body: { email: string; otp: string; challengeId: string; currentPassword: string }) => request<ProfileResponse>("/api/users/me/email/verify", {
+    method: "POST", body: JSON.stringify(body),
+  }),
+  requestPhoneOtp: (phone: string) => request<AuthChallenge>("/api/users/me/phone/request", {
+    method: "POST", body: JSON.stringify({ phone }),
+  }),
+  confirmPhone: (body: { phone: string; otp: string; challengeId: string; currentPassword: string }) => request<ProfileResponse>("/api/users/me/phone/verify", {
+    method: "POST", body: JSON.stringify(body),
+  }),
+  requestPasswordOtp: (channel: OtpChannel) => request<AuthChallenge>("/api/auth/change-password/request", {
+    method: "POST", body: JSON.stringify({ channel }),
+  }),
+  confirmPassword: (body: { channel: OtpChannel; otp: string; newPassword: string; challengeId?: string }) => request<{ message?: string }>("/api/auth/change-password/confirm", {
+    method: "POST", body: JSON.stringify(body),
+  }),
   listAddresses: () => request<AddressResponse[]>("/api/users/me/addresses"),
   createAddress: (body: AddressPayload) =>
     request<AddressResponse>("/api/users/me/addresses", {

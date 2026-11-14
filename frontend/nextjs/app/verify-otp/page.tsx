@@ -20,7 +20,8 @@ function VerifyOtpForm() {
   const router = useRouter();
   const startDeferred = useDeferredAction();
   const params = useSearchParams();
-  const email = params.get("email") ?? "";
+  const phone = params.get("phone") ?? "";
+  const [challengeId, setChallengeId] = React.useState(params.get("challengeId") ?? "");
   const [digits, setDigits] = React.useState<string[]>(
     Array(OTP_LENGTH).fill(""),
   );
@@ -62,13 +63,17 @@ function VerifyOtpForm() {
     const task = startDeferred();
     setError(null);
     setSuccess(null);
+    if (!/^0\d{9,10}$/.test(phone) || !challengeId) {
+      setError("auth.validation.registrationChallengeRequired");
+      return;
+    }
     if (otp.length !== OTP_LENGTH) {
       setError("auth.validation.sixDigits");
       return;
     }
     setLoading(true);
     try {
-      await authApi.verifyOtp({ email, otp });
+      await authApi.verifyOtp({ phone, otp, challengeId });
       if (!task.isCurrent()) return;
       setSuccess("auth.otp.verified");
       task.schedule(() => router.push("/account"), 800);
@@ -82,13 +87,18 @@ function VerifyOtpForm() {
   };
 
   const resend = async () => {
-    if (!email || cooldown > 0 || loading || resending) return;
+    if (!/^0\d{9,10}$/.test(phone) || cooldown > 0 || loading || resending) return;
     const task = startDeferred();
     setResending(true);
     setError(null);
     try {
-      await authApi.resendOtp(email);
+      const result = await authApi.resendOtp(phone);
       if (!task.isCurrent()) return;
+      if (!result.challengeId) throw new Error(t("auth.validation.missingChallenge"));
+      setChallengeId(result.challengeId);
+      const url = new URL(window.location.href);
+      url.searchParams.set("challengeId", result.challengeId);
+      window.history.replaceState(window.history.state, "", url.pathname + url.search);
       setCooldown(60);
       setSuccess("auth.otp.resent");
     } catch (err) {
@@ -102,7 +112,7 @@ function VerifyOtpForm() {
   return (
     <AuthShell
       title={t("auth.otp.title")}
-      subtitle={t("auth.otp.description", { count: OTP_LENGTH, email: email || t("auth.fields.yourEmail") })}
+      subtitle={t("auth.otp.description", { count: OTP_LENGTH, phone: phone || t("auth.fields.yourPhone") })}
     >
       <form className="auth-form" onSubmit={onSubmit} noValidate>
         {Boolean(error) && (
@@ -115,6 +125,8 @@ function VerifyOtpForm() {
             {t(success)}
           </div>
         )}
+        {!phone && <p className="form-error" role="alert">{t("auth.validation.registrationChallengeRequired")} <Link href="/register">{t("auth.register.action")}</Link></p>}
+        {phone && !challengeId && <p className="form-error" role="status">{t("auth.otp.requestNewCode")}</p>}
         <div className="otp-input" role="group" aria-label={t("auth.otp.label")}>
           {digits.map((d, i) => (
             <input
@@ -152,7 +164,7 @@ function VerifyOtpForm() {
         <button
           type="submit"
           className="btn-primary btn-block"
-          disabled={loading}
+          disabled={loading || !challengeId || !phone}
         >
           {loading ? t("auth.otp.verifying") : t("common.confirm")}
         </button>
@@ -161,7 +173,7 @@ function VerifyOtpForm() {
           <button
             type="button"
             onClick={resend}
-            disabled={resending || cooldown > 0}
+            disabled={resending || cooldown > 0 || !/^0\d{9,10}$/.test(phone)}
             style={{
               background: "none",
               border: 0,

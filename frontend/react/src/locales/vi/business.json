@@ -58,7 +58,8 @@
     "searchOrders": "Tìm kiếm đơn hàng",
     "inProgress": "Đang xử lý",
     "completed": "Đã hoàn thành",
-    "cancelled": "Đã hủy"
+    "cancelled": "Đã hủy",
+    "deliveryFailed": "Giao không thành công"
   },
   "id": {
     "orderedItems": "Món đã đặt",

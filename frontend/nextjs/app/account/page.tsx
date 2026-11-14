@@ -1,9 +1,13 @@
 "use client";
 import { useFeedback } from "@/components/feedback";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { AddressDialog } from "@/components/maps/address-dialog";
 import { emptyAddress, formatAddress, profileApi, type Profile, type Address } from "@/lib/locations";
+import { profileApi as securityProfileApi, type OtpChannel } from "@/lib/api";
+import { passwordChecks } from "@/lib/registration-validation";
+import { expireSession } from "@/lib/session";
+import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
 import {
   UserRound,
   MapPin,
@@ -15,7 +19,7 @@ import {
   ChevronRight,
   ShoppingBag,
   UtensilsCrossed,
-
+  Phone,
   Mail,
   Check,
   MessageSquareQuote,
@@ -28,16 +32,42 @@ import { MyReviewsPanel } from "@/components/reviews/my-reviews-panel";
 import { useSession } from "@/components/auth/use-session";
 
 const initialProfile: Profile = {
-  fullName: "Khách hàng Clucky",
-  email: "khachhang@example.com",
+  fullName: "",
+  email: null,
   phone: "",
 };
+function canonicalPhone(value: string) {
+  const phone = value.replace(/[\s()-]/g, "");
+  return /^0\d{9}$/.test(phone) ? "+84" + phone.slice(1) : phone;
+}
+function accountError(error: unknown, kind: "email" | "phone", fallback: string) {
+  const failure = error as { code?: string; status?: number; fieldErrors?: Record<string, string> } | null;
+  if (failure?.fieldErrors?.currentPassword === "INVALID") {
+    return "auth.security.contactPasswordInvalid";
+  }
+  if (kind === "email" && failure?.fieldErrors?.email === "ALREADY_VERIFIED") {
+    return "auth.security.emailAlreadyVerified";
+  }
+  if (kind === "phone" && failure?.fieldErrors?.phone === "ALREADY_VERIFIED") {
+    return "auth.security.phoneAlreadyVerified";
+  }
+  if (kind === "email" && (failure?.code === "EMAIL_EXISTS"
+    || failure?.fieldErrors?.email === "ALREADY_EXISTS" || failure?.status === 409)) {
+    return "auth.security.emailInUse";
+  }
+  if (kind === "phone" && (failure?.code === "PHONE_EXISTS"
+    || failure?.fieldErrors?.phone === "ALREADY_EXISTS" || failure?.status === 409)) {
+    return "auth.security.phoneInUse";
+  }
+  if (failure?.status === 429 || failure?.code === "OTP_RATE_LIMITED") return "auth.security.otpRateLimited";
+  return fallback;
+}
 export default function AccountPage() {
   const t = useTranslations();
+  const router = useRouter();
   const { user } = useSession();
   const userId = user?.userId;
   const sessionFullName = user?.fullName;
-  const sessionEmail = user?.email;
   const storageKey = `clucky_profile_ui_v1:${user?.userId}`;
 
   const [tab, setTab] = useState("profile");
@@ -55,17 +85,35 @@ export default function AccountPage() {
   const [editing, setEditing] = useState<Address | null>(null);
   const [deleting, setDeleting] = useState<Address | null>(null);
   const [password, setPassword] = useState({
-    current: "",
     next: "",
     confirm: "",
+    otp: "",
   });
+  const [emailDraft, setEmailDraft] = useState("");
+  const [emailOtp, setEmailOtp] = useState("");
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState("");
+  const [emailChallenge, setEmailChallenge] = useState<string | null>(null);
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [phoneDraft, setPhoneDraft] = useState("");
+  const [phoneOtp, setPhoneOtp] = useState("");
+  const [phoneCurrentPassword, setPhoneCurrentPassword] = useState("");
+  const [phoneChallenge, setPhoneChallenge] = useState<string | null>(null);
+  const [phoneBusy, setPhoneBusy] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
+  const [passwordChannel, setPasswordChannel] = useState<OtpChannel>("SMS");
+  const [passwordChallenge, setPasswordChallenge] = useState<string | null>(null);
   useEffect(() => {
     if (!userId) return;
     let active = true;
     setReady(false); setError("");
     Promise.all([profileApi.get(), profileApi.addresses()]).then(([nextProfile, nextAddresses]) => {
       if (!active) return;
-      setProfile(nextProfile); setSavedProfile(nextProfile); setAddresses(nextAddresses); setReady(true);
+      setProfile(nextProfile); setSavedProfile(nextProfile); setAddresses(nextAddresses);
+      setEmailDraft(nextProfile.email ?? ""); setEmailChallenge(null); setEmailOtp(""); setEmailCurrentPassword(""); setEmailError(""); setPasswordChallenge(null);
+      setPhoneDraft(nextProfile.phone ?? ""); setPhoneChallenge(null); setPhoneOtp(""); setPhoneCurrentPassword(""); setPhoneError("");
+      setPasswordChannel(nextProfile.phone && nextProfile.phoneVerified === true ? "SMS" : "EMAIL");
+      setReady(true);
     }).catch(() => { if (active) setError("maps.loadError"); });
     try {
       const raw = localStorage.getItem(storageKey);
@@ -82,6 +130,110 @@ export default function AccountPage() {
       const saved = await profileApi.update(nextProfile);
       setProfile(saved); setSavedProfile(saved); setNotice("maps.saved");
     } catch { setError("maps.saveError"); }
+    finally { setBusy(false); }
+  }
+  async function requestEmailOtp(event: FormEvent) {
+    event.preventDefault();
+    if (busy || emailBusy || phoneBusy) return;
+    const email = emailDraft.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError("auth.validation.checkEmail"); return;
+    }
+    if (savedProfile.emailVerified === true && savedProfile.email?.toLowerCase() === email.toLowerCase()) {
+      setEmailError("auth.security.emailAlreadyVerified"); return;
+    }
+    setEmailBusy(true); setEmailError(""); setNotice(""); setEmailChallenge(null); setEmailOtp("");
+    try {
+      const result = await securityProfileApi.requestEmailOtp(email);
+      if (!result.challengeId) { setEmailError("auth.validation.missingChallenge"); return; }
+      setEmailChallenge(result.challengeId); setEmailOtp(""); setNotice("auth.security.emailSent");
+    } catch (error) { setEmailError(accountError(error, "email", "auth.security.emailRequestFailed")); }
+    finally { setEmailBusy(false); }
+  }
+  async function confirmEmail(event: FormEvent) {
+    event.preventDefault();
+    if (busy || emailBusy || phoneBusy || !emailChallenge) return;
+    if (!/^\d{6}$/.test(emailOtp)) { setEmailError("auth.validation.sixDigits"); return; }
+    if (!emailCurrentPassword) { setEmailError("auth.security.contactPasswordRequired"); return; }
+    setEmailBusy(true); setEmailError(""); setNotice("");
+    try {
+      const response = await securityProfileApi.confirmEmail({ email: emailDraft.trim(), otp: emailOtp,
+        challengeId: emailChallenge, currentPassword: emailCurrentPassword });
+      const updated: Profile = { ...response, phone: response.phone ?? "" };
+      setProfile(updated); setSavedProfile(updated);
+      setEmailDraft(updated.email ?? ""); setEmailOtp(""); setEmailCurrentPassword(""); setEmailChallenge(null);
+      if (updated.emailVerified === true) setNotice("auth.security.emailVerified");
+      else setEmailError("auth.security.emailVerificationPending");
+    } catch (error) { setEmailError(accountError(error, "email", "auth.security.emailConfirmFailed")); }
+    finally { setEmailBusy(false); }
+  }
+  async function requestPhoneOtp(event: FormEvent) {
+    event.preventDefault();
+    if (busy || phoneBusy || emailBusy) return;
+    const phone = canonicalPhone(phoneDraft);
+    if (!/^(?:0\d{9}|\+[1-9]\d{7,14})$/.test(phone)) {
+      setPhoneError("auth.validation.phoneFormat"); return;
+    }
+    if (savedProfile.phoneVerified === true && canonicalPhone(savedProfile.phone) === phone) {
+      setPhoneError("auth.security.phoneAlreadyVerified"); return;
+    }
+    setPhoneBusy(true); setPhoneError(""); setNotice(""); setPhoneChallenge(null); setPhoneOtp("");
+    try {
+      const result = await securityProfileApi.requestPhoneOtp(phone);
+      if (!result.challengeId) { setPhoneError("auth.validation.missingChallenge"); return; }
+      setPhoneChallenge(result.challengeId); setPhoneOtp(""); setNotice("auth.security.phoneSent");
+    } catch (error) { setPhoneError(accountError(error, "phone", "auth.security.phoneRequestFailed")); }
+    finally { setPhoneBusy(false); }
+  }
+  async function confirmPhone(event: FormEvent) {
+    event.preventDefault();
+    if (busy || phoneBusy || emailBusy || !phoneChallenge) return;
+    if (!/^\d{6}$/.test(phoneOtp)) { setPhoneError("auth.validation.sixDigits"); return; }
+    if (!phoneCurrentPassword) { setPhoneError("auth.security.contactPasswordRequired"); return; }
+    setPhoneBusy(true); setPhoneError(""); setNotice("");
+    try {
+      const response = await securityProfileApi.confirmPhone({ phone: canonicalPhone(phoneDraft), otp: phoneOtp,
+        challengeId: phoneChallenge, currentPassword: phoneCurrentPassword });
+      const updated: Profile = { ...response, phone: response.phone ?? "" };
+      setProfile(updated); setSavedProfile(updated);
+      setPhoneDraft(updated.phone ?? ""); setPhoneOtp(""); setPhoneCurrentPassword(""); setPhoneChallenge(null);
+      if (updated.phoneVerified === true) { setNotice("auth.security.phoneVerified"); setPasswordChannel("SMS"); }
+      else setPhoneError("auth.security.phoneVerificationPending");
+    } catch (error) { setPhoneError(accountError(error, "phone", "auth.security.phoneConfirmFailed")); }
+    finally { setPhoneBusy(false); }
+  }
+  async function requestChangePasswordOtp() {
+    if (busy) return;
+    if (passwordChannel === "SMS" && (!savedProfile.phone || savedProfile.phoneVerified !== true)) {
+      setError("auth.security.verifiedPhoneRequired"); return;
+    }
+    if (passwordChannel === "EMAIL" && (!savedProfile.email || savedProfile.emailVerified !== true)) {
+      setError("auth.security.verifiedEmailRequired"); return;
+    }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const result = await securityProfileApi.requestPasswordOtp(passwordChannel);
+      setPasswordChallenge(result.challengeId ?? "");
+      setPassword(current => ({ ...current, otp: "" }));
+      setNotice("auth.security.passwordOtpSent");
+    } catch { setError("auth.security.passwordRequestFailed"); }
+    finally { setBusy(false); }
+  }
+  async function confirmChangePassword(event: FormEvent) {
+    event.preventDefault();
+    if (busy || passwordChallenge === null) return;
+    const checks = passwordChecks(password.next);
+    if (!Object.values(checks).every(Boolean)) { setError("auth.validation.passwordPolicy"); return; }
+    if (password.next !== password.confirm) { setError("auth.validation.confirmMismatch"); return; }
+    if (!/^\d{6}$/.test(password.otp)) { setError("auth.validation.sixDigits"); return; }
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await securityProfileApi.confirmPassword({ channel: passwordChannel, otp: password.otp, newPassword: password.next,
+        ...(passwordChallenge ? { challengeId: passwordChallenge } : {}) });
+      setPassword({ next: "", confirm: "", otp: "" }); setPasswordChallenge(null);
+      expireSession();
+      router.replace("/login");
+    } catch { setError("auth.security.passwordConfirmFailed"); }
     finally { setBusy(false); }
   }
   async function setDefault(address: Address) {
@@ -120,10 +272,11 @@ export default function AccountPage() {
     setTab(value);
     setNotice("");
     setError("");
-    setPassword({ current: "", next: "", confirm: "" });
+    setPassword({ next: "", confirm: "", otp: "" });
+    setPasswordChallenge(null);
   }
 
-  const displayName = ready ? savedProfile.fullName : sessionFullName ?? initialProfile.fullName;
+  const displayName = (ready ? savedProfile.fullName : sessionFullName)?.trim() || t("auth.security.customer");
   const initials = displayName.trim().split(/\s+/).slice(-2).map(part => part[0]).join("").toLocaleUpperCase();
   return (
     <>
@@ -165,7 +318,7 @@ export default function AccountPage() {
               <span aria-hidden="true">{initials}</span>
             </div>
             <strong>{displayName}</strong>
-            <p>{sessionEmail}</p>
+            <p>{ready ? (savedProfile.phone || t("auth.security.noPhone")) : (user?.phone || t("auth.security.noPhone"))}</p>
             <nav aria-label={t("business.account.manageAccount")}>
               {[
                 ["profile", t("business.account.personalDetails"), UserRound],
@@ -200,10 +353,18 @@ export default function AccountPage() {
                   <div><h2>{t("business.account.personalDetails")}</h2>
                     <p className={styles.muted}>{t("business.account.updateYourContactDetails")}</p></div>
                 </div>
-                <div className={styles.identityStrip}>
-                  <Mail size={18} aria-hidden="true" />
-                  <span><small>{t("business.account.signInEmail")}</small><strong>{sessionEmail}</strong></span>
-                </div>
+                {!savedProfile.phoneVerified && (
+                  <div className={styles.setupBanner}>
+                    <span className={styles.setupBannerIcon}><Phone size={20} aria-hidden="true" /></span>
+                    <div>
+                      <strong>{t("auth.security.phoneSetupTitle")}</strong>
+                      <p>{t("auth.security.phoneSetupDescription")}</p>
+                    </div>
+                    <a href="#account-phone-verify" className={styles.setupBannerAction}>
+                      {t("auth.security.phoneSetupAction")}<ArrowRight size={15} aria-hidden="true" />
+                    </a>
+                  </div>
+                )}
                 <form
                   className={`${styles.form} ${styles.profileForm}`}
                   onSubmit={(e) => {
@@ -215,7 +376,6 @@ export default function AccountPage() {
                     const clean = {
                       ...profile,
                       fullName: profile.fullName.trim(),
-                      email: profile.email.trim(),
                     };
                     void saveProfile(clean);
                   }}
@@ -227,27 +387,6 @@ export default function AccountPage() {
                     value={profile.fullName}
                     onChange={(e) =>
                       setProfile({ ...profile, fullName: e.target.value })
-                    }
-                  />
-                  <Input
-                    label="Email"
-                    type="email"
-                    required
-                    value={profile.email}
-                    readOnly
-                    title={t("maps.emailReadonly")}
-                    onChange={(e) =>
-                      setProfile({ ...profile, email: e.target.value })
-                    }
-                  />
-                  <Input
-                    label={t("business.account.phoneNumber")}
-                    type="tel"
-                    pattern="[0-9+ ()-]{9,15}"
-                    title={t("business.account.enterAPhoneNumberWithCharacters")}
-                    value={profile.phone}
-                    onChange={(e) =>
-                      setProfile({ ...profile, phone: e.target.value })
                     }
                   />
                   <div className={styles.actions}>
@@ -266,6 +405,105 @@ export default function AccountPage() {
                     > {t("business.account.discardChanges")} </button>
                   </div>
                 </form>
+                <div className={styles.contactSectionHeading}>
+                  <h3>{t("auth.security.contactHeading")}</h3>
+                  <p>{t("auth.security.contactDescription")}</p>
+                </div>
+                <div className={styles.contactGrid}>
+                  <section id="account-phone-verify" className={styles.contactCard} aria-label={t("auth.security.phoneHeading")}>
+                    <div className={styles.securityHeading}>
+                      <span className={styles.contactIcon}><Phone size={21} aria-hidden="true" /></span>
+                      <div>
+                        <h3>{t("auth.security.phoneHeading")}</h3>
+                        <p>{t("auth.security.phoneDescription")}</p>
+                      </div>
+                    </div>
+                    <div className={styles.contactCurrent}>
+                      <span>{t("auth.security.currentPhone")}</span>
+                      <strong>{savedProfile.phone || t("auth.security.noPhone")}</strong>
+                      {savedProfile.phoneVerified === true
+                        ? <span className={styles.verifiedBadge}><Check size={14} aria-hidden="true" />{t("auth.security.verified")}</span>
+                        : <span className={styles.pendingBadge}>{t("auth.security.unverified")}</span>}
+                    </div>
+                    <form className={styles.form} onSubmit={requestPhoneOtp}>
+                      <Input type="tel" inputMode="tel" label={t("auth.security.newPhone")}
+                        autoComplete="tel" placeholder={t("auth.fields.phonePlaceholder")}
+                        value={phoneDraft} onChange={e => { setPhoneDraft(e.target.value); setPhoneChallenge(null); setPhoneOtp(""); setPhoneCurrentPassword(""); setPhoneError(""); }}
+                        disabled={busy || phoneBusy || emailBusy} required
+                        error={phoneError && phoneError !== "auth.security.contactPasswordInvalid" ? t(phoneError) : undefined} />
+                      <button className={styles.primary} type="submit"
+                        disabled={busy || phoneBusy || emailBusy || !phoneDraft.trim() || (savedProfile.phoneVerified === true && canonicalPhone(savedProfile.phone) === canonicalPhone(phoneDraft))}>
+                        {phoneBusy ? t("auth.otp.sending") : t("auth.security.sendPhoneCode")}
+                      </button>
+                    </form>
+                    {phoneChallenge && (
+                      <form className={styles.otpForm} onSubmit={confirmPhone}>
+                        <p>{t("auth.security.phoneCodeHint", { phone: canonicalPhone(phoneDraft) })}</p>
+                        <Input label={t("auth.otp.label")} inputMode="numeric" autoComplete="one-time-code"
+                          value={phoneOtp} onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          maxLength={6} disabled={busy || phoneBusy || emailBusy} required />
+                        <Input label={t("auth.security.currentCluckyPassword")} type="password" autoComplete="current-password"
+                          value={phoneCurrentPassword} onChange={e => setPhoneCurrentPassword(e.target.value)}
+                          helperText={t("auth.security.contactPasswordHint")}
+                          error={phoneError === "auth.security.contactPasswordInvalid" ? t(phoneError) : undefined}
+                          disabled={busy || phoneBusy || emailBusy} required />
+                        <button className={styles.primary} disabled={busy || phoneBusy || emailBusy || phoneOtp.length !== 6 || !phoneCurrentPassword}>
+                          {t("auth.security.confirmPhone")}
+                        </button>
+                      </form>
+                    )}
+                    {savedProfile.phoneVerified === true && canonicalPhone(savedProfile.phone) !== canonicalPhone(phoneDraft) && (
+                      <p className={styles.contactHint}>{t("auth.security.currentStaysActive")}</p>
+                    )}
+                  </section>
+                  <section className={styles.contactCard} aria-label={t("auth.security.emailHeading")}>
+                    <div className={styles.securityHeading}>
+                      <span className={styles.contactIcon}><Mail size={21} aria-hidden="true" /></span>
+                      <div>
+                        <h3>{t("auth.security.emailHeading")}</h3>
+                        <p>{t("auth.security.emailDescription")}</p>
+                      </div>
+                    </div>
+                    <div className={styles.contactCurrent}>
+                      <span>{t("auth.security.currentEmail")}</span>
+                      <strong>{savedProfile.email || t("auth.security.noEmail")}</strong>
+                      {savedProfile.emailVerified === true
+                        ? <span className={styles.verifiedBadge}><Check size={14} aria-hidden="true" />{t("auth.security.verified")}</span>
+                        : <span className={styles.pendingBadge}>{t("auth.security.unverified")}</span>}
+                    </div>
+                    <form className={styles.form} onSubmit={requestEmailOtp}>
+                      <Input type="email" label={t("auth.security.newEmail")} autoComplete="email"
+                        placeholder="ban@clucky.vn" value={emailDraft}
+                        onChange={e => { setEmailDraft(e.target.value); setEmailChallenge(null); setEmailOtp(""); setEmailCurrentPassword(""); setEmailError(""); }}
+                        disabled={busy || emailBusy || phoneBusy} required
+                        error={emailError && emailError !== "auth.security.contactPasswordInvalid" ? t(emailError) : undefined} />
+                      <button className={styles.primary} type="submit"
+                        disabled={busy || emailBusy || phoneBusy || !emailDraft.trim() || (savedProfile.emailVerified === true && savedProfile.email?.toLowerCase() === emailDraft.trim().toLowerCase())}>
+                        {emailBusy ? t("auth.otp.sending") : t("auth.security.sendEmailCode")}
+                      </button>
+                    </form>
+                    {emailChallenge && (
+                      <form className={styles.otpForm} onSubmit={confirmEmail}>
+                        <p>{t("auth.security.emailCodeHint")}</p>
+                        <Input label={t("auth.otp.label")} inputMode="numeric" autoComplete="one-time-code"
+                          value={emailOtp} onChange={e => setEmailOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          maxLength={6} disabled={busy || emailBusy || phoneBusy} required />
+                        <Input label={t("auth.security.currentCluckyPassword")} type="password" autoComplete="current-password"
+                          value={emailCurrentPassword} onChange={e => setEmailCurrentPassword(e.target.value)}
+                          helperText={t("auth.security.contactPasswordHint")}
+                          error={emailError === "auth.security.contactPasswordInvalid" ? t(emailError) : undefined}
+                          disabled={busy || emailBusy || phoneBusy} required />
+                        <button className={styles.primary} disabled={busy || emailBusy || phoneBusy || emailOtp.length !== 6 || !emailCurrentPassword}>
+                          {t("auth.security.confirmEmail")}
+                        </button>
+                      </form>
+                    )}
+                    {savedProfile.emailVerified === true && savedProfile.email?.toLowerCase() !== emailDraft.trim().toLowerCase() && (
+                      <p className={styles.contactHint}>{t("auth.security.currentStaysActive")}</p>
+                    )}
+                    {savedProfile.emailVerified !== true && <p className={styles.contactHint}>{t("auth.security.noEmailNotices")}</p>}
+                  </section>
+                </div>
               </>
             )}
             {ready && tab === "addresses" && (
@@ -344,61 +582,57 @@ export default function AccountPage() {
                   <div><h2>{t("business.account.changePassword")}</h2>
                     <p className={styles.muted}>{t("business.account.useANewPasswordWithAtLeastCharacters")}</p></div>
                 </div>
-                <p className={styles.demo}> {t("business.account.uiDemoThisOnlyValidatesTheFormYourPasswordIsNotSaved")} </p>
-                <form
-                  className={styles.form}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setNotice("");
-                    if (password.next === password.current) {
-                      setError("business.account.theNewPasswordMustDifferFromYourCurrentPassword");
-                      return;
-                    }
-                    if (password.next !== password.confirm) {
-                      setError("business.account.thePasswordsDoNotMatch");
-                      return;
-                    }
-                    setError("");
-                    setNotice(
-                      "business.account.validFormThisIsADemoYourPasswordHasNotBeenChanged",
-                    );
-                    setPassword({ current: "", next: "", confirm: "" });
-                  }}
-                >
-                  <Input
-                    label={t("business.account.currentPassword")}
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password.current}
-                    onChange={(e) =>
-                      setPassword({ ...password, current: e.target.value })
-                    }
-                  />
+                <p className={styles.securityHint}>{t("auth.security.passwordDescription")}</p>
+                <fieldset className={styles.channelOptions} disabled={busy}>
+                  <legend>{t("auth.security.chooseChannel")}</legend>
+                  {(["SMS", "EMAIL"] as const).map(channel => (
+                    <label key={channel}>
+                      <input type="radio" name="passwordChannel" checked={passwordChannel === channel}
+                        disabled={(channel === "EMAIL" && (!savedProfile.email || savedProfile.emailVerified !== true))
+                          || (channel === "SMS" && (!savedProfile.phone || savedProfile.phoneVerified !== true))}
+                        onChange={() => { setPasswordChannel(channel); setPasswordChallenge(null); setPassword(current => ({ ...current, otp: "" })); }} />
+                      {t(channel === "SMS" ? "auth.recovery.sms" : "auth.recovery.email")}
+                    </label>
+                  ))}
+                </fieldset>
+                <button type="button" className={styles.primary} onClick={() => void requestChangePasswordOtp()}
+                  disabled={busy || (passwordChannel === "EMAIL" && savedProfile.emailVerified !== true)
+                    || (passwordChannel === "SMS" && savedProfile.phoneVerified !== true)}>
+                  {t(passwordChallenge !== null ? "auth.security.sendCodeAgain" : "auth.security.requestPasswordCode")}
+                </button>
+                {passwordChallenge !== null && <form className={styles.form} onSubmit={confirmChangePassword}>
+                  <Input label={t("auth.otp.label")} inputMode="numeric" autoComplete="one-time-code"
+                    value={password.otp} onChange={e => setPassword({ ...password, otp: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                    maxLength={6} required disabled={busy} />
                   <Input
                     label={t("business.account.newPassword")}
                     type="password"
                     autoComplete="new-password"
                     required
                     minLength={8}
+                    disabled={busy}
                     value={password.next}
                     onChange={(e) =>
                       setPassword({ ...password, next: e.target.value })
                     }
                   />
+                  <p className={styles.muted}>{t("auth.google.passwordPolicy")}</p>
                   <Input
                     label={t("business.account.confirmNewPassword")}
                     type="password"
                     autoComplete="new-password"
                     required
                     minLength={8}
+                    disabled={busy}
                     value={password.confirm}
                     onChange={(e) =>
                       setPassword({ ...password, confirm: e.target.value })
                     }
                   />
-                  <button className={styles.primary}> {t("business.account.changePasswordDemo")} </button>
-                </form>
+                  <button className={styles.primary} disabled={busy || password.otp.length !== 6}>
+                    {t("auth.security.confirmPasswordChange")}
+                  </button>
+                </form>}
               </>
             )}
             {tab === "reviews" && <MyReviewsPanel />}

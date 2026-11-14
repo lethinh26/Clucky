@@ -23,6 +23,17 @@ public class LoyaltyOrderController {
         if (id == null || id <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
         recovery.lock(id);
         var order = orders.findById(id).orElse(null);
-        return order == null ? new OrderState(id, null, "MISSING") : new OrderState(id, order.getCustomerId(), order.getStatus());
+        if (order == null) return new OrderState(id, null, "MISSING");
+        // Loyalty interprets CANCELLED as "release reserved points/vouchers". A failed
+        // delivery or a COD-only simulated completion does not settle real money.
+        // This projection deliberately keeps those simulated orders out of rewards,
+        // including the periodic reconciliation path that queries this endpoint.
+        boolean virtualCodCompletion = "DELIVERY".equals(order.getType())
+                && "COD".equals(order.getPaymentMethod())
+                && "COMPLETED".equals(order.getStatus())
+                && !java.util.Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus());
+        String loyaltyState = "DELIVERY_FAILED".equals(order.getStatus()) || virtualCodCompletion
+                ? "CANCELLED" : order.getStatus();
+        return new OrderState(id, order.getCustomerId(), loyaltyState);
     }
 }

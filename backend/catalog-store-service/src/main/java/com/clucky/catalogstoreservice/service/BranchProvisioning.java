@@ -141,18 +141,24 @@ public class BranchProvisioning {
                 }
                 if (ids.size() != 2 || !roles.equals(Set.of("STAFF", "STORE_MANAGER"))) throw new IllegalStateException();
                 jdbc.update("UPDATE catalog_service.stores SET notification_manager_id=? WHERE id=?", managerUserId, storeId);
-                jdbc.update("UPDATE catalog_service.stores SET version=version+1,account_readiness=?,status=CASE WHEN ? OR status='INACTIVE' THEN status ELSE 'CLOSED_TEMP' END "
-                                + "WHERE id=? AND (account_readiness<>? OR (NOT ? AND status NOT IN ('INACTIVE','CLOSED_TEMP')))",
-                        ready ? "READY" : "PROVISIONED", ready, storeId, ready ? "READY" : "PROVISIONED", ready);
+                // Operational OPEN/CLOSED_TEMP/INACTIVE is owned by Manager/Admin.
+                // A temporarily unavailable or disabled Identity account must only
+                // affect readiness; StoreService.isStoreServingNow checks both fields.
+                // Otherwise a brief Identity outage permanently closes an OPEN store.
+                jdbc.update("UPDATE catalog_service.stores SET version=version+1,account_readiness=? "
+                                + "WHERE id=? AND account_readiness<>?",
+                        ready ? "READY" : "PROVISIONED", storeId, ready ? "READY" : "PROVISIONED");
                 jdbc.update("UPDATE catalog_service.account_provisioning SET last_error=NULL,updated_at=now() WHERE store_id=?", storeId);
                 cache.evictStoreMenuCache(storeId);
             } catch (Exception failure) {
                 jdbc.update("UPDATE catalog_service.stores SET notification_manager_id=NULL WHERE id=?", storeId);
                 boolean missing = jobs.isEmpty() && failure instanceof RestClientResponseException response && response.getStatusCode().value() == 404;
                 jdbc.update("UPDATE catalog_service.account_provisioning SET last_error='IDENTITY_PROVISIONING_PENDING',updated_at=now() WHERE store_id=?", storeId);
-                jdbc.update("UPDATE catalog_service.stores SET version=version+1,status=CASE WHEN status='INACTIVE' THEN status ELSE 'CLOSED_TEMP' END,"
+                // Keep the intended operating status intact. Readiness alone gates
+                // new orders while Identity verification is unavailable.
+                jdbc.update("UPDATE catalog_service.stores SET version=version+1,"
                         + "account_readiness=CASE WHEN ? THEN 'UNPROVISIONED' WHEN account_readiness='READY' THEN 'PROVISIONED' ELSE account_readiness END "
-                        + "WHERE id=? AND (status NOT IN ('INACTIVE','CLOSED_TEMP') OR account_readiness='READY' OR (? AND account_readiness<>'UNPROVISIONED'))", missing, storeId, missing);
+                        + "WHERE id=? AND (account_readiness='READY' OR (? AND account_readiness<>'UNPROVISIONED'))", missing, storeId, missing);
                 cache.evictStoreMenuCache(storeId);
             }
         });

@@ -385,6 +385,36 @@
 .paymentHeading h2 {
   margin: 0;
 }
+.paymentStatusCluster {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.deliveryPaymentBadge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #b9d7c3;
+  border-radius: 999px;
+  background: #e8f4e9;
+  color: #20613e;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+.codCollectionNote {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f5ede5;
+  color: #675448;
+  font-size: 12px;
+  line-height: 1.6;
+}
 .paymentCard {
   --payment-accent: #8f1216;
   --payment-tint: #f7e9e5;

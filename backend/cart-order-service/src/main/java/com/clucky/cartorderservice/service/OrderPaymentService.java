@@ -163,7 +163,11 @@ public class OrderPaymentService {
                 || !Objects.equals(order.getStoreId(), payload.path("storeId").asLong())
                 || order.getTotalAmount().compareTo(payload.path("amount").decimalValue()) != 0) throw new IllegalArgumentException("Collection snapshot mismatch");
         String decision = "CANCELLED";
-        if (!"PENDING".equals(order.getPaymentStatus())) decision = "SUPERSEDED";
+        // COD for web delivery is collected by the rider outside Clucky.
+        // A counter collection must never confirm customer cash for this flow.
+        if ("WEB".equals(order.getOrderSource()) && "DELIVERY".equals(order.getType())
+                && "COD".equals(order.getPaymentMethod())) decision = "CANCELLED";
+        else if (!"PENDING".equals(order.getPaymentStatus())) decision = "SUPERSEDED";
         else if (order.getPaymentExpiresAt() != null && !order.getPaymentExpiresAt().isAfter(Instant.now())
                 && "PENDING_PAYMENT".equals(order.getStatus())) {
             orderService.compensateFailedPayment(orderId, order.getOrderCode(), "PAYMENT_EXPIRED");
@@ -211,6 +215,11 @@ public class OrderPaymentService {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Đơn hàng không cho phép cập nhật thu tiền quầy");
         }
         if ("COLLECTED".equalsIgnoreCase(paymentStatus)) {
+            if ("WEB".equals(order.getOrderSource()) && "DELIVERY".equals(order.getType())
+                    && "COD".equals(order.getPaymentMethod())) {
+                throw new ApiException(ErrorCode.RESOURCE_CONFLICT,
+                        "COD giao hàng do shipper thu bên ngoài Clucky, không thể xác nhận thu tại quầy.");
+            }
             if (!"PENDING".equals(order.getPaymentStatus())) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
             order.setPaymentStatus("COLLECTED");
         } else if ("PENDING".equalsIgnoreCase(paymentStatus)) {

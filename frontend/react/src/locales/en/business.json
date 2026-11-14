@@ -58,7 +58,8 @@
     "searchOrders": "Search orders",
     "inProgress": "In progress",
     "completed": "Completed",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "deliveryFailed": "Delivery unsuccessful"
   },
   "id": {
     "orderedItems": "Ordered items",

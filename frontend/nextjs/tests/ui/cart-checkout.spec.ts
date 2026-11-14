@@ -43,7 +43,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await expect.poll(() => additions.length).toBe(1);
   expect(additions[0]).toMatchObject({ productId: 901, optionIds: [12], toppingIds: [22] });
   expect(additions[0].comboId).toBeUndefined();
-  await expect(page.getByRole("button", { name: /Đã thêm/ })).toBeVisible();
+  await expect(page.locator('[data-sonner-toast][data-type="success"]')).toContainText("Đã thêm món vào giỏ hàng");
   await page.getByRole("link", { name: "Giỏ hàng", exact: true }).first().click();
   await expect(page.getByText("Heat: Hot")).toBeVisible();
   await expect(page.getByText(/Cheese/)).toBeVisible();
@@ -66,7 +66,7 @@ test("cart preserves combo/options and server keys; failed mutations keep the ca
   await expect.poll(() => additions.length).toBe(2);
   expect(additions[1]).toMatchObject({ comboId: 901, optionIds: [], toppingIds: [] });
   expect(additions[1].productId).toBeUndefined();
-  await expect(page.getByRole("button", { name: /Đã thêm/ })).toBeVisible();
+  await expect(page.locator('[data-sonner-toast][data-type="success"]')).toContainText("Đã thêm món vào giỏ hàng");
   signedIn = true;
   await page.route("**/api/orders/preview", (route) => route.fulfill({ json: {
     subtotal: 120000, discountAmount: 0, pointsAmount: 0, pointsUsed: 0,

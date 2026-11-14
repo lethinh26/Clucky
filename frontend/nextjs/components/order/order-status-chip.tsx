@@ -24,6 +24,7 @@ export function OrderStatusChip({ status, type, className = '' }: OrderStatusChi
     SHIPPING: styles.statusShipping,
     COMPLETED: styles.statusCompleted,
     CANCELLED: styles.statusCancelled,
+    DELIVERY_FAILED: styles.statusCancelled,
   };
 
   return (

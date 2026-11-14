@@ -4,6 +4,12 @@ import com.clucky.identityservice.entity.Address;
 import com.clucky.identityservice.entity.User;
 import com.clucky.identityservice.repository.AddressRepository;
 import com.clucky.identityservice.repository.UserRepository;
+import com.clucky.identityservice.service.IdentityChallenges;
+import com.clucky.identityservice.service.OtpService;
+import com.clucky.identityservice.service.PhoneNumbers;
+import com.clucky.identityservice.exception.ApiException;
+import com.clucky.identityservice.exception.ErrorCode;
+import com.clucky.identityservice.dto.auth.MessageResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.validation.Valid;
@@ -13,6 +19,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -25,11 +32,30 @@ public class ProfileController {
     private final UserRepository users;
     private final AddressRepository addresses;
     private final EntityManager entityManager;
+    private final IdentityChallenges challenges;
+    private final PasswordEncoder passwordEncoder;
+    private final OtpService otpService;
 
-    public ProfileController(UserRepository users, AddressRepository addresses, EntityManager entityManager) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ProfileController(UserRepository users, AddressRepository addresses, EntityManager entityManager,
+            IdentityChallenges challenges, PasswordEncoder passwordEncoder, OtpService otpService) {
         this.users = users;
         this.addresses = addresses;
         this.entityManager = entityManager;
+        this.challenges = challenges;
+        this.passwordEncoder = passwordEncoder;
+        this.otpService = otpService;
+    }
+
+    @Deprecated
+    public ProfileController(UserRepository users, AddressRepository addresses, EntityManager entityManager,
+            IdentityChallenges challenges) {
+        this(users, addresses, entityManager, challenges, null, null);
+    }
+
+    @Deprecated
+    public ProfileController(UserRepository users, AddressRepository addresses, EntityManager entityManager) {
+        this(users, addresses, entityManager, null);
     }
 
     @ModelAttribute
@@ -37,7 +63,8 @@ public class ProfileController {
         response.setHeader("Cache-Control", "no-store");
     }
 
-    public record Profile(String fullName, String email, String phone) {}
+    public record Profile(String fullName, String email, String phone,
+            boolean emailVerified, boolean phoneVerified) {}
     public record ProfileInput(@NotBlank @Size(max = 160) String fullName,
             @Pattern(regexp = "^$|[0-9+ ()-]{9,30}") String phone) {}
     public record AddressInput(@NotBlank @Size(max = 160) String receiverName,
@@ -70,17 +97,94 @@ public class ProfileController {
     @GetMapping
     public Profile profile(@AuthenticationPrincipal Jwt jwt) {
         User user = user(jwt, false);
-        return new Profile(user.getFullName(), user.getEmail(), user.getPhone() == null ? "" : user.getPhone());
+        return new Profile(user.getFullName(), user.getEmail(), user.getPhone() == null ? "" : user.getPhone(),
+                Boolean.TRUE.equals(user.getEmailVerified()), Boolean.TRUE.equals(user.getPhoneVerified()));
     }
 
     @PutMapping
     public Profile update(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ProfileInput input) {
         User user = user(jwt, true);
         user.setFullName(input.fullName().trim());
-        user.setPhone(input.phone() == null || input.phone().isBlank() ? null : input.phone().trim());
+        // Omitting phone updates only the name; supplied phone must be the same
+        // previously verified identity, allowing +84 / 0 display variants.
+        if (input.phone() != null
+                && !PhoneNumbers.equivalent(user.getPhone(), input.phone().trim())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.CONFLICT, "Phone number can only change after OTP verification");
+        }
         user.setUpdatedAt(Instant.now());
         users.saveAndFlush(user);
         return profile(jwt);
+    }
+
+    public record EmailBindRequest(@NotBlank @jakarta.validation.constraints.Email @Size(max = 255) String email) {}
+    public record EmailBindConfirm(
+            @NotBlank @jakarta.validation.constraints.Email @Size(max = 255) String email,
+            @NotBlank String otp, @NotBlank String challengeId,
+            @NotBlank String currentPassword) {}
+
+    @PostMapping("/email/request")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public MessageResponse requestEmail(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody EmailBindRequest input) {
+        return new MessageResponse("Mã xác minh đã được gửi đến email mới.",
+                challenges.sendEmailBinding(user(jwt, true), input.email()));
+    }
+
+    @PostMapping("/email/verify")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public Profile verifyEmail(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody EmailBindConfirm input) {
+        User account = user(jwt, true);
+        requirePasswordStepUp(account, input.currentPassword());
+        challenges.confirmEmailBinding(account, input.email(), input.challengeId(), input.otp());
+        return profile(jwt);
+    }
+
+    public record PhoneBindRequest(
+            @NotBlank @Size(max = 30) String phone) {}
+    public record PhoneBindConfirm(
+            @NotBlank @Size(max = 30) String phone,
+            @NotBlank String otp,
+            @NotBlank String challengeId,
+            @NotBlank String currentPassword) {}
+
+    @PostMapping("/phone/request")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public MessageResponse requestPhone(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody PhoneBindRequest input) {
+        return new MessageResponse("Mã xác minh đã được yêu cầu gửi đến số điện thoại mới.",
+                challenges.sendPhoneBinding(user(jwt, true), input.phone()));
+    }
+
+    @PostMapping("/phone/verify")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public Profile verifyPhone(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody PhoneBindConfirm input) {
+        User account = user(jwt, true);
+        requirePasswordStepUp(account, input.currentPassword());
+        challenges.confirmPhoneBinding(account, input.phone(), input.challengeId(), input.otp());
+        return profile(jwt);
+    }
+
+    /**
+     * A stolen cookie must not allow binding an attacker-controlled recovery
+     * destination with only an OTP sent to that new destination. Require a
+     * fresh password proof for all contact binds, including a first phone on
+     * a Google account. Rate-limit the proof per account before BCrypt.
+     */
+    private void requirePasswordStepUp(User account, String currentPassword) {
+        if (otpService == null || passwordEncoder == null) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
+        otpService.limitVerification("account:" + account.getId(), "CONTACT_BIND_PASSWORD");
+        if (currentPassword == null || currentPassword.isBlank() || account.getPasswordHash() == null
+                || !passwordEncoder.matches(currentPassword, account.getPasswordHash())) {
+            // HTTP 400 rather than 401: the customer session client must not
+            // refresh/retry a failed re-auth attempt against the OTP endpoint.
+            throw new ApiException(ErrorCode.VALIDATION_ERROR,
+                    java.util.Map.of("currentPassword", "INVALID"));
+        }
     }
 
     @GetMapping("/addresses")

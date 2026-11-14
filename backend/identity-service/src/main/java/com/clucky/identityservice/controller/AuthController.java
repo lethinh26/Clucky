@@ -18,6 +18,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -67,7 +68,7 @@ public class AuthController {
     @PostMapping("/resend-otp")
     @ResponseStatus(HttpStatus.CREATED)
     public MessageResponse resendOtp(@Valid @RequestBody ResendOtpRequest request) {
-        return authService.resendRegisterOtp(request.email());
+        return authService.resendRegisterOtp(request);
     }
 
     @PostMapping("/verify-otp")
@@ -135,6 +136,32 @@ public class AuthController {
         MessageResponse res = authService.resetPassword(request);
         clearSessionCookies(response, client);
         return res;
+    }
+
+    public record PasswordOtpRequest(@jakarta.validation.constraints.NotBlank String channel) {}
+    public record PasswordChangeConfirm(
+            @jakarta.validation.constraints.NotBlank String channel,
+            String challengeId,
+            @jakarta.validation.constraints.NotBlank String otp,
+            @jakarta.validation.constraints.NotBlank String newPassword) {}
+
+    @PostMapping("/change-password/request")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public MessageResponse requestPasswordChange(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody PasswordOtpRequest request) {
+        return authService.requestPasswordChange(Long.valueOf(jwt.getSubject()), request.channel());
+    }
+
+    @PostMapping("/change-password/confirm")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public MessageResponse confirmPasswordChange(@AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody PasswordChangeConfirm request,
+            @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
+            HttpServletResponse response) {
+        MessageResponse result = authService.confirmPasswordChange(Long.valueOf(jwt.getSubject()),
+                request.channel(), request.challengeId(), request.otp(), request.newPassword());
+        clearSessionCookies(response, client);
+        return result;
     }
 
     @GetMapping("/session")

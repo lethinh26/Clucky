@@ -63,6 +63,16 @@ public class OrderEventPublisher {
         publish(TOPIC_ORDER_COMPLETED, order, payload);
     }
 
+    /** Mock shipping may finish an order funded only by a virtual rider advance. */
+    public void publishSimulatedDeliveryCompleted(Order order, List<OrderItem> items, boolean settledWithRealPayment) {
+        ObjectNode payload = buildOrderPayload(order, items, "SHIPPING", null);
+        payload.put("fulfillmentSource", "SIMULATOR");
+        payload.put("mockDelivery", true);
+        payload.put("simulationOnly", !settledWithRealPayment);
+        // Reward/report consumers of order.completed must only see paid transactions.
+        publish(settledWithRealPayment ? TOPIC_ORDER_COMPLETED : TOPIC_ORDER_STATUS_CHANGED, order, payload);
+    }
+
     public void publishOrderCancelled(Order order, List<OrderItem> items, String reason) {
         publishOrderCancelled(order, items, reason, false);
     }
@@ -81,10 +91,18 @@ public class OrderEventPublisher {
         payload.put("refundId", refund.getId());
         payload.put("orderId", refund.getOrderId());
         payload.put("orderCode", order.getOrderCode());
-        if (order.getCustomerEmail() != null && order.isCustomerEmailVerified()) {
-            payload.put("customerEmail", order.getCustomerEmail());
-            payload.putObject("recipient").put("userId", order.getCustomerId()).put("role", "CUSTOMER")
-                    .put("email", order.getCustomerEmail()).put("emailVerified", true);
+        if (order.getCustomerId() != null) {
+            // Preserve the in-app recipient even when a phone-only customer has
+            // not configured an email. The Notification consumer itself gates
+            // email sends on emailVerified + a validated email address.
+            ObjectNode recipient = payload.putObject("recipient")
+                    .put("userId", order.getCustomerId()).put("role", "CUSTOMER");
+            boolean emailVerified = order.getCustomerEmail() != null && order.isCustomerEmailVerified();
+            recipient.put("emailVerified", emailVerified);
+            if (emailVerified) {
+                payload.put("customerEmail", order.getCustomerEmail());
+                recipient.put("email", order.getCustomerEmail());
+            }
         }
         if (refund.getCustomerId() != null) {
             payload.put("customerId", refund.getCustomerId());

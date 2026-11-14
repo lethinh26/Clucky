@@ -10,6 +10,8 @@ import { message } from '../../../components/feedback';
 import { CatalogImage } from '../../Catalog/ImageField';
 import { actorLabel, catalogItemPath, historyReason, orderDate, orderLabels, paymentColor, paymentLabels, paymentMethodLabel, snapshotLabels } from '../presentation';
 import { formatQueueWithDate } from '../../../utils/orderExcelExport';
+import { ShipmentSimulationPanel } from '../../../components/ShipmentSimulationPanel';
+import { fulfillmentLabel } from '../../../lib/order-fulfillment';
 
 interface ActionFields { reason: string }
 const requiredText = (max: number) => [{ required: true, whitespace: true, max, pattern: /^[^\x00]*$/, get message() { return i18n.t("admin:ui.enterValidContentUpToCharacters", { value1: max }); } }];
@@ -61,8 +63,8 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
   }
 
   const status = order?.status === 'DELIVERED' ? 'COMPLETED' : order?.status;
-  const ended = status === 'CANCELLED' || status === 'COMPLETED';
-  const next = status === 'CONFIRMED' ? 'PREPARING' : status === 'PREPARING' ? 'READY' : ['READY', 'SHIPPING'].includes(status ?? '') ? 'COMPLETED' : undefined;
+  const ended = status === 'CANCELLED' || status === 'COMPLETED' || status === 'DELIVERY_FAILED';
+  const next = status === 'CONFIRMED' ? 'PREPARING' : status === 'PREPARING' ? 'READY' : status === 'READY' && order?.type === 'PICKUP' ? 'COMPLETED' : undefined;
   const paid = ['PAID', 'COLLECTED'].includes(order?.paymentStatus ?? '');
   const history = [...(order?.timeline ?? [])].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
   const pickup = order?.type === 'PICKUP';
@@ -89,7 +91,7 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
         <div className="order-overview"><span><ClockCircleOutlined /> {orderDate(order.createdAt, locale)} <small>{t("admin:ui.vietnamTime")}</small></span><strong>{money(Number(order.totalAmount))}</strong></div>
         <section className="order-section order-progress">
           <div className="order-section-heading"><h3>{t("business:demoordercontrols.orderProgress")}</h3><small>{t("admin:ui.update")} {orderDate(order.updatedAt, locale)}</small></div>
-          {status === 'CANCELLED' ? <Alert type="error" showIcon message={t("admin:ui.orderCancelled")} description={historyReason([...history].reverse().find(event => event.toStatus === 'CANCELLED')?.reason, 'CANCELLED') || t("admin:ui.progressHasStoppedTheOrderStatusCannotBe")} />
+          {status === 'CANCELLED' || status === 'DELIVERY_FAILED' ? <Alert type="error" showIcon message={status === 'DELIVERY_FAILED' ? i18n.t("shipping:ui.deliveryUnsuccessful") : t("admin:ui.orderCancelled")} description={status === 'DELIVERY_FAILED' ? i18n.t("shipping:ui.theDeliveryCaseWasClosedAfterAnUnsuccessfulAttempt") : historyReason([...history].reverse().find(event => event.toStatus === 'CANCELLED')?.reason, 'CANCELLED') || t("admin:ui.progressHasStoppedTheOrderStatusCannotBe")} />
             : progressIndex >= 0 && <Steps size="small" current={progressIndex} status={status === 'COMPLETED' ? 'finish' : 'process'} items={progressItems} />}
           <Collapse ghost items={[{ key: 'history', label: t("admin:ui.processingHistoryUpdates", { value1: history.length }), children: history.length ? <Timeline items={history.map(event => ({
             color: event.toStatus === 'CANCELLED' ? 'red' : ['COMPLETED', 'DELIVERED'].includes(event.toStatus) ? 'green' : '#8F1216',
@@ -101,7 +103,7 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
         {refund && <Alert type="info" showIcon message={t("admin:ui.thisOrderHasARefundRequest")} description={t("admin:ui.viewTheStatusRecipientBankDetailsAndAvailable")}
           action={<Button size="small" onClick={onFinance}>{t("admin:ui.viewRequest")}</Button>} />}
         <section className="order-section">
-          <div className="order-section-heading"><h3><UserOutlined /> {t("business:orderdetaildrawer.customerFulfilment")}</h3><Tag icon={<ShopOutlined />}>{order.type === 'PICKUP' ? t("business:orderdetaildrawer.counterPickup") : t("business:checkout.homeDelivery")}</Tag></div>
+          <div className="order-section-heading"><h3><UserOutlined /> {t("business:orderdetaildrawer.customerFulfilment")}</h3><Tag icon={<ShopOutlined />}>{fulfillmentLabel(order)}</Tag></div>
           <Descriptions size="small" column={{ xs: 1, sm: 2 }} layout="vertical" colon={false} items={[
             { key: 'customer', label: t("admin:nav.customers"), children: order.receiverName || t("business:reviews.customerLabel", { value1: order.customerId }) },
             { key: 'phone', label: t("business:orderdetaildrawer.phone"), children: order.receiverPhone ? <a href={`tel:${order.receiverPhone}`}>{order.receiverPhone}</a> : t("admin:ui.notProvided") },
@@ -109,6 +111,8 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
             ...(order.type === 'DELIVERY' ? [{ key: 'address', label: t("admin:ui.deliveryAddress"), children: order.deliveryAddress || t("admin:ui.noAddressProvided"), span: 2 }] : []),
           ]} />
         </section>
+        {order.type === 'PICKUP' && order.diningOption === 'DINE_IN' && order.status === 'READY' && <Alert type="info" showIcon message={i18n.t("shipping:ui.theCustomerCollectsTheOrderAtTheCounterTableServiceIsNotAvailable")} />}
+        {order.type === 'DELIVERY' && ['READY', 'SHIPPING', 'COMPLETED', 'DELIVERY_FAILED'].includes(order.status) && <ShipmentSimulationPanel orderId={order.id} onChanged={onChanged} />}
         <section className="order-section">
           <div className="order-section-heading"><h3><ShoppingOutlined /> {t("business:id.orderedItems")}</h3><Tag>{(order.items ?? []).reduce((sum, item) => sum + item.quantity, 0)} {t("admin:ui.portions")}</Tag></div>
           <div className="order-line-items">{(order.items ?? []).map(item => {

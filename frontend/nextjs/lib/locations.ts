@@ -6,7 +6,7 @@ export type Address = {
   id?: number; receiverName: string; phone: string; province: string; district: string; ward: string;
   detail: string; isDefault: boolean; latitude: number | null; longitude: number | null;
 };
-export type Profile = { fullName: string; email: string; phone: string };
+export type Profile = { fullName: string; email: string | null; phone: string; emailVerified?: boolean; phoneVerified?: boolean };
 export const emptyAddress: Address = { receiverName: "", phone: "", province: "", district: "", ward: "", detail: "", isDefault: false, latitude: null, longitude: null };
 
 export function formatAddress(address: Address) {
@@ -20,7 +20,7 @@ export const locationApi = {
 };
 export const profileApi = {
   get: () => request<Profile>("/api/users/me"),
-  update: (profile: Profile) => request<Profile>("/api/users/me", { method: "PUT", body: JSON.stringify({ fullName: profile.fullName, phone: profile.phone }) }),
+  update: (profile: Profile) => request<Profile>("/api/users/me", { method: "PUT", body: JSON.stringify({ fullName: profile.fullName }) }),
   addresses: () => request<Address[]>("/api/users/me/addresses"),
   saveAddress: (address: Address) => request<Address>("/api/users/me/addresses" + (address.id ? "/" + address.id : ""), { method: address.id ? "PUT" : "POST", body: JSON.stringify(address) }),
   deleteAddress: (id: number) => request<void>("/api/users/me/addresses/" + id, { method: "DELETE" }),

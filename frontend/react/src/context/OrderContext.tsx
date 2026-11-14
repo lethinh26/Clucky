@@ -166,6 +166,7 @@ function mapBackendOrderToAdminOrder(be: BackendOrder, images: OrderItemImages =
     READY: "READY",
     SHIPPING: "SHIPPING",
     COMPLETED: "COMPLETED",
+    DELIVERY_FAILED: "DELIVERY_FAILED",
     CANCELLED: "CANCELLED",
   };
   const status = statusMap[be.status] || "CONFIRMED";
@@ -207,6 +208,8 @@ function mapBackendOrderToAdminOrder(be: BackendOrder, images: OrderItemImages =
     storeId: String(be.storeId),
     storeName: `Clucky #${be.storeId}`,
     orderType: be.type || "DELIVERY",
+    diningOption: be.diningOption,
+    orderSource: be.orderSource || (be.customerId ? 'WEB' : 'COUNTER'),
     status,
     paymentMethod: (be.paymentMethod as AdminOrder["paymentMethod"]) || (status === "PENDING_PAYMENT" ? "BANK_TRANSFER" : "COD"),
     paymentStatus: be.paymentStatus ?? "UNKNOWN",

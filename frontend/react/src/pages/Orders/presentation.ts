@@ -1,7 +1,7 @@
 import i18n from "../../i18n/index.ts";
 export const orderLabels: Record<string, string> = {
   get PENDING_PAYMENT() { return i18n.t("admin:paymentStates.PENDING"); }, get CONFIRMED() { return i18n.t("business:orderstatuschip.confirmed"); }, get PREPARING() { return i18n.t("admin:ui.preparing"); },
-  get READY() { return i18n.t("admin:ui.readyForPickup"); }, get SHIPPING() { return i18n.t("business:orderprogress.delivering"); }, get COMPLETED() { return i18n.t("business:orders.completed"); }, get DELIVERED() { return i18n.t("business:orders.completed"); }, get CANCELLED() { return i18n.t("business:orders.cancelled"); },
+  get READY() { return i18n.t("admin:ui.readyForPickup"); }, get SHIPPING() { return i18n.t("business:orderprogress.delivering"); }, get COMPLETED() { return i18n.t("business:orders.completed"); }, get DELIVERED() { return i18n.t("business:orders.completed"); }, get CANCELLED() { return i18n.t("business:orders.cancelled"); }, get DELIVERY_FAILED() { return i18n.t("shipping:ui.deliveryUnsuccessful"); },
 };
 
 export const paymentLabels: Record<string, string> = {

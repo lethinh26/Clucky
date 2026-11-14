@@ -81,6 +81,17 @@ public class RefundRequestService {
     }
 
     private OrderStatusHistory cancellation(Order order) {
+        if ("DELIVERY_FAILED".equals(order.getStatus())
+                && "DELIVERY".equals(order.getType())
+                && "BANK_TRANSFER".equals(order.getPaymentMethod())
+                && "PAID".equals(order.getPaymentStatus())) {
+            // Only a terminal outcome from the Shipping Service makes a paid failed delivery refundable.
+            return histories.findByOrderIdOrderByCreatedAtAsc(order.getId()).stream()
+                    .filter(entry -> "DELIVERY_FAILED".equals(entry.getToStatus())
+                            && "SHIPPING".equals(entry.getFromStatus())
+                            && "SHIPPING_SIMULATOR".equals(entry.getChangedRole()))
+                    .findFirst().orElseThrow(() -> new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE));
+        }
         if (!"CANCELLED".equals(order.getStatus()) || !"BANK_TRANSFER".equals(order.getPaymentMethod())
                 || order.getCollectionMethod() != null && !"BANK_TRANSFER".equals(order.getCollectionMethod()))
             throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);
@@ -125,8 +136,11 @@ public class RefundRequestService {
         var order = orders.lockById(request.orderId()).orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
         scope(order, true);
         if (!order.isCustomerEmailVerified() && CurrentActor.require().role() == Role.CUSTOMER) {
-            order.setCustomerEmail(profiles.currentCustomerEmail(order.getCustomerId()));
-            order.setCustomerEmailVerified(true);
+            String customerEmail = profiles.currentCustomerEmail(order.getCustomerId());
+            if (customerEmail != null) {
+                order.setCustomerEmail(customerEmail);
+                order.setCustomerEmailVerified(true);
+            }
         }
         var cancelled = cancellation(order);
         var existing = refunds.findAllByOrderId(order.getId()).stream().filter(refund -> !"REJECTED".equals(refund.getStatus())).findFirst();
@@ -316,8 +330,11 @@ public class RefundRequestService {
         refund.setBankDetailsVersion(refund.getBankDetailsVersion() + 1);
         if ("WAITING_BANK_DETAILS".equals(refund.getStatus())) refund.setStatus("APPROVED");
         if (!order.isCustomerEmailVerified() && CurrentActor.require().role() == Role.CUSTOMER) {
-            order.setCustomerEmail(profiles.currentCustomerEmail(order.getCustomerId()));
-            order.setCustomerEmailVerified(true);
+            String customerEmail = profiles.currentCustomerEmail(order.getCustomerId());
+            if (customerEmail != null) {
+                order.setCustomerEmail(customerEmail);
+                order.setCustomerEmailVerified(true);
+            }
         }
         refund.setUpdatedAt(Instant.now()); refunds.save(refund);
         audit(refund, order, "REFUND_BANK_DETAILS_UPDATED"); return response(refund, order);

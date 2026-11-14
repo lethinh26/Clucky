@@ -21,7 +21,7 @@ export interface StaffOrder {
   orderCode: string;
   queueNumber: number;
   orderSource: OrderSource;
-  diningOption: DiningOption;
+  diningOption?: DiningOption;
   customerName: string;
   customerPhone: string;
   storeId: string;

@@ -25,7 +25,9 @@ test("profile loads after a shared refresh and persists an allowed update", asyn
     }
     if (route.request().method() === "PUT") {
       const payload = route.request().postDataJSON();
-      expect(Object.keys(payload).sort()).toEqual(["fullName", "phone"]);
+      // Contact numbers are protected by OTP; the ordinary profile PUT can
+      // edit only the user's display name.
+      expect(Object.keys(payload).sort()).toEqual(["fullName"]);
       profile = { ...profile, ...payload };
       updates++;
     }

@@ -1,3 +1,4 @@
+import i18n from "../../../i18n/index.ts";
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -15,6 +16,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { useOrders } from "../../../context/OrderContext";
 import type { StaffOrder } from "../../../mocks/mockStaffOrders";
 import { paymentsApi } from "../../../lib/api";
+import { fulfillmentShortLabel, getFulfillmentMode } from "../../../lib/order-fulfillment";
 import styles from "./receipt-bill.module.css";
 
 interface ReceiptBillModalProps {
@@ -254,9 +256,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                     </span>
                   </div>
                   <span className={styles.diningOptionTag}>
-                    {order.diningOption === "DINE_IN"
-                      ? "[ ĂN TẠI QUÁN ]"
-                      : "[ MANG VỀ ]"}
+                    [ {fulfillmentShortLabel(order)} ]
                   </span>
                 </div>
 
@@ -279,6 +279,12 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                   <div className={styles.metaRow}>
                     <span>Khách hàng:</span>
                     <span>{order.customerName}</span>
+                  </div>
+                )}
+                {getFulfillmentMode(order) === 'DELIVERY' && (
+                  <div className={styles.metaRow}>
+                    <span>{i18n.t("shipping:ui.deliveryAddress")}</span>
+                    <span>{order.deliveryAddress || i18n.t("shipping:ui.deliveryDetailsMissing")}</span>
                   </div>
                 )}
 
@@ -433,7 +439,7 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                     </span>
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 800, padding: "4px 8px", backgroundColor: "#ffffff", color: "#000000", borderRadius: 4 }}>
-                    {order.diningOption === "DINE_IN" ? "ĂN TẠI QUÁN" : "MANG VỀ"}
+                    {fulfillmentShortLabel(order)}
                   </span>
                 </div>
 

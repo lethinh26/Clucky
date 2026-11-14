@@ -8,6 +8,7 @@ import com.clucky.identityservice.dto.auth.ForgotPasswordRequest;
 import com.clucky.identityservice.dto.auth.LoginRequest;
 import com.clucky.identityservice.dto.auth.RegisterRequest;
 import com.clucky.identityservice.dto.auth.ResetPasswordRequest;
+import com.clucky.identityservice.dto.auth.ResendOtpRequest;
 import com.clucky.identityservice.dto.auth.VerifyOtpRequest;
 import com.clucky.identityservice.config.AuthProperties;
 import com.clucky.identityservice.config.JwtSettings;
@@ -47,6 +48,7 @@ class AuthServiceTest {
     private PasswordEncoder encoder;
     private SessionRevocationService revocation;
     private org.springframework.data.redis.core.StringRedisTemplate redis;
+    private IdentityChallenges challenges;
 
     @BeforeEach
     void setUp() {
@@ -66,6 +68,8 @@ class AuthServiceTest {
         revocation = mock(SessionRevocationService.class);
         refreshTokens = new RefreshTokenService(refreshRepository.proxy(), userRepository(), issuer, revocation,
                 properties);
+        challenges = mock(IdentityChallenges.class);
+        when(challenges.sendSms(any(User.class), eq("REGISTER"))).thenReturn("challenge-1");
 
         service = new AuthService(userRepository(), encoder, issuer, otpService, refreshTokens,
                 new EmailEventPublisher(null, new com.fasterxml.jackson.databind.ObjectMapper(), properties) {
@@ -75,72 +79,78 @@ class AuthServiceTest {
                         publishedTemplates.add(template);
                         publishedCodes.put(template, otp);
                     }
-                }, properties);
+                }, properties, challenges);
     }
 
     @Test
-    void registerCreatesUnverifiedCustomerAndPublishesRegisterTemplateOnly() {
-        service.register(new RegisterRequest("Nguyen Van A", "  User@Example.COM ", "0901234567", "Password1"));
+    void registerCreatesUnverifiedPhoneCustomerAndRequestsSmsOnly() {
+        var result = service.register(new RegisterRequest("Nguyen Van A", "0901234567", "Password1"));
 
         User user = users.values().iterator().next();
-        assertEquals("user@example.com", user.getEmail(), "Email must be normalized");
+        assertNull(user.getEmail(), "Email is optional and must be bound using a separate verified challenge");
+        assertEquals("+84901234567", user.getPhone());
         assertEquals(Role.CUSTOMER, user.getRole(), "Role is server assigned");
         assertNull(user.getStoreId(), "Client cannot set storeId");
         assertEquals("ACTIVE", user.getStatus());
         assertFalse(user.getEmailVerified(), "Registration must leave the account unverified");
+        assertFalse(user.getPhoneVerified(), "Registration must leave the phone unverified");
         assertNotEquals("Password1", user.getPasswordHash(), "Password must be hashed");
-        assertEquals(List.of(EmailEventPublisher.TEMPLATE_REGISTER_OTP), publishedTemplates);
+        assertEquals("challenge-1", result.challengeId());
+        verify(challenges).sendSms(user, "REGISTER");
+        assertTrue(publishedTemplates.isEmpty(), "Phone signup must not send an email OTP");
     }
 
     @Test
-    void duplicateEmailIsRejectedWithoutSecondAccount() {
-        service.register(new RegisterRequest("A", "a@example.com", null, "Password1"));
+    void signupRejectsEmailUntilItIsVerifiedFromTheAccount() {
+        service.register(new RegisterRequest("A", "0901234567", "Password1"));
 
         ApiException failure = assertThrows(ApiException.class,
-                () -> service.register(new RegisterRequest("B", "A@Example.com", null, "Password1")));
-        assertEquals(ErrorCode.EMAIL_EXISTS, failure.getCode());
+                () -> service.register(new RegisterRequest("B", "A@Example.com", "0903333333", "Password1")));
+        assertEquals(ErrorCode.VALIDATION_ERROR, failure.getCode());
         assertEquals(1, users.size(), "Only one account may exist");
     }
 
     @Test
-    void concurrentDuplicateRegistrationIsStoppedByUniqueConstraint() {
-        service.register(new RegisterRequest("A", "a@example.com", null, "Password1"));
+    void domesticAndE164RepresentationsCannotRegisterTheSamePhone() {
+        service.register(new RegisterRequest("A", "0901234567", "Password1"));
         users.replaceAll((id, user) -> user);
 
         ApiException failure = assertThrows(ApiException.class,
-                () -> service.register(new RegisterRequest("C", "a@example.com", null, "Password2")));
-        assertEquals(ErrorCode.EMAIL_EXISTS, failure.getCode());
+                () -> service.register(new RegisterRequest("C", "+84901234567", "Password2")));
+        assertEquals(ErrorCode.RESOURCE_CONFLICT, failure.getCode());
+        assertEquals(Map.of("phone", "ALREADY_EXISTS"), failure.getFieldErrors());
         assertEquals(1, users.size());
     }
 
     @Test
     void duplicatePhoneIsIdentifiedWithoutCallingItAnEmailConflict() {
-        service.register(new RegisterRequest("A", "a@example.com", "0901234567", "Password1"));
+        service.register(new RegisterRequest("A", "0901234567", "Password1"));
         var failure = assertThrows(ApiException.class,
-                () -> service.register(new RegisterRequest("B", "b@example.com", "0901234567", "Password1")));
+                () -> service.register(new RegisterRequest("B", "0901234567", "Password1")));
         assertEquals(ErrorCode.RESOURCE_CONFLICT, failure.getCode());
         assertEquals(Map.of("phone", "ALREADY_EXISTS"), failure.getFieldErrors());
         assertEquals(1, users.size());
-        assertEquals(1, publishedTemplates.size());
+        verify(challenges, times(1)).sendSms(any(User.class), eq("REGISTER"));
     }
 
     @Test
     void concurrentRegistrationConflictsUseTheActualDatabaseConstraint() {
-        for (String name : List.of("users_email_key", "users_phone_key", "unknown_constraint")) {
+        for (String name : List.of("users_email_key", "users_phone_key", "users_phone_canonical_unique", "unknown_constraint")) {
             var repository = mock(UserRepository.class);
             var publisher = mock(EmailEventPublisher.class);
             var constraint = mock(org.hibernate.exception.ConstraintViolationException.class);
             when(constraint.getConstraintName()).thenReturn(name);
             var databaseFailure = new DataIntegrityViolationException("private database diagnostic", constraint);
             when(repository.saveAndFlush(any(User.class))).thenThrow(databaseFailure);
-            var concurrent = new AuthService(repository, encoder, mock(JwtIssuer.class), otpService, refreshTokens, publisher, mock(AuthProperties.class));
-            var request = new RegisterRequest("Customer", "new@example.com", "0901234567", "Password1");
+            var concurrent = new AuthService(repository, encoder, mock(JwtIssuer.class), otpService, refreshTokens,
+                    publisher, mock(AuthProperties.class), challenges);
+            var request = new RegisterRequest("Customer", "0901234567", "Password1");
             if ("unknown_constraint".equals(name)) {
                 assertSame(databaseFailure, assertThrows(DataIntegrityViolationException.class, () -> concurrent.register(request)));
             } else {
                 var failure = assertThrows(ApiException.class, () -> concurrent.register(request));
                 assertEquals("users_email_key".equals(name) ? ErrorCode.EMAIL_EXISTS : ErrorCode.RESOURCE_CONFLICT, failure.getCode());
-                assertEquals("users_phone_key".equals(name) ? Map.of("phone", "ALREADY_EXISTS") : Map.of(), failure.getFieldErrors());
+                assertEquals(name.contains("phone") ? Map.of("phone", "ALREADY_EXISTS") : Map.of(), failure.getFieldErrors());
                 assertFalse(failure.getMessage().contains("private"));
             }
             verifyNoInteractions(publisher);
@@ -149,34 +159,35 @@ class AuthServiceTest {
 
     @Test
     void loginBeforeVerificationIsRejectedAndCreatesNoSession() {
-        service.register(new RegisterRequest("A", "a@example.com", null, "Password1"));
+        service.register(new RegisterRequest("A", "0901234567", "Password1"));
 
         ApiException failure = assertThrows(ApiException.class,
-                () -> service.login(new LoginRequest("a@example.com", "Password1")));
+                () -> service.login(new LoginRequest("0901234567", "Password1")));
         assertEquals(ErrorCode.EMAIL_NOT_VERIFIED, failure.getCode());
         assertTrue(refreshRepository.rows.isEmpty(), "No refresh session may be created");
     }
 
     @Test
     void registerOtpVerifiesAccountAndIssuesTokens() {
-        service.register(new RegisterRequest("A", "a@example.com", null, "Password1"));
-        String code = publishedCodes.get(EmailEventPublisher.TEMPLATE_REGISTER_OTP);
+        service.register(new RegisterRequest("A", "0901234567", "Password1"));
 
-        AuthService.AuthResult result = service.verifyOtp(new VerifyOtpRequest("A@Example.com", code));
+        AuthService.AuthResult result = service.verifyOtp(
+                new VerifyOtpRequest(null, "123456", "0901234567", "challenge-1"));
 
         assertFalse(result.accessToken().isBlank());
         assertFalse(result.refreshToken().isBlank());
-        assertTrue(users.values().iterator().next().getEmailVerified());
+        assertTrue(users.values().iterator().next().getPhoneVerified());
+        assertFalse(users.values().iterator().next().getEmailVerified());
+        verify(challenges).verifySms(any(User.class), eq("REGISTER"), eq("challenge-1"), eq("123456"));
         assertEquals(1, refreshRepository.rows.size());
     }
 
     @Test
     void resetOtpCannotVerifyEmail() {
-        service.register(new RegisterRequest("A", "a@example.com", null, "Password1"));
+        seedVerifiedUser("a@example.com", "Password1");
         users.values().iterator().next().setEmailVerified(false);
 
-        service.forgotPassword(new ForgotPasswordRequest("a@example.com"));
-        String resetCode = publishedCodes.get(EmailEventPublisher.TEMPLATE_RESET_OTP);
+        String resetCode = otpService.generateAndSaveOtp("a@example.com", OtpService.PURPOSE_RESET);
 
         ApiException failure = assertThrows(ApiException.class,
                 () -> service.verifyOtp(new VerifyOtpRequest("a@example.com", resetCode)));
@@ -186,15 +197,15 @@ class AuthServiceTest {
 
     @Test
     void verificationDoesNotUnlockLockedAccount() {
-        service.register(new RegisterRequest("A", "a@example.com", null, "Password1"));
+        service.register(new RegisterRequest("A", "0901234567", "Password1"));
         User user = users.values().iterator().next();
         user.setStatus("LOCKED");
-        String code = publishedCodes.get(EmailEventPublisher.TEMPLATE_REGISTER_OTP);
 
         ApiException failure = assertThrows(ApiException.class,
-                () -> service.verifyOtp(new VerifyOtpRequest("a@example.com", code)));
+                () -> service.verifyOtp(new VerifyOtpRequest(null, "123456", "0901234567", "challenge-1")));
         assertEquals(ErrorCode.ACCOUNT_LOCKED, failure.getCode());
         assertEquals("LOCKED", user.getStatus());
+        verify(challenges, never()).verifySms(any(), anyString(), anyString(), anyString());
     }
 
     @Test
@@ -227,6 +238,52 @@ class AuthServiceTest {
         assertEquals(service.forgotPassword(new ForgotPasswordRequest("missing@example.com")),
                 service.forgotPassword(new ForgotPasswordRequest("also-missing@example.com")));
         assertTrue(publishedTemplates.isEmpty(), "No email may be published for unknown accounts");
+    }
+
+    @Test
+    void smsRecoveryDoesNotRevealWhetherTheNumberBelongsToAVerifiedAccount() {
+        seedVerifiedUser("customer@example.com", "Password1");
+        User account = users.values().iterator().next();
+        account.setPhone("+84901234567");
+        account.setPhoneVerified(true);
+        when(challenges.sendSms(account, "PASSWORD_RESET")).thenReturn("bridge-challenge-1");
+
+        var eligible = service.forgotPassword(new ForgotPasswordRequest(null, "0901234567", "SMS"));
+        var unknown = service.forgotPassword(new ForgotPasswordRequest(null, "0909999999", "SMS"));
+        assertEquals(eligible.message(), unknown.message(), "Unknown numbers must receive the same public response");
+        assertNotNull(eligible.challengeId());
+        assertNotNull(unknown.challengeId());
+        verify(challenges, times(1)).sendSms(account, "PASSWORD_RESET");
+    }
+
+    @Test
+    void smsRecoveryRateLimitAppliesBeforeLookupForExistingAndUnknownNumbers() {
+        seedVerifiedUser("customer@example.com", "Password1");
+        User account = users.values().iterator().next();
+        account.setPhone("+84901234567");
+        account.setPhoneVerified(true);
+        when(redis.execute(any(org.springframework.data.redis.core.script.RedisScript.class), anyList(), anyString()))
+                .thenReturn(6L);
+        for (String number : List.of("0901234567", "0909999999")) {
+            assertEquals(ErrorCode.TOO_MANY_REQUESTS, assertThrows(ApiException.class,
+                    () -> service.forgotPassword(new ForgotPasswordRequest(null, number, "SMS"))).getCode());
+        }
+        verifyNoInteractions(challenges);
+    }
+
+    @Test
+    void smsRecoveryBridgeOutageDoesNotExposeAccountOwnership() {
+        seedVerifiedUser("customer@example.com", "Password1");
+        User account = users.values().iterator().next();
+        account.setPhone("+84901234567");
+        account.setPhoneVerified(true);
+        when(challenges.sendSms(account, "PASSWORD_RESET"))
+                .thenThrow(new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE));
+
+        var eligible = service.forgotPassword(new ForgotPasswordRequest(null, "0901234567", "SMS"));
+        var unknown = service.forgotPassword(new ForgotPasswordRequest(null, "0909999999", "SMS"));
+        assertEquals(unknown.message(), eligible.message());
+        assertFalse(eligible.challengeId().isBlank());
     }
 
     @Test
@@ -284,36 +341,36 @@ class AuthServiceTest {
     /* ---------- INT-69: resend register OTP ---------- */
 
     @Test
-    void resendOtpIssuesANewRegisterChallengeForAnUnverifiedAccount() {
-        service.register(new RegisterRequest("Nguyen Van A", "a@example.com", null, "Password1"));
-        String firstCode = publishedCodes.get(EmailEventPublisher.TEMPLATE_REGISTER_OTP);
-
-        var response = service.resendRegisterOtp("  A@Example.com ");
-
-        assertEquals("Đã gửi lại mã OTP. Vui lòng kiểm tra email.", response.message());
-        String secondCode = publishedCodes.get(EmailEventPublisher.TEMPLATE_REGISTER_OTP);
-        assertNotEquals(firstCode, secondCode, "Resend must issue a fresh OTP");
-
-        // The previously issued code is invalidated: issuing a new challenge supersedes it.
-        ApiException failure = assertThrows(ApiException.class,
-                () -> service.verifyOtp(new VerifyOtpRequest("a@example.com", firstCode)));
-        assertEquals(ErrorCode.INVALID_OTP, failure.getCode());
-        assertNotNull(service.verifyOtp(new VerifyOtpRequest("a@example.com", secondCode)));
+    void resendOtpIssuesANewPhoneChallengeAndOnlyTheNewChallengeVerifies() {
+        when(challenges.sendSms(any(User.class), eq("REGISTER"))).thenReturn("challenge-1", "challenge-2");
+        service.register(new RegisterRequest("Nguyen Van A", "0901234567", "Password1"));
+        var response = service.resendRegisterOtp(new ResendOtpRequest(null, "0901234567"));
+        assertEquals("challenge-2", response.challengeId());
+        assertEquals("Đã gửi lại mã OTP đến số điện thoại.", response.message());
+        doThrow(new ApiException(ErrorCode.INVALID_OTP)).when(challenges)
+                .verifySms(any(User.class), eq("REGISTER"), eq("challenge-1"), eq("123456"));
+        assertEquals(ErrorCode.INVALID_OTP, assertThrows(ApiException.class,
+                () -> service.verifyOtp(new VerifyOtpRequest(null, "123456", "0901234567", "challenge-1"))).getCode());
+        assertNotNull(service.verifyOtp(new VerifyOtpRequest(null, "123456", "0901234567", "challenge-2")));
+        assertTrue(users.values().iterator().next().getPhoneVerified());
     }
 
     @Test
     void resendOtpRejectsAVerifiedAccount() {
         seedVerifiedUser("a@example.com", "Password1");
+        User user = users.values().iterator().next();
+        user.setPhone("+84901234567");
+        user.setPhoneVerified(true);
 
         ApiException failure = assertThrows(ApiException.class,
-                () -> service.resendRegisterOtp("a@example.com"));
+                () -> service.resendRegisterOtp(new ResendOtpRequest(null, "0901234567")));
         assertEquals(ErrorCode.RESOURCE_CONFLICT, failure.getCode());
     }
 
     @Test
-    void resendOtpRejectsAnUnknownEmail() {
+    void resendOtpRejectsAnUnknownPhone() {
         ApiException failure = assertThrows(ApiException.class,
-                () -> service.resendRegisterOtp("nobody@example.com"));
+                () -> service.resendRegisterOtp(new ResendOtpRequest(null, "0909999999")));
         assertEquals(ErrorCode.RESOURCE_NOT_FOUND, failure.getCode());
     }
 
@@ -388,22 +445,22 @@ class AuthServiceTest {
                 new Class<?>[]{UserRepository.class},
                 (instance, method, args) -> switch (method.getName()) {
                     case "findByEmail", "findByEmailForGoogle" -> users.values().stream()
-                            .filter(user -> user.getEmail().equals(args[0])).findFirst();
+                            .filter(user -> java.util.Objects.equals(user.getEmail(), args[0])).findFirst();
+                    case "findByPhone", "findByPhoneForUpdate" -> users.values().stream()
+                            .filter(user -> java.util.Objects.equals(user.getPhone(), args[0])).findFirst();
                     case "findByLogin" -> users.values().stream()
                             .filter(user -> args[0].equals(user.getLoginName() == null ? user.getEmail() : user.getLoginName())).findFirst();
                     case "existsByEmail" -> users.values().stream()
-                            .anyMatch(user -> user.getEmail().equals(args[0]));
+                            .anyMatch(user -> java.util.Objects.equals(user.getEmail(), args[0]));
                     case "existsByPhone" -> args[0] != null && users.values().stream()
                             .anyMatch(user -> args[0].equals(user.getPhone()));
                     case "findById", "findByIdForUpdate" -> Optional.ofNullable(users.get((Long) args[0]));
                     case "save", "saveAndFlush" -> {
                         User user = (User) args[0];
                         if (user.getId() == null) {
-                            boolean duplicate = users.values().stream()
-                                    .anyMatch(existing -> existing.getEmail().equals(user.getEmail()));
-                            if (duplicate) {
-                                throw new DataIntegrityViolationException("duplicate email");
-                            }
+                            boolean duplicatePhone = users.values().stream().anyMatch(existing ->
+                                    user.getPhone() != null && PhoneNumbers.equivalent(existing.getPhone(), user.getPhone()));
+                            if (duplicatePhone) throw new DataIntegrityViolationException("duplicate phone");
                             user.setId(ids.incrementAndGet());
                         }
                         users.put(user.getId(), user);

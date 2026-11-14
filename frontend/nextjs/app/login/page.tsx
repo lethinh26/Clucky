@@ -18,7 +18,7 @@ export default function LoginPage() {
   const { errorMessage } = useLocaleTools();
   const router = useRouter();
   const startAction = useDeferredAction();
-  const [email, setEmail] = React.useState("");
+  const [identifier, setIdentifier] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<unknown>(null);
   useFeedback(error ? (typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)) : null);
@@ -29,17 +29,19 @@ export default function LoginPage() {
     if (loading) return;
     const task = startAction();
     setError(null);
-    if (!email || !password) {
+    if (!identifier.trim() || !password) {
       setError("auth.validation.credentialsRequired");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError("auth.validation.checkEmail");
+    const normalizedIdentifier = identifier.trim().replace(/[\s()-]/g, "");
+    if (!/^(?:0\d{9}|\+[1-9]\d{7,14})$/.test(normalizedIdentifier)
+      && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier.trim())) {
+      setError("auth.validation.phoneOrEmail");
       return;
     }
     setLoading(true);
     try {
-      await authApi.login({ email: email.trim(), password });
+      await authApi.login({ email: identifier.includes("@") ? identifier.trim() : normalizedIdentifier, password });
       if (!task.isCurrent()) return;
       notify.success(t("common.feedback.signedIn"));
       const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
@@ -67,12 +69,12 @@ export default function LoginPage() {
             </div>
           )}
           <Input
-            label="Email"
-            type="email"
-            autoComplete="email"
-            placeholder="ban@clucky.vn"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            label={t("auth.fields.loginIdentifier")}
+            type="text"
+            autoComplete="username"
+            placeholder={t("auth.fields.loginPlaceholder")}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
           />
           <Input

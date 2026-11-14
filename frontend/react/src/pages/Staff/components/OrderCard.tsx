@@ -1,3 +1,4 @@
+import i18n from "../../../i18n/index.ts";
 import React from "react";
 import {
   Clock3,
@@ -13,12 +14,16 @@ import {
   Utensils,
   ShoppingBag,
   Printer,
+  Truck,
+  MapPin,
 } from "lucide-react";
 import type { StaffOrder } from "../../../mocks/mockStaffOrders";
 import type { AdminOrderStatus } from "../../../types/order";
 import { useElapsedTime } from "../../../hooks/useElapsedTime";
 import styles from "./order-card.module.css";
 import { useTranslation } from "react-i18next";
+import { getFulfillmentMode, fulfillmentLabel } from "../../../lib/order-fulfillment";
+import type { ShipmentSimulationTracking } from "../../../lib/api";
 
 interface OrderCardProps {
   order: StaffOrder;
@@ -28,6 +33,7 @@ interface OrderCardProps {
   onReprint?: (order: StaffOrder) => void;
   onPrintKot?: (order: StaffOrder) => void;
   formatMoney?: (val: number) => string;
+  tracking?: ShipmentSimulationTracking;
 }
 
 const defaultFormatMoney = (amount: number): string => {
@@ -42,6 +48,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onReprint,
   onPrintKot,
   formatMoney = defaultFormatMoney,
+  tracking,
 }) => {
   const { t } = useTranslation();
   const { elapsedTimeText, isSlaBreached, isSlaWarning, diffMinutes } =
@@ -52,6 +59,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     order.status === "CONFIRMED" || order.status === "PREPARING";
   const showSlaBreached = isCookingStage && isSlaBreached;
   const showSlaWarning = isCookingStage && isSlaWarning && !isSlaBreached;
+  const fulfillment = getFulfillmentMode(order);
 
   const cardClassName = [
     styles.card,
@@ -88,15 +96,19 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       case "READY":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenReady}`}>
-            <PackageCheck size={13} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.ready" : "business:staffcard.ready")}
+            <PackageCheck size={13} /> {fulfillment === 'DELIVERY' ? i18n.t("shipping:ui.foodReadyAwaitingDelivery") : fulfillment === 'DINE_IN' ? i18n.t("shipping:ui.askTheCustomerToCollectTheirOrderAtTheCounter") : t("business:pickupFlow.ready")}
           </span>
         );
       case "COMPLETED":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenCompleted}`}>
-            <CheckCircle2 size={13} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.completed" : "business:staffcard.completed")}
+            <CheckCircle2 size={13} /> {fulfillment === 'DINE_IN' ? i18n.t("shipping:ui.customerCollectedTheOrderAtTheCounter") : fulfillment === 'DELIVERY' ? i18n.t("shipping:ui.deliveredSimulation") : t("business:pickupFlow.completed")}
           </span>
         );
+      case "SHIPPING":
+        return <span className={`${styles.badgeKitchen} ${styles.badgeKitchenReady}`}><Truck size={13} /> {tracking?.status === 'FAILED' ? i18n.t("shipping:ui.deliveryFailedActionNeeded") : tracking?.status === 'ASSIGNED' ? i18n.t("shipping:ui.waitingForTheRiderToCollectTheOrder") : i18n.t("shipping:ui.deliveringSimulation")}</span>;
+      case "DELIVERY_FAILED":
+        return <span className={`${styles.badgeKitchen} ${styles.badgeKitchenPending}`}><CircleAlert size={13} /> {i18n.t("shipping:ui.deliveryUnsuccessful")}</span>;
       default:
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenCompleted}`}>
@@ -108,6 +120,14 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
   // Nhãn trạng thái tiền
   const renderPaymentStatus = () => {
+    if (fulfillment === 'DELIVERY' && order.paymentMethod === 'COD'
+        && tracking?.merchantPaymentStatus === 'PAID_SIMULATED') {
+      return (
+        <span className={`${styles.badgePayment} ${styles.badgePaymentPaid}`}>
+          <CheckCircle2 size={13} /> {i18n.t("shipping:ui.paid")}
+        </span>
+      );
+    }
     if (order.paymentStatus === "PAID") {
       return (
         <span className={`${styles.badgePayment} ${styles.badgePaymentPaid}`}>
@@ -144,13 +164,17 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
         <div className={styles.headerBadges}>
           <div className={styles.badgeRow}>
-            {order.diningOption === "DINE_IN" ? (
+            {fulfillment === "DELIVERY" ? (
+              <span className={styles.badgeTakeAway} title={fulfillmentLabel(order)}>
+                <Truck size={12} /> {i18n.t("shipping:ui.delivery")}
+              </span>
+            ) : fulfillment === "DINE_IN" ? (
               <span className={styles.badgeDiningIn}>
                 <Utensils size={12} /> {t("business:staffcard.dineIn")}
               </span>
             ) : (
               <span className={styles.badgeTakeAway}>
-                <ShoppingBag size={12} /> {t("business:staffcard.takeAway")}
+                <ShoppingBag size={12} /> {fulfillment === 'TAKE_AWAY' ? t("business:staffcard.takeAway") : i18n.t("shipping:ui.storePickup")}
               </span>
             )}
 
@@ -166,6 +190,23 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           </div>
         </div>
       </div>
+
+      {fulfillment === 'DELIVERY' && (
+        <div className={styles.deliveryDetails}>
+          {order.deliveryAddress ? (
+            <span title={order.deliveryAddress}><MapPin size={14} /> {order.deliveryAddress}</span>
+          ) : <strong>{i18n.t("shipping:ui.deliveryAddressMissingVerificationRequired")}</strong>}
+          <span>{i18n.t("shipping:ui.deliveryFee")} {formatMoney(order.shippingFee)}</span>
+          {tracking?.status === 'FAILED' && tracking.resolution !== 'CLOSED_UNDELIVERABLE' && (
+            <strong>{i18n.t("shipping:ui.deliveryFailedHandleItemReturnOrReattempt")}</strong>
+          )}
+          {order.status === 'READY' && <span>{tracking?.status === 'ASSIGNED' ? i18n.t("shipping:ui.waitingForTheSimulatedRiderToCollect") : i18n.t("shipping:ui.foodIsReadyAwaitingTheDeliverySystem")}</span>}
+          {order.status === 'SHIPPING' && tracking?.status !== 'FAILED' && <span>{i18n.t("shipping:ui.simulatingDeliveryOpenDetailsToTrackTheRoute")}</span>}
+          {order.paymentMethod === 'COD' && <span>{tracking?.merchantPaymentStatus === 'PAID_SIMULATED' ? i18n.t("shipping:ui.riderPaidOnCollectionSimulationCustomerPaysCodOnDelivery") : i18n.t("shipping:ui.codCustomerPaysTheRiderOnDelivery")}</span>}
+          {order.paymentMethod === 'BANK_TRANSFER' && <span>{i18n.t("shipping:ui.qrPrepayment")} {['PAID', 'COLLECTED'].includes(order.paymentStatus) ? i18n.t("shipping:ui.confirmed") : i18n.t("shipping:ui.awaitingConfirmation")} {i18n.t("shipping:ui.riderOnlyDeliversTheFood")}</span>}
+          {!['COD', 'BANK_TRANSFER'].includes(order.paymentMethod) && <span>{i18n.t("shipping:ui.paymentMethodRequiresVerification")} {order.paymentMethod}</span>}
+        </div>
+      )}
 
       {/* 2. Bộ đếm thời gian chờ & Cảnh báo SLA */}
       <div className={styles.timeBanner}>
@@ -316,7 +357,11 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
           {order.status === "READY" && (
             <>
-              {order.paymentStatus === "PENDING" ? (
+              {order.orderType === 'DELIVERY' ? (
+                <button type="button" className={`${styles.actionButton} ${styles.btnSecondary}`} onClick={() => onViewDetails?.(order.id)}>
+                  <Truck size={18} /> {i18n.t("shipping:ui.viewDelivery")}
+                </button>
+              ) : order.paymentStatus === "PENDING" ? (
                 <button
                   type="button"
                   className={`${styles.actionButton} ${styles.btnWarning}`}
@@ -332,7 +377,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   onClick={() => onStatusChange?.(order.id, "COMPLETED")}
                   aria-label={"Bàn giao đơn " + formattedQueue}
                 >
-                  <CheckCircle2 size={18} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.handover" : "business:staffcard.handOver")}
+                  <CheckCircle2 size={18} /> {fulfillment === 'DINE_IN' ? i18n.t("shipping:ui.customerCollectedFoodAtTheCounter") : t("business:pickupFlow.handover")}
                 </button>
               ) : null}
               <button
@@ -344,6 +389,12 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 <Printer size={18} /> {t("business:staffcard.reprintReceipt")}
               </button>
             </>
+          )}
+
+          {order.status === 'SHIPPING' && order.orderType === 'DELIVERY' && (
+            <button type="button" className={`${styles.actionButton} ${styles.btnPrimary}`} onClick={() => onViewDetails?.(order.id)}>
+              <Truck size={18} /> {tracking?.status === 'FAILED' ? i18n.t("shipping:ui.handleFailedDelivery") : i18n.t("shipping:ui.trackReportFailedDelivery")}
+            </button>
           )}
 
           {order.status === "COMPLETED" && (

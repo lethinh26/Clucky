@@ -1,9 +1,11 @@
+import i18n from "../../i18n/index.ts";
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useEffect, useId, useState } from "react";
 import { Check, ChevronDown, Clock3 } from "lucide-react";
 import type { AdminOrder } from "../../types/order";
 import { displayOrderTime, orderStatusKeys } from "../../lib/order-demo";
+import { getFulfillmentMode } from "../../lib/order-fulfillment";
 export { orderStatusKeys } from "../../lib/order-demo";
 
 export function OrderProgress({
@@ -36,6 +38,7 @@ export function OrderProgress({
     }
   };
   const isCounter = order.orderType === "PICKUP";
+  const fulfillment = getFulfillmentMode(order);
   const isOnlinePaid = !isCounter && ["PAID", "COLLECTED"].includes(order.paymentStatus);
 
   type StepItem = { key: string; label: string; state: "done" | "current" | "next" };
@@ -59,7 +62,7 @@ export function OrderProgress({
         },
         {
           key: "READY",
-          label: t("business:pickupFlow.ready"),
+          label: fulfillment === 'DINE_IN' ? i18n.t("shipping:ui.askTheCustomerToCollectTheirOrderAtTheCounter") : t("business:pickupFlow.ready"),
           state: order.status === "COMPLETED" || (ready && isPaid) ? "done" : order.status === "READY" ? "current" : "next",
         },
         {
@@ -69,7 +72,7 @@ export function OrderProgress({
         },
         {
           key: "COMPLETED",
-          label: t("business:pickupFlow.completed"),
+          label: fulfillment === 'DINE_IN' ? i18n.t("shipping:ui.customerCollectedTheOrderAtTheCounter") : t("business:pickupFlow.completed"),
           state: order.status === "COMPLETED" ? "done" : ready && isPaid ? "current" : "next",
         },
       ];
@@ -159,8 +162,8 @@ export function OrderProgress({
         inert={!expanded}
       >
         <div>
-          {order.status === "CANCELLED" ? (
-            <p className="order-stopped">{t("business:orderprogress.orderCancelledProgressHasStopped")}</p>
+          {order.status === "CANCELLED" || order.status === 'DELIVERY_FAILED' ? (
+            <p className="order-stopped">{order.status === 'DELIVERY_FAILED' ? i18n.t("shipping:ui.deliveryWasUnsuccessfulTheManagerHasClosedTheDeliveryCase") : t("business:orderprogress.orderCancelledProgressHasStopped")}</p>
           ) : (
             <ol className="m3-admin-progress-rail">
               {currentSteps.map((step, index) => (

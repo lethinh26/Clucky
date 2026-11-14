@@ -1,3 +1,4 @@
+import i18n from "../../../i18n/index.ts";
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../../i18n/hooks";
 import { useEffect, useRef, useState } from "react";
@@ -29,6 +30,8 @@ import { useAuth } from "../../../context/AuthContext";
 import { getErrorMessage, vietQrApi, type VietQrBank } from "../../../lib/api";
 import styles from "../orders.module.css";
 import { CodEvidencePanel } from "./CodEvidencePanel";
+import { ShipmentSimulationPanel } from "../../../components/ShipmentSimulationPanel";
+import { fulfillmentLabel, getFulfillmentMode } from "../../../lib/order-fulfillment";
 
 interface Props {
   order: AdminOrder | null;
@@ -180,9 +183,7 @@ export function OrderDetailDrawer({
                 ) : (
                   <Truck size={15} />
                 )}
-                {order.orderType === "PICKUP"
-                  ? t("business:orderdetaildrawer.counterPickup")
-                  : t("business:checkout.homeDelivery")}
+                {fulfillmentLabel(order)}
               </dd>
             </div>
             <div>
@@ -199,15 +200,21 @@ export function OrderDetailDrawer({
                 })()}
               </dd>
             </div>
-            {order.deliveryAddress && (
+            {order.orderType === 'DELIVERY' && (
               <div className={styles.wideField}>
                 <dt>
                   <MapPin size={13} /> {t("business:shipmentcard.deliveryAddress")} </dt>
-                <dd>{order.deliveryAddress}</dd>
+                <dd>{order.deliveryAddress || i18n.t("shipping:ui.deliveryAddressMissingVerifyBeforeDispatch")}</dd>
               </div>
             )}
           </dl>
         </section>
+        {order.orderType === 'DELIVERY' && ['READY', 'SHIPPING', 'COMPLETED', 'DELIVERY_FAILED'].includes(order.status) && (
+          <ShipmentSimulationPanel orderId={order.id} onChanged={onChanged} />
+        )}
+        {getFulfillmentMode(order) === 'DINE_IN' && order.status === 'READY' && (
+          <Alert type="info" showIcon message={i18n.t("shipping:ui.theCustomerCollectsTheOrderAtTheCounterNoTableService")} style={{ marginBottom: 16 }} />
+        )}
         <section className={styles.drawerSection}>
           <h2 className={styles.drawerHeading}>
             <ShoppingBag size={18} /> {t("business:id.orderedItems")}{" "}
@@ -305,7 +312,7 @@ export function OrderDetailDrawer({
               > {t("business:orderdetaildrawer.mealReady")} </Button>
             )}
             {!onOpenFinance && order.paymentStatus === "PENDING" &&
-              (order.orderType !== "PICKUP" || order.status === "READY") &&
+              order.orderType === "PICKUP" && order.status === "READY" &&
               !["CANCELLED", "COMPLETED", "PENDING_PAYMENT"].includes(order.status) && (
                 onCollectCounter ? (
                   <Button
@@ -321,13 +328,13 @@ export function OrderDetailDrawer({
                   <CodEvidencePanel orderId={order.id} onCollect={() => onStatusChange(order.id, order.status, "COLLECT_COD")} />
                 )
               )}
-            {["READY", "SHIPPING"].includes(order.status) && (
+            {order.orderType === 'PICKUP' && order.status === 'READY' && (
               <Button
                 type="primary"
                 disabled={!["PAID", "COLLECTED"].includes(order.paymentStatus)}
                 icon={<CheckCircle2 size={16} />}
                 onClick={() => onStatusChange(order.id, "COMPLETED")}
-              > {t(order.orderType === "PICKUP" ? "business:pickupFlow.handover" : "business:orderdetaildrawer.completeOrder")} </Button>
+              > {getFulfillmentMode(order) === 'DINE_IN' ? i18n.t("shipping:ui.confirmTheCustomerCollectedTheOrderAtTheCounter") : t("business:pickupFlow.handover")} </Button>
             )}
             {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
               <Button
@@ -360,11 +367,11 @@ export function OrderDetailDrawer({
                   {t("business:orderdetaildrawer.createRefundRequest")}
                 </Button>
               )}
-            {["COMPLETED", "CANCELLED"].includes(order.status) && (
+            {["COMPLETED", "CANCELLED", "DELIVERY_FAILED"].includes(order.status) && (
               <p className={styles.drawerNotice}> {t("business:orderdetaildrawer.thisOrderHasEndedNoFurtherStatusChangesAreAvailable")} </p>
             )}
           </div>
-          {["READY", "SHIPPING"].includes(order.status) &&
+          {order.orderType === 'PICKUP' && order.status === 'READY' &&
             !["PAID", "COLLECTED"].includes(order.paymentStatus) && (
               <p className={styles.actionHint}> {t("business:orderdetaildrawer.confirmPaymentCollectionBeforeCompletingTheOrder")} </p>
             )}

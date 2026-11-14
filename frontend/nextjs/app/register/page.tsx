@@ -21,7 +21,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const startAction = useDeferredAction();
   const [fullName, setFullName] = React.useState("");
-  const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [fieldErrors, setFieldErrors] = React.useState<RegistrationErrors>({});
@@ -48,16 +47,16 @@ export default function RegisterPage() {
 
   const validateField = (field: keyof RegisterPayload, value: string) => {
     setError(null);
-    if (field === "email") setSent(null);
+    if (field === "phone") setSent(null);
     if (!submitted && !fieldErrors[field]) return;
-    const errors = validateRegistration({ fullName, email, phone, password, [field]: value });
+    const errors = validateRegistration({ fullName, phone, password, [field]: value });
     setFieldErrors((current) => ({ ...current, [field]: errors[field] }));
   };
 
   const fieldMessage = (field: keyof RegisterPayload) => fieldErrors[field]?.map((key) => t(key)).join(" ");
 
   const validateBlur = (field: keyof RegisterPayload) => {
-    const errors = validateRegistration({ fullName, email, phone, password });
+    const errors = validateRegistration({ fullName, phone, password });
     setFieldErrors((current) => ({ ...current, [field]: current[field] ?? errors[field] }));
   };
 
@@ -68,7 +67,7 @@ export default function RegisterPage() {
     setError(null);
     setSent(null);
     setSubmitted(true);
-    const errors = validateRegistration({ fullName, email, phone, password });
+    const errors = validateRegistration({ fullName, phone, password });
     setFieldErrors(errors);
     const firstInvalid = Object.keys(errors)[0] as keyof RegisterPayload | undefined;
     if (firstInvalid) {
@@ -77,17 +76,18 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      await authApi.register({
+      const normalizedPhone = phone.replace(/\s/g, "");
+      const result = await authApi.register({
         fullName: fullName.trim(),
-        email: email.trim(),
-        phone: phone.replace(/\s/g, "") || undefined,
+        phone: normalizedPhone,
         password,
       });
-      if (task.isCurrent()) router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}`);
+      if (!result.challengeId) throw new Error(t("auth.validation.missingChallenge"));
+      if (task.isCurrent()) router.push(`/verify-otp?phone=${encodeURIComponent(normalizedPhone)}&challengeId=${encodeURIComponent(result.challengeId)}`);
     } catch (err) {
       if (!task.isCurrent()) return;
-      if (err && typeof err === "object" && "code" in err && err.code === "EMAIL_EXISTS") {
-        setSent(email.trim());
+      if (err && typeof err === "object" && "code" in err && err.code === "PHONE_EXISTS") {
+        setSent(phone.replace(/\s/g, ""));
       }
       const errors = registrationServerErrors(err);
       const firstInvalid = Object.keys(errors)[0] as keyof RegisterPayload | undefined;
@@ -116,8 +116,8 @@ export default function RegisterPage() {
           )}
           {sent && (
             <div className="rounded-2xl bg-[#F5EDE0] p-4 text-sm text-[#625247]" role="status">
-              {t("auth.register.emailExists")}
-              <Link href={`/verify-otp?email=${encodeURIComponent(sent)}`}>{t("auth.register.resendHint")}</Link>
+              {t("auth.register.phoneExists")}{" "}
+              <Link href={`/verify-otp?phone=${encodeURIComponent(sent)}`}>{t("auth.register.resendHint")}</Link>
             </div>
           )}
           <Input
@@ -132,26 +132,14 @@ export default function RegisterPage() {
             autoComplete="name"
           />
           <Input
-            name="email"
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(event) => { setEmail(event.target.value); validateField("email", event.target.value); }}
-            onBlur={() => validateBlur("email")}
-            error={fieldMessage("email")}
-            required
-            disabled={loading}
-            autoComplete="email"
-            placeholder="ban@clucky.vn"
-          />
-          <Input
             name="phone"
-            label={t("auth.fields.optionalPhone")}
+            label={t("auth.fields.phone")}
             type="tel"
             value={phone}
             onChange={(event) => { setPhone(event.target.value); validateField("phone", event.target.value); }}
             onBlur={() => validateBlur("phone")}
             error={fieldMessage("phone")}
+            required
             disabled={loading}
             autoComplete="tel"
             placeholder="0901 234 567"

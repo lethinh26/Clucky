@@ -23,7 +23,7 @@
   "INSUFFICIENT_POINTS": "You do not have enough points for this operation.",
   "EMAIL_EXISTS": "This email is already registered.",
   "ACCOUNT_LOCKED": "This account has been locked.",
-  "INVALID_CREDENTIALS": "Invalid email or password.",
+  "INVALID_CREDENTIALS": "Invalid sign-in information.",
   "EMAIL_NOT_VERIFIED": "Please verify your email before signing in.",
   "INVALID_OTP": "The OTP is invalid or has already been used.",
   "OTP_EXPIRED": "The OTP has expired.",
