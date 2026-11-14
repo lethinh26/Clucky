@@ -1,3 +1,4 @@
+import i18n from "../../i18n/index.ts";
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../i18n/hooks";
 import { useEffect, useId, useState } from "react";
@@ -61,7 +62,7 @@ export function OrderProgress({
         },
         {
           key: "READY",
-          label: fulfillment === 'DINE_IN' ? 'Mời khách ra quầy nhận món' : t("business:pickupFlow.ready"),
+          label: fulfillment === 'DINE_IN' ? i18n.t("shipping:ui.askTheCustomerToCollectTheirOrderAtTheCounter") : t("business:pickupFlow.ready"),
           state: order.status === "COMPLETED" || (ready && isPaid) ? "done" : order.status === "READY" ? "current" : "next",
         },
         {
@@ -71,7 +72,7 @@ export function OrderProgress({
         },
         {
           key: "COMPLETED",
-          label: fulfillment === 'DINE_IN' ? 'Khách đã nhận tại quầy' : t("business:pickupFlow.completed"),
+          label: fulfillment === 'DINE_IN' ? i18n.t("shipping:ui.customerCollectedTheOrderAtTheCounter") : t("business:pickupFlow.completed"),
           state: order.status === "COMPLETED" ? "done" : ready && isPaid ? "current" : "next",
         },
       ];
@@ -162,7 +163,7 @@ export function OrderProgress({
       >
         <div>
           {order.status === "CANCELLED" || order.status === 'DELIVERY_FAILED' ? (
-            <p className="order-stopped">{order.status === 'DELIVERY_FAILED' ? 'Đơn giao không thành công. Quản lý đã đóng xử lý giao hàng.' : t("business:orderprogress.orderCancelledProgressHasStopped")}</p>
+            <p className="order-stopped">{order.status === 'DELIVERY_FAILED' ? i18n.t("shipping:ui.deliveryWasUnsuccessfulTheManagerHasClosedTheDeliveryCase") : t("business:orderprogress.orderCancelledProgressHasStopped")}</p>
           ) : (
             <ol className="m3-admin-progress-rail">
               {currentSteps.map((step, index) => (

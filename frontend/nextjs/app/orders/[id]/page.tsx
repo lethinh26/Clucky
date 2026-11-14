@@ -344,7 +344,7 @@ export default function OrderTrackingPage({
           <div>
             <strong>{order.orderCode}:</strong>{" "}
             {order.status === "DELIVERY_FAILED"
-              ? (locale === "vi" ? "Đơn giao hàng không thành công. Vui lòng liên hệ cửa hàng để được hỗ trợ." : "Delivery was unsuccessful. Please contact the store for assistance.")
+              ? t("shipping.tracking.deliveryUnsuccessful")
               : order.status === "CANCELLED"
               ? t("business.orderprogress.orderCancelledProgressHasStopped")
               : order.status === "COMPLETED"

@@ -411,15 +411,16 @@ for (const app of [customer]) {
       name: "Quên mật khẩu",
       exact: true,
     });
-    const email = form.getByRole("textbox", { name: "Email", exact: true });
+    await form.getByText("Email đã xác thực", { exact: true }).click();
+    const email = form.getByRole("textbox", { name: "Email liên hệ (xác thực OTP)", exact: true });
     await expect(email).toHaveCount(1);
     await email.fill("test@clucky.local");
     await expect(email).toHaveValue("test@clucky.local");
     await page.clock.install();
     await form
-      .getByRole("button", { name: "Gửi mã đặt lại", exact: true })
+      .getByRole("button", { name: /Tiếp tục nhận mã OTP/ })
       .click();
-    await expect(form.getByText(/Nếu email tồn tại/)).toBeVisible();
+    await expect(form.getByText(/Nếu thông tin tài khoản hợp lệ/)).toBeVisible();
     await form.getByRole("link", { name: /Quay lại đăng nhập/ }).click();
     await expect(page).toHaveURL(app + "/login");
     await page.clock.runFor(1500);

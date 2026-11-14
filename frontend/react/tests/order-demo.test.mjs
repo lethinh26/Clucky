@@ -13,9 +13,9 @@ const order = {
 };
 const now = "2026-10-28T12:00:00.000Z";
 
-test("staff can process the assigned store through valid stages", () => {
+test("staff can complete self-pickup after payment and preparation", () => {
   let current = applyAdminDemoAction(
-    order,
+    { ...order, orderType: "PICKUP" },
     { type: "STATUS", status: "PREPARING" },
     "STAFF",
     1,
@@ -56,6 +56,15 @@ test("staff can process the assigned store through valid stages", () => {
   );
   assert.equal(complete.order.status, "COMPLETED");
   assert.equal(complete.order.timeline.length, 4);
+});
+
+test("delivery cannot be manually completed at READY, even after simulated COD collection", () => {
+  const delivery = { ...order, orderType: "DELIVERY", status: "READY" };
+  const paid = applyAdminDemoAction(delivery, { type: "COD" }, "STAFF", 1, now);
+  assert.equal(paid.ok, true);
+  const completed = applyAdminDemoAction(paid.order, { type: "STATUS", status: "COMPLETED" }, "STAFF", 1, now);
+  assert.equal(completed.ok, false);
+  assert.equal(completed.order, paid.order);
 });
 
 test("invalid jumps and repeat COD confirmation leave the order unchanged", () => {

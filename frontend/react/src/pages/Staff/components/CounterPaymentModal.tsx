@@ -1,3 +1,4 @@
+import i18n from "../../../i18n/index.ts";
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -208,7 +209,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
               <span className={styles.queueNumber}>{formattedQueue}</span>
               <span className={styles.orderCode}>{order.orderCode}</span>
               <span className={styles.diningBadge}>
-                {order.orderType === 'DELIVERY' ? 'GIAO HÀNG' : order.diningOption === "DINE_IN" ? "ĂN TẠI QUÁN" : order.diningOption === 'TAKE_AWAY' ? 'MANG VỀ' : 'NHẬN TẠI QUÁN'}
+                {order.orderType === 'DELIVERY' ? i18n.t("shipping:ui.delivery2") : order.diningOption === "DINE_IN" ? i18n.t("shipping:ui.dineIn") : order.diningOption === 'TAKE_AWAY' ? i18n.t("shipping:ui.takeAway2") : i18n.t("shipping:ui.storePickup2")}
               </span>
             </div>
             <span style={{ fontSize: 13, color: "#6b6259" }}>

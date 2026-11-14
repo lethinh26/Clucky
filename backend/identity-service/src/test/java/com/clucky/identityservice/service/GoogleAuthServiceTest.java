@@ -99,8 +99,9 @@ class GoogleAuthServiceTest {
         assertEquals(1, storedUsers.size());
         assertEquals(ErrorCode.INVALID_CREDENTIALS, assertThrows(ApiException.class,
                 () -> auth.login(new LoginRequest(user.getEmail(), "WrongPassword1"))).getCode());
-        assertEquals(ErrorCode.EMAIL_EXISTS, assertThrows(ApiException.class,
-                () -> auth.register(new RegisterRequest("Other Name", user.getEmail(), null, "Different123"))).getCode());
+        assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(ApiException.class,
+                () -> auth.register(new RegisterRequest("Other Name", user.getEmail(), "0901234567", "Different123"))).getCode(),
+                "Email cannot be supplied at phone-first registration");
         verifyNoInteractions(email);
     }
 
@@ -170,14 +171,17 @@ class GoogleAuthServiceTest {
     }
 
     @Test
-    void conflictingUidOrChangedEmailNeverMergesAccounts() {
+    void conflictingUidIsRejectedButStableUidSurvivesVerifiedEmailChange() {
         User user = existingCustomer();
         user.setFirebaseUid("another-uid");
         assertDenied(ErrorCode.RESOURCE_CONFLICT);
         user.setFirebaseUid("firebase-uid");
         user.setEmail("other@example.com");
-        assertDenied(ErrorCode.RESOURCE_CONFLICT);
-        verifyNoInteractions(refresh);
+        var afterChange = google.login("google-token");
+        assertNull(afterChange.pendingToken());
+        assertSame(user, afterChange.session().user());
+        assertEquals("other@example.com", user.getEmail());
+        verify(refresh).saveRefreshToken(eq(user.getId()), anyString(), any(java.time.Instant.class));
     }
 
     @Test

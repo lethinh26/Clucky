@@ -33,6 +33,9 @@ cloudinary:
 
 clucky:
   auth:
+    bridge:
+      base-url: ${BRIDGE_BASE_URL:https://api.bridge.kroszborg.co}
+      api-key: ${BRIDGE_API_KEY:}
     google:
       enabled: ${FIREBASE_AUTH_ENABLED:false}
       project-id: ${FIREBASE_PROJECT_ID:}

@@ -10,12 +10,12 @@ public record RegisterRequest(
         @Size(max = 160, message = "Full name cannot exceed 160 characters")
         String fullName,
 
-        @NotBlank(message = "Email is required")
         @Email(message = "Invalid email format")
         @Size(max = 255, message = "Email cannot exceed 255 characters")
         String email,
 
-        @Pattern(regexp = "^(0[0-9]{9,10})?$", message = "Invalid phone number")
+        @NotBlank(message = "Phone is required")
+        @Pattern(regexp = "^(?:0[0-9]{9}|\\+[1-9][0-9]{7,14})$", message = "Invalid phone number")
         String phone,
 
         @NotBlank(message = "Password is required")
@@ -25,6 +25,9 @@ public record RegisterRequest(
         )
         String password
 ) {
+    public RegisterRequest(String fullName, String phone, String password) {
+        this(fullName, null, phone, password);
+    }
     @com.fasterxml.jackson.annotation.JsonAnySetter
     public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }
 }

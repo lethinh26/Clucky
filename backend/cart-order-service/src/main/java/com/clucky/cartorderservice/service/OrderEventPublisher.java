@@ -91,10 +91,18 @@ public class OrderEventPublisher {
         payload.put("refundId", refund.getId());
         payload.put("orderId", refund.getOrderId());
         payload.put("orderCode", order.getOrderCode());
-        if (order.getCustomerEmail() != null && order.isCustomerEmailVerified()) {
-            payload.put("customerEmail", order.getCustomerEmail());
-            payload.putObject("recipient").put("userId", order.getCustomerId()).put("role", "CUSTOMER")
-                    .put("email", order.getCustomerEmail()).put("emailVerified", true);
+        if (order.getCustomerId() != null) {
+            // Preserve the in-app recipient even when a phone-only customer has
+            // not configured an email. The Notification consumer itself gates
+            // email sends on emailVerified + a validated email address.
+            ObjectNode recipient = payload.putObject("recipient")
+                    .put("userId", order.getCustomerId()).put("role", "CUSTOMER");
+            boolean emailVerified = order.getCustomerEmail() != null && order.isCustomerEmailVerified();
+            recipient.put("emailVerified", emailVerified);
+            if (emailVerified) {
+                payload.put("customerEmail", order.getCustomerEmail());
+                recipient.put("email", order.getCustomerEmail());
+            }
         }
         if (refund.getCustomerId() != null) {
             payload.put("customerId", refund.getCustomerId());

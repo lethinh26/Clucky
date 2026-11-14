@@ -51,8 +51,8 @@ test('library translation uses semantic keys, interpolation and isolated locales
   assert.equal(getTranslator('vi')('auth.login.action'), 'Đăng nhập');
   assert.equal(getTranslator('en')('menu.product.view', { name: '<script>' }), 'View <script>');
   assert.equal(getTranslator('en')('auth.otp.resendCountdown', { seconds: 30 }), 'Resend in 30s');
-  assert.equal(getTranslator('en')('auth.otp.description', { count: 6, email: 'test@example.com' }),
-    'Enter the 6-digit code sent to test@example.com.');
+  assert.equal(getTranslator('en')('auth.otp.description', { count: 6, phone: '0901234567' }),
+    'Enter the 6-digit SMS code sent to 0901234567.');
   assert.equal(getTranslator('vi')('auth.login.action'), 'Đăng nhập');
 });
 

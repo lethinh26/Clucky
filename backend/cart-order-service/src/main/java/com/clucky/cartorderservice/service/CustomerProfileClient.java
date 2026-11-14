@@ -27,10 +27,19 @@ public class CustomerProfileClient {
     public String currentCustomerEmail(Long customerId) {
         var actor = CurrentActor.require();
         if (actor.role() != Role.CUSTOMER || !actor.userId().equals(customerId)) throw new ApiException(ErrorCode.FORBIDDEN);
-        return verifiedContact(customerId).email();
+        // A phone-verified customer may not have added an email yet. Ordering must
+        // remain available; email notifications are optional until email verification.
+        var contact = contact(customerId);
+        return contact.emailVerified() ? contact.email() : null;
     }
 
     public Contact verifiedContact(Long customerId) {
+        var contact = contact(customerId);
+        if (!contact.emailVerified()) throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        return contact;
+    }
+
+    private Contact contact(Long customerId) {
         if (customerId == null || customerId <= 0) throw new ApiException(ErrorCode.VALIDATION_ERROR);
         try {
             byte[] key = settings.secret() == null ? new byte[0] : settings.secret().getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -42,9 +51,13 @@ public class CustomerProfileClient {
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             var contact = client.get().uri(url + "/api/auth/internal/customers/" + customerId + "/notification-contact")
                     .header("X-Contact-Time", Long.toString(timestamp)).header("X-Contact-Signature", signature).retrieve().body(Contact.class);
-            if (contact == null || contact.userId() != customerId || !"CUSTOMER".equals(contact.role()) || !contact.emailVerified()
-                    || contact.email() == null || contact.email().length() > 255
-                    || !contact.email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+            if (contact == null || contact.userId() != customerId || !"CUSTOMER".equals(contact.role()))
+                throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+            if (contact.emailVerified() && (contact.email() == null || contact.email().length() > 255
+                    || !contact.email().matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")))
+                throw new ApiException(ErrorCode.UPSTREAM_ERROR);
+            if (!contact.emailVerified() && contact.email() != null)
+                throw new ApiException(ErrorCode.UPSTREAM_ERROR);
             return contact;
         } catch (ApiException failure) { throw failure;
         } catch (Exception failure) { throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE); }

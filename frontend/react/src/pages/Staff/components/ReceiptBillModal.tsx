@@ -1,3 +1,4 @@
+import i18n from "../../../i18n/index.ts";
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -282,8 +283,8 @@ export const ReceiptBillModal: React.FC<ReceiptBillModalProps> = ({
                 )}
                 {getFulfillmentMode(order) === 'DELIVERY' && (
                   <div className={styles.metaRow}>
-                    <span>Địa chỉ giao:</span>
-                    <span>{order.deliveryAddress || 'Thiếu thông tin giao hàng'}</span>
+                    <span>{i18n.t("shipping:ui.deliveryAddress")}</span>
+                    <span>{order.deliveryAddress || i18n.t("shipping:ui.deliveryDetailsMissing")}</span>
                   </div>
                 )}
 

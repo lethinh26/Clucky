@@ -324,8 +324,9 @@ public class OrderService {
         Order order = new Order();
         order.setOrderCode(generateOrderCode());
         order.setCustomerId(customerId);
-        order.setCustomerEmail(customerProfiles.currentCustomerEmail(customerId));
-        order.setCustomerEmailVerified(true);
+        String customerEmail = customerProfiles.currentCustomerEmail(customerId);
+        order.setCustomerEmail(customerEmail);
+        order.setCustomerEmailVerified(customerEmail != null);
         order.setStoreId(request.storeId());
         order.setQueueNumber(generateDailyQueueNumber(request.storeId()));
         order.setType(type);

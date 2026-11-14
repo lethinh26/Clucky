@@ -1,3 +1,4 @@
+import i18n from "../../i18n/index.ts";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { getBrowserLocale } from "../../i18n/locale";
@@ -430,7 +431,7 @@ export function StaffOrdersPage() {
     const targetOrder = orders.find((o) => o.id === orderId);
 
     if (nextStatus === 'COMPLETED' && targetOrder?.orderType === 'DELIVERY') {
-      message.warning('Đơn giao hàng chỉ hoàn tất tự động sau khi Shipping Service xác nhận đã giao.');
+      message.warning(i18n.t("shipping:ui.aDeliveryOrderCompletesAutomaticallyOnlyAfterShippingServiceConfirmsDelivery"));
       return false;
     }
 
@@ -751,17 +752,17 @@ export function StaffOrdersPage() {
     },
     {
       key: 'SHIPPING',
-      label: 'Đang giao (mô phỏng)',
+      label: i18n.t("shipping:ui.deliveringSimulation2"),
       count: queueCounts.SHIPPING,
     },
     {
       key: 'NEEDS_RESOLUTION',
-      label: 'Giao thất bại · Cần xử lý',
+      label: i18n.t("shipping:ui.deliveryFailedActionRequired"),
       count: queueCounts.NEEDS_RESOLUTION,
     },
     {
       key: 'DELIVERY_FAILED',
-      label: 'Giao không thành công',
+      label: i18n.t("shipping:ui.deliveryUnsuccessful"),
       count: queueCounts.DELIVERY_FAILED,
     },
     {

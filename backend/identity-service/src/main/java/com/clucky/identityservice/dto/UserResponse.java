@@ -14,6 +14,7 @@ public record UserResponse(
         Long storeId,
         String status,
         Boolean emailVerified,
+        Boolean phoneVerified,
         Instant createdAt,
         Instant updatedAt
 ) {}

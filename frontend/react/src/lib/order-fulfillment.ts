@@ -1,3 +1,4 @@
+import i18n from "../i18n/index.ts";
 export type FulfillmentMode = 'DELIVERY' | 'DINE_IN' | 'TAKE_AWAY' | 'PICKUP_UNKNOWN';
 
 export function getFulfillmentMode(order: {
@@ -14,18 +15,18 @@ export function getFulfillmentMode(order: {
 
 export function fulfillmentLabel(order: Parameters<typeof getFulfillmentMode>[0]): string {
   switch (getFulfillmentMode(order)) {
-    case 'DELIVERY': return 'Giao hàng';
-    case 'DINE_IN': return 'Ăn tại quán · khách tự nhận tại quầy';
-    case 'TAKE_AWAY': return 'Mang về';
-    default: return 'Nhận tại quán';
+    case 'DELIVERY': return i18n.t("shipping:ui.delivery");
+    case 'DINE_IN': return i18n.t("shipping:ui.dineInCustomerCollectsAtTheCounter");
+    case 'TAKE_AWAY': return i18n.t("shipping:ui.takeAway");
+    default: return i18n.t("shipping:ui.storePickup");
   }
 }
 
 export function fulfillmentShortLabel(order: Parameters<typeof getFulfillmentMode>[0]): string {
   switch (getFulfillmentMode(order)) {
-    case 'DELIVERY': return 'GIAO HÀNG';
-    case 'DINE_IN': return 'ĂN TẠI QUÁN';
-    case 'TAKE_AWAY': return 'MANG VỀ';
-    default: return 'NHẬN TẠI QUÁN';
+    case 'DELIVERY': return i18n.t("shipping:ui.delivery2");
+    case 'DINE_IN': return i18n.t("shipping:ui.dineIn");
+    case 'TAKE_AWAY': return i18n.t("shipping:ui.takeAway2");
+    default: return i18n.t("shipping:ui.storePickup2");
   }
 }

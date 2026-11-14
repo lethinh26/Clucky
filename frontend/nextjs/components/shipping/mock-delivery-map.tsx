@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import mapboxgl from "mapbox-gl";
 
 type Point = [number, number];
@@ -35,7 +35,7 @@ function positionAlongRoute(route: Point[], progress: number): Point {
 }
 
 export default function MockDeliveryMap({ route, progress }: { route: Point[]; progress: number }) {
-  const vi = useLocale() === "vi";
+  const t = useTranslations();
   const container = useRef<HTMLDivElement | null>(null);
   const rider = useRef<mapboxgl.Marker | null>(null);
   const [problem, setProblem] = useState("");
@@ -46,11 +46,11 @@ export default function MockDeliveryMap({ route, progress }: { route: Point[]; p
     const points: Point[] = JSON.parse(routeKey);
     const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ?? "";
     if (!token.startsWith("pk.")) {
-      setProblem(vi ? "Thiếu Mapbox public token để hiển thị lộ trình." : "Mapbox public token is missing; the route cannot be shown.");
+      setProblem(t("shipping.tracking.mapTokenMissing"));
       return;
     }
     if (!mapboxgl.supported() || points.length < 2) {
-      setProblem(vi ? "Bản đồ không được hỗ trợ trên thiết bị này." : "Maps are not supported on this device.");
+      setProblem(t("shipping.tracking.mapUnsupported"));
       return;
     }
 
@@ -66,7 +66,7 @@ export default function MockDeliveryMap({ route, progress }: { route: Point[]; p
         cooperativeGestures: true,
       });
     } catch {
-      setProblem(vi ? "Không thể khởi tạo bản đồ theo dõi." : "Unable to initialize the tracking map.");
+      setProblem(t("shipping.tracking.mapInitializationFailed"));
       return;
     }
 
@@ -86,13 +86,13 @@ export default function MockDeliveryMap({ route, progress }: { route: Point[]; p
       new mapboxgl.Marker({ color: "#c47b16" }).setLngLat(points[points.length - 1]).addTo(map);
       rider.current = new mapboxgl.Marker({ color: "#9b1c25", scale: 1.2 })
         .setLngLat(positionAlongRoute(points, progress)).addTo(map);
-      rider.current.getElement().title = vi ? "Vị trí trên lộ trình" : "Position along the route";
+      rider.current.getElement().title = t("shipping.tracking.routePosition");
       const bounds = new mapboxgl.LngLatBounds();
       points.forEach(point => bounds.extend(point));
       map.fitBounds(bounds, { padding: 36, maxZoom: 15, duration: 0 });
       setProblem("");
     });
-    map.on("error", () => setProblem(vi ? "Không thể tải bản đồ Mapbox." : "Unable to load the Mapbox map."));
+    map.on("error", () => setProblem(t("shipping.tracking.mapLoadingFailed")));
     const observer = new ResizeObserver(() => map.resize());
     observer.observe(container.current);
     return () => {
@@ -102,7 +102,7 @@ export default function MockDeliveryMap({ route, progress }: { route: Point[]; p
     };
     // Rebuild the route only when coordinates change, never on every animation frame.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeKey, vi]);
+  }, [routeKey, t]);
 
   useEffect(() => {
     if (rider.current && route.length >= 2) {
@@ -112,7 +112,7 @@ export default function MockDeliveryMap({ route, progress }: { route: Point[]; p
 
   return (
     <div style={{ position: "relative", width: "100%", height: 230 }}>
-      <div ref={container} style={{ width: "100%", height: "100%", borderRadius: 12 }} aria-label={vi ? "Bản đồ theo dõi lộ trình giao hàng" : "Delivery route tracking map"} />
+      <div ref={container} style={{ width: "100%", height: "100%", borderRadius: 12 }} aria-label={t("shipping.tracking.routeMap")} />
       {problem && <p role="status" style={{ position: "absolute", bottom: 4, left: 8, right: 8, background: "#fff8f0", padding: 8, borderRadius: 8 }}>{problem}</p>}
     </div>
   );

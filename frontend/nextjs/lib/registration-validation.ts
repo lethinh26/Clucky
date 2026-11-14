@@ -17,14 +17,11 @@ export function passwordChecks(password: string) {
 export function validateRegistration(values: RegisterPayload): RegistrationErrors {
   const errors: RegistrationErrors = {};
   const fullName = values.fullName.trim();
-  const email = values.email.trim();
-  const phone = (values.phone ?? "").replace(/\s/g, "");
+  const phone = values.phone.replace(/\s/g, "");
   if (!fullName) errors.fullName = ["auth.validation.fullNameRequired"];
   else if (fullName.length > 160) errors.fullName = ["auth.validation.fullNameTooLong"];
-  if (!email) errors.email = ["auth.validation.emailRequired"];
-  else if (email.length > 255) errors.email = ["auth.validation.emailTooLong"];
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = ["auth.validation.checkEmail"];
-  if (phone && !/^0[0-9]{9,10}$/.test(phone)) errors.phone = ["auth.validation.phoneFormat"];
+  if (!phone) errors.phone = ["auth.validation.phoneRequired"];
+  else if (!/^0[0-9]{9}$/.test(phone)) errors.phone = ["auth.validation.phoneFormat"];
   const passwordErrors: string[] = [];
   if (!values.password) passwordErrors.push("auth.validation.passwordRequired");
   else {
@@ -42,7 +39,7 @@ export function validateRegistration(values: RegisterPayload): RegistrationError
 
 export function registrationServerErrors(error: unknown): RegistrationErrors {
   if (!error || typeof error !== "object" || !("code" in error)) return {};
-  if (error.code === "EMAIL_EXISTS") return { email: ["auth.validation.emailExists"] };
+  if (error.code === "PHONE_EXISTS") return { phone: ["auth.validation.phoneExists"] };
   if (!("fieldErrors" in error) || !error.fieldErrors || typeof error.fieldErrors !== "object") return {};
   if (error.code === "RESOURCE_CONFLICT" && Object.hasOwn(error.fieldErrors, "phone")
       && "phone" in error.fieldErrors && error.fieldErrors.phone === "ALREADY_EXISTS") {
@@ -51,7 +48,6 @@ export function registrationServerErrors(error: unknown): RegistrationErrors {
   if (error.code !== "VALIDATION_ERROR") return {};
   const messages = {
     fullName: "auth.validation.fullNamePolicy",
-    email: "auth.validation.emailPolicy",
     phone: "auth.validation.phoneFormat",
     password: "auth.validation.passwordPolicy",
   };

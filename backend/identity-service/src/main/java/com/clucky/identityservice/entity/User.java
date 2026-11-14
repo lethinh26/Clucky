@@ -53,6 +53,9 @@ public class User {
     @Column(name = "email_verified", nullable = false)
     private Boolean emailVerified = true;
 
+    @Column(name = "phone_verified", nullable = false)
+    private Boolean phoneVerified = false;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -94,6 +97,8 @@ public class User {
 
     public Boolean getEmailVerified() { return emailVerified; }
     public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }
+    public Boolean getPhoneVerified() { return phoneVerified; }
+    public void setPhoneVerified(Boolean phoneVerified) { this.phoneVerified = phoneVerified; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

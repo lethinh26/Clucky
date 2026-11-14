@@ -37,6 +37,8 @@ import java.util.List;
 public class OtpService {
     public static final String PURPOSE_REGISTER = "REGISTER";
     public static final String PURPOSE_RESET = "RESET";
+    public static final String PURPOSE_EMAIL_BIND = "EMAIL_BIND";
+    public static final String PURPOSE_PASSWORD_CHANGE = "PASSWORD_CHANGE";
 
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final DefaultRedisScript<Long> ATTEMPT_COUNTER = new DefaultRedisScript<>(
@@ -66,7 +68,8 @@ public class OtpService {
         if (identifier == null || identifier.isBlank() || purpose == null || purpose.isBlank()) {
             throw new IllegalArgumentException("Identifier and purpose are required");
         }
-        if (!PURPOSE_REGISTER.equals(purpose) && !PURPOSE_RESET.equals(purpose)) {
+        if (!PURPOSE_REGISTER.equals(purpose) && !PURPOSE_RESET.equals(purpose)
+                && !PURPOSE_EMAIL_BIND.equals(purpose) && !PURPOSE_PASSWORD_CHANGE.equals(purpose)) {
             throw new IllegalArgumentException("Unsupported OTP purpose");
         }
 

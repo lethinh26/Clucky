@@ -26,7 +26,7 @@ public enum ErrorCode {
     INSUFFICIENT_POINTS(409, "You do not have enough points for this operation."),
     EMAIL_EXISTS(409, "This email is already registered."),
     ACCOUNT_LOCKED(403, "This account has been locked."),
-    INVALID_CREDENTIALS(401, "Invalid email or password."),
+    INVALID_CREDENTIALS(401, "Invalid sign-in information."),
     EMAIL_NOT_VERIFIED(401, "Please verify your email before signing in."),
     INVALID_OTP(400, "The OTP is invalid or has already been used."),
     OTP_EXPIRED(400, "The OTP has expired."),

@@ -23,7 +23,7 @@
   "INSUFFICIENT_POINTS": "Bạn không đủ điểm để thực hiện thao tác này.",
   "EMAIL_EXISTS": "Email này đã được đăng ký.",
   "ACCOUNT_LOCKED": "Tài khoản đã bị khóa.",
-  "INVALID_CREDENTIALS": "Email hoặc mật khẩu không chính xác.",
+  "INVALID_CREDENTIALS": "Thông tin đăng nhập chưa hợp lệ",
   "EMAIL_NOT_VERIFIED": "Vui lòng xác thực email trước khi đăng nhập.",
   "INVALID_OTP": "Mã OTP không hợp lệ hoặc đã được sử dụng.",
   "OTP_EXPIRED": "Mã OTP đã hết hạn.",

@@ -42,6 +42,7 @@ services:
         SERVICE_NAME: discovery-server
   identity-service:
     environment:
+      BRIDGE_API_KEY: ${BRIDGE_API_KEY:-}
       AUTH_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:5173,http://127.0.0.1:5173
     build:
       <<: *java-build

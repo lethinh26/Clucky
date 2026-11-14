@@ -5,14 +5,19 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
 import com.clucky.identityservice.entity.Address;
 import com.clucky.identityservice.entity.User;
+import com.clucky.identityservice.exception.ApiException;
+import com.clucky.identityservice.exception.ErrorCode;
 import com.clucky.identityservice.repository.AddressRepository;
 import com.clucky.identityservice.repository.UserRepository;
+import com.clucky.identityservice.service.IdentityChallenges;
+import com.clucky.identityservice.service.OtpService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
 class ProfileControllerTest {
@@ -69,5 +74,74 @@ class ProfileControllerTest {
         assertFalse(new ProfileController.AddressInput("Customer", "0900000000", "", "", "", "Street", false, 10.0, null).isCoordinatePairValid());
         assertFalse(new ProfileController.AddressInput("Customer", "0900000000", "", "", "", "Street", false, Double.NaN, 106.0).isCoordinatePairValid());
         assertTrue(new ProfileController.AddressInput("Customer", "0900000000", "", "", "", "Street", false, null, null).isCoordinatePairValid());
+    }
+
+    @Test
+    void emailBindingRequiresCurrentPasswordBeforeAnyOtpConfirmation() {
+        var challenges = mock(IdentityChallenges.class);
+        var encoder = mock(PasswordEncoder.class);
+        var otp = mock(OtpService.class);
+        var account = customerForContactChange();
+        var guarded = new ProfileController(users, addresses, entityManager, challenges, encoder, otp);
+
+        var rejected = assertThrows(ApiException.class, () -> guarded.verifyEmail(jwt,
+                new ProfileController.EmailBindConfirm("new@example.com", "123456", "challenge-id", "wrong")));
+        assertEquals(ErrorCode.VALIDATION_ERROR, rejected.getCode());
+        assertEquals("INVALID", rejected.getFieldErrors().get("currentPassword"));
+        verify(challenges, never()).confirmEmailBinding(any(), anyString(), anyString(), anyString());
+        verify(otp).limitVerification("account:7", "CONTACT_BIND_PASSWORD");
+
+        when(encoder.matches("correct-password", "stored-hash")).thenReturn(true);
+        guarded.verifyEmail(jwt, new ProfileController.EmailBindConfirm(
+                "new@example.com", "123456", "challenge-id", "correct-password"));
+        verify(challenges).confirmEmailBinding(account, "new@example.com", "challenge-id", "123456");
+    }
+
+    @Test
+    void firstPhoneBindingOnGoogleAccountAlsoRequiresCurrentPassword() {
+        var challenges = mock(IdentityChallenges.class);
+        var encoder = mock(PasswordEncoder.class);
+        var otp = mock(OtpService.class);
+        var account = customerForContactChange();
+        account.setPhone(null);
+        var guarded = new ProfileController(users, addresses, entityManager, challenges, encoder, otp);
+
+        var rejected = assertThrows(ApiException.class, () -> guarded.verifyPhone(jwt,
+                new ProfileController.PhoneBindConfirm("+84901234567", "123456", "challenge-id", "")));
+        assertEquals("INVALID", rejected.getFieldErrors().get("currentPassword"));
+        verify(challenges, never()).confirmPhoneBinding(any(), anyString(), anyString(), anyString());
+
+        when(encoder.matches("correct-password", "stored-hash")).thenReturn(true);
+        guarded.verifyPhone(jwt, new ProfileController.PhoneBindConfirm(
+                "+84901234567", "123456", "challenge-id", "correct-password"));
+        verify(challenges).confirmPhoneBinding(account, "+84901234567", "challenge-id", "123456");
+    }
+
+    @Test
+    void passwordStepUpRateLimitPreventsContactBindingBeforeBcrypt() {
+        var challenges = mock(IdentityChallenges.class);
+        var encoder = mock(PasswordEncoder.class);
+        var otp = mock(OtpService.class);
+        customerForContactChange();
+        doThrow(new ApiException(ErrorCode.TOO_MANY_REQUESTS)).when(otp)
+                .limitVerification("account:7", "CONTACT_BIND_PASSWORD");
+        var guarded = new ProfileController(users, addresses, entityManager, challenges, encoder, otp);
+
+        assertEquals(ErrorCode.TOO_MANY_REQUESTS, assertThrows(ApiException.class,
+                () -> guarded.verifyEmail(jwt, new ProfileController.EmailBindConfirm(
+                        "new@example.com", "123456", "challenge-id", "correct-password"))).getCode());
+        verifyNoInteractions(encoder, challenges);
+    }
+
+    private User customerForContactChange() {
+        User account = new User();
+        account.setId(7L);
+        account.setStatus("ACTIVE");
+        account.setEmail("existing@example.com");
+        account.setPasswordHash("stored-hash");
+        account.setPhone("+84901111111");
+        when(entityManager.find(User.class, 7L, LockModeType.PESSIMISTIC_WRITE)).thenReturn(account);
+        when(users.findById(7L)).thenReturn(Optional.of(account));
+        return account;
     }
 }

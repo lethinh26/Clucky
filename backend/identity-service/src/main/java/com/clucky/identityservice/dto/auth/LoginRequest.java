@@ -5,8 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record LoginRequest(
-        @NotBlank(message = "Email is required")
-        @Size(max = 255, message = "Email cannot exceed 255 characters")
+        @NotBlank(message = "Phone or email is required")
+        @Size(max = 255, message = "Login cannot exceed 255 characters")
+        @com.fasterxml.jackson.annotation.JsonAlias("phone")
         String email,
 
         @NotBlank(message = "Password is required")

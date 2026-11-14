@@ -10,6 +10,7 @@ import com.clucky.identityservice.entity.User;
 import com.clucky.identityservice.exception.ApiException;
 import com.clucky.identityservice.exception.ErrorCode;
 import com.clucky.identityservice.mapper.DomainMapper;
+import com.clucky.identityservice.service.PhoneNumbers;
 import com.clucky.identityservice.repository.AddressRepository;
 import com.clucky.identityservice.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -42,7 +43,10 @@ public class UserProfileService {
     public UserResponse updateMyProfile(UpdateProfileRequest request) {
         User user = loadActor();
         user.setFullName(request.fullName().trim());
-        user.setPhone(request.phone().trim());
+        if (request.phone() != null
+                && !PhoneNumbers.equivalent(user.getPhone(), request.phone().trim())) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
+        }
         user.setUpdatedAt(Instant.now());
         try {
             user = users.save(user);

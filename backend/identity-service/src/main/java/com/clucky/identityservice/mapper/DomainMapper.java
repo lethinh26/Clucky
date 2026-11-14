@@ -18,6 +18,7 @@ public final class DomainMapper {
                 entity.getStoreId(),
                 entity.getStatus(),
                 entity.getEmailVerified(),
+                entity.getPhoneVerified(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

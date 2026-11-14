@@ -61,8 +61,14 @@ class RefundRecipientSafetyTest {
         clearInvocations(repository, applicationEvents);
         order.setCustomerEmailVerified(false);
         publisher.publishRefundEvent("refund.approved", refund, order, null);
-        verify(repository, times(2)).save(capture.capture());
-        assertEquals("WAITING_RECIPIENT", capture.getValue().getStatus());
-        verifyNoInteractions(applicationEvents);
+        verify(repository).save(capture.capture());
+        assertEquals("PENDING", capture.getValue().getStatus(),
+                "The in-app refund notification must not wait for a verified email");
+        var phoneOnlyPayload = mapper.readTree(capture.getValue().getPayload()).path("payload");
+        assertEquals(7, phoneOnlyPayload.path("recipient").path("userId").asLong());
+        assertFalse(phoneOnlyPayload.path("recipient").path("emailVerified").asBoolean());
+        assertFalse(phoneOnlyPayload.path("recipient").has("email"));
+        assertFalse(phoneOnlyPayload.has("customerEmail"));
+        verify(applicationEvents).publishEvent(any(OrderEventPublisher.OutboxEventCreatedEvent.class));
     }
 }

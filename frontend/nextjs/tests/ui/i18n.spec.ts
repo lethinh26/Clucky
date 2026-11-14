@@ -78,6 +78,10 @@ test("account dashboard fits narrow screens and displays the real profile", asyn
 });
 
 test("customer language changes preserve unsaved form values and translate existing validation", async ({ page }) => {
+  await page.route("**/api/users/me", route => route.fulfill({ json: {
+    fullName: "Test User", email: "test@example.com", phone: "0901234567", emailVerified: true, phoneVerified: true,
+  } }));
+  await page.route("**/api/auth/change-password/request", route => route.fulfill({ json: { challengeId: "mock-password-change" } }));
   await page.goto(customer + "/account");
   const fullName = page.getByRole("textbox", { name: "Họ và tên", exact: true });
   await expect(fullName).toHaveCount(1);
@@ -86,14 +90,15 @@ test("customer language changes preserve unsaved form values and translate exist
   await expect(page.getByRole("textbox", { name: "Full name", exact: true })).toHaveValue("Tên người dùng không dịch");
   await expect(page.getByRole("heading", { name: "Personal details" })).toBeVisible();
   await page.getByRole("button", { name: "Change password", exact: true }).click();
-  await page.getByLabel("Current password", { exact: true }).filter({ visible: true }).fill("old-password");
-  await page.getByLabel("New password", { exact: true }).filter({ visible: true }).fill("new-password");
-  await page.getByLabel("Confirm new password", { exact: true }).filter({ visible: true }).fill("different-password");
-  await page.getByRole("button", { name: "Change password (demo)", exact: true }).click();
+  await page.getByRole("button", { name: "Send password change code", exact: true }).click();
+  await page.getByLabel("Verification code", { exact: true }).fill("123456");
+  await page.getByLabel("New password", { exact: true }).filter({ visible: true }).fill("NewPassword1");
+  await page.getByLabel("Confirm new password", { exact: true }).filter({ visible: true }).fill("DifferentPassword1");
+  await page.getByRole("button", { name: "Verify OTP and change password", exact: true }).click();
   await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "The passwords do not match." })).toBeVisible();
   await switchLanguage(page, "vi");
   await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "Mật khẩu xác nhận không khớp." })).toBeVisible();
-  await expect(page.getByLabel("Mật khẩu mới", { exact: true }).filter({ visible: true })).toHaveValue("new-password");
+  await expect(page.getByLabel("Mật khẩu mới", { exact: true }).filter({ visible: true })).toHaveValue("NewPassword1");
   await switchLanguage(page, "en");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Personal details" })).toBeVisible();
@@ -125,14 +130,14 @@ for (const origin of [customer, admin]) {
   test(`safe API errors retranslate without clearing login fields (${origin})`, async ({ page }) => {
     await page.route("**/api/auth/login", route => route.fulfill({ status: 403, json: { code: "FORBIDDEN", message: "secret SQL diagnostic" } }));
     await page.goto(origin + "/login");
-    const email = page.getByRole("textbox", { name: origin === admin ? "Định danh nội bộ hoặc email Admin" : "Email", exact: true });
+    const email = page.getByRole("textbox", { name: origin === admin ? "Định danh nội bộ hoặc email Admin" : "Số điện thoại hoặc email", exact: true });
     await expect(email).toHaveCount(1);
     await email.fill("locale@example.com");
     await page.getByLabel("Mật khẩu", { exact: true }).filter({ visible: true }).fill("password123");
     await page.getByRole("button", { name: /Đăng nhập$/, exact: false }).first().click();
     await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "Bạn không có quyền" })).toBeVisible();
     await switchLanguage(page, "en");
-    await expect(page.getByRole("textbox", { name: origin === admin ? "Internal login or Admin email" : "Email", exact: true })).toHaveValue("locale@example.com");
+    await expect(page.getByRole("textbox", { name: origin === admin ? "Internal login or Admin email" : "Phone number or email", exact: true })).toHaveValue("locale@example.com");
     await expect(page.getByLabel("Password", { exact: true }).filter({ visible: true })).toHaveValue("password123");
     await expect(page.locator("[data-sonner-toast] [data-description]").filter({ hasText: "You do not have permission" })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("secret SQL diagnostic");

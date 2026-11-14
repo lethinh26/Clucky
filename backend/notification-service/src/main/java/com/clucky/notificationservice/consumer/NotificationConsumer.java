@@ -169,13 +169,12 @@ public class NotificationConsumer {
                     : "UPDATE notification_service.payment_outcomes SET failed=true,outcome='FAILED',updated_at=now() WHERE order_id=?",orderId);
         }
         String orderCode = extractOrderCode(payload, orderId);
-        String recipientEmail = refundEvent ? refundEmail(payload, customerId) : null;
-        if (refundEvent && (customerId == null || recipientEmail == null)) {
+        if (refundEvent && customerId == null) {
             jdbc.update("""
                     INSERT INTO notification_service.notification_delivery_gaps(event_id,event_type,correlation_id,reason)
                     VALUES (?,?,?,?) ON CONFLICT DO NOTHING
                     """, event.eventId(), event.eventType(), event.correlationId(),
-                    customerId == null ? "NO_VERIFIED_CUSTOMER_RECIPIENT" : "NO_VERIFIED_CUSTOMER_EMAIL");
+                    "NO_VERIFIED_CUSTOMER_RECIPIENT");
         }
         String deliveryKey = "refund.processed".equals(event.eventType())
                 ? "refund.processed:" + positiveId(payload, "refundId") : event.eventType() + ":" + event.eventId();
@@ -209,7 +208,11 @@ public class NotificationConsumer {
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
             if (!jdbc.queryForList("SELECT id FROM notification_service.email_logs WHERE message_id=? OR (event_id=? AND template=?)",
                     emailMessageId, event.eventId(), spec.emailTemplate()).isEmpty()) return;
-            if (!refundEvent) recipientEmail = contacts.verifiedEmail(customerId);
+            // Resolve the *current* verified contact for every email, including refunds.
+            // A refund can be processed long after the order was placed; its order
+            // snapshot may contain an address the customer subsequently changed.
+            // Never deliver sensitive refund details to a stale snapshot recipient.
+            String recipientEmail = contacts.verifiedEmail(customerId);
             if (recipientEmail == null) {
                 jdbc.update("INSERT INTO notification_service.notification_delivery_gaps(event_id,event_type,correlation_id,reason) "
                         + "VALUES (?,?,?,'NO_VERIFIED_CUSTOMER_EMAIL') ON CONFLICT DO NOTHING",
@@ -387,20 +390,6 @@ public class NotificationConsumer {
                 && "CUSTOMER".equals(recipient.path("role").asText()) ? customerId : null;
     }
 
-    private String refundEmail(JsonNode payload, Long customerId) {
-        JsonNode recipient = payload.path("recipient");
-        if (customerId == null || !recipient.path("emailVerified").isBoolean()
-                || !recipient.path("emailVerified").booleanValue() || !recipient.path("email").isTextual()) return null;
-        String email = recipient.path("email").textValue().trim();
-        if (email.isBlank() || email.length() > 255 || email.contains("\r") || email.contains("\n")) return null;
-        try {
-            var address = new jakarta.mail.internet.InternetAddress(email, true);
-            address.validate();
-            return email.equals(address.getAddress()) && address.getPersonal() == null ? email : null;
-        } catch (jakarta.mail.internet.AddressException failure) {
-            return null;
-        }
-    }
 
     private Long extractOrderId(JsonNode payload) {
         if (payload.hasNonNull("orderId")) {

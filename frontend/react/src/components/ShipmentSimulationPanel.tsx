@@ -1,3 +1,5 @@
+import i18n from "../i18n/index.ts";
+import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Input, Modal, Select, Space, Tag } from 'antd';
 import mapboxgl from 'mapbox-gl';
@@ -7,17 +9,19 @@ import { message } from './feedback';
 import { getErrorMessage, shipmentSimulationApi, type ShipmentSimulationTracking } from '../lib/api';
 import styles from './shipment-simulation.module.css';
 
-const reasons = [
-  { value: 'CUSTOMER_UNREACHABLE', label: 'Không liên lạc được với khách' },
-  { value: 'CUSTOMER_ABSENT', label: 'Khách không có mặt' },
-  { value: 'WRONG_ADDRESS', label: 'Sai hoặc thiếu địa chỉ' },
-  { value: 'ACCESS_BLOCKED', label: 'Không thể tiếp cận khu vực giao hàng' },
-  { value: 'ACCESS_BLOCKED', label: 'Không vào được khu vực giao' },
-  { value: 'CUSTOMER_REFUSED', label: 'Khách từ chối nhận' },
-  { value: 'DAMAGED_ITEMS', label: 'Món ăn bị hỏng / đổ vỡ' },
-  { value: 'RIDER_INCIDENT', label: 'Sự cố tài xế hoặc phương tiện' },
-  { value: 'OTHER', label: 'Lý do khác' },
-];
+function reasons() {
+  return [
+  { value: 'CUSTOMER_UNREACHABLE', label: i18n.t("shipping:ui.unableToContactTheCustomer") },
+  { value: 'CUSTOMER_ABSENT', label: i18n.t("shipping:ui.customerIsNotAtTheDeliveryAddress") },
+  { value: 'WRONG_ADDRESS', label: i18n.t("shipping:ui.incorrectOrIncompleteAddress") },
+  { value: 'ACCESS_BLOCKED', label: i18n.t("shipping:ui.deliveryAreaCannotBeAccessed") },
+  { value: 'ACCESS_BLOCKED', label: i18n.t("shipping:ui.cannotEnterTheDeliveryArea") },
+  { value: 'CUSTOMER_REFUSED', label: i18n.t("shipping:ui.customerRefusedTheDelivery") },
+  { value: 'DAMAGED_ITEMS', label: i18n.t("shipping:ui.foodWasDamagedOrSpilled") },
+  { value: 'RIDER_INCIDENT', label: i18n.t("shipping:ui.riderOrVehicleIncident") },
+  { value: 'OTHER', label: i18n.t("shipping:ui.otherReason") },
+  ];
+}
 
 type Action = 'fail' | 'return' | 'retry' | 'close';
 type Point = [number, number];
@@ -76,6 +80,7 @@ function deliveryProgress(tracking: ShipmentSimulationTracking, serverOffset: nu
 }
 
 function ShipmentRouteMap({ tracking, serverOffset }: { tracking: ShipmentSimulationTracking; serverOffset: number }) {
+  const { i18n: currentLocale } = useTranslation();
   const holder = useRef<HTMLDivElement>(null);
   const clockOffsetRef = useRef(serverOffset);
   clockOffsetRef.current = serverOffset;
@@ -86,8 +91,8 @@ function ShipmentRouteMap({ tracking, serverOffset }: { tracking: ShipmentSimula
 
   useEffect(() => {
     if (!holder.current || points.length < 2) return;
-    if (!token.startsWith('pk.')) { setError('Chưa cấu hình Mapbox trên giao diện nhân viên.'); return; }
-    if (!mapboxgl.supported()) { setError('Trình duyệt không hỗ trợ bản đồ Mapbox.'); return; }
+    if (!token.startsWith('pk.')) { setError(i18n.t("shipping:ui.mapboxIsNotConfiguredForTheStaffApp")); return; }
+    if (!mapboxgl.supported()) { setError(i18n.t("shipping:ui.thisBrowserDoesNotSupportMapboxMaps")); return; }
 
     let map: mapboxgl.Map;
     try {
@@ -100,7 +105,7 @@ function ShipmentRouteMap({ tracking, serverOffset }: { tracking: ShipmentSimula
         attributionControl: false,
       });
     } catch {
-      setError('Không thể khởi tạo bản đồ Mapbox.');
+      setError(i18n.t("shipping:ui.unableToInitializeTheMapboxMap"));
       return;
     }
 
@@ -115,12 +120,12 @@ function ShipmentRouteMap({ tracking, serverOffset }: { tracking: ShipmentSimula
       map.fitBounds(bounds, { padding: 45, maxZoom: 16, duration: 0 });
       setError('');
     });
-    map.on('error', () => setError('Mapbox không tải được lớp nền. Tuyến giao vẫn do Shipping Service lưu.'));
+    map.on('error', () => setError(i18n.t("shipping:ui.mapboxCouldNotLoadItsBaseMapShippingServiceStillStoresTheDeliveryRoute")));
 
     const markerElement = document.createElement('div');
     markerElement.className = styles.riderMarker;
     markerElement.textContent = '🛵';
-    markerElement.title = 'Tài xế mô phỏng';
+    markerElement.title = i18n.t("shipping:ui.simulatedDeliveryRider");
     const marker = new mapboxgl.Marker({ element: markerElement }).setLngLat(points[0]).addTo(map);
     const startMarker = new mapboxgl.Marker({ color: '#1e7a46', scale: 0.65 }).setLngLat(points[0]).addTo(map);
     const endMarker = new mapboxgl.Marker({ color: '#8f1216', scale: 0.7 }).setLngLat(points[points.length - 1]).addTo(map);
@@ -134,32 +139,35 @@ function ShipmentRouteMap({ tracking, serverOffset }: { tracking: ShipmentSimula
       window.cancelAnimationFrame(frame);
       marker.remove(); startMarker.remove(); endMarker.remove(); map.remove();
     };
-  }, [points, token, tracking.attemptNumber, tracking.deliveryStartedAt, tracking.deliveryDueAt, tracking.status, tracking.failedAt, tracking.completedAt]);
+  }, [points, token, currentLocale.language, tracking.attemptNumber, tracking.deliveryStartedAt, tracking.deliveryDueAt, tracking.status, tracking.failedAt, tracking.completedAt]);
 
-  if (points.length < 2) return <Alert type="warning" showIcon message="Chưa có tuyến Mapbox hợp lệ từ quán đến khách. Vui lòng kiểm tra tọa độ và cấu hình vận chuyển." />;
+  if (points.length < 2) return <Alert type="warning" showIcon message={i18n.t("shipping:ui.noValidMapboxRouteConnectsTheStoreToTheCustomerCheckTheCoordinatesAndDelivery")} />;
   return <div className={styles.mapWrap}>
-    <div ref={holder} className={styles.map} aria-label="Bản đồ tuyến giao hàng mô phỏng từ chi nhánh tới khách" role="region" />
+    <div ref={holder} className={styles.map} aria-label={i18n.t("shipping:ui.simulatedDeliveryRouteMapFromTheStoreToTheCustomer")} role="region" />
     {error && <Alert type="warning" showIcon message={error} />}
   </div>;
 }
 
 function statusText(tracking: ShipmentSimulationTracking, now: number) {
-  if (tracking.status === 'DELIVERED') return 'Giao thành công (mô phỏng)';
-  if (tracking.status === 'FAILED') return tracking.resolution === 'CLOSED_UNDELIVERABLE' ? 'Đã đóng — giao không thành công' : 'Giao thất bại — cần xử lý';
-  if (tracking.phase === 'ARRIVED_PENDING_PROOF') return 'Đã đến nơi — đang xác nhận giao';
+  if (tracking.status === 'DELIVERED') return i18n.t("shipping:ui.deliveredSuccessfullySimulation");
+  if (tracking.status === 'FAILED') return tracking.resolution === 'CLOSED_UNDELIVERABLE' ? i18n.t("shipping:ui.closedDeliveryUnsuccessful") : i18n.t("shipping:ui.deliveryFailedActionNeeded");
+  if (tracking.phase === 'ARRIVED_PENDING_PROOF') return i18n.t("shipping:ui.arrivedConfirmingDelivery");
   if (tracking.status === 'SHIPPING' && tracking.deliveryDueAt && now >= Date.parse(tracking.deliveryDueAt)) {
-    return 'Đã đến nơi — đang chờ xác nhận từ Shipping Service';
+    return i18n.t("shipping:ui.arrivedAwaitingConfirmationFromShippingService");
   }
-  if (tracking.status === 'SHIPPING' || tracking.phase === 'SHIPPING') return 'Shipper mô phỏng đang giao hàng';
+  if (tracking.status === 'SHIPPING' || tracking.phase === 'SHIPPING') return i18n.t("shipping:ui.simulatedRiderIsDeliveringTheOrder");
   if (tracking.phase === 'WAITING_RIDER' || tracking.status === 'ASSIGNED') {
     const arrival = Date.parse(tracking.riderArrivalDueAt || '') || (Date.parse(tracking.assignedAt || '') + 5000);
-    return `Đang chờ shipper đến quán · còn ${Number.isFinite(arrival) ? Math.max(0, Math.ceil((arrival - now) / 1000)) : '—'} giây`;
+    return i18n.t("shipping:ui.waitingForRiderSeconds", {
+      seconds: Number.isFinite(arrival) ? Math.max(0, Math.ceil((arrival - now) / 1000)) : '—',
+    });
   }
-  if (tracking.status === 'CREATED') return 'Đang chuẩn bị hồ sơ vận chuyển';
+  if (tracking.status === 'CREATED') return i18n.t("shipping:ui.preparingShipmentDetails");
   return tracking.phase || tracking.status;
 }
 
 export function ShipmentSimulationPanel({ orderId, onChanged }: { orderId: string | number; onChanged?: () => void }) {
+  useTranslation();
   const { user } = useAuth();
   const manager = user.role === 'STORE_MANAGER' || user.role === 'ADMIN';
   const [tracking, setTracking] = useState<ShipmentSimulationTracking | null>(null);
@@ -210,7 +218,7 @@ export function ShipmentSimulationPanel({ orderId, onChanged }: { orderId: strin
     const attemptNumber = tracking.attemptNumber;
     const version = tracking.version;
     if (attemptNumber == null || version == null) {
-      message.error('Thiếu phiên bản chuyến giao. Vui lòng tải lại dữ liệu trước khi thao tác.');
+      message.error(i18n.t("shipping:ui.shipmentVersionIsMissingReloadTheShipmentBeforeTakingAction"));
       await refresh().catch(() => {});
       return;
     }
@@ -226,7 +234,7 @@ export function ShipmentSimulationPanel({ orderId, onChanged }: { orderId: strin
             : await shipmentSimulationApi.close(orderId, { ...mutation, note: note.trim() });
       if (updated?.status) setTracking(updated);
       setAction(null);
-      message.success('Đã cập nhật mô phỏng vận chuyển.');
+      message.success(i18n.t("shipping:ui.shipmentSimulationUpdated"));
       await refresh();
       onChanged?.();
     } catch (e: unknown) {
@@ -235,55 +243,55 @@ export function ShipmentSimulationPanel({ orderId, onChanged }: { orderId: strin
     } finally { setBusy(false); }
   };
 
-  return <section className={styles.panel} aria-label="Mô phỏng vận chuyển">
-    <div className={styles.titleRow}><h3>Theo dõi giao hàng</h3><Tag color="orange">MÔ PHỎNG · không có shipper đối tác</Tag></div>
-    {loading && !tracking && <p>Đang tải dữ liệu vận chuyển từ Shipping Service…</p>}
-    {error && <Alert type="warning" showIcon message="Chưa tải được vận chuyển" description={error} action={<Button size="small" onClick={() => void refresh().catch(e => setError(getErrorMessage(e)))}>Thử lại</Button>} />}
+  return <section className={styles.panel} aria-label={i18n.t("shipping:ui.shipmentSimulation")}>
+    <div className={styles.titleRow}><h3>{i18n.t("shipping:ui.trackDelivery")}</h3><Tag color="orange">{i18n.t("shipping:ui.simulationNoThirdPartyRider")}</Tag></div>
+    {loading && !tracking && <p>{i18n.t("shipping:ui.loadingShipmentDetailsFromShippingService")}</p>}
+    {error && <Alert type="warning" showIcon message={i18n.t("shipping:ui.unableToLoadShipment")} description={error} action={<Button size="small" onClick={() => void refresh().catch(e => setError(getErrorMessage(e)))}>{i18n.t("shipping:ui.retry")}</Button>} />}
     {tracking && <>
-      <div className={styles.status} role="status"><strong>{statusText(tracking, now)}</strong><span>Lần giao #{tracking.attemptNumber || 1} · {tracking.phase || tracking.status}</span></div>
+      <div className={styles.status} role="status"><strong>{statusText(tracking, now)}</strong><span>{i18n.t("shipping:ui.deliveryAttempt")}{tracking.attemptNumber || 1} · {tracking.phase || tracking.status}</span></div>
       {tracking.deliveryStartedAt && <div className={styles.progressRow}>
         <div className={styles.progressTrack}><div className={styles.progressFill} style={{ width: `${Math.round(progress * 100)}%` }} /></div>
-        <span>{Math.round(progress * 100)}% · {tracking.status === 'SHIPPING' && Number.isFinite(due) ? `Còn ${Math.max(0, Math.ceil((due - now) / 1000))}s` : tracking.status === 'FAILED' ? 'Đã dừng' : 'Đã đến nơi'}</span>
+        <span>{Math.round(progress * 100)}% · {tracking.status === 'SHIPPING' && Number.isFinite(due) ? i18n.t("shipping:ui.secondsRemaining", { seconds: Math.max(0, Math.ceil((due - now) / 1000)) }) : tracking.status === 'FAILED' ? i18n.t("shipping:ui.stopped") : i18n.t("shipping:ui.arrived")}</span>
       </div>}
       <ShipmentRouteMap tracking={tracking} serverOffset={serverOffset} />
-      {validRoute(tracking).length < 2 && <Button size="small" onClick={() => void refresh().catch(e => setError(getErrorMessage(e)))}>Tải lại dữ liệu tuyến</Button>}
+      {validRoute(tracking).length < 2 && <Button size="small" onClick={() => void refresh().catch(e => setError(getErrorMessage(e)))}>{i18n.t("shipping:ui.reloadRouteData")}</Button>}
       <div className={styles.details}>
-        <p><strong>Người nhận:</strong> {tracking.customerName || 'Chưa có tên'} {tracking.phone && <a href={`tel:${tracking.phone}`}>{tracking.phone}</a>}</p>
-        <p><strong>Địa chỉ:</strong> {tracking.address || 'Thiếu địa chỉ giao hàng'}</p>
-        <p><strong>Thanh toán:</strong> {cod
+        <p><strong>{i18n.t("shipping:ui.recipient")}</strong> {tracking.customerName || i18n.t("shipping:ui.nameUnavailable")} {tracking.phone && <a href={`tel:${tracking.phone}`}>{tracking.phone}</a>}</p>
+        <p><strong>{i18n.t("shipping:ui.address")}</strong> {tracking.address || i18n.t("shipping:ui.deliveryAddressMissing")}</p>
+        <p><strong>{i18n.t("shipping:ui.payment")}</strong> {cod
           ? tracking.merchantPaymentStatus === 'PAID_SIMULATED'
-            ? 'Đã thanh toán khi shipper nhận đơn (mô phỏng). Khách trả COD cho shipper khi giao, ngoài hệ thống.'
-            : 'COD · khách trả tiền cho shipper khi nhận món, ngoài hệ thống.'
+            ? i18n.t("shipping:ui.theRiderHasPaidTheStoreSimulationTheCustomerPaysCodToTheRiderUponDelivery")
+            : i18n.t("shipping:ui.codCustomerPaysTheRiderUponDeliveryOutsideThePlatform")
           : tracking.paymentMethod === 'BANK_TRANSFER'
-            ? 'Khách đã thanh toán QR trước; shipper chỉ giao hàng.'
-            : `Phương thức ${tracking.paymentMethod || 'chưa xác định'} — cần kiểm tra trạng thái thanh toán`}</p>
-        {tracking.status === 'FAILED' && <p><strong>Lý do:</strong> {reasons.find(item => item.value === tracking.failureCode)?.label || tracking.failureCode || 'Chưa rõ'} {tracking.failureNote && `· ${tracking.failureNote}`}</p>}
-        {returned && <p>Hàng đã được xác nhận quay về quán (mô phỏng).</p>}
+            ? i18n.t("shipping:ui.customerPrepaidByQrCodeTheRiderOnlyDeliversTheOrder")
+            : i18n.t("shipping:ui.paymentMethodNeedsVerification", { method: tracking.paymentMethod || i18n.t("shipping:ui.unknown") })}</p>
+        {tracking.status === 'FAILED' && <p><strong>{i18n.t("shipping:ui.reason")}</strong> {reasons().find(item => item.value === tracking.failureCode)?.label || tracking.failureCode || i18n.t("shipping:ui.unknown2")} {tracking.failureNote && `· ${tracking.failureNote}`}</p>}
+        {returned && <p>{i18n.t("shipping:ui.theItemsWereConfirmedReturnedToTheStoreSimulation")}</p>}
       </div>
-      {tracking.proof?.imageDataUrl && <figure className={styles.proof}><img src={tracking.proof.imageDataUrl} alt="Minh chứng giao hàng mô phỏng do hệ thống tạo" /><figcaption>Minh chứng mô phỏng · {tracking.proof.capturedAt ? new Date(tracking.proof.capturedAt).toLocaleString('vi-VN') : ''}</figcaption></figure>}
-      {activeDelivery && <Button danger block onClick={() => begin('fail')}>Giả lập giao thất bại trong khi vận chuyển</Button>}
+      {tracking.proof?.imageDataUrl && <figure className={styles.proof}><img src={tracking.proof.imageDataUrl} alt={i18n.t("shipping:ui.systemGeneratedSimulatedProofOfDelivery")} /><figcaption>{i18n.t("shipping:ui.simulationProof")} {tracking.proof.capturedAt ? new Date(tracking.proof.capturedAt).toLocaleString('vi-VN') : ''}</figcaption></figure>}
+      {activeDelivery && <Button danger block onClick={() => begin('fail')}>{i18n.t("shipping:ui.simulateDeliveryFailureInTransit")}</Button>}
       {failed && !closed && <Space wrap className={styles.actions}>
-        {!returned && <Button onClick={() => begin('return')}>Xác nhận hàng đã hoàn về quán (mô phỏng)</Button>}
-        {manager && returned && <Button type="primary" onClick={() => begin('retry')}>Tạo lần giao lại (mô phỏng)</Button>}
-        {manager && returned && <Button danger onClick={() => begin('close')}>Đóng xử lý — giao không thành công</Button>}
-        {!manager && returned && <Tag>Chờ quản lý quyết định giao lại hoặc đóng xử lý</Tag>}
+        {!returned && <Button onClick={() => begin('return')}>{i18n.t("shipping:ui.confirmItemsReturnedToStoreSimulation")}</Button>}
+        {manager && returned && <Button type="primary" onClick={() => begin('retry')}>{i18n.t("shipping:ui.createAnotherDeliveryAttemptSimulation")}</Button>}
+        {manager && returned && <Button danger onClick={() => begin('close')}>{i18n.t("shipping:ui.closeCaseDeliveryUnsuccessful")}</Button>}
+        {!manager && returned && <Tag>{i18n.t("shipping:ui.awaitAManagerSDecisionToRetryOrCloseThisDelivery")}</Tag>}
       </Space>}
     </>}
     <Modal
-      title={action === 'fail' ? 'Xác nhận giao hàng thất bại' : action === 'return' ? 'Xác nhận hàng đã quay về quán' : action === 'retry' ? 'Tạo chuyến giao lại' : 'Đóng xử lý giao không thành công'}
+      title={action === 'fail' ? i18n.t("shipping:ui.confirmFailedDelivery") : action === 'return' ? i18n.t("shipping:ui.confirmItemsReturnedToStore") : action === 'retry' ? i18n.t("shipping:ui.createAnotherDeliveryAttempt") : i18n.t("shipping:ui.closeUnsuccessfulDeliveryCase")}
       open={Boolean(action)}
       onCancel={() => { if (!busy) setAction(null); }}
       onOk={() => void submit()}
       confirmLoading={busy}
       okButtonProps={{ disabled: (action === 'fail' && (!reasonCode || (reasonCode === 'OTHER' && !note.trim()))) || (action === 'close' && !note.trim()), danger: action === 'fail' || action === 'close' }}
-      okText="Xác nhận mô phỏng"
-      cancelText="Quay lại"
+      okText={i18n.t("shipping:ui.confirmSimulation")}
+      cancelText={i18n.t("shipping:ui.back")}
       destroyOnHidden
     >
-      <p>Thao tác được lưu tại Shipping Service, áp dụng cho chuyến giao hiện tại.</p>
-      {action === 'fail' && <Select options={reasons} value={reasonCode} onChange={setReasonCode} placeholder="Chọn lý do bắt buộc" style={{ width: '100%', marginBottom: 12 }} />}
-      <Input.TextArea value={note} onChange={e => setNote(e.target.value)} maxLength={1000} rows={3} placeholder={action === 'close' || reasonCode === 'OTHER' ? 'Ghi chú bắt buộc' : 'Ghi chú (không bắt buộc)'} />
-      {action === 'close' && tracking?.paymentMethod !== 'COD' && <Alert type="warning" showIcon message="Đơn đã trả trước: việc đóng thất bại không đồng nghĩa đã hoàn tiền. Xử lý hoàn tiền theo quy trình tài chính." style={{ marginTop: 12 }} />}
+      <p>{i18n.t("shipping:ui.thisActionWillBeSavedInShippingServiceForTheCurrentDeliveryAttempt")}</p>
+      {action === 'fail' && <Select options={reasons()} value={reasonCode} onChange={setReasonCode} placeholder={i18n.t("shipping:ui.selectARequiredReason")} style={{ width: '100%', marginBottom: 12 }} />}
+      <Input.TextArea value={note} onChange={e => setNote(e.target.value)} maxLength={1000} rows={3} placeholder={action === 'close' || reasonCode === 'OTHER' ? i18n.t("shipping:ui.noteRequired") : i18n.t("shipping:ui.noteOptional")} />
+      {action === 'close' && tracking?.paymentMethod !== 'COD' && <Alert type="warning" showIcon message={i18n.t("shipping:ui.prepaidOrderClosingAFailedDeliveryDoesNotRefundThePaymentFollowTheFinanceRefund")} style={{ marginTop: 12 }} />}
     </Modal>
   </section>;
 }

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { MapPin } from "lucide-react";
 import { request } from "@/lib/api";
 import styles from "./mock-delivery-tracking.module.css";
@@ -35,8 +35,7 @@ export function MockDeliveryTracking({ orderId, active, onTrackingUpdate }: {
   active: boolean;
   onTrackingUpdate?: (tracking: TrackingResponse) => void;
 }) {
-  const locale = useLocale();
-  const vi = locale === "vi";
+  const t = useTranslations();
   const [tracking, setTracking] = useState<TrackingResponse | null>(null);
   const [error, setError] = useState("");
   const [clock, setClock] = useState(() => Date.now());
@@ -62,7 +61,7 @@ export function MockDeliveryTracking({ orderId, active, onTrackingUpdate }: {
       } catch (caught) {
         if (!active) return;
         const status = (caught as { status?: number }).status;
-        if (status !== 404) setError(vi ? "Chưa tải được tiến độ giao hàng." : "Unable to load delivery progress.");
+        if (status !== 404) setError(t("shipping.tracking.progressUnavailable"));
       } finally {
         // Start the next request only once this one settles; slow responses cannot rewind tracking.
         if (active) pollTimer = window.setTimeout(() => void load(), 1500);
@@ -74,7 +73,7 @@ export function MockDeliveryTracking({ orderId, active, onTrackingUpdate }: {
       controller.abort();
       if (pollTimer !== undefined) window.clearTimeout(pollTimer);
     };
-  }, [orderId, vi, onTrackingUpdate]);
+  }, [orderId, t, onTrackingUpdate]);
 
   useEffect(() => {
     if (!active) return;
@@ -99,20 +98,20 @@ export function MockDeliveryTracking({ orderId, active, onTrackingUpdate }: {
   if (!active) return null;
 
   return (
-    <section className={styles.panel} aria-label={vi ? "Bản đồ theo dõi giao hàng" : "Delivery tracking map"}>
+    <section className={styles.panel} aria-label={t("shipping.tracking.deliveryMap")}>
       <div className={styles.map}>
         {coordinates.length >= 2 ? (
           <MockDeliveryMap route={coordinates} progress={progress} />
         ) : (
-          <p className={styles.mapPlaceholder}><MapPin size={19} aria-hidden /> {vi ? "Đang tải tuyến đường giao hàng..." : "Loading delivery route..."}</p>
+          <p className={styles.mapPlaceholder}><MapPin size={19} aria-hidden /> {t("shipping.tracking.loadingRoute")}</p>
         )}
       </div>
       <div className={styles.footer} role="status">
         <span className={styles.trackingLabel}>
           <span className={styles.trackingDot} />
           {tracking?.status === "FAILED"
-            ? (vi ? "Giao hàng chưa thành công" : "Delivery was unsuccessful")
-            : (vi ? "Vị trí dự kiến trên lộ trình" : "Estimated position along the route")}
+            ? t("shipping.tracking.deliveryFailed")
+            : t("shipping.tracking.estimatedPosition")}
         </span>
       </div>
       {error && <p className={styles.failure} role="status">{error}</p>}

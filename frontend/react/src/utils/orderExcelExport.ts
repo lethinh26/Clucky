@@ -338,12 +338,12 @@ export function exportStaffDailyOrdersExcel(params: {
           : tr("business:excel.staffOrderSourceWeb");
       const fulfillment = getFulfillmentMode(o);
       const diningOptionText = fulfillment === 'DELIVERY'
-        ? tr('business:orders.delivery', { defaultValue: 'Giao hàng' })
+        ? tr('shipping:ui.delivery')
         : fulfillment === 'DINE_IN'
           ? tr("business:excel.diningDineIn")
           : fulfillment === 'TAKE_AWAY'
             ? tr("business:excel.diningTakeAway")
-            : 'Nhận tại quán';
+            : tr('shipping:ui.storePickup');
 
       return `
         <Row ss:AutoFitHeight="1" ss:Height="26">

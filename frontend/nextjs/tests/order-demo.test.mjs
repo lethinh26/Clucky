@@ -18,19 +18,18 @@ const order = {
 };
 const now = "2026-10-28T12:00:00.000Z";
 
-test("new and restored delivery demos get an idempotent MVP shipment without changing payment", () => {
+test("delivery orders use Shipping Service as the only source of shipment state", () => {
   const delivery = { ...order, type: "DELIVERY" };
   const restored = ensureDemoShipment(delivery);
-  assert.equal(restored.shipmentStatus, "CREATED");
+  assert.equal(restored, delivery);
+  assert.equal(restored.shipmentStatus, undefined);
   assert.equal(restored.paymentStatus, "PENDING");
-  assert.equal(delivery.shipmentStatus, undefined);
   assert.equal(ensureDemoShipment(restored), restored);
-  let current = applyDemoAction(restored, "PAY_SUCCESS", true, now).order;
-  for (const action of ["ADVANCE", "ADVANCE", "ADVANCE"]) {
-    current = applyDemoAction(current, action, true, now).order;
-    assert.equal(current.shipmentStatus, "CREATED");
+  for (const action of ["PAY_SUCCESS", "COLLECT_COD", "ADVANCE"]) {
+    const result = applyDemoAction(restored, action, true, now);
+    assert.equal(result.ok, false);
+    assert.equal(result.order, restored);
   }
-  assert.equal(current.status, "COMPLETED");
 });
 
 test("demo shipment initialization skips pickup and preserves explicit shipment state", () => {

@@ -69,8 +69,12 @@ public class GoogleAuthService {
                 .orElseGet(() -> users.findByEmailForGoogle(identity.email()).orElse(null));
         if (user != null) {
             requireCustomer(user);
-            if (!identity.email().equals(user.getEmail())
-                    || user.getFirebaseUid() != null && !identity.uid().equals(user.getFirebaseUid())) {
+            // A verified account-email change must not break an existing
+            // Google identity: the Firebase UID, not the email, is stable.
+            // Linking by email for the first time still requires exact match.
+            if (user.getFirebaseUid() != null
+                    ? !identity.uid().equals(user.getFirebaseUid())
+                    : !identity.email().equals(user.getEmail())) {
                 throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
             }
             if (user.getFirebaseUid() == null) {

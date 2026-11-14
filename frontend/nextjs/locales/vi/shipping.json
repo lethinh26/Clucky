@@ -11,6 +11,20 @@
   "pickup": "Đến lấy tại quán",
   "retry": "Kiểm tra lại",
   "pickupHint": "Đến lấy tại quán · Không tính phí giao hàng",
+  "tracking": {
+    "mapTokenMissing": "Thiếu Mapbox public token để hiển thị lộ trình.",
+    "mapUnsupported": "Bản đồ không được hỗ trợ trên thiết bị này.",
+    "mapInitializationFailed": "Không thể khởi tạo bản đồ theo dõi.",
+    "routePosition": "Vị trí trên lộ trình",
+    "mapLoadingFailed": "Không thể tải bản đồ Mapbox.",
+    "routeMap": "Bản đồ theo dõi lộ trình giao hàng",
+    "progressUnavailable": "Chưa tải được tiến độ giao hàng.",
+    "deliveryMap": "Bản đồ theo dõi giao hàng",
+    "loadingRoute": "Đang tải tuyến đường giao hàng...",
+    "deliveryFailed": "Giao hàng chưa thành công",
+    "estimatedPosition": "Vị trí dự kiến trên lộ trình",
+    "deliveryUnsuccessful": "Đơn giao hàng không thành công. Vui lòng liên hệ cửa hàng để được hỗ trợ."
+  },
   "statuses": {
     "OK": "Địa chỉ nằm trong phạm vi giao hàng",
     "CHECKING": "Đang kiểm tra địa chỉ và phí giao…",

@@ -76,14 +76,17 @@ class UserProfileServiceTest {
         user.setStoreId(null);
         authenticate(user);
 
-        var response = service.updateMyProfile(new UpdateProfileRequest("  New Name  ", " 0902222222 "));
+        var response = service.updateMyProfile(new UpdateProfileRequest("  New Name  ", " 0901111111 "));
 
         assertEquals("New Name", response.fullName());
-        assertEquals("0902222222", response.phone());
+        assertEquals("0901111111", response.phone(), "Profile edits cannot change the verified phone");
         assertEquals("a@example.com", response.email(), "Email is not editable");
         assertEquals(Role.CUSTOMER, response.role(), "Role must not change via profile update");
         assertNull(response.storeId(), "storeId must not change via profile update");
         assertEquals("ACTIVE", response.status(), "status must not change via profile update");
+        assertEquals(ErrorCode.RESOURCE_CONFLICT, assertThrows(ApiException.class,
+                () -> service.updateMyProfile(new UpdateProfileRequest("Unauthorized", "0902222222"))).getCode());
+        assertEquals("0901111111", user.getPhone());
     }
 
     /* ---------- AC-02 ownership ---------- */

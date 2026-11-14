@@ -11,6 +11,20 @@
   "pickup": "Collect at the store",
   "retry": "Check again",
   "pickupHint": "Store pickup · No delivery fee",
+  "tracking": {
+    "mapTokenMissing": "Mapbox public token is missing; the route cannot be shown.",
+    "mapUnsupported": "Maps are not supported on this device.",
+    "mapInitializationFailed": "Unable to initialize the tracking map.",
+    "routePosition": "Position along the route",
+    "mapLoadingFailed": "Unable to load the Mapbox map.",
+    "routeMap": "Delivery route tracking map",
+    "progressUnavailable": "Unable to load delivery progress.",
+    "deliveryMap": "Delivery tracking map",
+    "loadingRoute": "Loading delivery route...",
+    "deliveryFailed": "Delivery was unsuccessful",
+    "estimatedPosition": "Estimated position along the route",
+    "deliveryUnsuccessful": "Delivery was unsuccessful. Please contact the store for assistance."
+  },
   "statuses": {
     "OK": "Your address is within delivery coverage",
     "CHECKING": "Checking your address and delivery fee…",

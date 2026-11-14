@@ -91,7 +91,7 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
         <div className="order-overview"><span><ClockCircleOutlined /> {orderDate(order.createdAt, locale)} <small>{t("admin:ui.vietnamTime")}</small></span><strong>{money(Number(order.totalAmount))}</strong></div>
         <section className="order-section order-progress">
           <div className="order-section-heading"><h3>{t("business:demoordercontrols.orderProgress")}</h3><small>{t("admin:ui.update")} {orderDate(order.updatedAt, locale)}</small></div>
-          {status === 'CANCELLED' || status === 'DELIVERY_FAILED' ? <Alert type="error" showIcon message={status === 'DELIVERY_FAILED' ? 'Giao không thành công' : t("admin:ui.orderCancelled")} description={status === 'DELIVERY_FAILED' ? 'Đơn đã được đóng xử lý sau khi giao thất bại.' : historyReason([...history].reverse().find(event => event.toStatus === 'CANCELLED')?.reason, 'CANCELLED') || t("admin:ui.progressHasStoppedTheOrderStatusCannotBe")} />
+          {status === 'CANCELLED' || status === 'DELIVERY_FAILED' ? <Alert type="error" showIcon message={status === 'DELIVERY_FAILED' ? i18n.t("shipping:ui.deliveryUnsuccessful") : t("admin:ui.orderCancelled")} description={status === 'DELIVERY_FAILED' ? i18n.t("shipping:ui.theDeliveryCaseWasClosedAfterAnUnsuccessfulAttempt") : historyReason([...history].reverse().find(event => event.toStatus === 'CANCELLED')?.reason, 'CANCELLED') || t("admin:ui.progressHasStoppedTheOrderStatusCannotBe")} />
             : progressIndex >= 0 && <Steps size="small" current={progressIndex} status={status === 'COMPLETED' ? 'finish' : 'process'} items={progressItems} />}
           <Collapse ghost items={[{ key: 'history', label: t("admin:ui.processingHistoryUpdates", { value1: history.length }), children: history.length ? <Timeline items={history.map(event => ({
             color: event.toStatus === 'CANCELLED' ? 'red' : ['COMPLETED', 'DELIVERED'].includes(event.toStatus) ? 'green' : '#8F1216',
@@ -111,7 +111,7 @@ export function AdminOrderDrawer({ order, refund, loading, error, refundError, s
             ...(order.type === 'DELIVERY' ? [{ key: 'address', label: t("admin:ui.deliveryAddress"), children: order.deliveryAddress || t("admin:ui.noAddressProvided"), span: 2 }] : []),
           ]} />
         </section>
-        {order.type === 'PICKUP' && order.diningOption === 'DINE_IN' && order.status === 'READY' && <Alert type="info" showIcon message="Khách tự đến quầy nhận món. Không có bàn hay phục vụ tại bàn." />}
+        {order.type === 'PICKUP' && order.diningOption === 'DINE_IN' && order.status === 'READY' && <Alert type="info" showIcon message={i18n.t("shipping:ui.theCustomerCollectsTheOrderAtTheCounterTableServiceIsNotAvailable")} />}
         {order.type === 'DELIVERY' && ['READY', 'SHIPPING', 'COMPLETED', 'DELIVERY_FAILED'].includes(order.status) && <ShipmentSimulationPanel orderId={order.id} onChanged={onChanged} />}
         <section className="order-section">
           <div className="order-section-heading"><h3><ShoppingOutlined /> {t("business:id.orderedItems")}</h3><Tag>{(order.items ?? []).reduce((sum, item) => sum + item.quantity, 0)} {t("admin:ui.portions")}</Tag></div>

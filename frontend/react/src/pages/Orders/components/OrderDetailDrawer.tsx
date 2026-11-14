@@ -1,3 +1,4 @@
+import i18n from "../../../i18n/index.ts";
 import { useTranslation } from "react-i18next";
 import { useLocaleTools } from "../../../i18n/hooks";
 import { useEffect, useRef, useState } from "react";
@@ -203,7 +204,7 @@ export function OrderDetailDrawer({
               <div className={styles.wideField}>
                 <dt>
                   <MapPin size={13} /> {t("business:shipmentcard.deliveryAddress")} </dt>
-                <dd>{order.deliveryAddress || 'Thiếu địa chỉ giao — cần xác minh trước khi giao'}</dd>
+                <dd>{order.deliveryAddress || i18n.t("shipping:ui.deliveryAddressMissingVerifyBeforeDispatch")}</dd>
               </div>
             )}
           </dl>
@@ -212,7 +213,7 @@ export function OrderDetailDrawer({
           <ShipmentSimulationPanel orderId={order.id} onChanged={onChanged} />
         )}
         {getFulfillmentMode(order) === 'DINE_IN' && order.status === 'READY' && (
-          <Alert type="info" showIcon message="Khách tự đến quầy nhận món — không phục vụ tại bàn." style={{ marginBottom: 16 }} />
+          <Alert type="info" showIcon message={i18n.t("shipping:ui.theCustomerCollectsTheOrderAtTheCounterNoTableService")} style={{ marginBottom: 16 }} />
         )}
         <section className={styles.drawerSection}>
           <h2 className={styles.drawerHeading}>
@@ -333,7 +334,7 @@ export function OrderDetailDrawer({
                 disabled={!["PAID", "COLLECTED"].includes(order.paymentStatus)}
                 icon={<CheckCircle2 size={16} />}
                 onClick={() => onStatusChange(order.id, "COMPLETED")}
-              > {getFulfillmentMode(order) === 'DINE_IN' ? 'Xác nhận khách đã nhận món tại quầy' : t("business:pickupFlow.handover")} </Button>
+              > {getFulfillmentMode(order) === 'DINE_IN' ? i18n.t("shipping:ui.confirmTheCustomerCollectedTheOrderAtTheCounter") : t("business:pickupFlow.handover")} </Button>
             )}
             {["PENDING_PAYMENT", "CONFIRMED"].includes(order.status) && (
               <Button
