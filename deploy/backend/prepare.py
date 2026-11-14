@@ -21,7 +21,8 @@ def validate_environment(raw):
         "FRONTEND_CUSTOMER_URL", "FRONTEND_ADMIN_URL", "AUTH_COOKIE_SECURE",
         "SEPAY_API_KEY", "CLOUDINARY_ENABLED", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY",
         "CLOUDINARY_API_SECRET", "MAIL_SENDER_ENABLED", "MAIL_SENDER_USERNAME", "MAIL_SENDER_APP_PASSWORD",
-        "REPORT_REVENUE_EVENT", "MAPBOX_GEOCODING_TOKEN",
+        "REPORT_REVENUE_EVENT", "MAPBOX_GEOCODING_TOKEN", "MAPBOX_DIRECTIONS_TOKEN",
+        "BRIDGE_API_KEY",
         "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN",
     }
     if not isinstance(values, dict):
@@ -68,9 +69,10 @@ def validate_environment(raw):
                     raise BackendEnvironmentError(f"{key} is required when {flag} is true")
     if values.get("REPORT_REVENUE_EVENT", "false") not in ("false", "order.completed", "payment.confirmed"):
         raise BackendEnvironmentError("REPORT_REVENUE_EVENT must be false, order.completed or payment.confirmed")
-    mapbox_token = values.get("MAPBOX_GEOCODING_TOKEN", "")
-    if mapbox_token and (not mapbox_token.startswith(("pk.", "sk.")) or len(mapbox_token) <= 3 or any(char.isspace() for char in mapbox_token)):
-        raise BackendEnvironmentError("MAPBOX_GEOCODING_TOKEN must be a pk. or sk. Mapbox token without whitespace")
+    for name in ("MAPBOX_GEOCODING_TOKEN", "MAPBOX_DIRECTIONS_TOKEN"):
+        mapbox_token = values.get(name, "")
+        if mapbox_token and (not mapbox_token.startswith(("pk.", "sk.")) or len(mapbox_token) <= 3 or any(char.isspace() for char in mapbox_token)):
+            raise BackendEnvironmentError(f"{name} must be a pk. or sk. Mapbox token without whitespace")
     for name in ("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN"):
         token = values.get(name, "")
         if token and (not token.startswith("pk.") or len(token) <= 3 or any(char.isspace() for char in token)):
