@@ -7,7 +7,8 @@ public enum OrderStatus {
     READY,
     SHIPPING,
     COMPLETED,
-    CANCELLED;
+    CANCELLED,
+    DELIVERY_FAILED;
 
     public static OrderStatus fromString(String status) {
         if (status == null || status.isBlank()) {
@@ -21,6 +22,6 @@ public enum OrderStatus {
     }
 
     public boolean isTerminal() {
-        return this == COMPLETED || this == CANCELLED;
+        return this == COMPLETED || this == CANCELLED || this == DELIVERY_FAILED;
     }
 }

@@ -64,6 +64,7 @@ export function mapBackendOrderToOrder(
     SHIPPING: "SHIPPING",
     COMPLETED: "COMPLETED",
     CANCELLED: "CANCELLED",
+    DELIVERY_FAILED: "DELIVERY_FAILED",
   };
   const currentStatus = statusMap[be.status] || "CONFIRMED";
   const normalizeOptions = (raw: unknown): CartItemOption[] => {

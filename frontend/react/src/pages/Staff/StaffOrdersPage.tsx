@@ -26,6 +26,8 @@ import {
   type BackendCounterReceipt,
   type CounterCollectionPayload,
   type Store as StoreModel,
+  shipmentSimulationApi,
+  type ShipmentSimulationTracking,
   getErrorMessage,
 } from "../../lib/api";
 import {
@@ -57,6 +59,9 @@ type WorkQueueKey =
   | "CONFIRMED"
   | "PREPARING"
   | "READY"
+  | "SHIPPING"
+  | "NEEDS_RESOLUTION"
+  | "DELIVERY_FAILED"
   | "COMPLETED";
 
 const businessDate = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
@@ -110,8 +115,10 @@ export function fromBackendOrderToStaffOrder(
   const tr = getTranslator(getBrowserLocale());
   const orderSrc: OrderSource =
     bo.orderSource === "COUNTER" || !bo.customerId ? "COUNTER" : "WEB";
-  const diningOpt: DiningOption =
-    bo.diningOption === "TAKE_AWAY" ? "TAKE_AWAY" : "DINE_IN";
+  const diningOpt: DiningOption | undefined =
+    bo.diningOption === "TAKE_AWAY" || bo.diningOption === "DINE_IN"
+      ? bo.diningOption
+      : undefined;
 
   return {
     id: String(bo.id),
@@ -177,6 +184,7 @@ export function StaffOrdersPage() {
 
   // 2. Data Layer: Khởi tạo danh sách đơn hàng (trống ban đầu, load từ backend API)
   const [orders, setOrders] = useState<StaffOrder[]>([]);
+  const [trackingById, setTrackingById] = useState<Record<string, ShipmentSimulationTracking>>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState(businessDate);
@@ -241,6 +249,38 @@ export function StaffOrdersPage() {
   useEffect(() => {
     fetchOrders(false);
   }, [fetchOrders]);
+
+  // Shipping Service owns the attempt state. Keep failed shipments visible even
+  // while the corresponding Order remains SHIPPING pending manager resolution.
+  const trackedOrderIds = useMemo(() => orders
+    .filter(order => order.orderType === 'DELIVERY' && ['READY', 'SHIPPING', 'DELIVERY_FAILED'].includes(order.status))
+    .map(order => order.id).sort().join(','), [orders]);
+
+  useEffect(() => {
+    if (!trackedOrderIds) { setTrackingById({}); return; }
+    const controller = new AbortController();
+    const ids = trackedOrderIds.split(',');
+    let fetching = false;
+    const load = async () => {
+      if (fetching) return;
+      fetching = true;
+      try {
+        const results = await Promise.all(ids.map(async id => {
+          try { return [id, await shipmentSimulationApi.tracking(id, controller.signal)] as const; }
+          catch { return null; }
+        }));
+        if (!controller.signal.aborted) setTrackingById(previous => {
+          const next = { ...previous };
+          for (const id of Object.keys(next)) if (!ids.includes(id)) delete next[id];
+          for (const result of results) if (result) next[result[0]] = result[1];
+          return next;
+        });
+      } finally { fetching = false; }
+    };
+    void load();
+    const interval = window.setInterval(() => { if (!document.hidden) void load(); }, 2500);
+    return () => { controller.abort(); window.clearInterval(interval); };
+  }, [trackedOrderIds]);
 
   // 3. Tab công việc hiện tại (Mặc định vào tab 'CONFIRMED' - Mới xác nhận)
   const [activeTab, setActiveTab] = useState<WorkQueueKey>("CONFIRMED");
@@ -388,6 +428,11 @@ export function StaffOrdersPage() {
   ) => {
     const numericId = Number(orderId);
     const targetOrder = orders.find((o) => o.id === orderId);
+
+    if (nextStatus === 'COMPLETED' && targetOrder?.orderType === 'DELIVERY') {
+      message.warning('Đơn giao hàng chỉ hoàn tất tự động sau khi Shipping Service xác nhận đã giao.');
+      return false;
+    }
 
     if (reason === "COLLECT_COD") {
       if (!Number.isNaN(numericId) && numericId > 0) {
@@ -639,15 +684,25 @@ export function StaffOrdersPage() {
       CONFIRMED: orders.filter((o) => o.status === "CONFIRMED").length,
       PREPARING: orders.filter((o) => o.status === "PREPARING").length,
       READY: orders.filter((o) => o.status === "READY").length,
+      SHIPPING: orders.filter((o) => o.status === 'SHIPPING' && trackingById[o.id]?.status !== 'FAILED').length,
+      NEEDS_RESOLUTION: orders.filter(o => o.orderType === 'DELIVERY' && o.status === 'SHIPPING' && trackingById[o.id]?.status === 'FAILED' && trackingById[o.id]?.resolution !== 'CLOSED_UNDELIVERABLE').length,
+      DELIVERY_FAILED: orders.filter(o => o.status === 'DELIVERY_FAILED' || (o.status === 'SHIPPING' && trackingById[o.id]?.status === 'FAILED' && trackingById[o.id]?.resolution === 'CLOSED_UNDELIVERABLE')).length,
       COMPLETED: orders.filter((o) => o.status === "COMPLETED").length,
     };
-  }, [orders]);
+  }, [orders, trackingById]);
 
   // 12. Danh sách đơn hiển thị theo Tab & Bộ lọc tìm kiếm
   const visibleOrders = useMemo(() => {
     return orders
       .filter((order) => {
-        if (order.status !== activeTab) return false;
+        const failedShipment = order.orderType === 'DELIVERY' && order.status === 'SHIPPING' && trackingById[order.id]?.status === 'FAILED';
+        if (activeTab === 'NEEDS_RESOLUTION') {
+          if (!failedShipment || trackingById[order.id]?.resolution === 'CLOSED_UNDELIVERABLE') return false;
+        } else if (activeTab === 'DELIVERY_FAILED') {
+          if (order.status !== 'DELIVERY_FAILED' && (!failedShipment || trackingById[order.id]?.resolution !== 'CLOSED_UNDELIVERABLE')) return false;
+        } else if (activeTab === 'SHIPPING') {
+          if (order.status !== 'SHIPPING' || failedShipment) return false;
+        } else if (order.status !== activeTab) return false;
 
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim();
@@ -670,7 +725,7 @@ export function StaffOrdersPage() {
         const timeB = new Date(b.createdAt).getTime();
         return sortOrder === "NEWEST" ? timeB - timeA : timeA - timeB;
       });
-  }, [orders, activeTab, searchQuery, sortOrder]);
+  }, [orders, trackingById, activeTab, searchQuery, sortOrder]);
 
   // Tab config
   const tabsConfig: { key: WorkQueueKey; label: string; count: number }[] = [
@@ -695,6 +750,21 @@ export function StaffOrdersPage() {
       count: queueCounts.READY,
     },
     {
+      key: 'SHIPPING',
+      label: 'Đang giao (mô phỏng)',
+      count: queueCounts.SHIPPING,
+    },
+    {
+      key: 'NEEDS_RESOLUTION',
+      label: 'Giao thất bại · Cần xử lý',
+      count: queueCounts.NEEDS_RESOLUTION,
+    },
+    {
+      key: 'DELIVERY_FAILED',
+      label: 'Giao không thành công',
+      count: queueCounts.DELIVERY_FAILED,
+    },
+    {
       key: "COMPLETED",
       label: t("business:stafforderspage.completedLookup"),
       count: queueCounts.COMPLETED,
@@ -717,6 +787,8 @@ export function StaffOrdersPage() {
         stores.find((s) => Number(s.id) === Number(found.storeId))?.name ||
         found.storeName,
       orderType: found.orderType,
+      diningOption: found.diningOption,
+      orderSource: found.orderSource,
       deliveryAddress: found.deliveryAddress,
       status: found.status,
       paymentMethod:
@@ -1090,6 +1162,7 @@ export function StaffOrdersPage() {
             <OrderCard
               key={order.id}
               order={order}
+              tracking={trackingById[order.id]}
               onStatusChange={handleStatusChange}
               onPaymentCollect={handlePaymentCollect}
               onViewDetails={(id) => setSelectedOrderId(id)}
@@ -1109,6 +1182,7 @@ export function StaffOrdersPage() {
         open={Boolean(selectedOrderId)}
         onClose={() => setSelectedOrderId(null)}
         onStatusChange={handleStatusChange}
+        onChanged={() => { void fetchOrders(true); }}
         onCollectCounter={(ord) => {
           const found = orders.find((o) => o.id === ord.id);
           if (found) {

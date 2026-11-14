@@ -247,6 +247,68 @@ export interface BackendOrder {
   version?: number;
 }
 
+export type ShipmentSimulationTracking = {
+  orderId: number;
+  shipmentId?: number;
+  storeId?: number;
+  status: string;
+  phase?: string | null;
+  simulationMode?: string | null;
+  version?: number;
+  serverNow?: string;
+  attemptNumber?: number;
+  assignedAt?: string | null;
+  riderArrivalDueAt?: string | null;
+  deliveryStartedAt?: string | null;
+  deliveryDueAt?: string | null;
+  completedAt?: string | null;
+  failedAt?: string | null;
+  returnedAt?: string | null;
+  routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
+  proof?: { kind?: string; capturedAt?: string; imageDataUrl?: string } | null;
+  failureCode?: string | null;
+  failureNote?: string | null;
+  resolution?: string | null;
+  customerName?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  codAmount?: number | null;
+  advanceAmount?: number | null;
+  paymentMethod?: string | null;
+  simulatedCollectionConfirmed?: boolean;
+  originalPaymentStatus?: string | null;
+  merchantPaymentStatus?: string | null;
+};
+
+function simulationOperationKey(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `mock-shipping-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+type ShipmentAttemptMutation = { note?: string; attemptNumber: number; version: number };
+
+export const shipmentSimulationApi = {
+  tracking: (orderId: string | number, signal?: AbortSignal) =>
+    api.get<ShipmentSimulationTracking>(`/api/shipping/shipments/${orderId}/tracking`, { signal }).then(r => r.data),
+  fail: (orderId: string | number, payload: { reasonCode: string; note?: string; attemptNumber: number; version: number }) =>
+    api.post<ShipmentSimulationTracking>(`/api/shipping/shipments/${orderId}/simulation/fail`, payload, {
+      headers: { 'Idempotency-Key': simulationOperationKey() },
+    }).then(r => r.data),
+  returnToStore: (orderId: string | number, payload: ShipmentAttemptMutation) =>
+    api.post<ShipmentSimulationTracking>(`/api/shipping/shipments/${orderId}/simulation/return`, payload, {
+      headers: { 'Idempotency-Key': simulationOperationKey() },
+    }).then(r => r.data),
+  retry: (orderId: string | number, payload: ShipmentAttemptMutation) =>
+    api.post<ShipmentSimulationTracking>(`/api/shipping/shipments/${orderId}/simulation/retry`, payload, {
+      headers: { 'Idempotency-Key': simulationOperationKey() },
+    }).then(r => r.data),
+  close: (orderId: string | number, payload: ShipmentAttemptMutation) =>
+    api.post<ShipmentSimulationTracking>(`/api/shipping/shipments/${orderId}/simulation/close`, payload, {
+      headers: { 'Idempotency-Key': simulationOperationKey() },
+    }).then(r => r.data),
+};
+
 export interface CounterOrderItemPayload {
   productId?: number;
   comboId?: number;

@@ -48,6 +48,7 @@ import "./admin-orders.css";
 import { usePageLoading } from "../../components/ui-loader/page-loading";
 import { useOrderAlerts } from "../../hooks/useOrderAlerts";
 import { OrderSoundButton } from "../../components/ui/OrderSoundButton";
+import { fulfillmentLabel } from "../../lib/order-fulfillment";
 
 export const OrdersPage: React.FC = () => {
   const { t } = useTranslation();
@@ -130,8 +131,8 @@ export const OrdersPage: React.FC = () => {
               id: target.id,
               orderCode: target.orderCode,
               queueNumber: qNum,
-              orderSource: "WEB",
-              diningOption: target.orderType === "PICKUP" ? "DINE_IN" : "TAKE_AWAY",
+              diningOption: target.diningOption,
+              orderSource: target.orderSource || 'WEB',
               customerName: target.customerName,
               customerPhone: target.customerPhone,
               storeId: target.storeId,
@@ -213,6 +214,7 @@ export const OrdersPage: React.FC = () => {
     }
     if (activeTab === "SHIPPING") return o.status === "SHIPPING";
     if (activeTab === "COMPLETED") return o.status === "COMPLETED";
+    if (activeTab === 'DELIVERY_FAILED') return o.status === 'DELIVERY_FAILED';
     if (activeTab === "CANCELLED") return o.status === "CANCELLED";
 
     return true;
@@ -292,18 +294,13 @@ export const OrdersPage: React.FC = () => {
       title: t("business:orderdetaildrawer.fulfilmentMethod"),
       dataIndex: "orderType",
       key: "orderType",
-      render: (type) => (
+      render: (type, record) => (
         <Tag
           className={styles.typeTag}
           color={type === "DELIVERY" ? "blue" : "purple"}
         >
-          {type === "DELIVERY" ? (
-            <>
-              <Truck size={13} /> {t("business:orderspage.delivery")} </>
-          ) : (
-            <>
-              <Store size={13} /> {t("business:orderdetaildrawer.counterPickup")} </>
-          )}
+          {type === 'DELIVERY' ? <Truck size={13} /> : <Store size={13} />}
+          {' '}{fulfillmentLabel(record)}
         </Tag>
       ),
     },
@@ -405,6 +402,10 @@ export const OrdersPage: React.FC = () => {
     {
       key: "COMPLETED",
       label: t("business:orderspage.completed", { value1: orders.filter((o) => o.status === "COMPLETED").length }),
+    },
+    {
+      key: 'DELIVERY_FAILED',
+      label: `${t('business:orders.deliveryFailed')} (${orders.filter(o => o.status === 'DELIVERY_FAILED').length})`,
     },
     {
       key: "CANCELLED",
@@ -741,6 +742,7 @@ export const OrdersPage: React.FC = () => {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onStatusChange={handleStatusChange}
+        onChanged={() => void refreshOrders()}
         onOpenRefundModal={(ord) => {
           setOrderForRefund(ord);
           setRefundModalOpen(true);

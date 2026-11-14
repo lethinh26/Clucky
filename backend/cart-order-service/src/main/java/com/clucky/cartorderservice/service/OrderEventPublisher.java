@@ -63,6 +63,16 @@ public class OrderEventPublisher {
         publish(TOPIC_ORDER_COMPLETED, order, payload);
     }
 
+    /** Mock shipping may finish an order funded only by a virtual rider advance. */
+    public void publishSimulatedDeliveryCompleted(Order order, List<OrderItem> items, boolean settledWithRealPayment) {
+        ObjectNode payload = buildOrderPayload(order, items, "SHIPPING", null);
+        payload.put("fulfillmentSource", "SIMULATOR");
+        payload.put("mockDelivery", true);
+        payload.put("simulationOnly", !settledWithRealPayment);
+        // Reward/report consumers of order.completed must only see paid transactions.
+        publish(settledWithRealPayment ? TOPIC_ORDER_COMPLETED : TOPIC_ORDER_STATUS_CHANGED, order, payload);
+    }
+
     public void publishOrderCancelled(Order order, List<OrderItem> items, String reason) {
         publishOrderCancelled(order, items, reason, false);
     }

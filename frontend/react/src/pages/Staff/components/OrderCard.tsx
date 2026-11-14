@@ -13,12 +13,16 @@ import {
   Utensils,
   ShoppingBag,
   Printer,
+  Truck,
+  MapPin,
 } from "lucide-react";
 import type { StaffOrder } from "../../../mocks/mockStaffOrders";
 import type { AdminOrderStatus } from "../../../types/order";
 import { useElapsedTime } from "../../../hooks/useElapsedTime";
 import styles from "./order-card.module.css";
 import { useTranslation } from "react-i18next";
+import { getFulfillmentMode, fulfillmentLabel } from "../../../lib/order-fulfillment";
+import type { ShipmentSimulationTracking } from "../../../lib/api";
 
 interface OrderCardProps {
   order: StaffOrder;
@@ -28,6 +32,7 @@ interface OrderCardProps {
   onReprint?: (order: StaffOrder) => void;
   onPrintKot?: (order: StaffOrder) => void;
   formatMoney?: (val: number) => string;
+  tracking?: ShipmentSimulationTracking;
 }
 
 const defaultFormatMoney = (amount: number): string => {
@@ -42,6 +47,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onReprint,
   onPrintKot,
   formatMoney = defaultFormatMoney,
+  tracking,
 }) => {
   const { t } = useTranslation();
   const { elapsedTimeText, isSlaBreached, isSlaWarning, diffMinutes } =
@@ -52,6 +58,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     order.status === "CONFIRMED" || order.status === "PREPARING";
   const showSlaBreached = isCookingStage && isSlaBreached;
   const showSlaWarning = isCookingStage && isSlaWarning && !isSlaBreached;
+  const fulfillment = getFulfillmentMode(order);
 
   const cardClassName = [
     styles.card,
@@ -88,15 +95,19 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       case "READY":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenReady}`}>
-            <PackageCheck size={13} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.ready" : "business:staffcard.ready")}
+            <PackageCheck size={13} /> {fulfillment === 'DELIVERY' ? 'Đã xong món · chờ giao hàng' : fulfillment === 'DINE_IN' ? 'Mời khách ra quầy nhận món' : t("business:pickupFlow.ready")}
           </span>
         );
       case "COMPLETED":
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenCompleted}`}>
-            <CheckCircle2 size={13} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.completed" : "business:staffcard.completed")}
+            <CheckCircle2 size={13} /> {fulfillment === 'DINE_IN' ? 'Khách đã nhận tại quầy' : fulfillment === 'DELIVERY' ? 'Đã giao (mô phỏng)' : t("business:pickupFlow.completed")}
           </span>
         );
+      case "SHIPPING":
+        return <span className={`${styles.badgeKitchen} ${styles.badgeKitchenReady}`}><Truck size={13} /> {tracking?.status === 'FAILED' ? 'Giao thất bại · cần xử lý' : tracking?.status === 'ASSIGNED' ? 'Đang chờ shipper lấy hàng' : 'Đang giao hàng (mô phỏng)'}</span>;
+      case "DELIVERY_FAILED":
+        return <span className={`${styles.badgeKitchen} ${styles.badgeKitchenPending}`}><CircleAlert size={13} /> Giao không thành công</span>;
       default:
         return (
           <span className={`${styles.badgeKitchen} ${styles.badgeKitchenCompleted}`}>
@@ -108,6 +119,14 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
   // Nhãn trạng thái tiền
   const renderPaymentStatus = () => {
+    if (fulfillment === 'DELIVERY' && order.paymentMethod === 'COD'
+        && tracking?.merchantPaymentStatus === 'PAID_SIMULATED') {
+      return (
+        <span className={`${styles.badgePayment} ${styles.badgePaymentPaid}`}>
+          <CheckCircle2 size={13} /> Đã thanh toán
+        </span>
+      );
+    }
     if (order.paymentStatus === "PAID") {
       return (
         <span className={`${styles.badgePayment} ${styles.badgePaymentPaid}`}>
@@ -144,13 +163,17 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
         <div className={styles.headerBadges}>
           <div className={styles.badgeRow}>
-            {order.diningOption === "DINE_IN" ? (
+            {fulfillment === "DELIVERY" ? (
+              <span className={styles.badgeTakeAway} title={fulfillmentLabel(order)}>
+                <Truck size={12} /> Giao hàng
+              </span>
+            ) : fulfillment === "DINE_IN" ? (
               <span className={styles.badgeDiningIn}>
                 <Utensils size={12} /> {t("business:staffcard.dineIn")}
               </span>
             ) : (
               <span className={styles.badgeTakeAway}>
-                <ShoppingBag size={12} /> {t("business:staffcard.takeAway")}
+                <ShoppingBag size={12} /> {fulfillment === 'TAKE_AWAY' ? t("business:staffcard.takeAway") : 'Nhận tại quán'}
               </span>
             )}
 
@@ -166,6 +189,23 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           </div>
         </div>
       </div>
+
+      {fulfillment === 'DELIVERY' && (
+        <div className={styles.deliveryDetails}>
+          {order.deliveryAddress ? (
+            <span title={order.deliveryAddress}><MapPin size={14} /> {order.deliveryAddress}</span>
+          ) : <strong>Thiếu địa chỉ giao hàng — cần xác minh</strong>}
+          <span>Phí giao: {formatMoney(order.shippingFee)}</span>
+          {tracking?.status === 'FAILED' && tracking.resolution !== 'CLOSED_UNDELIVERABLE' && (
+            <strong>Giao thất bại — cần xử lý hoàn hàng / giao lại</strong>
+          )}
+          {order.status === 'READY' && <span>{tracking?.status === 'ASSIGNED' ? 'Đang chờ shipper mô phỏng đến lấy' : 'Món đã sẵn sàng — đang chờ hệ thống vận chuyển'}</span>}
+          {order.status === 'SHIPPING' && tracking?.status !== 'FAILED' && <span>Đang mô phỏng giao hàng · Xem chi tiết để theo dõi tuyến</span>}
+          {order.paymentMethod === 'COD' && <span>{tracking?.merchantPaymentStatus === 'PAID_SIMULATED' ? 'Đã thanh toán khi shipper nhận hàng (mô phỏng) · khách trả COD lúc giao' : 'COD · khách thanh toán cho shipper lúc giao'}</span>}
+          {order.paymentMethod === 'BANK_TRANSFER' && <span>Thanh toán QR trước {['PAID', 'COLLECTED'].includes(order.paymentStatus) ? 'đã xác nhận' : 'đang chờ xác nhận'} · shipper chỉ giao món</span>}
+          {!['COD', 'BANK_TRANSFER'].includes(order.paymentMethod) && <span>Cần xác minh phương thức thanh toán {order.paymentMethod}</span>}
+        </div>
+      )}
 
       {/* 2. Bộ đếm thời gian chờ & Cảnh báo SLA */}
       <div className={styles.timeBanner}>
@@ -316,7 +356,11 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
           {order.status === "READY" && (
             <>
-              {order.paymentStatus === "PENDING" ? (
+              {order.orderType === 'DELIVERY' ? (
+                <button type="button" className={`${styles.actionButton} ${styles.btnSecondary}`} onClick={() => onViewDetails?.(order.id)}>
+                  <Truck size={18} /> Xem giao hàng
+                </button>
+              ) : order.paymentStatus === "PENDING" ? (
                 <button
                   type="button"
                   className={`${styles.actionButton} ${styles.btnWarning}`}
@@ -332,7 +376,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   onClick={() => onStatusChange?.(order.id, "COMPLETED")}
                   aria-label={"Bàn giao đơn " + formattedQueue}
                 >
-                  <CheckCircle2 size={18} /> {t(order.orderType === "PICKUP" ? "business:pickupFlow.handover" : "business:staffcard.handOver")}
+                  <CheckCircle2 size={18} /> {fulfillment === 'DINE_IN' ? 'Khách đã nhận món tại quầy' : t("business:pickupFlow.handover")}
                 </button>
               ) : null}
               <button
@@ -344,6 +388,12 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 <Printer size={18} /> {t("business:staffcard.reprintReceipt")}
               </button>
             </>
+          )}
+
+          {order.status === 'SHIPPING' && order.orderType === 'DELIVERY' && (
+            <button type="button" className={`${styles.actionButton} ${styles.btnPrimary}`} onClick={() => onViewDetails?.(order.id)}>
+              <Truck size={18} /> {tracking?.status === 'FAILED' ? 'Xử lý giao thất bại' : 'Theo dõi / Báo giao thất bại'}
+            </button>
           )}
 
           {order.status === "COMPLETED" && (

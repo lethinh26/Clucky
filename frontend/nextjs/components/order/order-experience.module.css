@@ -84,6 +84,14 @@
   flex-shrink: 0;
   transition: transform 0.22s ease;
 }
+.shippingStepTracking {
+  border-top: 1px solid #f0e9df;
+  padding: 12px 18px 18px;
+  min-width: 0;
+}
+.trackingHidden {
+  display: none;
+}
 [data-expanded="true"] > .progressToggle .disclosureChevron {
   transform: rotate(180deg);
 }
@@ -604,6 +612,9 @@
     padding: 11px 12px;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .shippingStepTracking {
+    padding: 10px 12px 14px;
   }
   .progressMark {
     width: 28px;

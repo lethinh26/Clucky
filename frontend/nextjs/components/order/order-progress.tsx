@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 import { useLocaleTools } from "@/lib/i18n/hooks";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import Link from "@/components/ui-loader/navigation-link";
 import {
   Check,
@@ -32,6 +32,7 @@ export function OrderProgress({
   orderCode,
   updatedAt,
   history = [],
+  deliveryTracking,
 }: {
   stage?: "cart" | "checkout";
   status?: OrderStatus;
@@ -42,6 +43,7 @@ export function OrderProgress({
   orderCode?: string;
   updatedAt?: string;
   history?: Order["timeline"];
+  deliveryTracking?: ReactNode;
 }) {
   const t = useTranslations();
   const isPaid = paymentStatus === "PAID" || paymentStatus === "COLLECTED";
@@ -56,7 +58,9 @@ export function OrderProgress({
         ...(type === "DELIVERY"
           ? [{ status: "SHIPPING", label: t(orderStatusKey("SHIPPING", type)), icon: Truck }]
           : []),
-        { status: "PENDING_PAYMENT", label: t("business.cart.checkout"), icon: CreditCard },
+        ...(type === "PICKUP"
+          ? [{ status: "PENDING_PAYMENT", label: t("business.cart.checkout"), icon: CreditCard }]
+          : []),
         { status: "COMPLETED", label: t(orderStatusKey("COMPLETED", type)), icon: Flag },
       ]
     : [
@@ -80,13 +84,18 @@ export function OrderProgress({
   const [expanded, setExpanded] = useState(false);
   const regionId = useId();
   const preferenceKey = `clucky-progress:${compact ? "card" : "detail"}:${orderCode ?? stage ?? "order"}`;
+  const showShippingTracking = type === "DELIVERY" && status === "SHIPPING" && Boolean(deliveryTracking);
   useEffect(() => {
+    if (showShippingTracking) {
+      setExpanded(true);
+      return;
+    }
     try {
       setExpanded(localStorage.getItem(preferenceKey) === "expanded");
     } catch {
       setExpanded(false);
     }
-  }, [preferenceKey]);
+  }, [preferenceKey, showShippingTracking]);
   const toggle = () => {
     const next = !expanded;
     setExpanded(next);
@@ -99,8 +108,11 @@ export function OrderProgress({
   const current = isCodOrder
     ? (() => {
         if (status === "COMPLETED") return steps.length - 1;
-        const payIdx = steps.findIndex(step => step.status === "PENDING_PAYMENT");
-        if (isPaid) return payIdx;
+        // Delivery COD is collected outside Clucky; never mark a payment step as confirmed.
+        // Pickup COD retains its original payment-before-handover progress.
+        if (type === "PICKUP" && isPaid) {
+          return steps.findIndex(step => step.status === "PENDING_PAYMENT");
+        }
         const statusIdx = steps.findIndex(step => step.status === status);
         return statusIdx >= 0 ? statusIdx : 1;
       })()
@@ -156,8 +168,10 @@ export function OrderProgress({
         inert={!expanded}
       >
         <div className={styles.disclosureInner}>
-          {status === "CANCELLED" ? (
-            <p className={styles.stopped}>{t("business.orderprogress.orderCancelledProgressHasStopped")}</p>
+          {status === "CANCELLED" || status === "DELIVERY_FAILED" ? (
+            <p className={styles.stopped}>{status === "DELIVERY_FAILED"
+              ? t("business.orderstatuschip.deliveryFailed")
+              : t("business.orderprogress.orderCancelledProgressHasStopped")}</p>
           ) : (
             <ol
               className={styles.progressRail}
@@ -188,7 +202,15 @@ export function OrderProgress({
               })}
             </ol>
           )}
-          {history.length > 0 && (
+          {deliveryTracking && (
+            <div
+              className={showShippingTracking ? styles.shippingStepTracking : styles.trackingHidden}
+              aria-hidden={!showShippingTracking}
+            >
+              {deliveryTracking}
+            </div>
+          )}
+          {history.length > 0 && !showShippingTracking && !(type === "DELIVERY" && status === "COMPLETED") && (
             <ol className={styles.eventHistory} aria-label={t("business.orderprogress.updateHistory")}>
               {history.map((event, index) => {
                 const description = orderHistoryDescription(event, type, locale);

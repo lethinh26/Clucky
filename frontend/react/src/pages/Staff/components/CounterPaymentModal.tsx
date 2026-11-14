@@ -208,7 +208,7 @@ export const CounterPaymentModal: React.FC<CounterPaymentModalProps> = ({
               <span className={styles.queueNumber}>{formattedQueue}</span>
               <span className={styles.orderCode}>{order.orderCode}</span>
               <span className={styles.diningBadge}>
-                {order.diningOption === "DINE_IN" ? "ĂN TẠI QUÁN" : "MANG VỀ"}
+                {order.orderType === 'DELIVERY' ? 'GIAO HÀNG' : order.diningOption === "DINE_IN" ? "ĂN TẠI QUÁN" : order.diningOption === 'TAKE_AWAY' ? 'MANG VỀ' : 'NHẬN TẠI QUÁN'}
               </span>
             </div>
             <span style={{ fontSize: 13, color: "#6b6259" }}>

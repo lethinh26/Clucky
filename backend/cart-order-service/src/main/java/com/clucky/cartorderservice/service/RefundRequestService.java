@@ -81,6 +81,17 @@ public class RefundRequestService {
     }
 
     private OrderStatusHistory cancellation(Order order) {
+        if ("DELIVERY_FAILED".equals(order.getStatus())
+                && "DELIVERY".equals(order.getType())
+                && "BANK_TRANSFER".equals(order.getPaymentMethod())
+                && "PAID".equals(order.getPaymentStatus())) {
+            // Only a terminal outcome from the Shipping Service makes a paid failed delivery refundable.
+            return histories.findByOrderIdOrderByCreatedAtAsc(order.getId()).stream()
+                    .filter(entry -> "DELIVERY_FAILED".equals(entry.getToStatus())
+                            && "SHIPPING".equals(entry.getFromStatus())
+                            && "SHIPPING_SIMULATOR".equals(entry.getChangedRole()))
+                    .findFirst().orElseThrow(() -> new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE));
+        }
         if (!"CANCELLED".equals(order.getStatus()) || !"BANK_TRANSFER".equals(order.getPaymentMethod())
                 || order.getCollectionMethod() != null && !"BANK_TRANSFER".equals(order.getCollectionMethod()))
             throw new ApiException(ErrorCode.REFUND_NOT_ELIGIBLE);

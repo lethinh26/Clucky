@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import { Check, ChevronDown, Clock3 } from "lucide-react";
 import type { AdminOrder } from "../../types/order";
 import { displayOrderTime, orderStatusKeys } from "../../lib/order-demo";
+import { getFulfillmentMode } from "../../lib/order-fulfillment";
 export { orderStatusKeys } from "../../lib/order-demo";
 
 export function OrderProgress({
@@ -36,6 +37,7 @@ export function OrderProgress({
     }
   };
   const isCounter = order.orderType === "PICKUP";
+  const fulfillment = getFulfillmentMode(order);
   const isOnlinePaid = !isCounter && ["PAID", "COLLECTED"].includes(order.paymentStatus);
 
   type StepItem = { key: string; label: string; state: "done" | "current" | "next" };
@@ -59,7 +61,7 @@ export function OrderProgress({
         },
         {
           key: "READY",
-          label: t("business:pickupFlow.ready"),
+          label: fulfillment === 'DINE_IN' ? 'Mời khách ra quầy nhận món' : t("business:pickupFlow.ready"),
           state: order.status === "COMPLETED" || (ready && isPaid) ? "done" : order.status === "READY" ? "current" : "next",
         },
         {
@@ -69,7 +71,7 @@ export function OrderProgress({
         },
         {
           key: "COMPLETED",
-          label: t("business:pickupFlow.completed"),
+          label: fulfillment === 'DINE_IN' ? 'Khách đã nhận tại quầy' : t("business:pickupFlow.completed"),
           state: order.status === "COMPLETED" ? "done" : ready && isPaid ? "current" : "next",
         },
       ];
@@ -159,8 +161,8 @@ export function OrderProgress({
         inert={!expanded}
       >
         <div>
-          {order.status === "CANCELLED" ? (
-            <p className="order-stopped">{t("business:orderprogress.orderCancelledProgressHasStopped")}</p>
+          {order.status === "CANCELLED" || order.status === 'DELIVERY_FAILED' ? (
+            <p className="order-stopped">{order.status === 'DELIVERY_FAILED' ? 'Đơn giao không thành công. Quản lý đã đóng xử lý giao hàng.' : t("business:orderprogress.orderCancelledProgressHasStopped")}</p>
           ) : (
             <ol className="m3-admin-progress-rail">
               {currentSteps.map((step, index) => (

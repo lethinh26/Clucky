@@ -188,6 +188,9 @@ services:
   shipping-service:
     <<: *java
     image: clucky-shipping-service:${IMAGE_TAG:?IMAGE_TAG is required}
+    environment:
+      <<: *environment
+      MAPBOX_DIRECTIONS_TOKEN: ${MAPBOX_DIRECTIONS_TOKEN:-${MAPBOX_GEOCODING_TOKEN:-${NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN:-}}}
 
   notification-service:
     <<: *java

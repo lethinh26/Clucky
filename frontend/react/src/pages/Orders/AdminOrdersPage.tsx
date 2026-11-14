@@ -158,7 +158,7 @@ export function AdminOrdersPage() {
     },
     { title: t("business:promotionUi.order"), width: 220, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><Button type="link" onClick={() => openDetail(order.id)}>{order.orderCode}</Button><small>{orderDate(order.createdAt, locale)}</small></div> },
     { title: t("admin:nav.customers"), width: 175, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><strong>{order.customerName}</strong><small>{order.customerPhone || t("admin:ui.noPhoneNumberProvided")}</small></div> },
-    { title: t("admin:ui.branchFulfillment"), width: 220, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><span>{stores.find(store => store.id === Number(order.storeId))?.name || order.storeName}</span><small>{order.orderType === 'PICKUP' ? t("business:orderdetaildrawer.counterPickup") : t("business:checkout.homeDelivery")}</small></div> },
+    { title: t("admin:ui.branchFulfillment"), width: 220, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><span>{stores.find(store => store.id === Number(order.storeId))?.name || order.storeName}</span><small>{order.orderType === 'DELIVERY' ? 'Giao hàng' : order.diningOption === 'DINE_IN' ? 'Ăn tại quán · khách tự nhận' : order.diningOption === 'TAKE_AWAY' || order.orderSource === 'WEB' ? 'Mang về' : 'Nhận tại quán'}</small></div> },
     { title: t("accounts:status"), width: 155, render: (_: unknown, order: AdminOrder) => <OrderStatusBadge status={order.status} /> },
     { title: t("business:cart.checkout"), width: 185, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><Tag color={paymentColor(order.paymentStatus)}>{t(`admin:paymentStates.${order.paymentStatus ?? 'UNKNOWN'}`, { defaultValue: t("admin:paymentStates.UNKNOWN") })}</Tag><small>{paymentMethodLabel(order.paymentMethod)}</small></div> },
     { title: t("business:id.total"), width: 130, align: 'right' as const, dataIndex: "total", render: (amount: number) => <strong className="order-amount">{money(amount)}</strong> },
@@ -311,7 +311,7 @@ export function AdminOrdersPage() {
       <Select aria-label={t("business:orderspage.filterStores")} placeholder={t("business:stores.allStores")} allowClear showSearch optionFilterProp="label" value={query.storeId}
         options={stores.map(store => ({ value: store.id, label: store.name }))} onChange={storeId => setQuery(current => ({ ...current, page: 0, storeId }))} />
       <Select aria-label={t("admin:ui.filterOrderStatus")} placeholder={t("business:paymentspage.allStatuses")} allowClear value={query.status}
-        options={["PENDING_PAYMENT", "CONFIRMED", "PREPARING", "READY", "SHIPPING", "COMPLETED", "CANCELLED"].map(status => ({ value: status, label: t(orderStatusKeys[status as AdminOrder["status"]]) }))}
+        options={["PENDING_PAYMENT", "CONFIRMED", "PREPARING", "READY", "SHIPPING", "COMPLETED", "DELIVERY_FAILED", "CANCELLED"].map(status => ({ value: status, label: t(orderStatusKeys[status as AdminOrder["status"]]) }))}
         onChange={status => setQuery(current => ({ ...current, page: 0, status }))} />
     </div>
     {storeError && <Alert type="warning" message={storeError} />}

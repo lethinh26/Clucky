@@ -9,6 +9,7 @@ export const orderStatusKeys = {
   READY: "business:orderdetaildrawer.mealReady",
   SHIPPING: "business:orderprogress.delivering",
   COMPLETED: "business:orders.completed",
+  DELIVERY_FAILED: "business:orders.deliveryFailed",
   CANCELLED: "business:orders.cancelled",
 } as const satisfies Record<AdminOrderStatus, string>;
 export const orderStatusLabels = Object.fromEntries(Object.entries(orderStatusKeys).map(([status, key]) => [status, getTranslator("vi")(key)])) as Record<AdminOrderStatus, string>;
@@ -35,8 +36,7 @@ export function applyAdminDemoAction(
       PENDING_PAYMENT: ["CANCELLED"],
       CONFIRMED: ["PREPARING", "CANCELLED"],
       PREPARING: ["READY"],
-      READY: ["COMPLETED"],
-      SHIPPING: ["COMPLETED"],
+      READY: order.orderType === 'PICKUP' ? ["COMPLETED"] : [],
     };
     if (!allowed[order.status]?.includes(action.status))
       return {

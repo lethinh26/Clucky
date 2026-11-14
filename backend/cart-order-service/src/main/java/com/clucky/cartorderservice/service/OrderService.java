@@ -157,6 +157,9 @@ public class OrderService {
         BigDecimal subtotal = catalogValidation.subtotal();
 
         String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
+        if (!Set.of("DELIVERY", "PICKUP").contains(type)) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Hình thức nhận hàng không hợp lệ.");
+        }
         // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
         ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
                 type, storeId, request.latitude(), request.longitude()
@@ -252,6 +255,15 @@ public class OrderService {
         BigDecimal subtotal = catalogValidation.subtotal();
 
         String type = request.type() != null ? request.type().trim().toUpperCase() : "DELIVERY";
+        if (!Set.of("DELIVERY", "PICKUP").contains(type)) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Hình thức nhận hàng không hợp lệ.");
+        }
+        if ("DELIVERY".equals(type) && (request.deliveryAddress() == null
+                || request.deliveryAddress().isBlank()
+                || request.latitude() == null || request.longitude() == null)) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR,
+                    "Đơn giao hàng cần địa chỉ và vị trí giao hàng hợp lệ.");
+        }
         // P1.2: Validate shipping fee with Shipping Service (INT-38), no hardcoded default
         ShippingClient.ShippingFeeResult shippingResult = shippingClient.calculateShippingFee(
                 type, request.storeId(), request.latitude(), request.longitude()
@@ -296,6 +308,15 @@ public class OrderService {
             throw new ApiException(ErrorCode.RESOURCE_CONFLICT);
         }
         String paymentMethod = request.paymentMethod() != null ? request.paymentMethod().trim().toUpperCase() : "COD";
+        if (!Set.of("COD", "BANK_TRANSFER").contains(paymentMethod)) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Phương thức thanh toán không được hỗ trợ.");
+        }
+        if ("BANK_TRANSFER".equals(paymentMethod) && totalAmount.signum() == 0) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR,
+                    "Đơn hàng 0đ không thể tạo mã QR thanh toán. Vui lòng chọn COD hoặc điều chỉnh ưu đãi.");
+        }
+        // QR is prepaid by the customer before preparation, including DELIVERY.
+        // COD delivery is instead funded by a simulated rider advance at pickup.
         String initialStatus = "COD".equalsIgnoreCase(paymentMethod)
                 ? OrderStatus.CONFIRMED.name()
                 : OrderStatus.PENDING_PAYMENT.name();
@@ -319,7 +340,7 @@ public class OrderService {
         order.setVoucherCode(voucherCalc.valid() ? request.voucherCode().trim() : null);
         order.setReceiverName(request.receiverName().trim());
         order.setReceiverPhone(request.receiverPhone().trim());
-        order.setDeliveryAddress(request.deliveryAddress());
+        order.setDeliveryAddress(request.deliveryAddress() == null ? null : request.deliveryAddress().trim());
         order.setLatitude("DELIVERY".equals(type) ? request.latitude() : null);
         order.setLongitude("DELIVERY".equals(type) ? request.longitude() : null);
         order.setNote(request.note());
@@ -650,6 +671,10 @@ public class OrderService {
 
         String current = order.getStatus().toUpperCase();
         String target = request.status().trim().toUpperCase();
+        if ("DELIVERY".equalsIgnoreCase(order.getType()) && Set.of("SHIPPING", "COMPLETED", "DELIVERY_FAILED").contains(target)) {
+            throw new ApiException(ErrorCode.RESOURCE_CONFLICT,
+                    "Đơn giao hàng do hệ thống vận chuyển mô phỏng cập nhật, không thể kết thúc thủ công.");
+        }
         if ("CANCELLED".equals(target)) {
             if (Set.of("PREPARING", "READY").contains(current)) {
                 throw new ApiException(ErrorCode.RESOURCE_CONFLICT, "Không thể hủy đơn hàng đã chế biến");
@@ -684,12 +709,9 @@ public class OrderService {
 
         boolean valid = switch (current) {
             case "PENDING_PAYMENT" -> "CONFIRMED".equals(target) || "CANCELLED".equals(target);
-            case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target)
-                    || ("COMPLETED".equals(target) && !"PICKUP".equalsIgnoreCase(order.getType()) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
-            case "PREPARING" -> "READY".equals(target)
-                    || ("COMPLETED".equals(target) && !"PICKUP".equalsIgnoreCase(order.getType()) && Set.of("PAID", "COLLECTED").contains(order.getPaymentStatus()));
-            case "READY" -> ("SHIPPING".equals(target) && "DELIVERY".equalsIgnoreCase(order.getType())) || "COMPLETED".equals(target);
-            case "SHIPPING" -> "COMPLETED".equals(target);
+            case "CONFIRMED" -> "PREPARING".equals(target) || "CANCELLED".equals(target);
+            case "PREPARING" -> "READY".equals(target);
+            case "READY" -> "COMPLETED".equals(target) && "PICKUP".equalsIgnoreCase(order.getType());
             default -> false;
         };
 

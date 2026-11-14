@@ -7,9 +7,8 @@ export const DEMO_CONTROLS_ENABLED =
   process.env.NEXT_PUBLIC_M3_DEMO_ENABLED === "true";
 
 export function ensureDemoShipment(order: Order): Order {
-  return order.type === "DELIVERY" && !order.shipmentStatus
-    ? { ...order, shipmentStatus: "CREATED" }
-    : order;
+  // Shipping Service is the only source of real shipment state.
+  return order;
 }
 
 export const orderStatusKeys = {
@@ -20,6 +19,7 @@ export const orderStatusKeys = {
   SHIPPING: "business.orderstatuschip.outForDelivery",
   COMPLETED: "business.orders.completed",
   CANCELLED: "business.orders.cancelled",
+  DELIVERY_FAILED: "business.orderstatuschip.deliveryFailed",
 } as const satisfies Record<OrderStatus, string>;
 export const orderStatusLabels = Object.fromEntries(Object.entries(orderStatusKeys).map(([status, key]) => [status, getTranslator("vi")(key)])) as Record<OrderStatus, string>;
 
@@ -78,7 +78,9 @@ export function applyDemoAction(
     message,
   });
   if (!enabled) return reject(t("business.orderdemo.theSimulatorIsNotEnabled"));
-  if (["COMPLETED", "CANCELLED"].includes(order.status))
+  if (order.type === "DELIVERY")
+    return reject(t("business.orderdemo.theSimulatorIsNotEnabled"));
+  if (["COMPLETED", "CANCELLED", "DELIVERY_FAILED"].includes(order.status))
     return reject(t("business.orderdemo.thisOrderHasEndedNoFurtherActionsAreAvailable"));
   let status = order.status;
   let paymentStatus = order.paymentStatus;

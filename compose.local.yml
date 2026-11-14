@@ -70,6 +70,8 @@ services:
       args:
         SERVICE_NAME: promotion-loyalty-service
   shipping-service:
+    environment:
+      SHIPPING_MOCK_ENABLED: "true"
     build:
       <<: *java-build
       args:

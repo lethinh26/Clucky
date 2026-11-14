@@ -25,7 +25,7 @@ import { FoodImage } from "@/components/order/food-image";
 import { displayOrderTime } from "@/lib/order-demo";
 import styles from "./orders.module.css";
 
-type FilterTab = "ALL" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+type FilterTab = "ALL" | "ACTIVE" | "COMPLETED" | "CANCELLED" | "DELIVERY_FAILED";
 type PaymentFilter = "ALL" | "BANK_TRANSFER" | "COD";
 type SortOption = "NEWEST" | "OLDEST" | "TOTAL_DESC" | "TOTAL_ASC";
 
@@ -82,7 +82,7 @@ export default function OrdersHistoryPage() {
   }, [refreshOrders, errorMessage]);
 
   const activeOrder = orders.find(
-    (order) => !["COMPLETED", "CANCELLED"].includes(order.status),
+    (order) => !["COMPLETED", "CANCELLED", "DELIVERY_FAILED"].includes(order.status),
   );
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -135,6 +135,7 @@ export default function OrdersHistoryPage() {
     ).length,
     COMPLETED: baseFilteredOrders.filter((order) => order.status === "COMPLETED").length,
     CANCELLED: baseFilteredOrders.filter((order) => order.status === "CANCELLED").length,
+    DELIVERY_FAILED: baseFilteredOrders.filter((order) => order.status === "DELIVERY_FAILED").length,
   };
 
   const filteredOrders = [...baseFilteredOrders]
@@ -151,6 +152,7 @@ export default function OrdersHistoryPage() {
       }
       if (activeTab === "COMPLETED") return order.status === "COMPLETED";
       if (activeTab === "CANCELLED") return order.status === "CANCELLED";
+      if (activeTab === "DELIVERY_FAILED") return order.status === "DELIVERY_FAILED";
       return true;
     })
     .sort((a, b) => {
@@ -365,6 +367,14 @@ export default function OrdersHistoryPage() {
             onClick={() => setActiveTab("CANCELLED")}
           >
             {t("business.orders.cancelled")} ({tabCounts.CANCELLED})
+          </button>
+          <button
+            type="button"
+            aria-pressed={activeTab === "DELIVERY_FAILED"}
+            className={`${styles.tabItem} ${activeTab === "DELIVERY_FAILED" ? styles.tabItemActive : ""}`}
+            onClick={() => setActiveTab("DELIVERY_FAILED")}
+          >
+            {t("business.orderstatuschip.deliveryFailed")} ({tabCounts.DELIVERY_FAILED})
           </button>
         </div>
 

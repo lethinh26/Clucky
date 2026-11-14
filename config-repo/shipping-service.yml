@@ -17,3 +17,11 @@ spring:
     schemas: shipping_service
     create-schemas: true
     baseline-on-migrate: false
+clucky:
+  shipping:
+    mock:
+      enabled: ${SHIPPING_MOCK_ENABLED:false}
+      mapbox-token: ${MAPBOX_DIRECTIONS_TOKEN:${MAPBOX_GEOCODING_TOKEN:}}
+      wallet-initial: ${SHIPPING_MOCK_WALLET_INITIAL:100000000000}
+      max-attempts: ${SHIPPING_MOCK_MAX_ATTEMPTS:2}
+      tick-ms: ${SHIPPING_MOCK_TICK_MS:500}

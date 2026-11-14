@@ -1,0 +1,66 @@
+.panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: #574e47;
+  font-family: var(--font-body, Quicksand), sans-serif;
+}
+
+.map {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid #e5dad0;
+  background: #f6f0e7;
+}
+
+.mapPlaceholder {
+  display: flex;
+  min-height: 230px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 0;
+  padding: 18px;
+  color: #75645d;
+  font-size: 12px;
+  text-align: center;
+}
+
+.mapPlaceholder svg {
+  color: #8f1216;
+  flex-shrink: 0;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-start;
+  padding-inline: 2px;
+}
+
+.trackingLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #75645d;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.trackingDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1e7a46;
+  flex-shrink: 0;
+}
+
+.failure {
+  margin: 0;
+  color: #942c21;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .mapPlaceholder { min-height: 200px; }
+}

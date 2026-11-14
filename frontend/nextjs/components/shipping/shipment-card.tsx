@@ -5,7 +5,7 @@ import { ShippingFeeCard } from "./shipping-fee-card";
 import type { ShipmentStatus } from "@/lib/types/order";
 import styles from "../payment/payment-shared.module.css";
 
-// MVP only creates CREATED records. Assignment and tracking are Phase 2.
+// Mock tracking is provided independently by the Shipping Service in demo mode.
 export type { ShipmentStatus } from "@/lib/types/order";
 
 export interface ShipmentInfoProps {
@@ -128,9 +128,6 @@ export function ShipmentCard({
         )}
       </dl>
 
-      {!pickup && status === "CREATED" && (
-        <p className={styles.shipmentNote}> {t("business.shipmentcard.deliveryDetailsRecordedLiveDeliveryTrackingIsNotAvailableYet")} </p>
-      )}
       {!pickup && fee !== undefined && <ShippingFeeCard fee={fee} />}
     </section>
   );

@@ -900,12 +900,14 @@ export default function CheckoutPage() {
                       />
                       <div>
                         <p className={styles.paymentTitle}>
-                          {t("business.checkout.cashOnDeliveryCod")}
+                          {t(orderType === "DELIVERY"
+                            ? "business.checkout.cashOnDeliveryCod"
+                            : "business.checkout.cashAtStorePickup")}
                         </p>
                         <p className={styles.paymentDesc}>
-                          {t(
-                            "business.checkout.payCashToTheDriverOrTheStoreCashier",
-                          )}
+                          {t(orderType === "DELIVERY"
+                            ? "business.checkout.payCashToDeliveryRider"
+                            : "business.checkout.payCashAtStorePickup")}
                         </p>
                       </div>
                     </div>

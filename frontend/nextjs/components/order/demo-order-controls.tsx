@@ -31,7 +31,7 @@ export function DemoOrderControls({ order }: { order: Order }) {
   useFeedback(feedback?.message, feedback?.ok ? "success" : "error");
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
-  if (!demoEnabled) return null;
+  if (!demoEnabled || order.type === "DELIVERY") return null;
   const act = (action: DemoAction) => {
     if (lock.current) return;
     lock.current = true;

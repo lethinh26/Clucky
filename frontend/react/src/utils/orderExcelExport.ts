@@ -4,6 +4,7 @@ import type { AdminOrder } from "../types/order";
 import type { BackendCounterReceipt, Store } from "../lib/api";
 import { getBrowserLocale } from "../i18n/locale";
 import { getTranslator } from "../i18n/translator";
+import { getFulfillmentMode } from "../lib/order-fulfillment";
 
 function getExcelTranslator(locale?: string) {
   if (locale && locale.toLowerCase().startsWith("en")) {
@@ -335,10 +336,14 @@ export function exportStaffDailyOrdersExcel(params: {
         o.orderSource === "COUNTER"
           ? tr("business:excel.staffOrderSourceCounter")
           : tr("business:excel.staffOrderSourceWeb");
-      const diningOptionText =
-        o.diningOption === "DINE_IN"
+      const fulfillment = getFulfillmentMode(o);
+      const diningOptionText = fulfillment === 'DELIVERY'
+        ? tr('business:orders.delivery', { defaultValue: 'Giao hàng' })
+        : fulfillment === 'DINE_IN'
           ? tr("business:excel.diningDineIn")
-          : tr("business:excel.diningTakeAway");
+          : fulfillment === 'TAKE_AWAY'
+            ? tr("business:excel.diningTakeAway")
+            : 'Nhận tại quán';
 
       return `
         <Row ss:AutoFitHeight="1" ss:Height="26">

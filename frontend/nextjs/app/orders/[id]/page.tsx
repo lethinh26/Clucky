@@ -21,6 +21,7 @@ import {
   History,
   MessageSquare,
   CircleAlert,
+  ShieldCheck,
   MailCheck,
   Mail,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import { DemoOrderControls } from "@/components/order/demo-order-controls";
 import { PaymentStatusBadge } from "@/components/payment";
 import { LiveOrderPayment } from "@/components/payment/live-order-payment";
 import { ShipmentCard } from "@/components/shipping";
+import { MockDeliveryTracking, type TrackingResponse } from "@/components/shipping/mock-delivery-tracking";
 import { RefundBankFields } from "@/components/refund/refund-bank-fields";
 import {
   OrderStatusChip,
@@ -63,6 +65,7 @@ export default function OrderTrackingPage({
     (entry) => entry.id === id || entry.orderCode === id,
   );
   const [serverOrder, setServerOrder] = useState<Order | null>(null);
+  const [shipmentTracking, setShipmentTracking] = useState<TrackingResponse | null>(null);
   const [imageCatalog, setImageCatalog] = useState<ProductItem[]>([]);
   const [storesList, setStoresList] = useState<Pick<StoreItem, "id" | "name" | "address">[]>(FALLBACK_STORES);
   useEffect(() => {
@@ -100,7 +103,7 @@ export default function OrderTrackingPage({
         setServerOrder(mapped);
         setLoadError("");
 
-        if (["COMPLETED", "CANCELLED"].includes(mapped.status)) {
+        if (["COMPLETED", "CANCELLED", "DELIVERY_FAILED"].includes(mapped.status)) {
           if (timer) {
             clearInterval(timer);
             timer = null;
@@ -199,6 +202,9 @@ export default function OrderTrackingPage({
     order.paymentStatus === "PENDING" &&
     order.status === "PENDING_PAYMENT";
   const terminal = ["COMPLETED", "CANCELLED"].includes(order.status);
+  const currentShipment = shipmentTracking?.orderId === Number(order.id) ? shipmentTracking : null;
+  const codMockPaid = order.type === "DELIVERY" && order.paymentMethod === "COD"
+    && currentShipment?.merchantPaymentStatus === "PAID_SIMULATED";
   const paymentCopy = {
     COLLECTED: {
       label: t("business.paymentstatusbadge.codCollected"),
@@ -243,7 +249,12 @@ export default function OrderTrackingPage({
     message: t("business.id.payInCashWhenYouReceiveYourMeal"),
     icon: Wallet,
   };
-  const PaymentIcon = paymentCopy.icon;
+  const displayPaymentCopy = codMockPaid ? {
+    label: t("business.id.orderValue"),
+    message: t("business.id.codSimulatedPaidMessage"),
+    icon: ShieldCheck,
+  } : paymentCopy;
+  const PaymentIcon = displayPaymentCopy.icon;
 
   const handleCancel = async () => {
     if (!cancelReason.trim()) return;
@@ -332,7 +343,9 @@ export default function OrderTrackingPage({
           <Mail size={20} style={{ flexShrink: 0, color: "#64748b" }} />
           <div>
             <strong>{order.orderCode}:</strong>{" "}
-            {order.status === "CANCELLED"
+            {order.status === "DELIVERY_FAILED"
+              ? (locale === "vi" ? "Đơn giao hàng không thành công. Vui lòng liên hệ cửa hàng để được hỗ trợ." : "Delivery was unsuccessful. Please contact the store for assistance.")
+              : order.status === "CANCELLED"
               ? t("business.orderprogress.orderCancelledProgressHasStopped")
               : order.status === "COMPLETED"
                 ? t("business.demoordercontrols.yourOrderIsCompleteThankYouForChoosingClucky")
@@ -381,8 +394,11 @@ export default function OrderTrackingPage({
           paymentMethod={order.paymentMethod}
           updatedAt={order.updatedAt ?? order.createdAt}
           history={order.timeline}
+          deliveryTracking={order.type === "DELIVERY" && order.status !== "CANCELLED" && /^\d+$/.test(order.id)
+            ? <MockDeliveryTracking orderId={order.id} active={order.status === "SHIPPING"} onTrackingUpdate={setShipmentTracking} />
+            : undefined}
         />
-        {demoEnabled && (
+        {demoEnabled && order.type === "PICKUP" && (
           <details className={styles.demoDisclosure} open>
             <summary>{t("business.id.orderStatusSimulator")}</summary>
             <DemoOrderControls order={order} />
@@ -474,7 +490,7 @@ export default function OrderTrackingPage({
                   {t("business.id.cancelThisOrder")}
                 </button>
               )}
-              {!refund?.status && !order.refundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER" && order.paymentStatus === "PAID" && (
+              {!refund?.status && !order.refundStatus && ["CANCELLED", "DELIVERY_FAILED"].includes(order.status) && order.paymentMethod === "BANK_TRANSFER" && order.paymentStatus === "PAID" && (
                 <button
                   type="button"
                   className={styles.outlineButton}
@@ -495,14 +511,21 @@ export default function OrderTrackingPage({
           <aside className={styles.detailAside}>
             <section
               className={`${styles.detailCard} ${styles.paymentCard}`}
-              data-state={order.paymentStatus}
+              data-state={codMockPaid ? "PAID" : order.paymentStatus}
               aria-label={t("business.id.payForOrder")}
             >
               <div className={styles.paymentHeading}>
                 <h2>
                   <Wallet size={19} /> {t("business.cart.checkout")}
                 </h2>
-                {order.paymentMethod === "BANK_TRANSFER" ? <span className={styles.paymentNetwork}>VietQR</span> : <PaymentStatusBadge status={order.paymentStatus} />}
+                {order.paymentMethod === "BANK_TRANSFER" ? (
+                  <span className={styles.paymentStatusCluster}>
+                    <span className={styles.paymentNetwork}>VietQR</span>
+                    {["PAID", "COLLECTED"].includes(order.paymentStatus) && <PaymentStatusBadge status={order.paymentStatus} />}
+                  </span>
+                ) : codMockPaid ? (
+                  <span className={styles.deliveryPaymentBadge}>{t("business.id.codSimulatedPaid")}</span>
+                ) : <PaymentStatusBadge status={order.paymentStatus} />}
               </div>
               {!awaitingPayment && order.paymentMethod !== "BANK_TRANSFER" && (
                 <div className={styles.paymentReceipt}>
@@ -510,12 +533,12 @@ export default function OrderTrackingPage({
                     <PaymentIcon size={30} strokeWidth={1.8} />
                   </span>
                   <span className={styles.paymentAmountLabel}>
-                    {paymentCopy.label}
+                    {displayPaymentCopy.label}
                   </span>
                   <strong className={styles.paymentAmount}>
                     {formatPrice(order.totalAmount)}
                   </strong>
-                  <p className={styles.paymentMessage}>{paymentCopy.message}</p>
+                  <p className={styles.paymentMessage}>{displayPaymentCopy.message}</p>
                 </div>
               )}
               {order.paymentMethod !== "BANK_TRANSFER" && <div className={styles.paymentMethod}>
@@ -540,6 +563,10 @@ export default function OrderTrackingPage({
                   {order.paymentMethod === "COD" ? "COD" : "VietQR"}
                 </span>
               </div>}
+              {order.type === "DELIVERY" && order.paymentMethod === "COD"
+                && !codMockPaid && !["PAID", "COLLECTED"].includes(order.paymentStatus) && (
+                <p className={styles.codCollectionNote}>{t("business.id.codCollectionOutside")}</p>
+              )}
               {order.paymentMethod === "BANK_TRANSFER" && (
                 <LiveOrderPayment
                   key={order.id}
@@ -672,7 +699,7 @@ export default function OrderTrackingPage({
                     </p>
                   );
                 }
-                if (!activeRefundStatus && order.status === "CANCELLED" && order.paymentMethod === "BANK_TRANSFER" && order.paymentStatus === "PAID") {
+                if (!activeRefundStatus && ["CANCELLED", "DELIVERY_FAILED"].includes(order.status) && order.paymentMethod === "BANK_TRANSFER" && order.paymentStatus === "PAID") {
                   return (
                     <div style={{ background: "#fffaf3", border: "1px solid #e8e2d9", borderRadius: "14px", padding: "14px 18px", marginTop: "14px" }}>
                       <p style={{ margin: "0 0 10px", color: "#8f1216", fontSize: "14px", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}>
