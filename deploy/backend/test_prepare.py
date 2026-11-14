@@ -104,6 +104,25 @@ class BackendEnvironmentTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "MAPBOX_GEOCODING_TOKEN"):
                     validate_environment(json.dumps({**self.values, "MAPBOX_GEOCODING_TOKEN": token}))
 
+    def test_bridge_secret_is_accepted_and_only_written_to_private_backend_runtime(self):
+        settings = {**self.values, "BRIDGE_API_KEY": "bk_test_private-server-only"}
+        validated = validate_environment(json.dumps(settings))
+        self.assertEqual(validated["BRIDGE_API_KEY"], settings["BRIDGE_API_KEY"])
+        prepare(self.root, self.release, json.dumps(settings))
+        content = (self.root / "backend/incoming" / self.release / "runtime.env").read_text()
+        self.assertIn("BRIDGE_API_KEY='bk_test_private-server-only'", content)
+
+    def test_mapbox_directions_token_passes_through_and_rejects_invalid_tokens(self):
+        settings = {**self.values, "MAPBOX_DIRECTIONS_TOKEN": "sk.test-directions"}
+        self.assertEqual(validate_environment(json.dumps(settings))["MAPBOX_DIRECTIONS_TOKEN"], "sk.test-directions")
+        prepare(self.root, self.release, json.dumps(settings))
+        content = (self.root / "backend/incoming" / self.release / "runtime.env").read_text()
+        self.assertIn("MAPBOX_DIRECTIONS_TOKEN='sk.test-directions'", content)
+        for token in ("pk.", "pk", "sk.test token", " invalid-token"):
+            with self.subTest(token=token):
+                with self.assertRaisesRegex(ValueError, "MAPBOX_DIRECTIONS_TOKEN"):
+                    validate_environment(json.dumps({**self.values, "MAPBOX_DIRECTIONS_TOKEN": token}))
+
     def test_shared_secret_keeps_frontend_mapbox_tokens_out_of_backend_runtime(self):
         settings = {**self.values, "MAPBOX_GEOCODING_TOKEN": "sk.server-mapbox",
                     "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "pk.customer-mapbox", "VITE_MAPBOX_ACCESS_TOKEN": "pk.admin-mapbox"}
@@ -152,6 +171,7 @@ class BackendEnvironmentTest(unittest.TestCase):
             ({"FRONTEND_CUSTOMER_URL": "https://[private-value"}, "FRONTEND_CUSTOMER_URL"),
             ({"MAIL_SENDER_ENABLED": "true"}, "MAIL_SENDER_USERNAME"),
             ({"MAPBOX_GEOCODING_TOKEN": "private-value"}, "MAPBOX_GEOCODING_TOKEN"),
+            ({"MAPBOX_DIRECTIONS_TOKEN": "private-value"}, "MAPBOX_DIRECTIONS_TOKEN"),
             ({"NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN": "sk.private-value"}, "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN"),
             ({"VITE_MAPBOX_ACCESS_TOKEN": "sk.private-value"}, "VITE_MAPBOX_ACCESS_TOKEN"),
         )
