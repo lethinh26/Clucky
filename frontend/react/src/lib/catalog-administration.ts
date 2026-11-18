@@ -26,6 +26,8 @@ export const catalogAdministration = {
   saveCategory: (data: CategoryPayload, current?: AdminCategory | null) => current
     ? api.put<AdminCategory>(`/api/catalog/categories/${current.id}`, { ...data, imageUrl: current.imageUrl, expectedVersion: current.version }).then(response => response.data)
     : api.post<AdminCategory>('/api/catalog/categories', data).then(response => response.data),
+  reorderCategories: (items: { id: number; expectedVersion: number }[]) =>
+    api.put<AdminCategory[]>('/api/catalog/categories/order', { items }).then(response => response.data),
   status: (kind: 'products' | 'combos', current: AdminProduct | AdminCombo, isActive: boolean) =>
     api.put(`/api/catalog/${kind}/${current.id}/status`, { isActive }, { params: { expectedVersion: current.version } }),
   remove: (kind: 'products' | 'combos' | 'categories', current: { id: number; version: number }) =>

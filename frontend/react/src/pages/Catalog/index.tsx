@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Empty, Form, Input, InputNumber, Modal, Result, Select, Space, Switch, Table, Tabs, Tag, Tooltip } from 'antd';
+import { Alert, Button, Empty, Form, Input, Modal, Result, Select, Space, Switch, Table, Tabs, Tag, Tooltip } from 'antd';
 import { AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined, ShopOutlined, TagsOutlined } from '@ant-design/icons';
 import type { TableColumnsType } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { catalogAdministration as administration, type AdminProduct, type AdminC
 import { ProductForm } from './ProductForm';
 import { ComboForm } from './ComboForm';
 import { CatalogImage } from './ImageField';
+import { CategoryOrderList } from './CategoryOrderList';
 import { matchesCatalogSearch } from './presentation';
 import './catalog.css';
 
@@ -38,7 +39,7 @@ export const CatalogPage: React.FC = () => {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [category, setCategory] = useState<AdminCategory | null>(null);
   const [categoryError, setCategoryError] = useState('');
-  const [categoryForm] = Form.useForm<CategoryPayload>();
+  const [categoryForm] = Form.useForm<Pick<CategoryPayload, 'name' | 'isActive'>>();
   const [deletion, setDeletion] = useState<{ kind: 'products' | 'combos' | 'categories'; row: AdminProduct | AdminCombo | AdminCategory } | null>(null);
   const [deleteError, setDeleteError] = useState('');
   const text = (key: string, defaultValue: string) => t(`business:catalogAdmin.${key}`, { defaultValue });
@@ -85,7 +86,7 @@ export const CatalogPage: React.FC = () => {
   const openCombo = (current: AdminCombo | null) => { setCombo(current); comboDraft.current = current; setComboOpen(true); };
   const openCategory = (current: AdminCategory | null) => {
     setCategory(current); setCategoryError(''); categoryForm.resetFields();
-    categoryForm.setFieldsValue(current ?? { name: '', sortOrder: 0, isActive: true }); setCategoryOpen(true);
+    categoryForm.setFieldsValue(current ?? { name: '', isActive: true }); setCategoryOpen(true);
   };
   const remove = (kind: 'products' | 'combos' | 'categories', row: AdminProduct | AdminCombo | AdminCategory) => {
     setDeleteError(''); setDeletion({ kind, row });
@@ -123,19 +124,34 @@ export const CatalogPage: React.FC = () => {
     { title: t("admin:ui.availableForSale"), key: 'status', width: 145, render: (_, row) => saleStatus('combos', row) },
     { title: text('actions', t("accounts:action")), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('combos', row, () => openCombo(row)) },
   ];
-  const categoryColumns: TableColumnsType<AdminCategory> = [
-    { title: t("business:catalog.category"), dataIndex: 'name', width: 300, render: (_, row) => <div><button type="button" className="catalog-item-name" disabled={busy || loading} onClick={() => openCategory(row)}>{row.name}</button><span className="catalog-item-meta">#{row.id}</span></div> },
-    { title: t("admin:ui.dishesInCategory"), key: 'products', width: 180, render: (_, row) => <span>{catalog.products.filter(item => item.categoryId === row.id).length} {t("business:orderspage.items")}</span> },
-    { title: t("admin:ui.displayOrder"), dataIndex: 'sortOrder', width: 160, sorter: (first, second) => first.sortOrder - second.sortOrder },
-    { title: t("accounts:status"), dataIndex: 'isActive', width: 160, render: value => <Tag color={value ? 'green' : 'default'}>{value ? t("admin:ui.active") : t("business:stores.inactive")}</Tag> },
-    { title: text('actions', t("accounts:action")), key: 'actions', width: 130, fixed: 'right', render: (_, row) => actions('categories', row, () => openCategory(row)) },
-  ];
   const matchesStatus = (row: { isActive: boolean }) => status === 'ALL' || row.isActive === (status === 'ACTIVE');
   const products = catalog.products.filter(row => matchesStatus(row) && (!categoryId || row.categoryId === categoryId) && matchesCatalogSearch([row.name, row.categoryName], search));
   const combos = catalog.combos.filter(row => matchesStatus(row) && matchesCatalogSearch([row.name, ...row.items.map(item => item.productName)], search));
-  const categories = catalog.categories.filter(row => matchesStatus(row) && matchesCatalogSearch([row.name], search));
+  const orderedCategories = [...catalog.categories].sort((first, second) => first.sortOrder - second.sortOrder || first.id - second.id);
+  const categoryPositions = new Map(orderedCategories.map((row, index) => [row.id, index + 1]));
+  const categories = orderedCategories.filter(row => matchesStatus(row) && matchesCatalogSearch([row.name], search));
   const total = tab === 'products' ? products.length : tab === 'combos' ? combos.length : categories.length;
   const filtered = Boolean(search || status !== 'ALL' || (tab === 'products' && categoryId));
+  const categoryCount = (row: AdminCategory) => {
+    const productsInCategory = catalog.products.filter(product => product.categoryId === row.id).length;
+    // Combos are stored separately from products, so they have no categoryId.
+    // The seeded Combo category (id 3) represents them even if it is renamed.
+    const isCombo = row.id === 3 || row.name.trim().toLocaleLowerCase() === 'combo';
+    if (isCombo) return `${catalog.combos.length} combo${productsInCategory ? ` · ${productsInCategory} ${t('business:orderspage.items')}` : ''}`;
+    return `${productsInCategory} ${t('business:orderspage.items')}`;
+  };
+  const reorderCategories = async (ids: number[]) => {
+    if (busy || loading || filtered || ids.length !== orderedCategories.length) return;
+    const versions = new Map(orderedCategories.map(row => [row.id, row.version]));
+    if (ids.some(id => versions.get(id) === undefined)) return;
+    try {
+      await mutate(async () => {
+        await administration.reorderCategories(ids.map(id => ({ id, expectedVersion: versions.get(id)! })));
+      });
+    } catch (failure) {
+      setError(getErrorMessage(failure));
+    }
+  };
   const resetFilters = () => { setSearch(''); setStatus('ALL'); setCategoryId(undefined); setPage(1); };
   const empty = { emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={filtered ? t("admin:ui.noMatchingResultsTryChangingYourFilters") : t("admin:ui.noDataYetUseTheAddButtonAbove")} /> };
   const pagination = { current: Math.min(page, Math.max(1, Math.ceil(total / pageSize))), pageSize, total, showSizeChanger: true, pageSizeOptions: [10, 20, 50], hideOnSinglePage: false,
@@ -154,7 +170,15 @@ export const CatalogPage: React.FC = () => {
           const choice = dish?.options?.flatMap(group => group.choices).find(option => Number(option.id.replace(/^opt-/, '')) === item.optionId);
           return <div key={item.id ?? index} className="catalog-expand-item"><div className="catalog-thumb"><CatalogImage url={dish?.imageUrl} name={item.productName} /></div><div><strong>{item.quantity} × {item.productName}</strong><p>{choice?.name ?? (item.optionId ? t("admin:ui.option146", { value1: item.optionId }) : t("admin:ui.noFixedOption147"))}</p></div></div>;
         })}</div> }} />
-        : <Table<AdminCategory> className="catalog-table" rowKey="id" loading={loading} columns={categoryColumns} dataSource={categories} pagination={pagination} locale={empty} scroll={{ x: 850 }} />}
+        : <CategoryOrderList categories={categories} positions={categoryPositions}
+          disabled={busy || loading || filtered} actionDisabled={busy || loading} filtered={filtered}
+          itemCount={categoryCount} onEdit={openCategory} onDelete={row => remove('categories', row)}
+          onReorder={ids => void reorderCategories(ids)}
+          labels={{ reorder: t('admin:ui.reorderCategory'), reorderHint: t('admin:ui.dragCategoriesToReorder'),
+            clearFilters: t('admin:ui.clearFiltersToReorder'), priority: t('admin:ui.displayOrder'),
+            active: t('admin:ui.active'), inactive: t('business:stores.inactive'),
+            edit: text('edit', t('business:account.edit')), remove: t('admin:ui.delete'),
+            empty: filtered ? t('admin:ui.noMatchingResultsTryChangingYourFilters') : t('admin:ui.noDataYetUseTheAddButtonAbove') }} />}
   </>;
   if (!isAdmin) return <Result status="403" title="403" subTitle={text('adminOnly', t("admin:ui.onlyAdministratorsCanManageTheCatalog"))} />;
 
@@ -175,14 +199,14 @@ export const CatalogPage: React.FC = () => {
       onCancel={() => { if (!busy) setCategoryOpen(false); }} okText={text('save', t("payments:save"))} cancelText={text('cancel', t("business:account.cancel"))} onOk={async () => {
         try {
           const values = await categoryForm.validateFields();
-          await mutate(async () => { await administration.saveCategory(values, category); });
+          await mutate(async () => { await administration.saveCategory({ ...values, sortOrder: category?.sortOrder ?? 0 }, category); });
           setCategoryOpen(false);
         } catch (failure) { if (!(failure && typeof failure === 'object' && 'errorFields' in failure)) setCategoryError(getErrorMessage(failure)); }
       }}>
       {categoryError && <Alert type="error" showIcon message={categoryError} />}
       <Form name="catalog-category" form={categoryForm} layout="vertical" disabled={busy}>
         <Form.Item name="name" label={text('name', t("admin:ui.name"))} rules={[{ required: true, whitespace: true }, { max: 120 }]}><Input maxLength={120} /></Form.Item>
-        <Form.Item name="sortOrder" label={t("admin:ui.displayOrder")} extra={t("admin:ui.lowerNumbersAppearFirst")} rules={[{ required: true }, { type: 'integer', min: 0 }]}><InputNumber min={0} precision={0} /></Form.Item>
+        <p className="catalog-category-modal-note">{t('admin:ui.dragCategoriesToReorder')}</p>
         <div className="catalog-publication"><div><strong>{t("admin:ui.activeCategory")}</strong><p>{t("admin:ui.showThisCategoryOnTheMenu")}</p></div><Form.Item name="isActive" valuePropName="checked"><Switch aria-label={t("admin:ui.activeCategory")} /></Form.Item></div>
       </Form>
     </Modal>

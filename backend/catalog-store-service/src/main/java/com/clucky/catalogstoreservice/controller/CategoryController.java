@@ -37,6 +37,12 @@ public class CategoryController {
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryService.createCategory(request));
     }
 
+    @PutMapping("/order")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CategoryDto.Response>> reorderCategories(@Valid @RequestBody CategoryDto.OrderRequest request) {
+        return ResponseEntity.ok(categoryService.reorderCategories(request));
+    }
+
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CategoryDto.Response> updateCategory(@PathVariable Long id,
