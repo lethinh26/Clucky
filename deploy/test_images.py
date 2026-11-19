@@ -11,21 +11,67 @@ from images import BACKEND, FRONTEND, build_args, bundle, fingerprint, image_dig
 class ImageInputsTest(unittest.TestCase):
     def setUp(self):
         self.files = {
+            ".github/workflows/frontend-ci.yml": "workflow",
+            "deploy/images.py": "image-plan",
+            "deploy/backend/Dockerfile": "local-dockerfile",
             "backend/build.gradle": "shared",
             "backend/identity-service/build.gradle": "identity-build",
             "backend/identity-service/src/Auth.java": "identity",
             "backend/payment-service/src/Payment.java": "payment",
             "frontend/nextjs/app/page.tsx": "customer",
+            "frontend/nextjs/Dockerfile": "customer-dockerfile",
             "frontend/react/src/App.tsx": "admin",
+            "frontend/react/Dockerfile": "admin-dockerfile",
             "deploy/backend/runtime.Dockerfile": "dockerfile",
+            "docs/architecture.md": "documentation",
             "config-repo/application.yml": "configuration",
         }
+
+    def test_workflow_and_docs_only_do_not_invalidate_images(self):
+        for name in (".github/workflows/frontend-ci.yml", "docs/architecture.md",
+                     "deploy/backend/Dockerfile"):
+            with self.subTest(path=name):
+                changed = {**self.files, name: "updated"}
+                for service in (*BACKEND, *FRONTEND):
+                    self.assertEqual(
+                        fingerprint(service, self.files, {}),
+                        fingerprint(service, changed, {}),
+                        f"{service} must reuse its image when only {name} changes",
+                    )
+
+    def test_relevant_docker_inputs_invalidate_only_affected_images(self):
+        cases = (
+            ("deploy/backend/runtime.Dockerfile", BACKEND),
+            ("frontend/nextjs/Dockerfile", ("customer",)),
+            ("frontend/react/Dockerfile", ("admin",)),
+            ("deploy/images.py", (*BACKEND, *FRONTEND)),
+        )
+        for name, affected in cases:
+            with self.subTest(path=name):
+                changed = {**self.files, name: "updated"}
+                for service in (*BACKEND, *FRONTEND):
+                    self.assertEqual(
+                        service in affected,
+                        fingerprint(service, self.files, {}) != fingerprint(service, changed, {}),
+                        f"unexpected fingerprint impact on {service} from {name}",
+                    )
 
     def test_only_changed_component_is_invalidated(self):
         changed = {**self.files, "backend/payment-service/src/Payment.java": "new"}
         for service in ("identity-service", "customer", "admin"):
             self.assertEqual(fingerprint(service, self.files, {}), fingerprint(service, changed, {}))
         self.assertNotEqual(fingerprint("payment-service", self.files, {}), fingerprint("payment-service", changed, {}))
+
+    def test_frontend_source_only_invalidates_its_own_image(self):
+        for name, affected in (("frontend/nextjs/app/page.tsx", "customer"),
+                               ("frontend/react/src/App.tsx", "admin")):
+            with self.subTest(path=name):
+                changed = {**self.files, name: "new"}
+                for service in (*BACKEND, *FRONTEND):
+                    self.assertEqual(
+                        service == affected,
+                        fingerprint(service, self.files, {}) != fingerprint(service, changed, {}),
+                    )
 
     def test_shared_build_changes_invalidate_backend(self):
         for path in ("backend/build.gradle", "backend/identity-service/build.gradle", "deploy/backend/runtime.Dockerfile"):

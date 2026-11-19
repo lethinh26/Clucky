@@ -54,6 +54,7 @@ jobs:
       - name: Deployment configuration tests
         run: |
           python3 -m unittest discover -s deploy -p test_images.py
+          python3 -m unittest discover -s deploy -p 'test_release_*.py'
           python3 -m unittest discover -s deploy/backend -p 'test*.py'
           python3 -m unittest discover -s deploy/identity -p 'test*.py'
           python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -181,6 +182,7 @@ jobs:
     outputs:
       builds: ${{ steps.plan.outputs.builds }}
       release_id: ${{ steps.plan.outputs.release_id }}
+      should_deploy: ${{ steps.release_gate.outputs.should_deploy }}
     env:
       BACKEND_ENV_JSON: ${{ secrets.BACKEND_ENV_JSON }}
       VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
@@ -194,16 +196,34 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          # The release gate compares against the live deployment, which may
+          # predate several documentation-only pushes or failed releases.
+          fetch-depth: 0
+      - name: Check documentation-only push against active production
+        id: release_gate
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          VPS_HOST: ${{ vars.VPS_HOST || secrets.VPS_HOST }}
+          VPS_PORT: ${{ vars.VPS_PORT || secrets.VPS_PORT || '8686' }}
+          VPS_USER: ${{ vars.VPS_USER || secrets.VPS_USER }}
+          VPS_WORKDIR: ${{ vars.VPS_WORKDIR || secrets.VPS_WORKDIR || '/opt/clucky' }}
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        run: python3 deploy/release_gate.py
       - uses: docker/setup-buildx-action@v3
+        if: steps.release_gate.outputs.should_deploy == 'true'
       - uses: docker/login-action@v3
+        if: steps.release_gate.outputs.should_deploy == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Reuse images with identical source and build arguments
+        if: steps.release_gate.outputs.should_deploy == 'true'
         id: plan
         run: python3 deploy/images.py plan
       - uses: actions/upload-artifact@v4
+        if: steps.release_gate.outputs.should_deploy == 'true'
         with:
           name: release-plan-${{ env.RELEASE_ID }}
           path: release-plan.json
@@ -213,7 +233,7 @@ jobs:
   images:
     name: Package image / ${{ matrix.build }}
     needs: preflight
-    if: needs.preflight.outputs.builds != '[]'
+    if: needs.preflight.outputs.should_deploy == 'true' && needs.preflight.outputs.builds != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: frontend-production
@@ -306,6 +326,7 @@ jobs:
     needs: [preflight, images]
     if: >-
       always() && !cancelled() && needs.preflight.result == 'success' &&
+      needs.preflight.outputs.should_deploy == 'true' &&
       (needs.images.result == 'success' || needs.images.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 45

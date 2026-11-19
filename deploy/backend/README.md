@@ -97,11 +97,13 @@ Mapbox guidance: [token security](https://docs.mapbox.com/help/dive-deeper/how-t
 
 ## What happens on deployment
 
-Frontend and backend share one commit/run/attempt release ID. `deploy/images.py` hashes each component's Git objects (including deleted files through the resulting tree), shared build inputs and public build arguments. Existing input-tagged images are reused; missing images build in a matrix with up to four parallel jobs, with frontend and backend builds independent. Gradle state and Docker layers are cached between runs. Java JARs are compiled with the Gradle wrapper on the runner and packaged by `runtime.Dockerfile`; local Docker builds keep using the original `Dockerfile`.
+Frontend and backend share one commit/run/attempt release ID. `deploy/images.py` hashes each component's Git objects (including deleted files through the resulting tree), shared build inputs and public build arguments. The CI workflow YAML is excluded from image fingerprints, as is `deploy/backend/Dockerfile` (used for local builds); the production `runtime.Dockerfile`, shared Gradle inputs and frontend Dockerfiles are retained. Existing input-tagged images are reused; missing images build in a matrix with up to four parallel jobs, with frontend and backend builds independent. Gradle state and Docker layers are cached between runs. Java JARs are compiled with the Gradle wrapper on the runner and packaged by `runtime.Dockerfile`; local Docker builds keep using the original `Dockerfile`.
 
 Only the small release plan is stored as an Actions artifact. It freezes the public build arguments for packaging retries; it never contains backend secrets. Deployment pins every image to a registry digest, transfers scripts/config/manifests with SHA256 verification, then pulls missing layers directly on the VPS. No image tarballs are uploaded/downloaded through Actions or copied with SCP. Existing release scripts still support rollback to old tar-based releases already loaded on the VPS. Old main revisions are rejected before activation; production runs are serialized, including the standalone Firebase rotation workflow.
 
 Image selection does not diff against the previous merge: it is derived from the full target inputs, so failed deployments, skipped commits and reverts cannot omit a required image. All services are reconciled against pinned desired images, including containers changed by a partially failed release. Unchanged images and runtime settings keep their containers. Config Server mounts an immutable config snapshot at a stable revision path; a config-repo change labels/restarts the Java services so they reload configuration without rebuilding their images. Compose/runtime environment changes still reconcile normally.
+
+On a `push` to `main`, `deploy/release_gate.py` checks whether the full pushed range changes only `README.md`, `START.md`, `AGENTS.md`, `CONTEXT.md`, `docs/`, `architechture/docs/` or `architechture/diagrams/`. If so, it runs the read-only `release_probe.py` over pinned SSH stdin: both active production release links must agree and all 14 running application images, configuration labels and health states must match the pinned manifests. It compares the desired Git tree with the deployed commit, including any commits whose earlier deploy failed or was skipped. Only a verified documentation-only difference skips image planning, the production release and its PostgreSQL backup. Missing Git history, unavailable SSH, divergent backend/frontend revisions, stale/unhealthy containers or any runtime/config/workflow change conservatively cause a full release. Explicit `workflow_dispatch` always performs a full release; use it to apply updated GitHub secrets or recover an incomplete deployment. The probe installs nothing and does not change VPS state. It validates static configuration labels; Firebase secret rotation remains an explicit full-deployment operation when Identity must reload its private credential.
 
 The cross-job build matrix contains only numeric indices. Each packaging job reads its service, image reference and build arguments from the release-plan artifact. This avoids GitHub dropping the entire matrix when an otherwise public registry reference or input hash happens to match a masked secret. Secret masking is not disabled or bypassed.
 
@@ -135,6 +137,8 @@ Backend rollback changes images/config, never restores/downgrades database. If s
 
 ```text
 python deploy/test_images.py
+python deploy/test_release_gate.py
+python deploy/test_release_probe.py
 python deploy/backend/test_prepare.py
 python deploy/identity/test_firebase_secret.py
 bash -n deploy/backend/deploy.sh

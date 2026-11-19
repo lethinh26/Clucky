@@ -40,9 +40,13 @@ def build_args(service, environment, backend):
 def fingerprint(service, files, arguments, refresh=""):
     selected = {}
     for name, object_id in files.items():
-        include = name in ("deploy/images.py", ".github/workflows/frontend-ci.yml")
+        # GitHub Actions runs the packaging process but is not part of an image.
+        # A workflow-only edit must not invalidate every published image.
+        include = name == "deploy/images.py"
         if service in BACKEND:
-            include |= name in ("deploy/backend/Dockerfile", "deploy/backend/runtime.Dockerfile")
+            # Production packages a runner-built JAR with runtime.Dockerfile.
+            # deploy/backend/Dockerfile is used only by local Compose builds.
+            include |= name == "deploy/backend/runtime.Dockerfile"
             if name.startswith("backend/"):
                 component = name.split("/")[1]
                 include |= component not in BACKEND or component == service or name.endswith(".gradle")
