@@ -92,6 +92,9 @@ test("phone-first registration requires SMS OTP and verifies its challenge", asy
   const consent = page.locator("#clucky-phone-consent");
   await expect(consent).toBeVisible();
   await expect(consent).not.toBeChecked();
+  await page.getByRole("button", { name: "Đăng ký", exact: true }).click();
+  await expect(page.locator(".form-error[role='alert']")).toBeVisible();
+  expect(submitted).toHaveLength(0);
   await consent.check();
   await page.getByRole("button", { name: "Đăng ký", exact: true }).click();
   await expect(page).toHaveURL(/\/verify-otp\?phone=0901234567&challengeId=test-register-challenge/);
