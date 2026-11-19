@@ -280,7 +280,7 @@ export const OrdersPage: React.FC = () => {
       title: t("admin:ui.queueNumberCol"),
       dataIndex: "queueNumber",
       key: "queueNumber",
-      width: 140,
+      width: 105,
       render: (qNum: number | undefined, record) => {
         const { queueLabel, dateLabel } = formatQueueWithDate(qNum, record.createdAt);
         return (
@@ -295,6 +295,7 @@ export const OrdersPage: React.FC = () => {
       title: t("business:dashboard.orderCode"),
       dataIndex: "orderCode",
       key: "orderCode",
+      width: 180,
       render: (code, record) => (
         <Space orientation="vertical" size={2}>
           <Typography.Text strong style={{ color: "#16100d" }}>
@@ -310,6 +311,7 @@ export const OrdersPage: React.FC = () => {
       title: t("business:dashboard.customer"),
       dataIndex: "customerName",
       key: "customerName",
+      width: 170,
       render: (name, record) => (
         <div>
           <Typography.Text strong>{name}</Typography.Text>
@@ -323,12 +325,14 @@ export const OrdersPage: React.FC = () => {
       title: t("business:stores.store"),
       dataIndex: "storeName",
       key: "storeName",
+      width: 180,
       render: (store) => <Typography.Text>{store}</Typography.Text>,
     },
     {
       title: t("business:orderdetaildrawer.fulfilmentMethod"),
       dataIndex: "orderType",
       key: "orderType",
+      width: 110,
       render: (type, record) => (
         <Tag
           className={styles.typeTag}
@@ -343,6 +347,7 @@ export const OrdersPage: React.FC = () => {
       title: t("business:catalog.status"),
       dataIndex: "status",
       key: "status",
+      width: 145,
       render: (status: AdminOrderStatus, record) => (
         <Space direction="vertical" size={2}>
           <OrderStatusBadge status={status} />
@@ -368,6 +373,7 @@ export const OrdersPage: React.FC = () => {
       title: t("business:cart.checkout"),
       dataIndex: "paymentMethod",
       key: "paymentMethod",
+      width: 110,
       render: (method, record) => {
         const paymentState = displayPaymentStatus(record);
         return (
@@ -388,6 +394,7 @@ export const OrdersPage: React.FC = () => {
       title: t("business:id.total"),
       dataIndex: "total",
       key: "total",
+      width: 155,
       align: "right",
       render: (total) => (
         <Typography.Text strong className={styles.moneyText}>
@@ -397,6 +404,7 @@ export const OrdersPage: React.FC = () => {
     {
       title: t("business:catalog.actions"),
       key: "actions",
+      width: 105,
       align: "center",
       render: (_, record) => (
         <Space direction="vertical" size={2}>
@@ -763,7 +771,8 @@ export const OrdersPage: React.FC = () => {
                     dataSource={dayOrders}
                     rowKey="id"
                     pagination={false}
-                    scroll={{ x: 1000 }}
+                    tableLayout="fixed"
+                    scroll={{ x: 1260 }}
                   />
                 </section>
               );
