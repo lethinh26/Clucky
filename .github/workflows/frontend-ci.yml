@@ -55,6 +55,8 @@ jobs:
         run: |
           python3 -m unittest discover -s deploy -p test_images.py
           python3 -m unittest discover -s deploy/backend -p 'test*.py'
+          python3 -m unittest discover -s deploy/identity -p 'test*.py'
+          python3 -m unittest discover -s scripts -p 'test_*.py'
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -87,11 +89,14 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/${{ matrix.app }}/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
-
+      # The error contract is shared by both frontends and all backend services.
+      # Keep this check in the required Next.js matrix job and run it only once.
       - name: Check generated error catalog
+        if: matrix.app == 'nextjs'
         run: node ../../scripts/generate-errors.mjs --check
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: ESLint
         run: npm run lint
@@ -129,10 +134,10 @@ jobs:
             frontend/react/package-lock.json
 
       - name: Install customer dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Install admin dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
         working-directory: frontend/react
 
       # The existing Playwright suite starts Next.js in production mode,
