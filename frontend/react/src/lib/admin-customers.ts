@@ -16,7 +16,31 @@ export interface AdminCustomerContact {
   phone: string | null;
 }
 
+export interface CustomerPoints {
+  points: {
+    customerId: number;
+    totalPoints: number;
+    reservedPoints: number;
+    availablePoints: number;
+    lifetimePoints: number;
+    tier: string;
+  };
+  adjustments: {
+    id: number;
+    actorId: number;
+    previousPoints: number;
+    newPoints: number;
+    delta: number;
+    reason: string;
+    createdAt: string;
+  }[];
+}
+
 export const adminCustomersApi = {
+  points: (customerId: number, signal?: AbortSignal) =>
+    api.get<CustomerPoints>(`/api/loyalty/admin/customers/${customerId}/points`, { signal }).then(response => response.data),
+  adjustPoints: (customerId: number, data: { newTotalPoints: number; expectedTotalPoints: number; reason: string; operationId: string }) =>
+    api.put<CustomerPoints>(`/api/loyalty/admin/customers/${customerId}/points`, data).then(response => response.data),
   list: (params: { keyword?: string; status?: CustomerStatus; page: number; size: number }, signal?: AbortSignal) =>
     api.get<PageResponse<AdminCustomer>>('/api/users/customers', { params, signal }).then(response => response.data),
   contact: (customerId: number, signal?: AbortSignal) =>

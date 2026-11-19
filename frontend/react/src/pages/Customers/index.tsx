@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, App, Avatar, Button, Descriptions, Drawer, Form, Input, Modal, Select, Space, Spin, Table, Tag, Tooltip, Typography } from 'antd';
-import { CheckCircleOutlined, EyeOutlined, LockOutlined, MailOutlined, PhoneOutlined, ReloadOutlined, SafetyCertificateOutlined, TeamOutlined, UnlockOutlined, UserOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DollarCircleOutlined, EyeOutlined, LockOutlined, MailOutlined, PhoneOutlined, ReloadOutlined, SafetyCertificateOutlined, TeamOutlined, UnlockOutlined, UserOutlined } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 import { useLocaleTools } from '../../i18n/hooks';
 import { getErrorMessage, type BackendOrder, type PageResponse } from '../../lib/api';
@@ -9,6 +9,7 @@ import { adminCustomersApi, type AdminCustomer, type AdminCustomerContact, type 
 import { StatusTag } from '../Dashboard';
 import { orderDate, paymentMethodLabel } from '../Orders/presentation';
 import styles from './customers.module.css';
+import { LoyaltyPointsModal } from './LoyaltyPointsModal';
 
 export function CustomersPage() {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ function CustomerList() {
   const [target, setTarget] = useState<AdminCustomer | null>(null);
   const [history, setHistory] = useState<AdminCustomer | null>(null);
   const [contactTarget, setContactTarget] = useState<AdminCustomer | null>(null);
+  const [pointsTarget, setPointsTarget] = useState<AdminCustomer | null>(null);
   const refresh = () => setRevision(current => current + 1);
 
   useEffect(() => {
@@ -87,8 +89,9 @@ function CustomerList() {
           </div> },
           { title: t("admin:ui.registrationDate"), dataIndex: 'createdAt', render: value => orderDate(value, locale) },
           { title: t("accounts:status"), dataIndex: 'status', render: (status: string) => <Tag color={status === 'LOCKED' ? 'error' : 'success'} icon={status === 'LOCKED' ? <LockOutlined /> : <CheckCircleOutlined />}>{status === 'LOCKED' ? t("business:users.locked") : t("admin:ui.active216")}</Tag> },
-          { title: t("accounts:action"), width: 200, render: (_: unknown, customer: AdminCustomer) => <Space>
+          { title: t("accounts:action"), width: 250, render: (_: unknown, customer: AdminCustomer) => <Space>
             <Button icon={<EyeOutlined aria-hidden />} onClick={() => setHistory(customer)}>{t("admin:customerDirectory.details")}</Button>
+            <Tooltip title={t('admin:customerDirectory.pointsAction')}><Button icon={<DollarCircleOutlined />} aria-label={t('admin:customerDirectory.pointsAction')} onClick={() => setPointsTarget(customer)} /></Tooltip>
             <Button icon={customer.status === 'LOCKED' ? <UnlockOutlined /> : <LockOutlined />} danger={customer.status === 'ACTIVE'}
               aria-label={customer.status === 'LOCKED' ? t("accounts:unlock") : t("accounts:lock")}
               disabled={!['ACTIVE', 'LOCKED'].includes(customer.status)} onClick={() => setTarget(customer)} />
@@ -101,6 +104,7 @@ function CustomerList() {
     }} />}
     {history && <CustomerHistory key={history.id} customer={history} onClose={() => setHistory(null)} onManage={() => setTarget(history)} />}
     {contactTarget && <CustomerContactModal customer={contactTarget} onClose={() => setContactTarget(null)} />}
+    {pointsTarget && <LoyaltyPointsModal key={pointsTarget.id} customer={pointsTarget} onClose={() => setPointsTarget(null)} onSaved={() => { setPointsTarget(null); refresh(); }} />}
   </div>;
 }
 

@@ -61,6 +61,11 @@ class LoyaltyPostgresTest {
             return new VoucherAuditOutbox(new JdbcTemplate(source), new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules(),
                     org.mockito.Mockito.mock(org.springframework.kafka.core.KafkaTemplate.class), manager);
         }
+        @Bean AdminCustomerProof adminCustomerProof() { return org.mockito.Mockito.mock(AdminCustomerProof.class); }
+        @Bean AdminPointsService adminPointsService(DataSource source, LoyaltyService loyalty,
+                VoucherAuditOutbox audit, AdminCustomerProof adminCustomerProof) {
+            return new AdminPointsService(new JdbcTemplate(source), loyalty, audit, adminCustomerProof);
+        }
         @Bean VoucherService vouchers(VoucherRepository repository, VoucherAuditOutbox audit) { return new VoucherService(repository, audit, org.mockito.Mockito.mock(VoucherStoreVerifier.class)); }
         @Bean VoucherReservationService reservations(VoucherRepository repository, VoucherService vouchers, DataSource source) {
             return new VoucherReservationService(repository, vouchers, new JdbcTemplate(source));
@@ -74,6 +79,70 @@ class LoyaltyPostgresTest {
     @Autowired VoucherRepository voucherRepository;
     @Autowired JpaTransactionManager transactionManager;
     @Autowired BannerRepository bannerRepository;
+    @Autowired AdminPointsService adminPoints;
+
+    @Test
+    void adminAdjustmentUsesOneLedgerEntryForRepeatedCommandAndPreservesLifetimePoints() {
+        long customer = randomId();
+        UUID operationId = UUID.randomUUID();
+        var request = new AdminPointsData.AdjustmentRequest(200L, 0L, "Hỗ trợ hoàn điểm", operationId);
+        var original = adminPoints.adjust(customer, 99L, request);
+        var repeated = adminPoints.adjust(customer, 99L, request);
+
+        assertEquals(200L, original.points().totalPoints());
+        assertEquals(200L, repeated.points().totalPoints());
+        assertEquals(0L, repeated.points().lifetimePoints());
+        assertEquals(1, count("SELECT count(*) FROM promotion_service.point_transactions WHERE operation_key=?",
+                "admin-points:" + operationId));
+        assertEquals(99L, repeated.adjustments().getFirst().actorId());
+
+        assertThrows(ConflictException.class, () -> adminPoints.adjust(customer, 99L,
+                new AdminPointsData.AdjustmentRequest(300L, 0L, "Hỗ trợ hoàn điểm", operationId)));
+        assertEquals(200L, adminPoints.overview(customer).points().totalPoints());
+    }
+
+    @Test
+    void adminAdjustmentCannotConsumePointsReservedByAnOpenOrder() {
+        long customer = randomId();
+        adminPoints.adjust(customer, 99L, new AdminPointsData.AdjustmentRequest(
+                200L, 0L, "Hỗ trợ hoàn điểm", UUID.randomUUID()));
+        long order = randomId();
+        var amount = BigDecimal.valueOf(1_000_000L);
+        var quote = service.preview(new LoyaltyData.PreviewInput(customer, 50, amount));
+        service.reserve(new LoyaltyData.ReserveInput(order, customer, 50, amount,
+                quote.policyVersion(), quote.pointsAmount(), quote.tierDiscount()));
+
+        assertThrows(ConflictException.class, () -> adminPoints.adjust(customer, 99L,
+                new AdminPointsData.AdjustmentRequest(49L, 200L, "Chỉnh điểm", UUID.randomUUID())));
+        var allowed = adminPoints.adjust(customer, 99L,
+                new AdminPointsData.AdjustmentRequest(250L, 200L, "Hỗ trợ điều chỉnh điểm", UUID.randomUUID()));
+        assertEquals(50L, allowed.points().reservedPoints());
+        assertEquals(250L, allowed.points().totalPoints());
+        assertEquals(0L, allowed.points().lifetimePoints());
+    }
+
+    @Test
+    void concurrentAdminAdjustmentsCannotBothApplyAnOldExpectedBalance() throws Exception {
+        long customer = randomId();
+        adminPoints.adjust(customer, 99L,
+                new AdminPointsData.AdjustmentRequest(100L, 0L, "Số dư mở đầu", UUID.randomUUID()));
+        AtomicInteger accepted = new AtomicInteger();
+        AtomicInteger conflicts = new AtomicInteger();
+        race(() -> {
+            try {
+                adminPoints.adjust(customer, 99L,
+                        new AdminPointsData.AdjustmentRequest(200L, 100L,
+                                "Sửa điểm đồng thời", UUID.randomUUID()));
+                accepted.incrementAndGet();
+            } catch (ConflictException expected) {
+                conflicts.incrementAndGet();
+            }
+        });
+        assertEquals(1, accepted.get());
+        assertEquals(1, conflicts.get());
+        assertEquals(200L, adminPoints.overview(customer).points().totalPoints());
+        assertEquals(2, count("SELECT count(*) FROM promotion_service.point_transactions WHERE customer_id=?", customer));
+    }
 
     @Test
     @org.springframework.transaction.annotation.Transactional
