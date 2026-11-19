@@ -147,7 +147,7 @@ export function AdminOrdersPage() {
   const columns = [
     {
       title: t("admin:ui.queueNumberCol"),
-      width: 155,
+      width: 110,
       render: (_: unknown, order: AdminOrder) => {
         const { queueLabel, dateLabel } = formatQueueWithDate(order.queueNumber, order.createdAt);
         return (
@@ -158,16 +158,16 @@ export function AdminOrdersPage() {
         );
       },
     },
-    { title: t("business:promotionUi.order"), width: 220, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><Button type="link" onClick={() => openDetail(order.id)}>{order.orderCode}</Button><small>{orderDate(order.createdAt, locale)}</small></div> },
-    { title: t("admin:nav.customers"), width: 175, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><strong>{order.customerName}</strong><small>{order.customerPhone || t("admin:ui.noPhoneNumberProvided")}</small></div> },
-    { title: t("admin:ui.branchFulfillment"), width: 220, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><span>{stores.find(store => store.id === Number(order.storeId))?.name || order.storeName}</span><small>{order.orderType === 'DELIVERY' ? i18n.t("shipping:ui.delivery") : order.diningOption === 'DINE_IN' ? i18n.t("shipping:ui.dineInCustomerCollectsAtTheCounter2") : order.diningOption === 'TAKE_AWAY' || order.orderSource === 'WEB' ? i18n.t("shipping:ui.takeAway") : i18n.t("shipping:ui.storePickup")}</small></div> },
-    { title: t("accounts:status"), width: 155, render: (_: unknown, order: AdminOrder) => <OrderStatusBadge status={order.status} /> },
-    { title: t("business:cart.checkout"), width: 185, render: (_: unknown, order: AdminOrder) => {
+    { title: t("business:promotionUi.order"), width: 230, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><Button type="link" onClick={() => openDetail(order.id)}>{order.orderCode}</Button><small>{orderDate(order.createdAt, locale)}</small></div> },
+    { title: t("admin:nav.customers"), width: 170, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><strong>{order.customerName}</strong><small>{order.customerPhone || t("admin:ui.noPhoneNumberProvided")}</small></div> },
+    { title: t("admin:ui.branchFulfillment"), width: 230, render: (_: unknown, order: AdminOrder) => <div className="order-cell"><span>{stores.find(store => store.id === Number(order.storeId))?.name || order.storeName}</span><small>{order.orderType === 'DELIVERY' ? i18n.t("shipping:ui.delivery") : order.diningOption === 'DINE_IN' ? i18n.t("shipping:ui.dineInCustomerCollectsAtTheCounter2") : order.diningOption === 'TAKE_AWAY' || order.orderSource === 'WEB' ? i18n.t("shipping:ui.takeAway") : i18n.t("shipping:ui.storePickup")}</small></div> },
+    { title: t("accounts:status"), width: 150, render: (_: unknown, order: AdminOrder) => <OrderStatusBadge status={order.status} /> },
+    { title: t("business:cart.checkout"), width: 120, render: (_: unknown, order: AdminOrder) => {
       const paymentState = displayPaymentStatus(order);
       return <div className="order-cell"><Tag color={paymentColor(paymentState)}>{paymentLabels[paymentState] ?? t("admin:paymentStates.UNKNOWN")}</Tag><small>{paymentMethodLabel(order.paymentMethod)}</small></div>;
     } },
-    { title: t("business:id.total"), width: 130, align: 'right' as const, dataIndex: "total", render: (amount: number) => <strong className="order-amount">{money(amount)}</strong> },
-    { title: t("accounts:action"), width: 125, fixed: 'right' as const, render: (_: unknown, order: AdminOrder) => <Space direction="vertical" size={0}><Button type="link" size="small" onClick={() => openDetail(order.id)}>{t("business:orderdetaildrawer.details")}</Button>
+    { title: t("business:id.total"), width: 160, align: 'right' as const, dataIndex: "total", render: (amount: number) => <strong className="order-amount">{money(amount)}</strong> },
+    { title: t("accounts:action"), width: 120, fixed: 'right' as const, render: (_: unknown, order: AdminOrder) => <Space direction="vertical" size={0}><Button type="link" size="small" onClick={() => openDetail(order.id)}>{t("business:orderdetaildrawer.details")}</Button>
       <Button type="text" size="small" icon={<WalletOutlined />} onClick={() => setFinanceId(Number(order.id))}>{t("admin:ui.finance")}</Button></Space> },
   ];
 
@@ -369,7 +369,8 @@ export function AdminOrdersPage() {
                 size="middle"
                 loading={loading}
                 dataSource={dayOrders}
-                scroll={{ x: 1120 }}
+                tableLayout="fixed"
+                scroll={{ x: 1290 }}
                 pagination={false}
                 columns={columns}
               />
