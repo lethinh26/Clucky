@@ -83,7 +83,15 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request,
             @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
+            @RequestHeader(value = "User-Agent", required = false) String userAgent,
             HttpServletResponse response) {
+        AuthService.AuthResult result = authService.login(request, userAgent);
+        setSessionCookies(response, result, client);
+        return toAuthResponse(result);
+    }
+
+    /** Compatibility entrypoint for existing direct controller tests. */
+    public AuthResponse login(LoginRequest request, String client, HttpServletResponse response) {
         AuthService.AuthResult result = authService.login(request);
         setSessionCookies(response, result, client);
         return toAuthResponse(result);

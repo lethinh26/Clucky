@@ -69,7 +69,8 @@ async function send<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw { code: "NETWORK_ERROR" };
   }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw { status: response.status, code: data.code, message: data.message };
+  if (!response.ok) throw { status: response.status, code: data.code, message: data.message,
+    fieldErrors: data.fieldErrors };
   return data as T;
 }
 

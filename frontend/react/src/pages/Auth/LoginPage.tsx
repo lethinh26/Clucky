@@ -53,7 +53,9 @@ export const LoginPage: React.FC = () => {
       navigate(roleHome(session.role));
     } catch (err) {
       if (!task.isCurrent()) return;
-      setError(err);
+      const failure = err as { status?: number; fieldErrors?: { sessionLimit?: string } } | null;
+      setError(failure?.status === 409 && failure.fieldErrors?.sessionLimit === 'REACHED'
+        ? 'accounts:deviceSessions.loginLimit' : err);
     } finally {
       if (task.isCurrent()) setLoading(false);
     }

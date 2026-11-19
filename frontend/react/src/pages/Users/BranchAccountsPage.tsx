@@ -14,6 +14,7 @@ import { matchesStoreSearch } from '../Stores/presentation';
 import { orderDate } from '../Orders/presentation';
 import { useLocaleTools } from '../../i18n/hooks';
 import { accountAuditAction, accountReadiness, accountRole, type Account } from './branch-account-presentation';
+import { SessionsPanel } from '../../components/sessions/SessionsPanel';
 import './branch-accounts.css';
 
 interface Pair { storeId: number; readiness: string; recoveryEmail: string | null; verified: boolean; accounts: Account[] }
@@ -327,6 +328,11 @@ function BranchDetails({ storeId, storeName, onBusyChange }: { storeId: number; 
         </section> : <section className="branch-panel"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("admin:ui.thisBranchHasNoCurrentAccountPair")}>
           <p className="branch-hint">{readiness === 'UNPROVISIONED' ? t("admin:ui.noManagerOrStaffAccountProvisionedForThis") : t("admin:ui.provisioningStatusUpdatesAutomaticallyWhenSynchronizationFinishes")}</p>
         </Empty></section> },
+        { key: 'sessions', label: t('deviceSessions.title'), icon: <SafetyCertificateOutlined />,
+          children: pair ? <div style={{ display: 'grid', gap: 18 }}>
+            {pair.accounts.filter(account => isAdmin || account.role === 'STAFF' || account.id === user.id)
+              .map(account => <SessionsPanel key={account.id} accountId={account.id} accountName={`${accountRole(account.role)} · ${account.login}`} />)}
+          </div> : <Empty description={t('unprovisioned')} /> },
         { key: 'audit', label: t("admin:ui.accountLog"), icon: <AuditOutlined />, children: <section className="branch-panel">
           <div className="branch-panel-heading"><div><h3>{t("admin:ui.accountAccessHistory")}</h3><p>{t(isAdmin ? "admin:ui.onlyAccountEventsForTheSelectedBranchAre" : 'auditNotice')}</p></div>
             <Tag>{auditTotal} {t("admin:ui.events")}</Tag></div>

@@ -26,6 +26,8 @@ public class RefreshTokenService {
     private final JwtIssuer jwtIssuer;
     private final SessionRevocationService sessionRevocationService;
     private final AuthProperties authProperties;
+    @org.springframework.beans.factory.annotation.Autowired
+    private AuthSessionService authSessions;
 
     public RefreshTokenService(
             RefreshTokenRepository refreshTokenRepository,
@@ -43,6 +45,11 @@ public class RefreshTokenService {
 
     @Transactional
     public void saveRefreshToken(Long userId, String rawRefreshToken, Instant expiresAt) {
+        saveRefreshToken(userId, rawRefreshToken, expiresAt, null);
+    }
+
+    @Transactional
+    public void saveRefreshToken(Long userId, String rawRefreshToken, Instant expiresAt, String sid) {
         String tokenHash = hash(rawRefreshToken);
         RefreshToken entity = new RefreshToken();
         entity.setUserId(userId);
@@ -50,6 +57,7 @@ public class RefreshTokenService {
         entity.setExpiresAt(expiresAt);
         entity.setRevoked(false);
         entity.setCreatedAt(Instant.now());
+        entity.setSessionId(sid);
         refreshTokenRepository.save(entity);
     }
 
@@ -67,6 +75,21 @@ public class RefreshTokenService {
         String tokenHash = hash(rawRefreshToken);
         RefreshToken storedToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ApiException(ErrorCode.TOKEN_REVOKED));
+
+        if (!user.getId().equals(storedToken.getUserId())
+                || (storedToken.getSessionId() != null && !storedToken.getSessionId().equals(claims.sid()))) {
+            throw new ApiException(ErrorCode.TOKEN_REVOKED);
+        }
+        if (authSessions != null && (user.getRole() == Role.ADMIN || user.getRole() == Role.STORE_MANAGER
+                || user.getRole() == Role.STAFF) && (storedToken.getSessionId() == null
+                || !authSessions.isActive(user.getId(), claims.sid()))) {
+            // Existing internal refresh tokens lack an indexed sid: explicitly require re-login on cutover.
+            throw new ApiException(ErrorCode.TOKEN_REVOKED);
+        }
+        if (authSessions != null && storedToken.getSessionId() != null
+                && !authSessions.isActive(user.getId(), claims.sid())) {
+            throw new ApiException(ErrorCode.TOKEN_REVOKED);
+        }
 
         if (Boolean.TRUE.equals(storedToken.getRevoked())) {
             // Replay attack: token was already revoked!
@@ -98,7 +121,10 @@ public class RefreshTokenService {
         String newRefreshToken = jwtIssuer.issueRefreshToken(user.getId(), sid, UUID.randomUUID().toString());
 
         Instant newExpiry = Instant.now().plus(authProperties.refreshTtl());
-        saveRefreshToken(user.getId(), newRefreshToken, newExpiry);
+        if (authSessions != null && storedToken.getSessionId() != null) {
+            authSessions.requireActiveAndTouch(user.getId(), sid, newExpiry);
+        }
+        saveRefreshToken(user.getId(), newRefreshToken, newExpiry, storedToken.getSessionId());
 
         return new RotateResult(newAccessToken, newRefreshToken, user);
     }
@@ -110,9 +136,19 @@ public class RefreshTokenService {
         }
         JwtIssuer.RefreshTokenClaims claims = jwtIssuer.verifyAndParseRefreshToken(rawRefreshToken);
         String tokenHash = hash(rawRefreshToken);
+        User user = userRepository.findByIdForUpdate(claims.userId())
+                .orElseThrow(() -> new ApiException(ErrorCode.UNAUTHENTICATED));
+        RefreshToken stored = refreshTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new ApiException(ErrorCode.TOKEN_REVOKED));
+        if (!user.getId().equals(stored.getUserId()) || (stored.getSessionId() != null
+                && !stored.getSessionId().equals(claims.sid()))) throw new ApiException(ErrorCode.TOKEN_REVOKED);
+        if (authSessions != null && stored.getSessionId() != null) {
+            authSessions.revoke(user.getId(), claims.sid(), user.getId(), "LOGOUT");
+        } else {
+            sessionRevocationService.revokeSession(claims.sid(),
+                    authProperties.refreshTtl().plus(authProperties.accessTtl()).plusMinutes(1));
+        }
         refreshTokenRepository.revokeToken(tokenHash);
-        sessionRevocationService.revokeSession(claims.sid(),
-                authProperties.refreshTtl().plus(authProperties.accessTtl()).plusMinutes(1));
     }
 
     @Transactional
@@ -120,9 +156,10 @@ public class RefreshTokenService {
         if (userId == null || userId <= 0) {
             return;
         }
-        refreshTokenRepository.revokeAllForUser(userId);
         sessionRevocationService.revokeAllUserSessions(userId, Instant.now(),
                 authProperties.refreshTtl().plus(authProperties.accessTtl()).plusMinutes(1));
+        if (authSessions != null) authSessions.revokeAll(userId, "ACCOUNT_RESET");
+        refreshTokenRepository.revokeAllForUser(userId);
     }
 
     public static String hash(String input) {

@@ -31,6 +31,8 @@ public class AuthService {
     private final EmailEventPublisher emailEventPublisher;
     private final AuthProperties authProperties;
     private final IdentityChallenges challenges;
+    @org.springframework.beans.factory.annotation.Autowired
+    private AuthSessionService authSessions;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AuthService(
@@ -181,6 +183,11 @@ public class AuthService {
 
     @Transactional
     public AuthResult login(LoginRequest request) {
+        return login(request, null);
+    }
+
+    @Transactional
+    public AuthResult login(LoginRequest request, String userAgent) {
         String identifier = request.email() == null ? null : request.email().trim();
         boolean phoneLogin = identifier != null && (identifier.startsWith("+") || identifier.matches("0[0-9]{9}"));
         User user = (phoneLogin
@@ -216,7 +223,7 @@ public class AuthService {
             throw new ApiException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
-        return issueSession(user);
+        return issueSession(user, userAgent);
     }
 
     @Transactional
@@ -406,12 +413,22 @@ public class AuthService {
     }
 
     AuthResult issueSession(User user) {
+        return issueSession(user, null);
+    }
+
+    AuthResult issueSession(User user, String userAgent) {
         requireSessionAllowed(user);
         String sid = UUID.randomUUID().toString();
+        Instant expiry = Instant.now().plus(authProperties.refreshTtl());
+        if (authSessions != null) authSessions.issue(user, sid, expiry, userAgent);
         String accessToken = jwtIssuer.issueAccessToken(user.getId(), user.getRole(), user.getStoreId(), sid);
         String refreshToken = jwtIssuer.issueRefreshToken(user.getId(), sid, UUID.randomUUID().toString());
-        refreshTokenService.saveRefreshToken(user.getId(), refreshToken,
-                Instant.now().plus(authProperties.refreshTtl()));
+        if (authSessions == null) {
+            // Legacy constructor-based unit tests have no Spring-injected ledger.
+            refreshTokenService.saveRefreshToken(user.getId(), refreshToken, expiry);
+        } else {
+            refreshTokenService.saveRefreshToken(user.getId(), refreshToken, expiry, sid);
+        }
         return new AuthResult(accessToken, refreshToken, user);
     }
 
