@@ -66,6 +66,17 @@ test("invalid password login displays only the neutral localized error", async (
 
 test("phone-first registration requires SMS OTP and verifies its challenge", async ({ page }) => {
   const submitted: unknown[] = [];
+  await page.route("**/api/legal/public/status", route => route.fulfill({ json: {
+    consentRequired: true, documentsPublished: true,
+  } }));
+  for (const type of ["TERMS_OF_SERVICE", "PRIVACY_POLICY"]) {
+    await page.route(`**/api/legal/public/${type}`, route => route.fulfill({ json: {
+      type, version: 1, titleVi: type, titleEn: type,
+      htmlVi: "<p>Test-only approved document.</p>",
+      htmlEn: "<p>Test-only approved document.</p>",
+      publishedAt: "2026-11-19T00:00:00Z",
+    } }));
+  }
   await page.route("**/api/auth/register", route => {
     submitted.push(route.request().postDataJSON());
     return route.fulfill({ status: 201, json: { challengeId: "test-register-challenge" } });
@@ -78,9 +89,16 @@ test("phone-first registration requires SMS OTP and verifies its challenge", asy
   await page.getByRole("textbox", { name: "Họ và tên" }).fill("Nguyễn Văn An");
   await page.getByRole("textbox", { name: "Số điện thoại nhận OTP" }).fill("0901 234 567");
   await page.locator('input[name="password"]:visible').fill("Password1");
+  const consent = page.locator("#clucky-phone-consent");
+  await expect(consent).toBeVisible();
+  await expect(consent).not.toBeChecked();
+  await consent.check();
   await page.getByRole("button", { name: "Đăng ký", exact: true }).click();
   await expect(page).toHaveURL(/\/verify-otp\?phone=0901234567&challengeId=test-register-challenge/);
-  expect(submitted[0]).toEqual({ fullName: "Nguyễn Văn An", phone: "0901234567", password: "Password1" });
+  expect(submitted[0]).toEqual({
+    fullName: "Nguyễn Văn An", phone: "0901234567", password: "Password1",
+    consent: { accepted: true, termsVersion: 1, privacyVersion: 1 },
+  });
   const digits = page.getByRole("group", { name: "Mã OTP" }).locator("input");
   for (const [index, digit] of [..."123456"].entries()) await digits.nth(index).fill(digit);
   await page.getByRole("button", { name: "Xác nhận", exact: true }).click();
