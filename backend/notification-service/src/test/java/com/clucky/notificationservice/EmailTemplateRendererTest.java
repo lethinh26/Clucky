@@ -16,6 +16,22 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class EmailTemplateRendererTest {
     @Test
+    void adminRichTextIsSanitizedAndDynamicValuesCannotInjectHtml() throws Exception {
+        var renderer = new EmailTemplateRenderer("https://clucky.example");
+        var html = "<h2>Xin chào {{customerName}}</h2>"
+                + "<script>alert('bad')</script><a href=\"javascript:alert(1)\">Click</a>";
+        var variables = Map.of("customerName", "<img src=x onerror=alert(1)>",
+                "orderCode", "ORDER-42", "orderItems", "[]", "orderId", "42");
+        var result = renderer.render("ORDER_CONFIRMED", "Đơn {{orderCode}}", "Chào {{customerName}}", html,
+                variables, "preview", Instant.now());
+        assertTrue(result.get("html").contains("<h2>Xin chào"));
+        assertTrue(result.get("html").contains("&lt;img"));
+        assertFalse(result.get("html").contains("<script>"));
+        assertFalse(result.get("html").contains("javascript:"));
+        assertFalse(result.get("html").contains("<img src=x onerror="));
+        assertTrue(result.get("body").contains("<img src=x onerror=alert(1)>"));
+    }
+    @Test
     void allNineteenTemplatesUseTheApprovedLayoutAndOnlyActivationSecurityEmailHasAnAction() throws Exception {
         var renderer = new EmailTemplateRenderer("https://clucky.example", "https://admin.clucky.example");
         String sql = new ClassPathResource("db/migration/V14__refined_email_templates.sql")

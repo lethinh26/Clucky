@@ -33,6 +33,9 @@ import AuditLogPage from "./pages/AuditLog";
 
 import { OrderProvider } from "./context/OrderContext";
 import { PageLoadingProvider } from "./components/ui-loader/page-loading";
+
+const EmailTemplatesPage = React.lazy(() => import("./pages/EmailTemplates").then(module => ({ default: module.EmailTemplatesPage })));
+
 function OrdersRoute() {
   const { isAdmin, isStaff } = useAuth();
   return isAdmin ? <AdminOrdersPage /> : isStaff ? <StaffOrdersPage /> : <OrdersPage />;
@@ -231,6 +234,10 @@ export const App: React.FC = () => {
                       path="email-logs"
                       element={<ProtectedRoute allowedRoles={["ADMIN", "STORE_MANAGER"]}><EmailLogsPage /></ProtectedRoute>}
                     />
+                    <Route path="email-templates"
+                      element={<ProtectedRoute allowedRoles={["ADMIN"]}>
+                        <React.Suspense fallback={<div role="status" aria-busy="true" />}><EmailTemplatesPage /></React.Suspense>
+                      </ProtectedRoute>} />
                     <Route
                       path="audit"
                       element={<ProtectedRoute allowedRoles={["ADMIN"]}><AuditLogPage /></ProtectedRoute>}

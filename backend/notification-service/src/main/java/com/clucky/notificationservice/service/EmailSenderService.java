@@ -98,6 +98,7 @@ public class EmailSenderService {
             try {
                 var template = templates.findByTemplateKeyAndIsActiveTrue(effectiveTemplate).orElseThrow();
                 content = renderer.render(effectiveTemplate, template.getSubjectTemplate(), template.getBodyTemplate(),
+                        template.getHtmlTemplate(),
                         variables, messageId, expiry);
                 displaySubject = sensitive ? "Clucky — Account verification"
                         : PLACEHOLDER.matcher(template.getSubjectTemplate()).replaceAll("(…)");

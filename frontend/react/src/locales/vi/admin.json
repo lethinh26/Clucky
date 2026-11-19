@@ -1,4 +1,28 @@
 {
+  "emailTemplates": {
+    "title": "Mẫu email",
+    "description": "Quản lý mẫu email giao dịch, tài khoản và thông báo. Các bản nháp không ảnh hưởng email đang gửi.",
+    "list": "Danh sách mẫu",
+    "search": "Tìm mẫu email...",
+    "choose": "Chọn một mẫu email để chỉnh sửa.",
+    "loading": "Đang tải mẫu email",
+    "help": "Sửa nội dung, xem trước bằng dữ liệu mẫu, lưu bản nháp rồi xuất bản khi đã kiểm tra.",
+    "editor": "Soạn thảo",
+    "preview": "Xem trước",
+    "history": "Lịch sử phiên bản",
+    "subject": "Tiêu đề email",
+    "body": "Nội dung email",
+    "textPreview": "Nội dung dạng văn bản",
+    "toolbar": "Thanh công cụ định dạng",
+    "bold": "In đậm", "italic": "In nghiêng", "heading": "Tiêu đề phụ", "bullets": "Danh sách", "numbers": "Danh sách đánh số", "undo": "Hoàn tác",
+    "variablesHint": "Có thể chèn biến mã đơn hàng hoặc tên khách hàng. Mỗi mẫu chỉ chấp nhận các biến tương ứng với sự kiện của nó.",
+    "saveDraft": "Lưu bản nháp", "saved": "Đã lưu bản nháp.",
+    "publish": "Xuất bản", "published": "Đã xuất bản mẫu email.",
+    "confirmPublish": "Xuất bản bản nháp này cho các email tạo mới?",
+    "restore": "Khôi phục", "restored": "Đã khôi phục nội dung thành bản nháp mới.",
+    "confirmRestore": "Khôi phục nội dung phiên bản này vào bản nháp mới?",
+    "version": "Phiên bản", "state": "Trạng thái", "current": "Đang sử dụng", "draft": "Bản nháp", "archived": "Bản cũ", "actor": "Người sửa", "actions": "Thao tác"
+  },
   "customerDirectory": {
     "viewOrder": "Xem chi tiết đơn",
     "activeOnPage": "Đang hoạt động trên trang",

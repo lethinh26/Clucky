@@ -19,6 +19,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
 
 @Component
 public class EmailTemplateRenderer {
@@ -54,8 +56,14 @@ public class EmailTemplateRenderer {
 
     public Map<String, String> render(String key, String subjectTemplate, String bodyTemplate,
             Map<String, String> variables, String messageId, Instant expiresAt) {
+        return render(key, subjectTemplate, bodyTemplate, null, variables, messageId, expiresAt);
+    }
+
+    public Map<String, String> render(String key, String subjectTemplate, String bodyTemplate,
+            String htmlTemplate, Map<String, String> variables, String messageId, Instant expiresAt) {
         var values = new HashMap<>(variables);
-        if (bodyTemplate != null && bodyTemplate.contains("{{amount}}")) {
+        if ((bodyTemplate != null && bodyTemplate.contains("{{amount}}"))
+                || (htmlTemplate != null && htmlTemplate.contains("{{amount}}"))) {
             values.put("amount", money(values.get("amount")));
         }
         boolean branch = key.startsWith("BRANCH_");
@@ -185,8 +193,12 @@ public class EmailTemplateRenderer {
         text.append("\n\n").append(notice).append("\n\nClucky — Crispy outside. Happy inside.\n").append(footer);
         String eyebrow = security ? "register-otp".equals(key) ? "CHÀO MỪNG ĐẾN VỚI CLUCKY" : "BẢO MẬT TÀI KHOẢN"
                 : key.startsWith("ORDER_") ? "CẢM ƠN BẠN ĐÃ CHỌN CLUCKY" : "THÔNG TIN GIAO DỊCH";
+        String htmlBody = htmlTemplate == null ? lines(body) : sanitizeHtml(substitute(htmlTemplate,
+                values.entrySet().stream().filter(entry -> entry.getValue() != null)
+                        .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey,
+                        entry -> escape(entry.getValue())))));
         String html = substitute(layout, Map.of("subject", escape(subject), "title", escape(heading(key, subject)),
-                "eyebrow", eyebrow, "content", lines(body), "details", details.toString(), "action", action,
+                "eyebrow", eyebrow, "content", htmlBody, "details", details.toString(), "action", action,
                 "notice", lines(notice), "footer", lines(footer)));
         return Map.of("subject", subject, "body", text.toString(), "html", html);
     }
@@ -313,6 +325,13 @@ public class EmailTemplateRenderer {
 
     private static String lines(String text) {
         return escape(text).replace("\r\n", "\n").replace("\n", "<br>");
+    }
+
+    public static String sanitizeHtml(String html) {
+        if (html == null || html.isBlank()) return null;
+        Safelist allowed = Safelist.basic().addTags("h1", "h2", "h3", "blockquote", "div", "span")
+                .removeProtocols("a", "href", "http", "ftp", "mailto");
+        return Jsoup.clean(html, allowed);
     }
 
     private static String escape(String text) { return HtmlUtils.htmlEscape(text, "UTF-8"); }

@@ -20,6 +20,9 @@ public class MailTemplate {
     @Column(name = "body_template", nullable = false, columnDefinition = "text")
     private String bodyTemplate;
 
+    @Column(name = "html_template", columnDefinition = "text")
+    private String htmlTemplate;
+
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
@@ -37,6 +40,8 @@ public class MailTemplate {
 
     public String getBodyTemplate() { return bodyTemplate; }
     public void setBodyTemplate(String bodyTemplate) { this.bodyTemplate = bodyTemplate; }
+    public String getHtmlTemplate() { return htmlTemplate; }
+    public void setHtmlTemplate(String htmlTemplate) { this.htmlTemplate = htmlTemplate; }
 
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean isActive) { this.isActive = isActive; }

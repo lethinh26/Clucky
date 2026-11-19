@@ -35,6 +35,37 @@ import static org.mockito.Mockito.*;
 
 @EnabledIfEnvironmentVariable(named = "CLUCKY_TEST_DB_URL", matches = ".+")
 class EmailDeliveryPostgresTest {
+    @Test
+    void publishedHtmlOnlyChangeIsIncludedInTransactionalAuditDigest() {
+        var source = new DriverManagerDataSource(System.getenv("CLUCKY_TEST_DB_URL"),
+                "postgres", System.getenv("CLUCKY_TEST_DB_PASSWORD"));
+        Flyway.configure().dataSource(source).schemas("notification_service")
+                .locations("classpath:db/migration").load().migrate();
+        var jdbc = new JdbcTemplate(source);
+        var tx = new TransactionTemplate(new DataSourceTransactionManager(source));
+        String key = "AUDIT_HTML_" + UUID.randomUUID().toString().replace("-", "");
+        tx.executeWithoutResult(status -> {
+            status.setRollbackOnly();
+            jdbc.queryForObject("SELECT set_config('clucky.actor_id', ?, true)", String.class, "12345");
+            jdbc.update("""
+                    INSERT INTO notification_service.mail_templates
+                    (template_key,subject_template,body_template,is_active,html_template)
+                    VALUES (?,'Test subject','Test body',TRUE,'<p>Before</p>')
+                    """, key);
+            jdbc.update("UPDATE notification_service.mail_templates SET html_template=? WHERE template_key=?",
+                    "<p>After</p>", key);
+            Map<String, Object> entry = jdbc.queryForMap("""
+                    SELECT actor_id,before_digest,after_digest
+                    FROM notification_service.configuration_audit
+                    WHERE template_key=? AND operation='UPDATE' ORDER BY id DESC LIMIT 1
+                    """, key);
+            assertEquals("12345", entry.get("actor_id"));
+            assertNotNull(entry.get("before_digest"));
+            assertNotNull(entry.get("after_digest"));
+            assertNotEquals(entry.get("before_digest"), entry.get("after_digest"));
+        });
+    }
+
     private String mailText(jakarta.mail.Part part, String type) throws Exception {
         if (part.isMimeType(type)) return part.getContent().toString();
         if (part.getContent() instanceof jakarta.mail.Multipart multipart) {

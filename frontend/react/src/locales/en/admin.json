@@ -1,4 +1,28 @@
 {
+  "emailTemplates": {
+    "title": "Email templates",
+    "description": "Manage transactional, account, and notification emails. Drafts never affect queued messages.",
+    "list": "Templates",
+    "search": "Search email templates...",
+    "choose": "Choose a template to edit.",
+    "loading": "Loading template",
+    "help": "Edit and preview with sample data, save a draft, then publish after reviewing it.",
+    "editor": "Editor",
+    "preview": "Preview",
+    "history": "Version history",
+    "subject": "Email subject",
+    "body": "Email body",
+    "textPreview": "Plain-text version",
+    "toolbar": "Formatting toolbar",
+    "bold": "Bold", "italic": "Italic", "heading": "Subheading", "bullets": "Bullet list", "numbers": "Numbered list", "undo": "Undo",
+    "variablesHint": "You can insert variables for order codes and customer names. Each template accepts only variables supported by its event.",
+    "saveDraft": "Save draft", "saved": "Draft saved.",
+    "publish": "Publish", "published": "Email template published.",
+    "confirmPublish": "Publish this draft for newly created emails?",
+    "restore": "Restore", "restored": "Restored this version into a new draft.",
+    "confirmRestore": "Restore this version as a new draft?",
+    "version": "Version", "state": "Status", "current": "Current", "draft": "Draft", "archived": "Previous", "actor": "Edited by", "actions": "Actions"
+  },
   "customerDirectory": {
     "viewOrder": "View order details",
     "activeOnPage": "Active on this page",
