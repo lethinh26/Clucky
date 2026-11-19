@@ -28,6 +28,8 @@ export function CustomerFooter() {
           <Link href="/loyalty">{t("common.nav.loyalty")}</Link>
           <Link href="/orders">{t("common.nav.trackOrders")}</Link>
           <Link href="/account">{t("common.nav.account")}</Link>
+          <Link href="/terms-of-service">{t("legal.terms")}</Link>
+          <Link href="/privacy-policy">{t("legal.privacy")}</Link>
         </nav>
 
         <div

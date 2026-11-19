@@ -16,6 +16,7 @@ dependencies {
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.jsoup:jsoup:1.20.1'
 }
 
 bootJar { archiveFileName = 'identity-service-0.1.0-SNAPSHOT.jar' }

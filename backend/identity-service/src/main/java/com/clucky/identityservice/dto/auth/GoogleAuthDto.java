@@ -3,6 +3,7 @@ package com.clucky.identityservice.dto.auth;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 
 public final class GoogleAuthDto {
     private GoogleAuthDto() {}
@@ -14,8 +15,12 @@ public final class GoogleAuthDto {
 
     public record Complete(
             @NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{43}") String pendingToken,
-            @NotBlank @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,72}$") String password
+            @NotBlank @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,72}$") String password,
+            @Valid LegalConsentRequest consent
     ) {
+        public Complete(String pendingToken, String password) {
+            this(pendingToken, password, null);
+        }
         @com.fasterxml.jackson.annotation.JsonAnySetter
         public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }
     }

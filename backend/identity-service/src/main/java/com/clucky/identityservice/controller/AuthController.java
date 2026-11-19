@@ -54,7 +54,7 @@ public class AuthController {
     public AuthResponse completeGoogle(@Valid @RequestBody GoogleAuthDto.Complete request,
             @RequestHeader(value = "X-Clucky-Client", defaultValue = "customer") String client,
             HttpServletResponse response) {
-        AuthService.AuthResult result = googleAuthService.complete(request.pendingToken(), request.password());
+        AuthService.AuthResult result = googleAuthService.complete(request.pendingToken(), request.password(), request.consent());
         setSessionCookies(response, result, client);
         return toAuthResponse(result);
     }

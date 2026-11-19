@@ -1,0 +1,12 @@
+.legal-admin-page { display: grid; gap: 18px; }
+.legal-page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.legal-page-heading h2 { margin: 0 0 4px !important; }
+.legal-rich-editor { border: 1px solid #e8e2d9; border-radius: 12px; background: #fff; overflow: hidden; }
+.legal-editor-toolbar { background: #fffaf3; border-bottom: 1px solid #e8e2d9; padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+.legal-rich-editor .tiptap { min-height: 250px; max-height: 520px; overflow: auto; padding: 18px; outline: none; line-height: 1.75; font-family: Quicksand, sans-serif; }
+.legal-rich-editor .tiptap h2 { font-size: 22px; font-weight: 700; margin: 18px 0 8px; }
+.legal-rich-editor .tiptap p { margin: 8px 0; }
+.legal-rich-editor .tiptap ul, .legal-rich-editor .tiptap ol { padding-left: 24px; }
+.legal-rich-editor .tiptap a { color: #8f1216; text-decoration: underline; }
+.legal-rich-editor .tiptap blockquote { border-left: 3px solid #8f1216; padding-left: 14px; }
+.legal-preview-frame { width: 100%; height: 480px; margin-top: 14px; border: 1px solid #e8e2d9; border-radius: 10px; background: #fff; }

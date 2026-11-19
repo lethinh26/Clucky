@@ -6,7 +6,7 @@ import { useLocaleTools } from "@/lib/i18n/hooks";
 import { useState, type ReactNode } from "react";
 import { useDeferredAction } from "@/components/ui-loader/use-deferred-action";
 import { useNavigationRouter as useRouter } from "@/components/ui-loader/use-navigation-router";
-import { authApi, type AuthTokens } from "@/lib/api";
+import { authApi, type AuthTokens, type LegalConsentInput } from "@/lib/api";
 import { getGoogleIdentity } from "@/lib/google-auth";
 import { GoogleButton } from "./google-button";
 import { GoogleCompletePassword } from "./google-complete-password";
@@ -60,13 +60,13 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
     }
   }
 
-  async function complete(password: string) {
+  async function complete(password: string, consent?: LegalConsentInput) {
     if (!pending || loading) return;
     const task = startAction();
     setLoading(true);
     setError("");
     try {
-      const tokens = await authApi.completeGoogle(pending.token, password);
+      const tokens = await authApi.completeGoogle(pending.token, password, consent);
       if (task.isCurrent()) finish(tokens);
     } catch (err) {
       if (!task.isCurrent()) return;
@@ -78,7 +78,9 @@ export function GoogleAuthFlow({ children }: { children: ReactNode }) {
         );
       } else if (status === 409 || status === undefined || status >= 500) {
         setPending(null);
-        setError("auth.google.restartSignIn");
+        setError(status === 409 && typeof err === 'object' && err !== null
+          && 'fieldErrors' in err && err.fieldErrors && typeof err.fieldErrors === 'object'
+          && 'consent' in err.fieldErrors ? "legal.outdated" : "auth.google.restartSignIn");
       } else {
         setError(err);
       }

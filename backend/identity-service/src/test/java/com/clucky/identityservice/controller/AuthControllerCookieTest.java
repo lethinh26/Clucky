@@ -56,7 +56,7 @@ class AuthControllerCookieTest {
         assertTrue(loginResponse.getHeader("Set-Cookie").contains("SameSite=Lax"));
 
         var completeRequest = new GoogleAuthDto.Complete("p".repeat(43), "Password123");
-        when(google.complete(completeRequest.pendingToken(), completeRequest.password())).thenReturn(session);
+        when(google.complete(completeRequest.pendingToken(), completeRequest.password(), completeRequest.consent())).thenReturn(session);
         var completeResponse = new MockHttpServletResponse();
         assertEquals(loginBody, controller.completeGoogle(completeRequest, "customer", completeResponse));
         assertEquals(loginResponse.getHeader("Set-Cookie"), completeResponse.getHeader("Set-Cookie"));

@@ -80,6 +80,10 @@ class AuthServiceTest {
                         publishedCodes.put(template, otp);
                     }
                 }, properties, challenges);
+        var legal = mock(LegalDocumentService.class);
+        when(legal.requireCurrentConsent(nullable(com.clucky.identityservice.dto.auth.LegalConsentRequest.class)))
+                .thenReturn(new LegalDocumentService.Approved(1L, 2L));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "legalDocuments", legal);
     }
 
     @Test
@@ -87,6 +91,10 @@ class AuthServiceTest {
         var result = service.register(new RegisterRequest("Nguyen Van A", "0901234567", "Password1"));
 
         User user = users.values().iterator().next();
+        LegalDocumentService legal = (LegalDocumentService) org.springframework.test.util.ReflectionTestUtils
+                .getField(service, "legalDocuments");
+        verify(legal).recordAcceptance(eq(user.getId()), any(LegalDocumentService.Approved.class),
+                eq("PHONE_REGISTER"));
         assertNull(user.getEmail(), "Email is optional and must be bound using a separate verified challenge");
         assertEquals("+84901234567", user.getPhone());
         assertEquals(Role.CUSTOMER, user.getRole(), "Role is server assigned");
@@ -165,6 +173,8 @@ class AuthServiceTest {
             when(repository.saveAndFlush(any(User.class))).thenThrow(databaseFailure);
             var concurrent = new AuthService(repository, encoder, mock(JwtIssuer.class), otpService, refreshTokens,
                     publisher, mock(AuthProperties.class), challenges);
+            org.springframework.test.util.ReflectionTestUtils.setField(concurrent, "legalDocuments",
+                    org.springframework.test.util.ReflectionTestUtils.getField(service, "legalDocuments"));
             var request = new RegisterRequest("Customer", "0901234567", "Password1");
             if ("unknown_constraint".equals(name)) {
                 assertSame(databaseFailure, assertThrows(DataIntegrityViolationException.class, () -> concurrent.register(request)));

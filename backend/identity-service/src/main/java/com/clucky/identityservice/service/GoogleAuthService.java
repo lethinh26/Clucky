@@ -2,6 +2,7 @@ package com.clucky.identityservice.service;
 
 import com.clucky.identityservice.config.RedisConfig;
 import com.clucky.identityservice.dto.Role;
+import com.clucky.identityservice.dto.auth.LegalConsentRequest;
 import com.clucky.identityservice.entity.User;
 import com.clucky.identityservice.exception.ApiException;
 import com.clucky.identityservice.exception.ErrorCode;
@@ -23,9 +24,14 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class GoogleAuthService {
+    private static final Logger LOG = LoggerFactory.getLogger(GoogleAuthService.class);
     private static final DefaultRedisScript<Long> RATE_LIMIT = new DefaultRedisScript<>(
             "local count = redis.call('INCR', KEYS[1]); "
                     + "if count == 1 then redis.call('EXPIRE', KEYS[1], 60) end; return count", Long.class);
@@ -37,6 +43,8 @@ public class GoogleAuthService {
     private final ObjectMapper mapper;
     private final Duration pendingTtl;
     private final SecureRandom random = new SecureRandom();
+    @org.springframework.beans.factory.annotation.Autowired
+    private LegalDocumentService legalDocuments;
 
     public GoogleAuthService(FirebaseIdentityVerifier verifier, UserRepository users, AuthService auth,
             PasswordEncoder passwords, StringRedisTemplate redis, ObjectMapper mapper, RedisConfig.Policy policy) {
@@ -97,14 +105,24 @@ public class GoogleAuthService {
     }
 
     @Transactional
-    public AuthService.AuthResult complete(String pendingToken, String password) {
+    public AuthService.AuthResult complete(String pendingToken, String password, LegalConsentRequest consent) {
+        // Without a real transaction a successful signup and Redis cleanup
+        // cannot be coordinated; never silently consume the pending token.
+        if (!TransactionSynchronizationManager.isSynchronizationActive()
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
+        }
         if (password.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
+        // Check before consuming the one-time Google token: missing/stale consent remains retryable.
+        LegalDocumentService.Approved approved = legalDocuments.requireCurrentConsent(consent);
         String payload;
-        // ponytail: consume once; restart Google after DB failure. Add durable claims if same-token retries are required.
+        String key = pendingKey(pendingToken);
+        // Do not consume the pending token before the user, consent and session
+        // transaction commits. A DB/consent failure must be safely retryable.
         try {
-            payload = redis.opsForValue().getAndDelete(pendingKey(pendingToken));
+            payload = redis.opsForValue().get(key);
         } catch (DataAccessException failure) {
             throw new ApiException(ErrorCode.DEPENDENCY_UNAVAILABLE);
         }
@@ -135,7 +153,21 @@ public class GoogleAuthService {
         } catch (DataIntegrityViolationException failure) {
             throw new ApiException(ErrorCode.EMAIL_EXISTS);
         }
-        return auth.issueSession(user);
+        legalDocuments.recordAcceptance(user.getId(), approved, "GOOGLE_COMPLETE");
+        AuthService.AuthResult result = auth.issueSession(user);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    redis.delete(key);
+                } catch (Exception failure) {
+                    // Commit already happened. Unique UID/email constraints still prevent
+                    // replay if Redis cleanup fails; the pending key expires via TTL.
+                    LOG.warn("Unable to clear committed Google pending registration");
+                }
+            }
+        });
+        return result;
     }
 
     private void requireCustomer(User user) {

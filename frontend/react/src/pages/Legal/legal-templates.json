@@ -1,0 +1,14 @@
+{
+  "TERMS_OF_SERVICE": {
+    "titleVi": "Điều khoản dịch vụ Clucky",
+    "titleEn": "Clucky Terms of Service",
+    "htmlVi": "<h2>1. Phạm vi áp dụng</h2><p>[Bổ sung phạm vi dịch vụ và điều kiện sử dụng sau khi pháp chế rà soát.]</p><h2>2. Tài khoản và đặt hàng</h2><p>[Bổ sung quyền, nghĩa vụ và cơ chế đặt hàng.]</p><h2>3. Thanh toán, hủy và hoàn tiền</h2><p>[Bổ sung chính sách đã được phê duyệt.]</p><h2>4. Liên hệ</h2><p>[Bổ sung thông tin liên hệ được xác thực.]</p>",
+    "htmlEn": "<h2>1. Scope</h2><p>[Add reviewed service scope and usage conditions.]</p><h2>2. Accounts and orders</h2><p>[Add approved account and ordering terms.]</p><h2>3. Payments, cancellations and refunds</h2><p>[Add approved policy details.]</p><h2>4. Contact</h2><p>[Add verified contact details.]</p>"
+  },
+  "PRIVACY_POLICY": {
+    "titleVi": "Chính sách quyền riêng tư Clucky",
+    "titleEn": "Clucky Privacy Policy",
+    "htmlVi": "<h2>1. Dữ liệu được thu thập</h2><p>[Liệt kê dữ liệu cá nhân và mục đích sau khi rà soát.]</p><h2>2. Mục đích và cơ sở xử lý</h2><p>[Mô tả mục đích/cơ sở xử lý thực tế.]</p><h2>3. Chia sẻ, lưu trữ và bảo mật</h2><p>[Nêu bên nhận, thời hạn lưu trữ và biện pháp bảo mật.]</p><h2>4. Quyền và liên hệ</h2><p>[Bổ sung quy trình thực hiện quyền và đầu mối liên hệ.]</p>",
+    "htmlEn": "<h2>1. Data collection</h2><p>[List the personal data and collection purposes after review.]</p><h2>2. Purposes and lawful bases</h2><p>[Describe actual purposes and legal bases.]</p><h2>3. Sharing, retention and security</h2><p>[Describe recipients, retention periods and protections.]</p><h2>4. Rights and contact</h2><p>[Add rights procedures and verified contacts.]</p>"
+  }
+}

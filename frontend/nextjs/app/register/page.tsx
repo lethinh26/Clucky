@@ -12,10 +12,12 @@ import Link from "@/components/ui-loader/navigation-link";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { GoogleAuthFlow } from "@/components/auth/google-auth-flow";
 import { Input } from "@/components/ui/input";
-import { authApi, type RegisterPayload } from "@/lib/api";
+import { authApi } from "@/lib/api";
+import { ConsentField, useLegalConsent } from "@/components/legal/consent";
 import { validateRegistration, registrationServerErrors, passwordChecks, type RegistrationErrors } from "@/lib/registration-validation";
 
 export default function RegisterPage() {
+  type RegistrationField = 'fullName' | 'phone' | 'password';
   const t = useTranslations();
   const { errorMessage } = useLocaleTools();
   const router = useRouter();
@@ -26,10 +28,12 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = React.useState<RegistrationErrors>({});
   const [submitted, setSubmitted] = React.useState(false);
   const formRef = React.useRef<HTMLFormElement>(null);
-  const focusField = React.useRef<keyof RegisterPayload | null>(null);
+  const focusField = React.useRef<RegistrationField | null>(null);
   const [error, setError] = React.useState<unknown>(null);
   useFeedback(error ? (typeof error === "string" && t.has(error) ? t(error) : errorMessage(error)) : null);
   const [loading, setLoading] = React.useState(false);
+  const legal = useLegalConsent();
+  const [consentError, setConsentError] = React.useState(false);
   const [sent, setSent] = React.useState<string | null>(null);
   const checks = passwordChecks(password);
   const requirements = [
@@ -45,7 +49,7 @@ export default function RegisterPage() {
     focusField.current = null;
   }, [fieldErrors, loading]);
 
-  const validateField = (field: keyof RegisterPayload, value: string) => {
+  const validateField = (field: RegistrationField, value: string) => {
     setError(null);
     if (field === "phone") setSent(null);
     if (!submitted && !fieldErrors[field]) return;
@@ -53,9 +57,9 @@ export default function RegisterPage() {
     setFieldErrors((current) => ({ ...current, [field]: errors[field] }));
   };
 
-  const fieldMessage = (field: keyof RegisterPayload) => fieldErrors[field]?.map((key) => t(key)).join(" ");
+  const fieldMessage = (field: RegistrationField) => fieldErrors[field]?.map((key) => t(key)).join(" ");
 
-  const validateBlur = (field: keyof RegisterPayload) => {
+  const validateBlur = (field: RegistrationField) => {
     const errors = validateRegistration({ fullName, phone, password });
     setFieldErrors((current) => ({ ...current, [field]: current[field] ?? errors[field] }));
   };
@@ -69,11 +73,13 @@ export default function RegisterPage() {
     setSubmitted(true);
     const errors = validateRegistration({ fullName, phone, password });
     setFieldErrors(errors);
-    const firstInvalid = Object.keys(errors)[0] as keyof RegisterPayload | undefined;
+    const firstInvalid = Object.keys(errors)[0] as RegistrationField | undefined;
     if (firstInvalid) {
       focusField.current = firstInvalid;
       return;
     }
+    if (!legal.consent && !legal.transitional) { setConsentError(true); return; }
+    setConsentError(false);
     setLoading(true);
     try {
       const normalizedPhone = phone.replace(/\s/g, "");
@@ -81,6 +87,7 @@ export default function RegisterPage() {
         fullName: fullName.trim(),
         phone: normalizedPhone,
         password,
+        ...(legal.consent ? { consent: legal.consent } : {}),
       });
       if (!result.challengeId) throw new Error(t("auth.validation.missingChallenge"));
       if (task.isCurrent()) router.push(`/verify-otp?phone=${encodeURIComponent(normalizedPhone)}&challengeId=${encodeURIComponent(result.challengeId)}`);
@@ -98,8 +105,16 @@ export default function RegisterPage() {
         setFieldErrors({});
         return;
       }
+      const consentConflict = err && typeof err === "object" && "fieldErrors" in err
+        && err.fieldErrors != null && typeof err.fieldErrors === "object"
+        && "consent" in err.fieldErrors;
+      if (consentConflict) {
+        setError("legal.outdated");
+        void legal.refresh();
+        return;
+      }
       const errors = registrationServerErrors(err);
-      const firstInvalid = Object.keys(errors)[0] as keyof RegisterPayload | undefined;
+      const firstInvalid = Object.keys(errors)[0] as RegistrationField | undefined;
       if (firstInvalid) {
         focusField.current = firstInvalid;
         setFieldErrors(errors);
@@ -185,10 +200,12 @@ export default function RegisterPage() {
               </li>
             ))}
           </ul>
+          <ConsentField state={legal} id="clucky-phone-consent" />
+          {consentError && !legal.consent && !legal.transitional && <p className="form-error" role="alert">{t("legal.required")}</p>}
           <button
             type="submit"
             className="btn-primary btn-block"
-            disabled={loading}
+            disabled={loading || legal.loading || legal.error}
           >
             {loading ? t("auth.register.loading") : t("auth.register.action")}
           </button>

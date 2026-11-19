@@ -65,13 +65,19 @@ class GoogleAuthServiceTest {
             pending.put(call.getArgument(0), call.getArgument(1));
             return null;
         }).when(values).set(anyString(), anyString(), any(Duration.class));
+        when(values.get(anyString())).thenAnswer(call -> pending.get(call.getArgument(0)));
         when(values.getAndDelete(anyString())).thenAnswer(call -> pending.remove(call.getArgument(0)));
+        when(redis.delete(anyString())).thenAnswer(call -> pending.remove(call.getArgument(0)) != null);
         AuthProperties properties = new AuthProperties(null, null, null, null, null);
         JwtIssuer issuer = new JwtIssuer(new JwtSettings("test-only-secret-at-least-thirty-two-bytes-long",
                 "clucky-identity", "clucky-api"), properties);
         auth = new AuthService(users, passwords, issuer, otp, refresh, email, properties);
         google = new GoogleAuthService(verifier, users, auth, passwords, redis, new ObjectMapper(),
                 new RedisConfig.Policy(Map.of("google-pending", Duration.ofMinutes(10))));
+        var legal = mock(LegalDocumentService.class);
+        when(legal.requireCurrentConsent(any())).thenReturn(new LegalDocumentService.Approved(1L, 2L));
+        org.springframework.test.util.ReflectionTestUtils.setField(google, "legalDocuments", legal);
+        org.springframework.test.util.ReflectionTestUtils.setField(auth, "legalDocuments", legal);
     }
 
     @Test
@@ -82,7 +88,7 @@ class GoogleAuthServiceTest {
         assertTrue(storedUsers.isEmpty());
         assertFalse(pending.keySet().iterator().next().contains(initial.pendingToken()));
         verifyNoInteractions(refresh, email);
-        var completed = google.complete(initial.pendingToken(), "Password123");
+        var completed = complete(initial.pendingToken(), "Password123");
         User user = completed.user();
         assertEquals(Role.CUSTOMER, user.getRole());
         assertEquals("ACTIVE", user.getStatus());
@@ -106,6 +112,59 @@ class GoogleAuthServiceTest {
     }
 
     @Test
+    void missingOrStaleGoogleConsentDoesNotConsumePendingRegistrationToken() {
+        var initial = google.login("google-token");
+        var legal = (LegalDocumentService) org.springframework.test.util.ReflectionTestUtils
+                .getField(google, "legalDocuments");
+        when(legal.requireCurrentConsent(any())).thenThrow(new ApiException(ErrorCode.RESOURCE_CONFLICT));
+        assertEquals(ErrorCode.RESOURCE_CONFLICT,
+                assertThrows(ApiException.class, () -> complete(initial.pendingToken(), "Password123",
+                        new com.clucky.identityservice.dto.auth.LegalConsentRequest(true, 4, 8))).getCode());
+        verify(values, never()).getAndDelete(anyString());
+        assertTrue(storedUsers.isEmpty());
+        assertFalse(pending.isEmpty());
+    }
+
+    @Test
+    void transientDatabaseFailureKeepsPendingTokenForSafeRetry() {
+        String token = google.login("google-token").pendingToken();
+        var saves = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(call -> {
+            if (saves.getAndIncrement() == 0) throw new DataIntegrityViolationException("temporary failure");
+            User user = call.getArgument(0);
+            user.setId(1L);
+            storedUsers.put(user.getEmail(), user);
+            return user;
+        }).when(users).saveAndFlush(any(User.class));
+
+        assertEquals(ErrorCode.EMAIL_EXISTS, assertThrows(ApiException.class,
+                () -> complete(token, "Password123")).getCode());
+        assertEquals(1, pending.size(), "Failed database transaction must not consume pending token");
+        assertTrue(storedUsers.isEmpty());
+
+        assertNotNull(complete(token, "Password123").accessToken());
+        assertEquals(2, saves.get());
+        assertTrue(pending.isEmpty(), "Successful registration consumes token once");
+    }
+
+    @Test
+    void pendingGoogleTokenIsRemovedOnlyAfterCommitInTransactionalRuntime() {
+        String token = google.login("google-token").pendingToken();
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            assertNotNull(google.complete(token, "Password123",
+                    new com.clucky.identityservice.dto.auth.LegalConsentRequest(true, 1, 1)).accessToken());
+            assertEquals(1, pending.size(), "Before commit, token must remain recoverable on rollback");
+            org.springframework.transaction.support.TransactionSynchronizationUtils.triggerAfterCommit();
+            assertTrue(pending.isEmpty(), "After commit, pending token must be deleted");
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+            org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+    }
+
+    @Test
     void emailFirstLinksWithoutChangingPasswordOrProfile() {
         User existing = existingCustomer();
         String originalHash = existing.getPasswordHash();
@@ -123,11 +182,11 @@ class GoogleAuthServiceTest {
     @Test
     void pendingTokenCannotBeReplayedOrUsedAfterExpiry() {
         String token = google.login("google-token").pendingToken();
-        google.complete(token, "Password123");
+        complete(token, "Password123");
         assertEquals(ErrorCode.TOKEN_REVOKED, assertThrows(ApiException.class,
-                () -> google.complete(token, "Replacement123")).getCode());
+                () -> complete(token, "Replacement123")).getCode());
         assertEquals(ErrorCode.TOKEN_REVOKED, assertThrows(ApiException.class,
-                () -> google.complete("x".repeat(43), "Password123")).getCode());
+                () -> complete("x".repeat(43), "Password123")).getCode());
         assertTrue(passwords.matches("Password123", storedUsers.get("customer@example.com").getPasswordHash()));
     }
 
@@ -137,7 +196,7 @@ class GoogleAuthServiceTest {
         User existing = existingCustomer();
         String hash = existing.getPasswordHash();
         assertEquals(ErrorCode.EMAIL_EXISTS, assertThrows(ApiException.class,
-                () -> google.complete(token, "Replacement123")).getCode());
+                () -> complete(token, "Replacement123")).getCode());
         assertEquals(hash, existing.getPasswordHash());
         assertNull(existing.getFirebaseUid());
         assertSame(existing, google.login("google-token").session().user());
@@ -148,7 +207,7 @@ class GoogleAuthServiceTest {
         String token = google.login("google-token").pendingToken();
         when(users.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate"));
         assertEquals(ErrorCode.EMAIL_EXISTS, assertThrows(ApiException.class,
-                () -> google.complete(token, "Password123")).getCode());
+                () -> complete(token, "Password123")).getCode());
         verifyNoInteractions(refresh);
     }
 
@@ -213,11 +272,31 @@ class GoogleAuthServiceTest {
     void bcryptByteLimitIsValidatedBeforeConsumingPendingToken() {
         String token = google.login("google-token").pendingToken();
         assertEquals(ErrorCode.VALIDATION_ERROR, assertThrows(ApiException.class,
-                () -> google.complete(token, "Aa1" + "ế".repeat(24))).getCode());
-        assertNotNull(google.complete(token, "Password123").accessToken());
+                () -> complete(token, "Aa1" + "ế".repeat(24))).getCode());
+        assertNotNull(complete(token, "Password123").accessToken());
     }
 
     private void assertDenied(ErrorCode expected) {
         assertEquals(expected, assertThrows(ApiException.class, () -> google.login("google-token")).getCode());
+    }
+
+    private AuthService.AuthResult complete(String pendingToken, String password) {
+        return complete(pendingToken, password,
+                new com.clucky.identityservice.dto.auth.LegalConsentRequest(true, 1, 1));
+    }
+
+    private AuthService.AuthResult complete(String pendingToken, String password,
+            com.clucky.identityservice.dto.auth.LegalConsentRequest consent) {
+        // Direct Mockito service tests simulate the Spring transaction boundary.
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+        try {
+            AuthService.AuthResult result = google.complete(pendingToken, password, consent);
+            org.springframework.transaction.support.TransactionSynchronizationUtils.triggerAfterCommit();
+            return result;
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+            org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
     }
 }

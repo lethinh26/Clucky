@@ -59,6 +59,7 @@ public class SecurityConfig {
                 .authorizeExchange(auth -> auth
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/loyalty/policy").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/legal/public/**").permitAll()
                         .pathMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/locations/search", "/api/locations/reverse", "/api/stores", "/api/stores/{id}",
                                 "/api/catalog/categories", "/api/catalog/categories/{id}",

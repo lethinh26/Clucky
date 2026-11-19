@@ -51,6 +51,7 @@ Dự án hướng tới việc phân tách rõ trách nhiệm nghiệp vụ, qu�
 - Quản lý thực đơn, sản phẩm, combo, cửa hàng và cấu hình bán hàng.
 - Quản lý khuyến mãi, voucher, chương trình tích điểm và banner.
 - Theo dõi đơn hàng, thanh toán, báo cáo, đánh giá và thông báo email.
+- Soạn thảo, xem trước, quản lý phiên bản, xuất bản và khôi phục Điều khoản dịch vụ / Chính sách quyền riêng tư; ghi nhận phiên bản khách hàng đã chấp thuận khi đăng ký.
 - Tra cứu thông tin vận hành và nhật ký quản trị theo phạm vi chức năng đã triển khai.
 
 </details>
@@ -237,6 +238,8 @@ Clucky/
 ```
 
 ## Tài liệu và CI/CD
+
+> **Lưu ý triển khai điều khoản pháp lý:** Việc bổ sung trang điều khoản và yêu cầu khách hàng xác nhận cần phát hành theo hai giai đoạn `bootstrap` và `enforce`. Chỉ bật bắt buộc chấp thuận sau khi đã xuất bản đủ hai văn bản được duyệt. Xem [hướng dẫn chuyển đổi không gián đoạn đăng ký](backend/identity-service/LEGAL_CONTENT_ROLLOUT.md) trước khi triển khai bản này lên production.
 
 - [Thiết kế kiến trúc hệ thống](architechture/docs/Kiến%20trúc%20hệ%20thống.md) và [các sơ đồ nghiệp vụ](architechture/diagrams/).
 - [Đặc tả yêu cầu phần mềm (SRS)](architechture/docs/SRS.md), [Backlog](architechture/docs/backlog.md) và [Quy chuẩn thương hiệu](architechture/docs/Brand_Guidelines.md).

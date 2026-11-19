@@ -119,7 +119,7 @@ export async function sessionRequest<T>(path: string, options: RequestInit = {})
   const authenticatedAuthRoute = path === "/api/auth/change-password/request"
     || path === "/api/auth/change-password/confirm";
   const publicRead = (!options.method || options.method === "GET")
-    && /^\/api\/(?:stores(?:\/\d+)?|catalog\/(?:products|categories|combos)(?:\/\d+)?|reviews\/products\/\d+|promotions\/banners)(?:\?|$)/.test(path);
+    && /^\/api\/(?:legal\/public\/(?:status|TERMS_OF_SERVICE|PRIVACY_POLICY)|stores(?:\/\d+)?|catalog\/(?:products|categories|combos)(?:\/\d+)?|reviews\/products\/\d+|promotions\/banners)(?:\?|$)/.test(path);
   try {
     const result = await send<T>(path, options);
     if (revision !== state.revision && path !== "/api/auth/session" && !publicRead) throw new DOMException("Session changed", "AbortError");

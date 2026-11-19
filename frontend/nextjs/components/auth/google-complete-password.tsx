@@ -5,13 +5,15 @@ import { useLocaleTools } from "@/lib/i18n/hooks";
 
 
 import React, { useState } from "react";
+import { ConsentField, useLegalConsent } from "@/components/legal/consent";
+import type { LegalConsentInput } from "@/lib/api";
 import styles from "./auth-shared.module.css";
 
 export interface GoogleCompletePasswordProps {
   /** Email Google đã xác thực — hiển thị cho user biết đang tạo mật khẩu cho tài khoản nào */
   email: string;
   /** Gọi khi submit hợp lệ; parent xử lý POST /api/auth/google/complete với pendingToken + password */
-  onSubmit?: (password: string) => void | Promise<void>;
+  onSubmit?: (password: string, consent?: LegalConsentInput) => void | Promise<void>;
   loading?: boolean;
   className?: string;
 }
@@ -27,6 +29,7 @@ export function GoogleCompletePassword({
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const legal = useLegalConsent();
   useFeedback(error && t(error));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,8 +50,12 @@ export function GoogleCompletePassword({
       setError("auth.validation.passwordMismatch");
       return;
     }
+    if (!legal.consent && !legal.transitional) {
+      setError("legal.required");
+      return;
+    }
     setError("");
-    await onSubmit?.(password);
+    await onSubmit?.(password, legal.consent ?? undefined);
   };
 
   return (
@@ -109,7 +116,9 @@ export function GoogleCompletePassword({
           </p>
         )}
 
-        <button type="submit" className={styles.submitBtn} disabled={loading}>
+        <ConsentField state={legal} id="clucky-google-consent" />
+
+        <button type="submit" className={styles.submitBtn} disabled={loading || legal.loading || legal.error}>
           {loading ? t("auth.register.loading") : t("auth.register.complete")}
         </button>
       </form>

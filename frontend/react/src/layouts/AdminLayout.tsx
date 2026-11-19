@@ -52,6 +52,7 @@ const routeBreadcrumbMap: Record<string, string> = {
   "/admin/payments": "admin:nav.payments",
   "/admin/promotions": "admin:nav.promotions",
   "/admin/transfers": "admin:nav.transfers",
+  "/admin/legal": "legal:nav",
   "/admin/sessions": "accounts:deviceSessions.myTitle",
 };
 
@@ -89,6 +90,7 @@ export const AdminLayout: React.FC = () => {
   else if (pathname.includes("/payments")) selectedKey = "payments";
   else if (pathname.includes("/promotions")) selectedKey = "promotions";
   else if (pathname.includes("/transfers")) selectedKey = "transfers";
+  else if (pathname.includes("/legal")) selectedKey = "legal";
 
   const roleNavPermissions: Record<
     "ADMIN" | "STORE_MANAGER" | "STAFF",
@@ -110,6 +112,7 @@ export const AdminLayout: React.FC = () => {
       "email-logs",
       "email-templates",
       "audit",
+      "legal",
     ],
     STORE_MANAGER: [
       "promotions",
@@ -128,6 +131,12 @@ export const AdminLayout: React.FC = () => {
   };
 
   const navItems: MenuProps["items"] = [
+    {
+      key: "legal",
+      icon: <FileTextOutlined />,
+      label: t("legal:nav"),
+      onClick: () => navigate("/admin/legal"),
+    },
     {
       key: "dashboard",
       icon: <DashboardOutlined />,

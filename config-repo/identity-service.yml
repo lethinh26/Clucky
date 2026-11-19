@@ -32,6 +32,8 @@ cloudinary:
   folder: ${CLOUDINARY_FOLDER:clucky}
 
 clucky:
+  legal:
+    consent-required: ${LEGAL_CONSENT_REQUIRED:true}
   auth:
     bridge:
       base-url: ${BRIDGE_BASE_URL:https://api.bridge.kroszborg.co}

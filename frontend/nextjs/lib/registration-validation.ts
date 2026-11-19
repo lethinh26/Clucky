@@ -1,6 +1,7 @@
 import type { RegisterPayload } from "./api";
 
-export type RegistrationErrors = Partial<Record<keyof RegisterPayload, string[]>>;
+export type RegistrationFields = Pick<RegisterPayload, "fullName" | "phone" | "password">;
+export type RegistrationErrors = Partial<Record<keyof RegistrationFields, string[]>>;
 
 export function passwordChecks(password: string) {
   const length = Array.from(password).length;
@@ -14,7 +15,7 @@ export function passwordChecks(password: string) {
   };
 }
 
-export function validateRegistration(values: RegisterPayload): RegistrationErrors {
+export function validateRegistration(values: RegistrationFields): RegistrationErrors {
   const errors: RegistrationErrors = {};
   const fullName = values.fullName.trim();
   const phone = values.phone.replace(/\s/g, "");

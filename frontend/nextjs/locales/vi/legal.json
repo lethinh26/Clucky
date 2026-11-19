@@ -1,0 +1,18 @@
+{
+  "terms": "Điều khoản dịch vụ",
+  "privacy": "Chính sách quyền riêng tư",
+  "consentPrompt": "Tôi đã đọc và đồng ý với",
+  "and": "và",
+  "required": "Bạn cần đọc và đồng ý với Điều khoản dịch vụ và Chính sách quyền riêng tư trước khi đăng ký.",
+  "transitionNotice": "Clucky đang chuẩn bị xuất bản tài liệu pháp lý. Hệ thống hiện ở chế độ chuyển tiếp, chưa yêu cầu hay ghi nhận chấp thuận. Vui lòng xem lại các chính sách khi được công bố.",
+  "loading": "Đang tải phiên bản tài liệu pháp lý…",
+  "unavailable": "Tài liệu pháp lý chưa sẵn sàng. Vui lòng quay lại sau khi Clucky xuất bản cả hai chính sách.",
+  "outdated": "Điều khoản hoặc chính sách vừa được cập nhật. Vui lòng xem lại bản mới và xác nhận lần nữa.",
+  "reading": "Nội dung này là phiên bản được Clucky công bố.",
+  "version": "Phiên bản {{version}}",
+  "publishedAt": "Ngày xuất bản: {{date}}",
+  "notAvailable": "Nội dung đang được hoàn thiện. Vui lòng thử lại sau.",
+  "back": "Quay lại",
+  "links": "Thông tin pháp lý",
+  "reload": "Tải lại tài liệu"
+}

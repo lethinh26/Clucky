@@ -25,8 +25,10 @@ import viPayments from "../locales/vi/payments.json" with { type: "json" };
 import enPayments from "../locales/en/payments.json" with { type: "json" };
 import viShipping from "../locales/vi/shipping.json" with { type: "json" };
 import enShipping from "../locales/en/shipping.json" with { type: "json" };
+import viLegal from "../locales/vi/legal.json" with { type: "json" };
+import enLegal from "../locales/en/legal.json" with { type: "json" };
 
 export const resources = {
-  vi: { shipping: viShipping, payments: viPayments, accounts: viAccounts, loyalty: viLoyalty, maps: viMaps, business: viBusiness, common: viCommon, auth: viAuth, home: viHome, menu: viMenu, admin: viAdmin, orders: viOrders, errors: viErrors },
-  en: { shipping: enShipping, payments: enPayments, accounts: enAccounts, loyalty: enLoyalty, maps: enMaps, business: enBusiness, common: enCommon, auth: enAuth, home: enHome, menu: enMenu, admin: enAdmin, orders: enOrders, errors: enErrors },
+  vi: { legal: viLegal, shipping: viShipping, payments: viPayments, accounts: viAccounts, loyalty: viLoyalty, maps: viMaps, business: viBusiness, common: viCommon, auth: viAuth, home: viHome, menu: viMenu, admin: viAdmin, orders: viOrders, errors: viErrors },
+  en: { legal: enLegal, shipping: enShipping, payments: enPayments, accounts: enAccounts, loyalty: enLoyalty, maps: enMaps, business: enBusiness, common: enCommon, auth: enAuth, home: enHome, menu: enMenu, admin: enAdmin, orders: enOrders, errors: enErrors },
 };

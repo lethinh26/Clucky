@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 
 public record RegisterRequest(
         @NotBlank(message = "Full name is required")
@@ -23,10 +24,14 @@ public record RegisterRequest(
                 regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,72}$",
                 message = "Password must be 8-72 characters long and include at least one uppercase letter, one lowercase letter, and one number"
         )
-        String password
+        String password,
+        @Valid LegalConsentRequest consent
 ) {
     public RegisterRequest(String fullName, String phone, String password) {
-        this(fullName, null, phone, password);
+        this(fullName, null, phone, password, null);
+    }
+    public RegisterRequest(String fullName, String email, String phone, String password) {
+        this(fullName, email, phone, password, null);
     }
     @com.fasterxml.jackson.annotation.JsonAnySetter
     public void rejectUnknown(String field, Object value) { throw new IllegalArgumentException("Unsupported field"); }

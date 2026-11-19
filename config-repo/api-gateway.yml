@@ -13,7 +13,7 @@ spring:
         - id: identity
           uri: lb://IDENTITY-SERVICE
           predicates:
-            - Path=/api/auth/**,/api/users/**,/api/schedules/**
+            - Path=/api/auth/**,/api/users/**,/api/schedules/**,/api/legal/**
         - id: catalog
           uri: lb://CATALOG-STORE-SERVICE
           predicates:

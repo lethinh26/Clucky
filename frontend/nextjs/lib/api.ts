@@ -49,7 +49,25 @@ export interface RegisterPayload {
   fullName: string;
   phone: string;
   password: string;
+  /** Omitted only while the backend explicitly runs staged-rollout mode. */
+  consent?: LegalConsentInput;
 }
+export type LegalType = "TERMS_OF_SERVICE" | "PRIVACY_POLICY";
+export interface PublicLegalDocument {
+  type: LegalType;
+  version: number;
+  titleVi: string;
+  titleEn: string;
+  htmlVi: string;
+  htmlEn: string;
+  publishedAt: string;
+}
+export interface PublicLegalStatus { consentRequired: boolean; documentsPublished: boolean }
+export interface LegalConsentInput { accepted: true; termsVersion: number; privacyVersion: number }
+export const legalApi = {
+  status: () => request<PublicLegalStatus>('/api/legal/public/status'),
+  published: (type: LegalType) => request<PublicLegalDocument>(`/api/legal/public/${type}`),
+};
 export interface AuthChallenge { challengeId?: string; message?: string }
 export interface VerifyOtpPayload {
   phone: string;
@@ -71,8 +89,8 @@ export type GoogleAuthResult =
 export const authApi = {
   google: (idToken: string) =>
     signIn<GoogleAuthResult>("/api/auth/google", { idToken }),
-  completeGoogle: (pendingToken: string, password: string) =>
-    signIn<AuthTokens>("/api/auth/google/complete", { pendingToken, password }),
+  completeGoogle: (pendingToken: string, password: string, consent?: LegalConsentInput) =>
+    signIn<AuthTokens>("/api/auth/google/complete", { pendingToken, password, consent }),
   login: (body: LoginPayload) =>
     signIn<AuthTokens>("/api/auth/login", body),
   register: (body: RegisterPayload) =>

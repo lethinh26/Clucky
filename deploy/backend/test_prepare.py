@@ -12,6 +12,20 @@ from prepare import prepare, validate_environment
 
 
 class BackendEnvironmentTest(unittest.TestCase):
+    def test_legal_consent_rollout_flag_reaches_private_runtime_and_defaults_to_required(self):
+        settings = validate_environment(json.dumps(self.values))
+        self.assertEqual(settings["LEGAL_CONSENT_REQUIRED"], "true")
+        for flag in ("true", "false"):
+            with self.subTest(flag=flag):
+                prepared = validate_environment(json.dumps({**self.values, "LEGAL_CONSENT_REQUIRED": flag}))
+                self.assertEqual(prepared["LEGAL_CONSENT_REQUIRED"], flag)
+                prepare(self.root, self.release, json.dumps({**self.values, "LEGAL_CONSENT_REQUIRED": flag}))
+                content = (self.root / "backend/incoming" / self.release / "runtime.env").read_text()
+                self.assertIn(f"LEGAL_CONSENT_REQUIRED='{flag}'", content)
+        for invalid in ("", "TRUE", "1", "yes", "on", "0"):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "LEGAL_CONSENT_REQUIRED"):
+                validate_environment(json.dumps({**self.values, "LEGAL_CONSENT_REQUIRED": invalid}))
+
     def test_report_policy_requires_explicit_supported_selection(self):
         for policy in ("false", "order.completed", "payment.confirmed"):
             values = validate_environment(json.dumps({**self.values, "REPORT_REVENUE_EVENT": policy}))

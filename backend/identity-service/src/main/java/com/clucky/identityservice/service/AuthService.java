@@ -32,6 +32,8 @@ public class AuthService {
     private final AuthProperties authProperties;
     private final IdentityChallenges challenges;
     @org.springframework.beans.factory.annotation.Autowired
+    private LegalDocumentService legalDocuments;
+    @org.springframework.beans.factory.annotation.Autowired
     private AuthSessionService authSessions;
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -81,6 +83,8 @@ public class AuthService {
                 || !validPassword(request.password())) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR);
         }
+        // Lock both published revisions until this registration commits.
+        LegalDocumentService.Approved consent = legalDocuments.requireCurrentConsent(request.consent());
         String phone = PhoneNumbers.normalize(request.phone());
         var existing = phoneUser(phone, true);
         if (existing.isPresent()) {
@@ -94,6 +98,7 @@ public class AuthService {
                     && !Boolean.TRUE.equals(pending.getPhoneVerified())
                     && pending.getPasswordHash() != null
                     && passwordEncoder.matches(request.password(), pending.getPasswordHash())) {
+                legalDocuments.recordAcceptance(pending.getId(), consent, "PHONE_REGISTER");
                 return new MessageResponse("Đã gửi mã OTP mới để tiếp tục đăng ký.",
                         challenges.sendSms(pending, "REGISTER"));
             }
@@ -130,6 +135,8 @@ public class AuthService {
             }
             throw failure;
         }
+
+        legalDocuments.recordAcceptance(user.getId(), consent, "PHONE_REGISTER");
 
         String challengeId = challenges.sendSms(user, "REGISTER");
         return new MessageResponse("Vui lòng nhập mã OTP gửi đến số điện thoại để hoàn tất đăng ký.", challengeId);
